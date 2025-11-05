@@ -1,4 +1,4 @@
-package com.smartroute.smart_route;
+package com.smartroute.smartroute1;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -6,8 +6,8 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 @SpringBootApplication
 public class SmartRouteApplication {
 
-	static void main(String[] args) {
-		SpringApplication.run(SmartRouteApplication.class, args);
-	}
+    public static void main(String[] args) {
+        SpringApplication.run(SmartRouteApplication.class, args);
+    }
 
 }

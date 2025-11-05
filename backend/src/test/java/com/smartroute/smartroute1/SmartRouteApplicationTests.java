@@ -1,4 +1,4 @@
-package com.smartroute.smart_route;
+package com.smartroute.smartroute1;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
