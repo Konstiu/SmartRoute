@@ -1,3 +1,5 @@
+@import "../../theme/variables";
+
 #container {
   text-align: center;
 
@@ -17,7 +19,7 @@
   font-size: 16px;
   line-height: 22px;
 
-  color: #8c8c8c;
+  color: $black;    //#8c8c8c;
 
   margin: 0;
 }
@@ -25,3 +27,4 @@
 #container a {
   text-decoration: none;
 }
+
