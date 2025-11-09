@@ -28,6 +28,9 @@ public class ApplicationUser {
     @Column(nullable = false, length = 100)
     private String lastname;
 
+    @Column(nullable = false)
+    private boolean verified = false;
+
     public ApplicationUser() {
     }
 
@@ -36,6 +39,7 @@ public class ApplicationUser {
         this.password = password;
         this.firstname = firstname;
         this.lastname = lastname;
+        this.verified = false;
 
     }
 }

@@ -1,6 +1,7 @@
 package com.smartroute.smartroute1.security;
 
 import com.smartroute.smartroute1.config.properties.SecurityProperties;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
@@ -31,4 +32,30 @@ public class JwtTokenizer {
                 .compact();
         return securityProperties.getAuthTokenPrefix() + token;
     }
+
+    public String buildVerificationToken(String useremail) {
+        byte[] signingKey = securityProperties.getJwtSecret().getBytes();
+        return Jwts
+                .builder()
+                .setIssuer(securityProperties.getJwtIssuer())
+                .setSubject(useremail)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(System.currentTimeMillis() + securityProperties.getJwtExpirationTime()))
+                .signWith(Keys.hmacShaKeyFor(signingKey), SignatureAlgorithm.HS512)
+                .compact();
+    }
+
+    public String extractUsernameFromVerificationToken(String token) {
+        byte[] signingKey = securityProperties.getJwtSecret().getBytes();
+        Claims claims = Jwts.parser().verifyWith(Keys.hmacShaKeyFor(signingKey)).build()
+                .parseSignedClaims(token)
+                .getPayload();
+        Date expiration = claims.getExpiration();
+        String username = claims.getSubject();
+        if (expiration == null || username == null || expiration.before(new Date(System.currentTimeMillis()))) {
+            return null;
+        }
+        return username;
+    }
+
 }
