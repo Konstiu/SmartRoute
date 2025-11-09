@@ -1,11 +1,14 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
 import com.smartroute.smartroute1.endpoint.dto.UserLoginDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.exception.NotFoundException;
+import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.security.JwtTokenizer;
 import com.smartroute.smartroute1.service.UserService;
+import com.smartroute.smartroute1.service.validators.UserValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,13 +31,14 @@ public class CustomUserDetailService implements UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenizer jwtTokenizer;
+    private final UserValidator validator;
 
     @Autowired
-    public CustomUserDetailService(UserRepository userRepository, PasswordEncoder passwordEncoder,
-                                   JwtTokenizer jwtTokenizer) {
+    public CustomUserDetailService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenizer jwtTokenizer, UserValidator validator) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenizer = jwtTokenizer;
+        this.validator = validator;
     }
 
     @Override
@@ -44,11 +48,7 @@ public class CustomUserDetailService implements UserService {
             ApplicationUser applicationUser = findApplicationUserByEmail(email);
 
             List<GrantedAuthority> grantedAuthorities;
-            if (applicationUser.getAdmin()) {
-                grantedAuthorities = AuthorityUtils.createAuthorityList("ROLE_ADMIN", "ROLE_USER");
-            } else {
-                grantedAuthorities = AuthorityUtils.createAuthorityList("ROLE_USER");
-            }
+            grantedAuthorities = AuthorityUtils.createAuthorityList("ROLE_USER");
 
             return new User(applicationUser.getEmail(), applicationUser.getPassword(), grantedAuthorities);
         } catch (NotFoundException e) {
@@ -81,5 +81,25 @@ public class CustomUserDetailService implements UserService {
             return jwtTokenizer.getAuthToken(userDetails.getUsername(), roles);
         }
         throw new BadCredentialsException("Username or password is incorrect or account is locked");
+    }
+
+    @Override
+    public ApplicationUser create(CreateUserDto toCreate, String origin) throws ValidationException {
+
+        LOGGER.trace("Create user by CreateUserDto: {}", toCreate);
+        validator.validateForCreate(toCreate);
+        if (userRepository.findUserByEmail(toCreate.email) != null) {
+            throw new ValidationException("Email already exits please try an other one");
+        }
+
+        String encodedPassword = passwordEncoder.encode(toCreate.password);
+
+        ApplicationUser applicationUser = new ApplicationUser(
+                toCreate.email,
+                encodedPassword,
+                toCreate.firstname.trim().replaceAll("\\s+", " "),
+                toCreate.lastname.trim().replaceAll("\\s+", " ")
+                );
+        return userRepository.save(applicationUser);
     }
 }
