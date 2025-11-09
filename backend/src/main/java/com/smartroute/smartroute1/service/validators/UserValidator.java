@@ -2,9 +2,11 @@ package com.smartroute.smartroute1.service.validators;
 
 
 import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
+import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
 import com.smartroute.smartroute1.exception.ValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.lang.invoke.MethodHandles;
@@ -17,6 +19,11 @@ public class UserValidator {
     private static final String VALIDATION_PATTERN_1 = "^(.+)@(\\S+)$";
     private static final String VALIDATION_PATTERN_2 = "^\\s+";
 
+    private final PasswordEncoder passwordEncoder;
+
+    public UserValidator(PasswordEncoder passwordEncoder) {
+        this.passwordEncoder =  passwordEncoder;
+    }
 
 
     public boolean validateEmail(String email) {
@@ -66,4 +73,20 @@ public class UserValidator {
         }
     }
 
+    public void validatePasswordChange(PasswordResetDto resetDto, String oldEncodedPassword) throws ValidationException {
+        List<String> errors = new ArrayList<>();
+        if (!resetDto.password.equals(resetDto.repeatPassword)) {
+            errors.add("Passwords must match");
+        }
+
+        if (resetDto.password.length() < 8) {
+            errors.add("Password has to be at least of length 8");
+        }
+        if (passwordEncoder.matches(resetDto.getPassword(), oldEncodedPassword)) {
+            errors.add("New password can not be equal to old password");
+        }
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Errors while verifying password change:", errors);
+        }
+    }
 }
