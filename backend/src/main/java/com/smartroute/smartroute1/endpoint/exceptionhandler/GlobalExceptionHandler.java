@@ -1,6 +1,10 @@
 package com.smartroute.smartroute1.endpoint.exceptionhandler;
 
+import com.smartroute.smartroute1.exception.ErrorListException;
 import com.smartroute.smartroute1.exception.NotFoundException;
+import com.smartroute.smartroute1.exception.ValidationException;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -10,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
@@ -17,7 +22,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 /**
  * Register all your Java exceptions here to map them into meaningful HTTP
@@ -55,10 +59,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .getFieldErrors()
                 .stream()
                 .map(err -> err.getField() + " " + err.getDefaultMessage())
-                .collect(Collectors.toList());
+                .toList();
         body.put("Validation errors", errors);
 
         return new ResponseEntity<>(body.toString(), headers, status);
+    }
 
+    @ExceptionHandler(value = {ValidationException.class})
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    @ApiResponse(responseCode = "422", description = "Unprocessable Entity", content = @Content)
+    protected ResponseEntity<Object> handleValidation(ErrorListException ex, WebRequest request) {
+        LOGGER.warn(ex.getMessage());
+        return handleExceptionInternal(ex, ex.getMessage(), new HttpHeaders(), HttpStatus.UNPROCESSABLE_ENTITY, request);
     }
 }
