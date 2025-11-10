@@ -8,27 +8,27 @@ const routes: Routes = [
     component: TabsPage,
     children: [
       {
-        path: 'tab1',
-        loadChildren: () => import('../trainingPlan/tab1.module').then(m => m.TrainingPlanPageModule)
+        path: 'trainingPlan',
+        loadChildren: () => import('../trainingPlan/trainingPlan.module').then(m => m.TrainingPlanPageModule)
       },
       {
-        path: 'tab2',
+        path: 'route',
         loadChildren: () => import('../route/route.module').then(m => m.RoutePageModule)
       },
       {
-        path: 'tab3',
+        path: 'account',
         loadChildren: () => import('../account/account.module').then(m => m.AccountPageModule)
       },
       {
         path: '',
-        redirectTo: '/tabs/tab1',
+        redirectTo: '/tabs/trainingPlan',
         pathMatch: 'full'
       }
     ]
   },
   {
     path: '',
-    redirectTo: '/tabs/tab1',
+    redirectTo: '/tabs/trainingPlan',
     pathMatch: 'full'
   }
 ];
