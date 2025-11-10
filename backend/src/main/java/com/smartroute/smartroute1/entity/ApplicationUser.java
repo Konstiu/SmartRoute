@@ -5,9 +5,10 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Column;
+import lombok.Data;
 
 
-
+@Data
 @Entity
 public class ApplicationUser {
 
@@ -22,38 +23,24 @@ public class ApplicationUser {
     private String password;
 
     @Column(nullable = false, length = 100)
-    private Boolean admin;
+    private String firstname;
+
+    @Column(nullable = false, length = 100)
+    private String lastname;
+
+    @Column(nullable = false)
+    private boolean verified = false;
 
     public ApplicationUser() {
     }
 
-    public ApplicationUser(String email, String password, Boolean admin) {
+    public ApplicationUser(String email, String password, String firstname, String lastname) {
         this.email = email;
         this.password = password;
-        this.admin = admin;
-    }
+        this.firstname = firstname;
+        this.lastname = lastname;
+        this.verified = false;
 
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public Boolean getAdmin() {
-        return admin;
-    }
-
-    public void setAdmin(Boolean admin) {
-        this.admin = admin;
     }
 }
+

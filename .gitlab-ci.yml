@@ -1,0 +1,25 @@
+stages:
+  - build
+
+# -------- BACKEND STAGE --------
+backend-build:
+  stage: build
+  image: maven:3-eclipse-temurin-21
+  script:
+    - cd backend
+    - mvn -B clean install
+  cache:
+    paths:
+      - backend/.m2/repository
+
+# -------- FRONTEND STAGE --------
+frontend-build:
+  stage: build
+  image: node:24
+  script:
+    - cd frontend
+    - npm install
+    - npm run build
+  cache:
+    paths:
+      - frontend/node_modules

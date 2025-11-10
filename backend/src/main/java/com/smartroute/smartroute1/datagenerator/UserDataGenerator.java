@@ -36,11 +36,11 @@ public class UserDataGenerator {
             for (int i = 0; i < NUMBER_OF_USERS_TO_GENERATE; i++) {
                 ApplicationUser user = new ApplicationUser();
                 user.setEmail("email" + i + "@smartroute.com");
+                user.setFirstname("Max" + i);
+                user.setLastname("Mustermann" + i);
                 user.setPassword(passwordEncoder.encode("password" + i));
-                user.setAdmin(false);
                 userRepository.save(user);
                 LOGGER.info("saving user {}", user.getEmail());
-                LOGGER.info("saving user {}", user.getPassword());
             }
         }
     }
