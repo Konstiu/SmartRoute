@@ -3,6 +3,7 @@ package com.smartroute.smartroute1.service.validators;
 
 import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
 import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
+import com.smartroute.smartroute1.endpoint.dto.PersonalDataDto;
 import com.smartroute.smartroute1.exception.ValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
