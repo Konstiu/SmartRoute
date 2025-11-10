@@ -1,10 +1,9 @@
 stages:
-  - backend
-  - frontend
+  - build
 
 # -------- BACKEND STAGE --------
 backend-build:
-  stage: backend
+  stage: build
   image: maven:3-eclipse-temurin-21
   script:
     - cd backend
@@ -15,7 +14,7 @@ backend-build:
 
 # -------- FRONTEND STAGE --------
 frontend-build:
-  stage: frontend
+  stage: build
   image: node:24
   script:
     - cd frontend

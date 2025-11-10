@@ -96,19 +96,20 @@ public class CustomUserDetailService implements UserService {
             throw new ValidationException("Email already exits please try an other one");
         }
 
-        String encodedPassword = passwordEncoder.encode(toCreate.password);
-
-        ApplicationUser applicationUser = new ApplicationUser(
-                toCreate.email,
-                encodedPassword,
-                toCreate.firstname.trim().replaceAll("\\s+", " "),
-                toCreate.lastname.trim().replaceAll("\\s+", " ")
-                );
         CreateUserDto userDto = new CreateUserDto();
         userDto.setEmail(toCreate.email);
         userDto.setFirstname(toCreate.firstname);
         userDto.setLastname(toCreate.lastname);
         emailService.sendVerificationEmail(userDto, origin);
+
+        String encodedPassword = passwordEncoder.encode(toCreate.password);
+
+        ApplicationUser applicationUser = new ApplicationUser(
+            toCreate.email,
+            encodedPassword,
+            toCreate.firstname.trim().replaceAll("\\s+", " "),
+            toCreate.lastname.trim().replaceAll("\\s+", " ")
+        );
 
         return userRepository.save(applicationUser);
     }
