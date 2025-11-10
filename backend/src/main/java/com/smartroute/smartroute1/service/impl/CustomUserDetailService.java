@@ -118,8 +118,9 @@ public class CustomUserDetailService implements UserService {
     }
 
     @Override
-    public ApplicationUser updatePersonalData(PersonalDataDto personalData, String userEmail) {
+    public ApplicationUser updatePersonalData(PersonalDataDto personalData, String userEmail) throws ValidationException {
         LOGGER.trace("Update user by PersonalDataDto: {}, {}", personalData, userEmail);
+        validator.validatePersonalData(personalData);
         ApplicationUser user = userRepository.findUserByEmail(userEmail);
         if (user == null) {
             throw new NotFoundException(String.format("Could not find the user with the email %s", userEmail));

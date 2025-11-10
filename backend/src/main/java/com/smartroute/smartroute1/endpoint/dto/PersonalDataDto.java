@@ -31,7 +31,7 @@ public class PersonalDataDto {
     private Integer height;
 
     @DecimalMin("0.1")
-    @DecimalMax("300")
+    @DecimalMax("500")
     private BigDecimal weight;
 
     @Past

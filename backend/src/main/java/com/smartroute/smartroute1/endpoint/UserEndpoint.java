@@ -13,7 +13,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.security.PermitAll;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -67,7 +66,7 @@ public class UserEndpoint {
     @Secured("ROLE_USER")
     @PutMapping(value = "/personal-data")
     @ResponseStatus(HttpStatus.OK)
-    public UserDetailDto updatePersonalData(@Valid @RequestBody PersonalDataDto toUpdate) throws ValidationException {
+    public UserDetailDto updatePersonalData(@RequestBody PersonalDataDto toUpdate) throws ValidationException {
         LOGGER.info("POST /api/v1/user/personal-data body: {}", toUpdate);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         ApplicationUser updatedUser = userService.updatePersonalData(toUpdate, authentication.getName());

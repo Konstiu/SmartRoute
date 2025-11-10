@@ -38,6 +38,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -535,7 +536,7 @@ class UserEndpointTest extends BaseTest {
                 .header(HttpHeaders.AUTHORIZATION, authToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(personalDataDto)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isUnprocessableEntity());
     }
 
     @Test
@@ -547,7 +548,7 @@ class UserEndpointTest extends BaseTest {
                 .header(HttpHeaders.AUTHORIZATION, authToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(personalDataDto)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isUnprocessableEntity());
     }
 
     @Test
@@ -559,7 +560,7 @@ class UserEndpointTest extends BaseTest {
                 .header(HttpHeaders.AUTHORIZATION, authToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(personalDataDto)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isUnprocessableEntity());
     }
 
     @Test
@@ -571,7 +572,7 @@ class UserEndpointTest extends BaseTest {
                 .header(HttpHeaders.AUTHORIZATION, authToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(personalDataDto)))
-            .andExpect(status().isBadRequest());
+            .andExpect(status().isUnprocessableEntity());
     }
 
 
@@ -601,7 +602,7 @@ class UserEndpointTest extends BaseTest {
             .weight(new BigDecimal("78.5"))
             .birthdate(LocalDate.of(2003, 5, 24))
             .experienceLevel(ExperienceLevel.BEGINNER)
-            .activeWeekdays(Set.of(Weekday.MONDAY, Weekday.TUESDAY, Weekday.WEDNESDAY))
+            .activeWeekdays(new HashSet<>(Set.of(Weekday.MONDAY, Weekday.TUESDAY, Weekday.WEDNESDAY)))
             .build();
     }
 }
