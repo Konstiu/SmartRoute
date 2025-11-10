@@ -8,8 +8,13 @@ import com.smartroute.smartroute1.basetest.BaseTest;
 import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
 import com.smartroute.smartroute1.endpoint.dto.EmailDto;
 import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
+import com.smartroute.smartroute1.endpoint.dto.PersonalDataDto;
+import com.smartroute.smartroute1.endpoint.dto.UserDetailDto;
 import com.smartroute.smartroute1.endpoint.mapper.UserMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
+import com.smartroute.smartroute1.entity.enums.Sex;
+import com.smartroute.smartroute1.entity.enums.Weekday;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.security.JwtTokenizer;
 import jakarta.mail.internet.MimeMessage;
@@ -23,20 +28,25 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static com.smartroute.smartroute1.basetest.TestData.*;
 import static com.smartroute.smartroute1.basetest.TestData.ORIGIN;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(SpringExtension.class)
@@ -475,6 +485,96 @@ class UserEndpointTest extends BaseTest {
                 .andExpect(status().isTooManyRequests());
     }
 
+    // ==================== UPDATE PERSONAL USER DATA ====================
+    @Test
+    void updatePersonalUserData_withValidData_shouldReturn200() throws Exception {
+        createTestUser("personal_data@email.com", "Password123!", true);
+
+        // payload
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+
+        // authentication
+        String authToken = jwtTokenizer.getAuthToken("personal_data@email.com", List.of("ROLE_USER"));
+
+        // do request
+        var response = mockMvc.perform(put("/api/v1/user/personal-data")
+                .header(HttpHeaders.AUTHORIZATION, authToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(personalDataDto)))
+            .andExpect(status().isOk())
+            .andReturn().getResponse();
+
+        UserDetailDto updatedUser = objectMapper.readValue(response.getContentAsString(),
+            UserDetailDto.class);
+
+        assertAll(
+            () -> assertNotNull(updatedUser),
+            () -> assertEquals(updatedUser.getSex(), personalDataDto.getSex()),
+            () -> assertEquals(updatedUser.getHeight(), personalDataDto.getHeight()),
+            () -> assertEquals(updatedUser.getWeight(), personalDataDto.getWeight()),
+            () -> assertEquals(updatedUser.getBirthdate(), personalDataDto.getBirthdate()),
+            () -> assertEquals(updatedUser.getExperienceLevel(), personalDataDto.getExperienceLevel()),
+            () -> assertEquals(updatedUser.getActiveWeekdays(), personalDataDto.getActiveWeekdays())
+        );
+    }
+
+    @Test
+    void updatePersonalUserData_withoutJwtToken_shouldReturn403() throws Exception {
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        mockMvc.perform(put("/api/v1/user/personal-data")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(personalDataDto)))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updatePersonalUserData_withInvalidHeight_shouldReturn400() throws Exception {
+        String authToken = jwtTokenizer.getAuthToken("personal_data@email.com", List.of("ROLE_USER"));
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        personalDataDto.setHeight(-10);
+        mockMvc.perform(put("/api/v1/user/personal-data")
+                .header(HttpHeaders.AUTHORIZATION, authToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(personalDataDto)))
+            .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void updatePersonalUserData_withInvalidWeight_shouldReturn400() throws Exception {
+        String authToken = jwtTokenizer.getAuthToken("personal_data@email.com", List.of("ROLE_USER"));
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        personalDataDto.setWeight(new BigDecimal(-10));
+        mockMvc.perform(put("/api/v1/user/personal-data")
+                .header(HttpHeaders.AUTHORIZATION, authToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(personalDataDto)))
+            .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void updatePersonalUserData_withInvalidBirthdate_shouldReturn400() throws Exception {
+        String authToken = jwtTokenizer.getAuthToken("personal_data@email.com", List.of("ROLE_USER"));
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        personalDataDto.setBirthdate(LocalDate.of(2500, 1, 1));
+        mockMvc.perform(put("/api/v1/user/personal-data")
+                .header(HttpHeaders.AUTHORIZATION, authToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(personalDataDto)))
+            .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void updatePersonalUserData_withInvalidActiveWeekdays_shouldReturn400() throws Exception {
+        String authToken = jwtTokenizer.getAuthToken("personal_data@email.com", List.of("ROLE_USER"));
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        personalDataDto.setActiveWeekdays(null);
+        mockMvc.perform(put("/api/v1/user/personal-data")
+                .header(HttpHeaders.AUTHORIZATION, authToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(personalDataDto)))
+            .andExpect(status().isUnprocessableEntity());
+    }
+
 
     // ==================== HELPER METHODS ====================
 
@@ -490,5 +590,19 @@ class UserEndpointTest extends BaseTest {
         user.setVerified(verified);
 
         return userRepository.save(user);
+    }
+
+    /**
+     * Helper method to create a test personal data dto
+     */
+    private PersonalDataDto createTestPersonalDataDto() {
+        return PersonalDataDto.builder()
+            .sex(Sex.MALE)
+            .height(175)
+            .weight(new BigDecimal("78.5"))
+            .birthdate(LocalDate.of(2003, 5, 24))
+            .experienceLevel(ExperienceLevel.BEGINNER)
+            .activeWeekdays(new HashSet<>(Set.of(Weekday.MONDAY, Weekday.TUESDAY, Weekday.WEDNESDAY)))
+            .build();
     }
 }

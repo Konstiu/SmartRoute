@@ -5,8 +5,12 @@ import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.ServerSetupTest;
 import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
 import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
+import com.smartroute.smartroute1.endpoint.dto.PersonalDataDto;
 import com.smartroute.smartroute1.endpoint.mapper.UserMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
+import com.smartroute.smartroute1.entity.enums.Sex;
+import com.smartroute.smartroute1.entity.enums.Weekday;
 import com.smartroute.smartroute1.exception.NotFoundException;
 import com.smartroute.smartroute1.exception.RateLimitExceededException;
 import com.smartroute.smartroute1.exception.ValidationException;
@@ -24,6 +28,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.smartroute.smartroute1.basetest.TestData.ORIGIN;
@@ -308,6 +316,67 @@ class UserServiceTest {
 
     }
 
+    // ==================== PERSONAL USER DATA METHODS ====================
+    @Test
+    void updatePersonalData_withValidData_shouldUpdateUser() throws Exception {
+        ApplicationUser user = createAndVerifyUser("personal_data@email.com", "Password123!");
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        ApplicationUser updatedUser = userService.updatePersonalData(personalDataDto, user.getEmail());
+
+        assertAll(
+                () -> assertEquals(personalDataDto.getSex(), updatedUser.getSex()),
+                () -> assertEquals(personalDataDto.getHeight(), updatedUser.getHeight()),
+                () -> assertEquals(personalDataDto.getWeight(), updatedUser.getWeight()),
+                () -> assertEquals(personalDataDto.getBirthdate(), updatedUser.getBirthdate()),
+                () -> assertEquals(personalDataDto.getExperienceLevel(), updatedUser.getExperienceLevel()),
+                () -> assertEquals(personalDataDto.getActiveWeekdays(), updatedUser.getActiveWeekdays())
+        );
+    }
+
+    @Test
+    void updatePersonalData_withInvalidData_shouldThrowValidationException() throws Exception {
+        ApplicationUser user = createAndVerifyUser("personal_data@email.com", "Password123!");
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        personalDataDto.setHeight(0);
+        assertThrows(ValidationException.class, () -> {
+            userService.updatePersonalData(personalDataDto, user.getEmail());
+        });
+    }
+
+    @Test
+    void updatePersonalData_withInvalidWeight_shouldThrowValidationException() throws Exception {
+        ApplicationUser user = createAndVerifyUser("personal_data_weight@email.com", "Password123!");
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        personalDataDto.setWeight(new BigDecimal("0"));
+        assertThrows(ValidationException.class, () -> {
+            userService.updatePersonalData(personalDataDto, user.getEmail());
+        });
+    }
+
+    @Test
+    void updatePersonalData_withInvalidBirthdate_shouldThrowValidationException() throws Exception {
+        ApplicationUser user = createAndVerifyUser("personal_data_birthdate@email.com", "Password123!");
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        personalDataDto.setBirthdate(LocalDate.now().plusDays(1));
+        assertThrows(ValidationException.class, () -> {
+            userService.updatePersonalData(personalDataDto, user.getEmail());
+        });
+    }
+
+    @Test
+    void updatePersonalData_withInvalidActiveWeekdays_shouldThrowValidationException() throws Exception {
+        ApplicationUser user = createAndVerifyUser("personal_data_weekdays@email.com", "Password123!");
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        personalDataDto.setActiveWeekdays(null);
+        assertThrows(ValidationException.class, () -> {
+            userService.updatePersonalData(personalDataDto, user.getEmail());
+        });
+    }
+
+
+
+
+
 
     // ==================== HELPER METHODS ====================
 
@@ -325,5 +394,16 @@ class UserServiceTest {
         ApplicationUser user = createUnverifiedUser(email, password);
         user.setVerified(true);
         return userRepository.save(user);
+    }
+
+    private PersonalDataDto createTestPersonalDataDto() {
+        return PersonalDataDto.builder()
+            .sex(Sex.MALE)
+            .height(175)
+            .weight(new BigDecimal("78.5"))
+            .birthdate(LocalDate.of(2003, 5, 24))
+            .experienceLevel(ExperienceLevel.BEGINNER)
+            .activeWeekdays(new HashSet<>(Set.of(Weekday.MONDAY, Weekday.TUESDAY, Weekday.WEDNESDAY)))
+            .build();
     }
 }
