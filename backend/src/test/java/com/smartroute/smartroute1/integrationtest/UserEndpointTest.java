@@ -1,6 +1,9 @@
 package com.smartroute.smartroute1.integrationtest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.icegreen.greenmail.configuration.GreenMailConfiguration;
+import com.icegreen.greenmail.junit5.GreenMailExtension;
+import com.icegreen.greenmail.util.ServerSetupTest;
 import com.smartroute.smartroute1.basetest.BaseTest;
 import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
 import com.smartroute.smartroute1.endpoint.dto.EmailDto;
@@ -9,8 +12,10 @@ import com.smartroute.smartroute1.endpoint.mapper.UserMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.security.JwtTokenizer;
+import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -60,6 +65,10 @@ class UserEndpointTest extends BaseTest {
 
     private static final String ORIGIN = "http://localhost:4200";
 
+    @RegisterExtension
+    static GreenMailExtension greenMail = new GreenMailExtension(ServerSetupTest.SMTP)
+            .withConfiguration(GreenMailConfiguration.aConfig().withUser("test", "test"))
+            .withPerMethodLifecycle(false);
 
     // ==================== USER CREATION TESTS ====================
 
@@ -152,6 +161,10 @@ class UserEndpointTest extends BaseTest {
                         .header(HttpHeaders.ORIGIN, ORIGIN)
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isOk());
+
+        // Verify email was sent
+        MimeMessage[] messages = greenMail.getReceivedMessages();
+        assertTrue(messages.length > 0, "At least one email should be sent");
     }
 
     @Test
@@ -269,6 +282,10 @@ class UserEndpointTest extends BaseTest {
                         .header(HttpHeaders.ORIGIN, ORIGIN)
                         .content(objectMapper.writeValueAsString(emailDto)))
                 .andExpect(status().isOk());
+
+        // Verify password reset email was sent
+        MimeMessage[] messages = greenMail.getReceivedMessages();
+        assertTrue(messages.length > 0, "Password reset email should be sent");
     }
 
     @Test

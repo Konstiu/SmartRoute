@@ -103,12 +103,11 @@ public class CustomUserDetailService implements UserService {
         emailService.sendVerificationEmail(userDto, origin);
 
         String encodedPassword = passwordEncoder.encode(toCreate.password);
-
-        ApplicationUser applicationUser = new ApplicationUser(
-            toCreate.email,
-            encodedPassword,
-            toCreate.firstname.trim().replaceAll("\\s+", " "),
-            toCreate.lastname.trim().replaceAll("\\s+", " ")
+        final ApplicationUser applicationUser = new ApplicationUser(
+                toCreate.email,
+                encodedPassword,
+                toCreate.firstname.trim().replaceAll("\\s+", " "),
+                toCreate.lastname.trim().replaceAll("\\s+", " ")
         );
 
         return userRepository.save(applicationUser);
