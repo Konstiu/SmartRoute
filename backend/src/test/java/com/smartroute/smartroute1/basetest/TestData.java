@@ -6,7 +6,11 @@ public interface TestData {
 
 	String LOGIN_BASE_URI = BASE_URI + "/authentication";
 
+	String USER_BASE_URI = BASE_URI + "/user";
 
 	String DEFAULT_USER_EMAIL = "email0@smartroute.com";
+
+	String ORIGIN = "http://localhost:4200";
+
 
 }
