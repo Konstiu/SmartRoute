@@ -9,6 +9,7 @@ import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.security.JwtTokenizer;
 import com.smartroute.smartroute1.service.EmailSmtpService;
+import com.smartroute.smartroute1.service.RateLimitCheck;
 import com.smartroute.smartroute1.service.UserService;
 import com.smartroute.smartroute1.service.validators.UserValidator;
 import org.slf4j.Logger;
@@ -35,14 +36,16 @@ public class CustomUserDetailService implements UserService {
     private final JwtTokenizer jwtTokenizer;
     private final UserValidator validator;
     private final EmailSmtpService emailService;
+    private final RateLimitCheck rateLimitCheck;
 
     @Autowired
-    public CustomUserDetailService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenizer jwtTokenizer, UserValidator validator, EmailSmtpService emailService) {
+    public CustomUserDetailService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenizer jwtTokenizer, UserValidator validator, EmailSmtpService emailService, RateLimitCheck rateLimitCheck) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenizer = jwtTokenizer;
         this.validator = validator;
         this.emailService = emailService;
+        this.rateLimitCheck = rateLimitCheck;
     }
 
     @Override
@@ -152,6 +155,7 @@ public class CustomUserDetailService implements UserService {
                     userDto.setEmail(email);
                     userDto.setFirstname(applicationUser.getFirstname());
                     userDto.setLastname(applicationUser.getLastname());
+                    rateLimitCheck.check(email, "verification");
                     emailService.sendVerificationEmail(userDto, origin);
                 }
             }
@@ -171,6 +175,7 @@ public class CustomUserDetailService implements UserService {
                     && userDetails.isCredentialsNonExpired()
             ) {
                 ApplicationUser applicationUser = findApplicationUserByEmail(email);
+                rateLimitCheck.check(email, "password");
                 emailService.sendPasswordResetEmail(applicationUser, origin);
             }
         } catch (UsernameNotFoundException | NotFoundException ignored) {

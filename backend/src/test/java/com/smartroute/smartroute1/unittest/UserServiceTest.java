@@ -8,6 +8,7 @@ import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
 import com.smartroute.smartroute1.endpoint.mapper.UserMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.exception.NotFoundException;
+import com.smartroute.smartroute1.exception.RateLimitExceededException;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.security.JwtTokenizer;
@@ -287,6 +288,26 @@ class UserServiceTest {
         assertThrows(NotFoundException.class,
                 () -> userService.findApplicationUserByEmail("nonexistent@email.com"));
     }
+
+    // ==================== RATE LIMIT TEST ====================
+
+    @Test
+    void check_whenRequestsExceedLimit_shouldThrowRateLimitExceededException() throws Exception {
+        createAndVerifyUser("reset_ratelimit@email.com", "Password123!");
+        greenMail.purgeEmailFromAllMailboxes();
+
+        for (int i = 0; i < 5; i++) {
+            userService.requestPasswordReset("reset_ratelimit@email.com", ORIGIN);
+
+            MimeMessage[] messages = greenMail.getReceivedMessages();
+            assertEquals(i+1, messages.length, "Password reset email should be sent");
+            assertEquals("reset_ratelimit@email.com", messages[i].getAllRecipients()[0].toString());
+        }
+        assertThrows(RateLimitExceededException.class,
+                () -> userService.requestPasswordReset("reset_ratelimit@email.com", ORIGIN));
+
+    }
+
 
     // ==================== HELPER METHODS ====================
 
