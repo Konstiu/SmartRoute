@@ -1,6 +1,9 @@
 package com.smartroute.smartroute1.integrationtest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.icegreen.greenmail.configuration.GreenMailConfiguration;
+import com.icegreen.greenmail.junit5.GreenMailExtension;
+import com.icegreen.greenmail.util.ServerSetupTest;
 import com.smartroute.smartroute1.basetest.BaseTest;
 import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
 import com.smartroute.smartroute1.endpoint.dto.EmailDto;
@@ -9,8 +12,10 @@ import com.smartroute.smartroute1.endpoint.mapper.UserMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.security.JwtTokenizer;
+import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -27,8 +32,8 @@ import org.springframework.test.web.servlet.MvcResult;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.smartroute.smartroute1.basetest.TestData.DEFAULT_USER_EMAIL;
-import static com.smartroute.smartroute1.basetest.TestData.USER_BASE_URI;
+import static com.smartroute.smartroute1.basetest.TestData.*;
+import static com.smartroute.smartroute1.basetest.TestData.ORIGIN;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -58,8 +63,10 @@ class UserEndpointTest extends BaseTest {
     @Autowired
     private JwtTokenizer jwtTokenizer;
 
-    private static final String ORIGIN = "http://localhost:4200";
-
+    @RegisterExtension
+    static GreenMailExtension greenMail = new GreenMailExtension(ServerSetupTest.SMTP)
+            .withConfiguration(GreenMailConfiguration.aConfig().withUser("test", "test"))
+            .withPerMethodLifecycle(false);
 
     // ==================== USER CREATION TESTS ====================
 
@@ -152,6 +159,10 @@ class UserEndpointTest extends BaseTest {
                         .header(HttpHeaders.ORIGIN, ORIGIN)
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isOk());
+
+        // Verify email was sent
+        MimeMessage[] messages = greenMail.getReceivedMessages();
+        assertTrue(messages.length > 0, "At least one email should be sent");
     }
 
     @Test
@@ -269,6 +280,10 @@ class UserEndpointTest extends BaseTest {
                         .header(HttpHeaders.ORIGIN, ORIGIN)
                         .content(objectMapper.writeValueAsString(emailDto)))
                 .andExpect(status().isOk());
+
+        // Verify password reset email was sent
+        MimeMessage[] messages = greenMail.getReceivedMessages();
+        assertTrue(messages.length > 0, "Password reset email should be sent");
     }
 
     @Test
@@ -423,6 +438,43 @@ class UserEndpointTest extends BaseTest {
                         .content(objectMapper.writeValueAsString(resetDto)))
                 .andExpect(status().isUnauthorized());
     }
+
+
+    // ==================== RATE LIMIT TEST ====================
+
+    @Test
+    void requestPasswordReset_whenRequestsExceedLimit_shouldReturn429() throws Exception {
+        // Given
+        createTestUser("reset_ratelimit@email.com", "Password123!", true);
+        greenMail.purgeEmailFromAllMailboxes();
+
+        // payload
+        Map<String, String> payload = new HashMap<>();
+        payload.put("email", "reset_ratelimit@email.com");
+        String body = objectMapper.writeValueAsString(payload);
+
+        // First 5 should pass
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/v1/user/reset_password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .header(HttpHeaders.ORIGIN, ORIGIN)
+                            .content(body))
+                    .andExpect(status().isOk());
+
+            MimeMessage[] messages = greenMail.getReceivedMessages();
+            assertEquals(i + 1, messages.length, "Password reset email should be sent");
+            assertEquals("reset_ratelimit@email.com",
+                    messages[i].getAllRecipients()[0].toString());
+        }
+
+        // 6th should be rate limited
+        mockMvc.perform(post("/api/v1/user/reset_password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.ORIGIN, ORIGIN)
+                        .content(body))
+                .andExpect(status().isTooManyRequests());
+    }
+
 
     // ==================== HELPER METHODS ====================
 
