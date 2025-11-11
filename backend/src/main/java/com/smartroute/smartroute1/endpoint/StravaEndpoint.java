@@ -39,6 +39,11 @@ public class StravaEndpoint {
     @Value("${app.frontendUrl}")
     private String frontendUrl;
 
+    @Operation(
+            summary = "Start Strava OAuth connection",
+            description = "Redirects the authenticated user to Strava’s authorization page to connect their Strava account. "
+                    + "The user will be prompted to grant access to read activity and profile data."
+    )
     @GetMapping("/connect")
     @ResponseStatus(HttpStatus.OK)
     public void connect(HttpServletResponse res) throws IOException {
@@ -54,6 +59,13 @@ public class StravaEndpoint {
         res.sendRedirect(url);
     }
 
+    @Operation(
+            summary = "Handle Strava OAuth callback",
+            description = "Handles the callback from Strava after user authorization. "
+                    + "Exchanges the received authorization code for an access token, "
+                    + "stores the Strava account connection, and triggers an initial data import "
+                    + "(zones and activities)."
+    )
     @Secured("ROLE_USER")
     @GetMapping("/callback")
     @ResponseStatus(HttpStatus.OK)
