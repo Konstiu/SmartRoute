@@ -47,6 +47,7 @@ public class StravaEndpoint {
     @GetMapping("/connect")
     @ResponseStatus(HttpStatus.OK)
     public void connect(HttpServletResponse res) throws IOException {
+        LOGGER.info("GET /api/v1/strava/connect");
         String redirectUri = baseUrl + "/api/v1/strava/callback";
         String scopes = "activity:read_all,profile:read_all";
         String url = UriComponentsBuilder.fromUriString("https://www.strava.com/oauth/authorize")
@@ -70,7 +71,7 @@ public class StravaEndpoint {
     @GetMapping("/callback")
     @ResponseStatus(HttpStatus.OK)
     public String callback(@RequestParam("code") String code, @RequestParam("scope") String scope) {
-        LOGGER.info("Received code {}, scope {}", code, scope);
+        LOGGER.info("GET /api/v1/strava/callback code: {}, scope: {}", code, scope);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         stravaOAuthServiceImpl.exchangeCodeForToken(code, scope, authentication.getName());
 
