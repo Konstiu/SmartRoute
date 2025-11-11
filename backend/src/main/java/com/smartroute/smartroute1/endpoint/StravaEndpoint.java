@@ -1,6 +1,10 @@
 package com.smartroute.smartroute1.endpoint;
 
+import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
+import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
+import com.smartroute.smartroute1.service.StravaService;
 import com.smartroute.smartroute1.service.impl.StravaOAuthServiceImpl;
+import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -19,6 +23,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
+import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
@@ -26,6 +31,7 @@ import java.lang.invoke.MethodHandles;
 public class StravaEndpoint {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final StravaOAuthServiceImpl stravaOAuthServiceImpl;
+    private final StravaService stravaService;
     @Value("${strava.client.id}")
     private String clientId;
     @Value("${app.baseUrl}")
@@ -55,6 +61,36 @@ public class StravaEndpoint {
         LOGGER.info("Received code {}, scope {}", code, scope);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         stravaOAuthServiceImpl.exchangeCodeForToken(code, scope, authentication.getName());
+
+        stravaService.importStravaZoneData(authentication.getName());
+        stravaService.importStravaActivities(authentication.getName());
+
         return "redirect:" + frontendUrl + "/connected";
+    }
+
+    @Operation(
+            summary = "Import Strava zone data",
+            description = "Fetches the athlete’s current heart rate zones from the Strava API and returns them. "
+    )
+    @Secured("ROLE_USER")
+    @GetMapping("/zones")
+    @ResponseStatus(HttpStatus.OK)
+    public ZoneDataDto getZones() {
+        LOGGER.info("GET /api/v1/strava/zones");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return stravaService.importStravaZoneData(authentication.getName());
+    }
+
+    @Operation(
+            summary = "Import Strava activities",
+            description = "Fetches the authenticated user’s latest activities from the Strava API. "
+    )
+    @Secured("ROLE_USER")
+    @GetMapping("/activities")
+    @ResponseStatus(HttpStatus.OK)
+    public List<StravaActivityDto> getActivities() {
+        LOGGER.info("GET /api/v1/strava/activities");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return stravaService.importStravaActivities(authentication.getName());
     }
 }
