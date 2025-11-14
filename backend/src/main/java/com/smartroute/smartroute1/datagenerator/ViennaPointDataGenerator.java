@@ -1,9 +1,9 @@
 package com.smartroute.smartroute1.datagenerator;
 
 import com.smartroute.smartroute1.entity.ViennaPoint;
+import com.smartroute.smartroute1.entity.enums.Sanitary;
 import com.smartroute.smartroute1.repository.ViennaPointRepository;
 import com.smartroute.smartroute1.util.Coordinate;
-import com.smartroute.smartroute1.entity.enums.Sanitary;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,8 +21,8 @@ import java.lang.invoke.MethodHandles;
 public class ViennaPointDataGenerator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private static final String FOUNTAINFILENAME ="TRINKBRUNNENOGD.csv";
-    private static final String TOILETFILENAME ="WCANLAGE2OGD.csv";
+    private static final String FOUNTAINFILENAME = "TRINKBRUNNENOGD.csv";
+    private static final String TOILETFILENAME = "WCANLAGE2OGD.csv";
     private final ViennaPointRepository repository;
 
     public ViennaPointDataGenerator(ViennaPointRepository repository) {
@@ -37,7 +37,7 @@ public class ViennaPointDataGenerator {
             LOGGER.info("Importing from" + FOUNTAINFILENAME);
             br.readLine(); //Skip header;
             String line;
-            while ((line =br.readLine()) != null) {
+            while ((line = br.readLine()) != null) {
                 System.out.println(line);
                 String[] parts = line.split(",");
                 String objectId = parts[1];
