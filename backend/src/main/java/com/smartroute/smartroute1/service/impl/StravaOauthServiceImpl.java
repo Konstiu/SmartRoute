@@ -102,14 +102,13 @@ public class StravaOauthServiceImpl implements StravaOauthService {
         LOGGER.trace("Ensure access token for user: {}", account);
         if (account.getExpiresAt().isBefore(Instant.now().minusSeconds(30))) {
             var resp = refreshAccessToken(account.getRefreshToken());
-            if (resp == null) {
-                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Strava Token Response null");
+            if (resp != null && resp.getAccessToken() != null) {
+                account.setAccessToken(resp.getAccessToken());
+                account.setRefreshToken(resp.getRefreshToken());
+                account.setExpiresAt(Instant.ofEpochSecond(resp.getExpiresAt()));
+                stravaAccountRepository.save(account);
+                LOGGER.debug("Updated Strava account connection: {}", account);
             }
-            account.setAccessToken(resp.getAccessToken());
-            account.setRefreshToken(resp.getRefreshToken());
-            account.setExpiresAt(Instant.ofEpochSecond(resp.getExpiresAt()));
-            stravaAccountRepository.save(account);
-            LOGGER.debug("Updated Strava account connection: {}", account);
         }
         return account.getAccessToken();
     }
