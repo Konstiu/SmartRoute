@@ -43,6 +43,7 @@ public class StravaServiceImpl implements StravaService {
     private final StravaActivityRepository stravaActivityRepository;
 
     @Override
+    @Transactional
     public List<StravaActivityDto> importStravaActivities(String email) {
         LOGGER.trace("Import Strava activities for user with mail: {}", email);
 
@@ -102,7 +103,8 @@ public class StravaServiceImpl implements StravaService {
         return activities;
     }
 
-    private void saveImportedActivities(List<StravaActivityDto> stravaActivities, StravaAccount account) {
+    @Transactional
+    protected void saveImportedActivities(List<StravaActivityDto> stravaActivities, StravaAccount account) {
         if (stravaActivities == null) {
             return;
         }
@@ -140,6 +142,7 @@ public class StravaServiceImpl implements StravaService {
     }
 
     @Override
+    @Transactional
     public ZoneDataDto importStravaZoneData(String email) {
         LOGGER.trace("Import Strava zone data for user with mail: {}", email);
 
