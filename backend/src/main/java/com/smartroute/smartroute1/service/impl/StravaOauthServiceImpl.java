@@ -38,7 +38,7 @@ public class StravaOauthServiceImpl implements StravaOauthService {
     private String baseUrl;
 
     public StravaTokenResponseDto exchangeCodeForToken(String code, String scope, String email) {
-        LOGGER.trace("Excchanging code: {} for token with scopes: {} for user with email: {}", code, scope, email);
+        LOGGER.trace("Exchanging code: {} for token with scopes: {} for user with email: {}", code, scope, email);
         try {
             StravaTokenResponseDto dto = webClient.post()
                     .uri("https://www.strava.com/oauth/token")
@@ -102,6 +102,9 @@ public class StravaOauthServiceImpl implements StravaOauthService {
         LOGGER.trace("Ensure access token for user: {}", account);
         if (account.getExpiresAt().isBefore(Instant.now().minusSeconds(30))) {
             var resp = refreshAccessToken(account.getRefreshToken());
+            if (resp == null) {
+                throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Strava Token Response null");
+            }
             account.setAccessToken(resp.getAccessToken());
             account.setRefreshToken(resp.getRefreshToken());
             account.setExpiresAt(Instant.ofEpochSecond(resp.getExpiresAt()));
