@@ -3,7 +3,7 @@ package com.smartroute.smartroute1.endpoint;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
 import com.smartroute.smartroute1.service.StravaService;
-import com.smartroute.smartroute1.service.impl.StravaOAuthServiceImpl;
+import com.smartroute.smartroute1.service.impl.StravaOauthServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +30,7 @@ import java.util.List;
 @RequestMapping("/api/v1/strava")
 public class StravaEndpoint {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private final StravaOAuthServiceImpl stravaOAuthServiceImpl;
+    private final StravaOauthServiceImpl authService;
     private final StravaService stravaService;
     @Value("${strava.client.id}")
     private String clientId;
@@ -73,7 +73,7 @@ public class StravaEndpoint {
     public String callback(@RequestParam("code") String code, @RequestParam("scope") String scope) {
         LOGGER.info("GET /api/v1/strava/callback code: {}, scope: {}", code, scope);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        stravaOAuthServiceImpl.exchangeCodeForToken(code, scope, authentication.getName());
+        authService.exchangeCodeForToken(code, scope, authentication.getName());
 
         stravaService.importStravaZoneData(authentication.getName());
         stravaService.importStravaActivities(authentication.getName());

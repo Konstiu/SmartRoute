@@ -10,7 +10,7 @@ import com.smartroute.smartroute1.repository.StravaAccountRepository;
 import com.smartroute.smartroute1.repository.StravaActivityRepository;
 import com.smartroute.smartroute1.repository.StravaZoneRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
-import com.smartroute.smartroute1.service.StravaOAuthService;
+import com.smartroute.smartroute1.service.StravaOauthService;
 import com.smartroute.smartroute1.service.StravaService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -31,7 +31,7 @@ public class StravaServiceImpl implements StravaService {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final StravaAccountRepository stravaAccountRepository;
     private final UserRepository userRepository;
-    private final StravaOAuthService stravaOAuthService;
+    private final StravaOauthService authService;
     private final WebClient webClient;
     private final StravaZoneRepository stravaZoneRepository;
     private final StravaActivityRepository stravaActivityRepository;
@@ -50,7 +50,7 @@ public class StravaServiceImpl implements StravaService {
                 .queryParam("per_page", 45);
 
         StravaAccount account = accountOpt.get();
-        String token = stravaOAuthService.ensureValidAccessToken(account);
+        String token = authService.ensureValidAccessToken(account);
 
         List<StravaActivityDto> activities = webClient.get()
                 .uri(builder.build().toUri())
@@ -73,7 +73,7 @@ public class StravaServiceImpl implements StravaService {
         }
 
         for (StravaActivityDto dto : stravaActivities) {
-            if (stravaActivityRepository.existsById(dto.getId())){
+            if (stravaActivityRepository.existsById(dto.getId())) {
                 continue;
             }
             StravaActivity entity = new StravaActivity();
@@ -113,7 +113,7 @@ public class StravaServiceImpl implements StravaService {
                 .fromUriString("https://www.strava.com/api/v3/athlete/zones");
 
         StravaAccount account = accountOpt.get();
-        String token = stravaOAuthService.ensureValidAccessToken(account);
+        String token = authService.ensureValidAccessToken(account);
 
         ZoneDataDto zones = webClient.get()
                 .uri(builder.build().toUri())
