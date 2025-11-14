@@ -35,8 +35,8 @@ public class ViennaPointDataGenerator {
 
         try (BufferedReader br = new BufferedReader(new InputStreamReader(fountains.getInputStream()))) {
             LOGGER.info("Importing from" + FOUNTAINFILENAME);
-            String line = br.readLine(); //Skip header;
-
+            br.readLine(); //Skip header;
+            String line;
             while ((line =br.readLine()) != null) {
                 System.out.println(line);
                 String[] parts = line.split(",");
@@ -62,8 +62,8 @@ public class ViennaPointDataGenerator {
 
         try (BufferedReader br = new BufferedReader(new InputStreamReader(toilets.getInputStream()))) {
             LOGGER.info("Importing from" + TOILETFILENAME);
-            String line = br.readLine(); //Skip header;
-
+            br.readLine(); //Skip header;
+            String line;
             while ((line = br.readLine()) != null) {
                 String[] parts = line.split(",");
                 String objectId = parts[3];
