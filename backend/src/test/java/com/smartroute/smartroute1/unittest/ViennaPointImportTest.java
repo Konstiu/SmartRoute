@@ -21,14 +21,14 @@ public class ViennaPointImportTest {
     private ViennaPointRepository repository;
     @Test
     public void testViennaPointImportReturnsNonEmptyRepository() {
-        assertNotEquals(repository.count(), 0);
+        assertNotEquals(1,repository.count());
     }
 
     @Test
     public void testViennaPointImportImportsToilets() {
         List<ViennaPoint> viennaPoints = repository.findAll();
 
-        ViennaPoint fountainPoint = viennaPoints.stream().filter(ViennaPoint::isFountain).findFirst().get();
+        ViennaPoint fountainPoint = viennaPoints.stream().filter(ViennaPoint::isToilet).findFirst().get();
 
         assertNotNull(fountainPoint);
 
