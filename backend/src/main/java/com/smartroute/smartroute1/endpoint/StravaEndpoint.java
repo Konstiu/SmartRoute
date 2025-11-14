@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -23,6 +24,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -45,7 +47,7 @@ public class StravaEndpoint {
                     + "The user will be prompted to grant access to read activity and profile data."
     )
     @GetMapping("/connect")
-    @ResponseStatus(HttpStatus.OK)
+    @ResponseStatus(value = HttpStatus.FOUND)
     public void connect(HttpServletResponse res) throws IOException {
         LOGGER.info("GET /api/v1/strava/connect");
         String redirectUri = baseUrl + "/api/v1/strava/callback";
@@ -69,8 +71,7 @@ public class StravaEndpoint {
     )
     @Secured("ROLE_USER")
     @GetMapping("/callback")
-    @ResponseStatus(HttpStatus.OK)
-    public String callback(@RequestParam("code") String code, @RequestParam("scope") String scope) {
+    public ResponseEntity<Void> callback(@RequestParam("code") String code, @RequestParam("scope") String scope) {
         LOGGER.info("GET /api/v1/strava/callback code: {}, scope: {}", code, scope);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         authService.exchangeCodeForToken(code, scope, authentication.getName());
@@ -78,7 +79,11 @@ public class StravaEndpoint {
         stravaService.importStravaZoneData(authentication.getName());
         stravaService.importStravaActivities(authentication.getName());
 
-        return "redirect:" + frontendUrl + "/connected";
+        URI redirectUri = URI.create(frontendUrl + "/connected");
+
+        return ResponseEntity.status(HttpStatus.FOUND)
+                .location(redirectUri)
+                .build();
     }
 
     @Operation(
