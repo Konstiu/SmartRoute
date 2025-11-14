@@ -3,7 +3,7 @@ package com.smartroute.smartroute1.datagenerator;
 import com.smartroute.smartroute1.entity.ViennaPoint;
 import com.smartroute.smartroute1.repository.ViennaPointRepository;
 import com.smartroute.smartroute1.util.Coordinate;
-import com.smartroute.smartroute1.util.Sanitary;
+import com.smartroute.smartroute1.entity.enums.Sanitary;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

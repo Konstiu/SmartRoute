@@ -8,8 +8,4 @@ import java.util.List;
 
 @Repository
 public interface ViennaPointRepository extends JpaRepository<ViennaPoint, String> {
-
-    List<ViennaPoint> findAll();
-
-
 }

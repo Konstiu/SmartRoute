@@ -1,7 +1,7 @@
 package com.smartroute.smartroute1.entity;
 
 import com.smartroute.smartroute1.util.Coordinate;
-import com.smartroute.smartroute1.util.Sanitary;
+import com.smartroute.smartroute1.entity.enums.Sanitary;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
