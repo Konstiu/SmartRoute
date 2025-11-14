@@ -19,7 +19,7 @@ public class StravaAccount {
     private Long id;
 
     @OneToOne
-    @JoinColumn(name = "user_id", nullable=false, unique=true)
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
     private ApplicationUser user;
 
     private Long athleteId;

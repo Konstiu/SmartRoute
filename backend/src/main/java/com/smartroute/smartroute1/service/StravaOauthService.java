@@ -11,7 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
  * and to ensure that an access token is valid (refreshing it if necessary).
  * </p>
  */
-public interface StravaOAuthService {
+public interface StravaOauthService {
     /**
      * Exchanges the authorization code received from Strava for an access token and refresh token.
      * <p>
