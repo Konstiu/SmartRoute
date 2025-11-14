@@ -6,6 +6,7 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.StravaAccount;
 import com.smartroute.smartroute1.entity.StravaActivity;
 import com.smartroute.smartroute1.entity.StravaZone;
+import com.smartroute.smartroute1.exception.StravaAuthorizationException;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
 import com.smartroute.smartroute1.repository.StravaActivityRepository;
 import com.smartroute.smartroute1.repository.StravaZoneRepository;
@@ -16,10 +17,15 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
+import reactor.core.publisher.Mono;
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
@@ -39,29 +45,58 @@ public class StravaServiceImpl implements StravaService {
     @Override
     public List<StravaActivityDto> importStravaActivities(String email) {
         LOGGER.trace("Import Strava activities for user with mail: {}", email);
+
         ApplicationUser user = userRepository.findUserByEmail(email);
         Optional<StravaAccount> accountOpt = stravaAccountRepository.findByUser(user);
         if (accountOpt.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No linked Strava account found");
         }
 
+        StravaAccount account = accountOpt.get();
+
+        String token;
+        try {
+            token = authService.ensureValidAccessToken(account);
+        } catch (StravaAuthorizationException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Failed to get Strava access token", e);
+        }
+
         UriComponentsBuilder builder = UriComponentsBuilder
                 .fromUriString("https://www.strava.com/api/v3/athlete/activities")
                 .queryParam("per_page", 45);
 
-        StravaAccount account = accountOpt.get();
-        String token = authService.ensureValidAccessToken(account);
+        List<StravaActivityDto> activities;
+        try {
+            activities = webClient.get()
+                    .uri(builder.build().toUri())
+                    .headers(h -> h.setBearerAuth(token))
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new ResponseStatusException(
+                                            HttpStatus.BAD_REQUEST, "Strava API 4xx: " + body
+                                    )))
+                    )
+                    .onStatus(HttpStatusCode::is5xxServerError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new ResponseStatusException(
+                                            HttpStatus.BAD_GATEWAY, "Strava API 5xx: " + body
+                                    )))
+                    )
+                    .bodyToFlux(StravaActivityDto.class)
+                    .collectList()
+                    .block();
+        } catch (WebClientRequestException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Strava API unavailable " + e.getMessage());
+        } catch (WebClientResponseException e) {
+            throw new ResponseStatusException(e.getStatusCode(), "Strava API error: " + e.getResponseBodyAsString(), e);
+        }
 
-        List<StravaActivityDto> activities = webClient.get()
-                .uri(builder.build().toUri())
-                .headers(h -> h.setBearerAuth(token))
-                .retrieve()
-                .bodyToFlux(StravaActivityDto.class)
-                .collectList()
-                .block();
+        if (activities == null || activities.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No activities found");
+        }
 
-        LOGGER.debug("Imported Strava activities: {}", activities);
-
+        LOGGER.debug("Number of imported Strava activities: {}", activities.size());
         saveImportedActivities(activities, account);
 
         return activities;
@@ -73,10 +108,14 @@ public class StravaServiceImpl implements StravaService {
         }
 
         for (StravaActivityDto dto : stravaActivities) {
+            StravaActivity entity;
             if (stravaActivityRepository.existsById(dto.getId())) {
-                continue;
+                entity = stravaActivityRepository.getReferenceById(dto.getId());
+                LOGGER.debug("Updating strava activity with id: {}", dto.getId());
+            } else {
+                entity = new StravaActivity();
             }
-            StravaActivity entity = new StravaActivity();
+
             entity.setId(dto.getId());
             entity.setName(dto.getName());
             entity.setDistance(dto.getDistance());
@@ -103,6 +142,7 @@ public class StravaServiceImpl implements StravaService {
     @Override
     public ZoneDataDto importStravaZoneData(String email) {
         LOGGER.trace("Import Strava zone data for user with mail: {}", email);
+
         ApplicationUser user = userRepository.findUserByEmail(email);
         Optional<StravaAccount> accountOpt = stravaAccountRepository.findByUser(user);
         if (accountOpt.isEmpty()) {
@@ -113,23 +153,52 @@ public class StravaServiceImpl implements StravaService {
                 .fromUriString("https://www.strava.com/api/v3/athlete/zones");
 
         StravaAccount account = accountOpt.get();
-        String token = authService.ensureValidAccessToken(account);
 
-        ZoneDataDto zones = webClient.get()
-                .uri(builder.build().toUri())
-                .headers(h -> h.setBearerAuth(token))
-                .retrieve()
-                .bodyToMono(ZoneDataDto.class)
-                .block();
+        String token;
+        try {
+            token = authService.ensureValidAccessToken(account);
+        } catch (StravaAuthorizationException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Failed to get Strava access token", e);
+        }
+
+        ZoneDataDto zones;
+        try {
+            zones = webClient.get()
+                    .uri(builder.build().toUri())
+                    .headers(h -> h.setBearerAuth(token))
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new ResponseStatusException(
+                                            HttpStatus.BAD_REQUEST, "Strava API 4xx: " + body
+                                    )))
+                    )
+                    .onStatus(HttpStatusCode::is5xxServerError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new ResponseStatusException(
+                                            HttpStatus.BAD_GATEWAY, "Strava API 5xx: " + body
+                                    )))
+                    )
+                    .bodyToMono(ZoneDataDto.class)
+                    .block();
+        } catch (WebClientRequestException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Strava API unavailable " + e.getMessage());
+        } catch (WebClientResponseException e) {
+            throw new ResponseStatusException(e.getStatusCode(), "Strava API error: " + e.getResponseBodyAsString(), e);
+        }
+
+        if (zones == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No zones found");
+        }
 
         LOGGER.debug("Imported Strava zones: {}", zones);
-
         saveImportedZones(zones, account);
 
         return zones;
     }
 
-    private void saveImportedZones(ZoneDataDto zones, StravaAccount account) {
+    @Transactional
+    protected void saveImportedZones(ZoneDataDto zones, StravaAccount account) {
         stravaZoneRepository.deleteAllByStravaAccount(account);
 
         if (zones.getHeartRate() != null && zones.getHeartRate().getZones() != null) {
