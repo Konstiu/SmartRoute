@@ -3,6 +3,7 @@ package com.smartroute.smartroute1.service.impl;
 import com.smartroute.smartroute1.endpoint.dto.StravaTokenResponseDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.StravaAccount;
+import com.smartroute.smartroute1.exception.StravaAuthorizationException;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.StravaOauthService;
@@ -11,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.BodyInserters;
@@ -18,6 +20,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
+import reactor.core.publisher.Mono;
 
 import java.lang.invoke.MethodHandles;
 import java.time.Instant;
@@ -37,8 +40,9 @@ public class StravaOauthServiceImpl implements StravaOauthService {
     @Value("${app.baseUrl}")
     private String baseUrl;
 
-    public StravaTokenResponseDto exchangeCodeForToken(String code, String scope, String email) {
+    public StravaTokenResponseDto exchangeCodeForToken(String code, String scope, String email) throws StravaAuthorizationException {
         LOGGER.trace("Exchanging code: {} for token with scopes: {} for user with email: {}", code, scope, email);
+
         try {
             StravaTokenResponseDto dto = webClient.post()
                     .uri("https://www.strava.com/oauth/token")
@@ -49,23 +53,41 @@ public class StravaOauthServiceImpl implements StravaOauthService {
                             .with("grant_type", "authorization_code")
                             .with("redirect_uri", baseUrl + "/api/v1/strava/callback"))
                     .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(
+                                            new StravaAuthorizationException(
+                                                    "Strava OAuth 4xx:" + body
+                                            )
+                                    ))
+                    )
+                    .onStatus(HttpStatusCode::is5xxServerError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(
+                                            new ResponseStatusException(
+                                                    HttpStatus.BAD_GATEWAY,
+                                                    "Strava error: " + body
+                                            )
+                                    ))
+                    )
                     .bodyToMono(StravaTokenResponseDto.class)
                     .block();
 
-            if (dto != null) {
-                dto.setScope(scope);
+            if (dto == null) {
+                throw new StravaAuthorizationException("Strava returned null token");
             }
+
+            dto.setScope(scope);
             createOrUpdateStravaAccount(dto, email);
+
             return dto;
-        } catch (WebClientResponseException e) {
-            throw new ResponseStatusException(
-                    e.getStatusCode(),
-                    "Strava OAuth Error: " + e.getResponseBodyAsString(),
-                    e);
+
         } catch (WebClientRequestException e) {
-            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Strava not available", e);
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Unknown Strava OAuth Error", e);
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Could not reach Strava OAuth service",
+                    e
+            );
         }
     }
 
@@ -115,15 +137,25 @@ public class StravaOauthServiceImpl implements StravaOauthService {
 
     private StravaTokenResponseDto refreshAccessToken(String refreshToken) {
         LOGGER.debug("Refresh access token for user: {}", refreshToken);
-        return webClient.post()
-                .uri("https://www.strava.com/oauth/token")
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(BodyInserters.fromFormData("client_id", clientId)
-                        .with("client_secret", clientSecret)
-                        .with("grant_type", "refresh_token")
-                        .with("refresh_token", refreshToken))
-                .retrieve()
-                .bodyToMono(StravaTokenResponseDto.class)
-                .block();
+
+        try {
+            return webClient.post()
+                    .uri("https://www.strava.com/oauth/token")
+                    .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                    .body(BodyInserters.fromFormData("client_id", clientId)
+                            .with("client_secret", clientSecret)
+                            .with("grant_type", "refresh_token")
+                            .with("refresh_token", refreshToken))
+                    .retrieve()
+                    .bodyToMono(StravaTokenResponseDto.class)
+                    .block();
+
+        } catch (WebClientRequestException e) {
+            LOGGER.error("Strava unreachable", e);
+            return null;
+        } catch (WebClientResponseException e) {
+            LOGGER.error("Strava token refresh failed: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            return null;
+        }
     }
 }
