@@ -25,6 +25,7 @@ import reactor.core.publisher.Mono;
 import java.lang.invoke.MethodHandles;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -91,28 +92,25 @@ public class StravaOauthServiceImpl implements StravaOauthService {
         }
     }
 
-    private void createOrUpdateStravaAccount(StravaTokenResponseDto dto, String email) {
+    private void createOrUpdateStravaAccount(StravaTokenResponseDto tokenResponseDto, String email) {
         ApplicationUser user = userRepository.findUserByEmail(email);
-
-        if (dto == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Strava Token Response null");
-        }
 
         Optional<StravaAccount> existing = stravaAccountRepository.findByUser(user);
         if (existing.isPresent()) {
-            existing.get().setAccessToken(dto.getAccessToken());
-            existing.get().setRefreshToken(dto.getRefreshToken());
+            existing.get().setAccessToken(tokenResponseDto.getAccessToken());
+            existing.get().setRefreshToken(tokenResponseDto.getRefreshToken());
+            existing.get().setExpiresAt(Instant.ofEpochSecond(tokenResponseDto.getExpiresAt()));
 
             stravaAccountRepository.save(existing.get());
             LOGGER.debug("Updated Strava account connection: {}", existing.get());
         } else {
             StravaAccount account = new StravaAccount();
-            account.setAccessToken(dto.getAccessToken());
-            account.setRefreshToken(dto.getRefreshToken());
-            account.setExpiresAt(Instant.ofEpochSecond(dto.getExpiresAt()));
-            account.setAthleteId(dto.getAthleteId());
+            account.setAccessToken(tokenResponseDto.getAccessToken());
+            account.setRefreshToken(tokenResponseDto.getRefreshToken());
+            account.setExpiresAt(Instant.ofEpochSecond(tokenResponseDto.getExpiresAt()));
+            account.setAthleteId(tokenResponseDto.getAthleteId());
             account.setUser(user);
-            account.setScopes(dto.getScope());
+            account.setScopes(tokenResponseDto.getScope());
             account.setConnectedAt(Instant.now());
 
             stravaAccountRepository.save(account);
