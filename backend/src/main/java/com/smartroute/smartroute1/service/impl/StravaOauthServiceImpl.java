@@ -34,6 +34,7 @@ public class StravaOauthServiceImpl implements StravaOauthService {
     private final WebClient webClient;
     private final UserRepository userRepository;
     private final StravaAccountRepository stravaAccountRepository;
+    private final ConcurrentHashMap<Long, Object> locks = new ConcurrentHashMap<>();
     @Value("${strava.client.id}")
     private String clientId;
     @Value("${strava.client.secret}")
@@ -118,18 +119,29 @@ public class StravaOauthServiceImpl implements StravaOauthService {
         }
     }
 
-    public synchronized String ensureValidAccessToken(StravaAccount account) {
+    public String ensureValidAccessToken(StravaAccount account) throws StravaAuthorizationException {
         LOGGER.trace("Ensure access token for user: {}", account);
-        if (account.getExpiresAt().isBefore(Instant.now().minusSeconds(30))) {
-            var resp = refreshAccessToken(account.getRefreshToken());
-            if (resp != null && resp.getAccessToken() != null) {
-                account.setAccessToken(resp.getAccessToken());
-                account.setRefreshToken(resp.getRefreshToken());
-                account.setExpiresAt(Instant.ofEpochSecond(resp.getExpiresAt()));
-                stravaAccountRepository.save(account);
-                LOGGER.debug("Updated Strava account connection: {}", account);
+
+        // Per-user locking to prevent concurrent token refreshes for the same account.
+        Object lock = locks.computeIfAbsent(account.getId(), id -> new Object());
+
+        synchronized (lock) {
+            if (account.getExpiresAt().isBefore(Instant.now().plusSeconds(30))) {
+                var refreshedTokenDto = refreshAccessToken(account.getRefreshToken());
+                if (refreshedTokenDto != null && refreshedTokenDto.getAccessToken() != null) {
+                    account.setAccessToken(refreshedTokenDto.getAccessToken());
+                    account.setRefreshToken(refreshedTokenDto.getRefreshToken());
+                    account.setExpiresAt(Instant.ofEpochSecond(refreshedTokenDto.getExpiresAt()));
+                    stravaAccountRepository.save(account);
+                    LOGGER.debug("Updated Strava account connection: {}", account);
+                } else {
+                    throw new StravaAuthorizationException("Failed to refresh access token");
+                }
             }
         }
+
+        locks.remove(account.getId());
+
         return account.getAccessToken();
     }
 
