@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.service;
 
+import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
 
@@ -29,4 +30,13 @@ public interface StravaService {
      * @throws RuntimeException if the Strava account is not linked or API call fails
      */
     ZoneDataDto importStravaZoneData(String email);
+
+    /**
+     * Imports the athlete detail data for the user with the specified email from Strava.
+     *
+     * @param email the email of the user whose athlete data should be imported
+     * @return a {@link AthleteDetailDto} containing the athlete data
+     * @throws RuntimeException if the Strava account is not linked or API call fails
+     */
+    AthleteDetailDto importStravaAthlete(String email);
 }

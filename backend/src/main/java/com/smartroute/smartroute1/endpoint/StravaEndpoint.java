@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.endpoint;
 
+import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
 import com.smartroute.smartroute1.service.StravaService;
@@ -74,10 +75,12 @@ public class StravaEndpoint {
     public ResponseEntity<Void> callback(@RequestParam("code") String code, @RequestParam("scope") String scope) {
         LOGGER.info("GET /api/v1/strava/callback code: {}, scope: {}", code, scope);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        authService.exchangeCodeForToken(code, scope, authentication.getName());
+        String email = authentication.getName();
+        authService.exchangeCodeForToken(code, scope, email);
 
-        stravaService.importStravaZoneData(authentication.getName());
-        stravaService.importStravaActivities(authentication.getName());
+        stravaService.importStravaZoneData(email);
+        stravaService.importStravaActivities(email);
+        stravaService.importStravaAthlete(email);
 
         URI redirectUri = URI.create(frontendUrl + "/connected");
 
@@ -110,5 +113,18 @@ public class StravaEndpoint {
         LOGGER.info("GET /api/v1/strava/activities");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return stravaService.importStravaActivities(authentication.getName());
+    }
+
+    @Operation(
+            summary = "Import Strava athlete",
+            description = "Fetches the authenticated user’s athlete details from the Strava API. "
+    )
+    @Secured("ROLE_USER")
+    @GetMapping("/athlete")
+    @ResponseStatus(HttpStatus.OK)
+    public AthleteDetailDto getAthlete() {
+        LOGGER.info("GET /api/v1/strava/athlete");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return stravaService.importStravaAthlete(authentication.getName());
     }
 }

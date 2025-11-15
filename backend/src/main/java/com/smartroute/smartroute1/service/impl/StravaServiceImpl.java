@@ -1,12 +1,15 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.AthleteDetail;
 import com.smartroute.smartroute1.entity.StravaAccount;
 import com.smartroute.smartroute1.entity.StravaActivity;
 import com.smartroute.smartroute1.entity.StravaZone;
 import com.smartroute.smartroute1.exception.StravaAuthorizationException;
+import com.smartroute.smartroute1.repository.AthleteDetailRepository;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
 import com.smartroute.smartroute1.repository.StravaActivityRepository;
 import com.smartroute.smartroute1.repository.StravaZoneRepository;
@@ -41,6 +44,7 @@ public class StravaServiceImpl implements StravaService {
     private final WebClient webClient;
     private final StravaZoneRepository stravaZoneRepository;
     private final StravaActivityRepository stravaActivityRepository;
+    private final AthleteDetailRepository athleteDetailRepository;
 
     @Override
     @Transactional
@@ -209,5 +213,74 @@ public class StravaServiceImpl implements StravaService {
                 LOGGER.debug("Saved Strava zone: {}", entity);
             }
         }
+    }
+
+    @Transactional
+    public AthleteDetailDto importStravaAthlete(String email) {
+        LOGGER.trace("Import Strava athlete data for user with mail: {}", email);
+
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        Optional<StravaAccount> accountOpt = stravaAccountRepository.findByUser(user);
+        if (accountOpt.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No linked Strava account found");
+        }
+
+        UriComponentsBuilder builder = UriComponentsBuilder
+                .fromUriString("https://www.strava.com/api/v3/athlete");
+
+        StravaAccount account = accountOpt.get();
+
+        String token;
+        try {
+            token = authService.ensureValidAccessToken(account);
+        } catch (StravaAuthorizationException e) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Failed to get Strava access token", e);
+        }
+
+        AthleteDetailDto athleteDetail;
+        try {
+            athleteDetail = webClient.get()
+                    .uri(builder.build().toUri())
+                    .headers(h -> h.setBearerAuth(token))
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new ResponseStatusException(
+                                            HttpStatus.BAD_REQUEST, "Strava API 4xx: " + body
+                                    )))
+                    )
+                    .onStatus(HttpStatusCode::is5xxServerError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new ResponseStatusException(
+                                            HttpStatus.BAD_GATEWAY, "Strava API 5xx: " + body
+                                    )))
+                    )
+                    .bodyToMono(AthleteDetailDto.class)
+                    .block();
+        } catch (WebClientRequestException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Strava API unavailable " + e.getMessage());
+        } catch (WebClientResponseException e) {
+            throw new ResponseStatusException(e.getStatusCode(), "Strava API error: " + e.getResponseBodyAsString(), e);
+        }
+
+        LOGGER.debug("Imported Strava athlete details: {}", athleteDetail);
+        saveAthleteDetail(athleteDetail, account);
+
+        return athleteDetail;
+    }
+
+    @Transactional
+    protected void saveAthleteDetail(AthleteDetailDto athleteDetailDto, StravaAccount account) {
+        AthleteDetail athleteDetail = athleteDetailRepository.findByStravaAccount(account)
+                .orElseGet(() -> {
+                    AthleteDetail newDetail = new AthleteDetail();
+                    newDetail.setStravaAccount(account);
+                    return newDetail;
+                });
+
+        athleteDetail.setSex(athleteDetailDto.getSex());
+        athleteDetail.setFtp(athleteDetailDto.getFtp());
+        athleteDetail.setWeight(athleteDetailDto.getWeight());
+        athleteDetailRepository.save(athleteDetail);
     }
 }
