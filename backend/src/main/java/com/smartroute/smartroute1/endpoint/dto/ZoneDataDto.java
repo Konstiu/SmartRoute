@@ -3,10 +3,15 @@ package com.smartroute.smartroute1.endpoint.dto;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.List;
 
 @Data
 @JsonIgnoreProperties(ignoreUnknown = true)
+@Getter
+@Setter
 public class ZoneDataDto {
 
     @JsonProperty("heart_rate")
