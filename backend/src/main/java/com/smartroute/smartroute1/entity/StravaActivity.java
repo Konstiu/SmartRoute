@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.entity;
 
+import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
@@ -8,6 +9,8 @@ import jakarta.persistence.ManyToOne;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+
+import java.util.Map;
 
 @Entity
 @Getter
@@ -33,8 +36,10 @@ public class StravaActivity {
     private Float averageWatts;
     private Float kilojoules;
     private Integer kudosCount;
+    private String map;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id")
     private StravaAccount stravaAccount;
+
 }

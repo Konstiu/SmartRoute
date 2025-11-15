@@ -1,0 +1,63 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Recent Activities</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="doRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading && activities.length === 0" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading activities...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="error && activities.length === 0" class="error-container">
+    <ion-icon name="alert-circle-outline" color="danger"></ion-icon>
+    <p>{{ error }}</p>
+    <ion-button (click)="loadActivities()">Retry</ion-button>
+  </div>
+
+  <!-- Activities List -->
+  <ion-list *ngIf="!isLoading || activities.length > 0">
+    <ion-item *ngFor="let activity of activities" [button]="true" detail="true" (click)="openActivity(activity)">
+      <ion-icon
+        [name]="getActivityIcon(activity.sportType)"
+        slot="start"
+        [color]="activity.sportType === 'Run' ? 'primary' : 'medium'">
+      </ion-icon>
+
+      <ion-label>
+        <h2>{{ activity.name }}</h2>
+        <h3>{{ this.formatDate(activity.startDateLocal) }}</h3>
+        <p class="activity-stats">
+          <span><ion-icon name="navigate-outline"></ion-icon> {{ formatDistance(activity.distance) }} km</span>
+          <span><ion-icon name="time-outline"></ion-icon> {{ formatDuration(activity.movingTime) }}</span>
+          <span><ion-icon name="speedometer-outline"></ion-icon> {{ activity.averageSpeed.toFixed(2) }}/km</span>
+        </p>
+        <p class="activity-stats-secondary" *ngIf="activity.totalElevationGain || activity.averageHeartrate">
+          <span *ngIf="activity.totalElevationGain">
+            <ion-icon name="trending-up-outline"></ion-icon> {{ activity.totalElevationGain.toFixed(2) }}m
+          </span>
+          <span *ngIf="activity.averageHeartrate">
+            <ion-icon name="heart-outline"></ion-icon> {{ activity.averageHeartrate.toFixed(0) }} bpm
+          </span>
+          <span *ngIf="activity.kudosCount">
+            <ion-icon name="thumbs-up-outline"></ion-icon> {{ activity.kudosCount }}
+          </span>
+        </p>
+      </ion-label>
+    </ion-item>
+  </ion-list>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && activities.length === 0 && !error" class="empty-container">
+    <ion-icon name="fitness-outline" color="medium"></ion-icon>
+    <h2>No Activities Yet</h2>
+    <p>Your recent activities will appear here</p>
+  </div>
+</ion-content>

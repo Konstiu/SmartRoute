@@ -2,6 +2,7 @@ package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
+import com.smartroute.smartroute1.endpoint.dto.StravaActivityViewDto;
 import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.AthleteDetail;
@@ -136,6 +137,7 @@ public class StravaServiceImpl implements StravaService {
             entity.setKilojoules(dto.getKilojoules());
             entity.setKudosCount(dto.getKudosCount());
             entity.setStravaAccount(account);
+            entity.setMap(dto.getMap().getSummaryPolyline());
             stravaActivityRepository.save(entity);
             LOGGER.debug("Saved Strava activity: {}", entity);
         }
@@ -267,6 +269,22 @@ public class StravaServiceImpl implements StravaService {
         saveAthleteDetail(athleteDetail, account);
 
         return athleteDetail;
+    }
+
+    @Override
+    public List<StravaActivity> getStravaActivities(String email) {
+
+        LOGGER.trace("Get Strava activities for user with mail: {}", email);
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        Optional<StravaAccount> accountOpt = stravaAccountRepository.findByUser(user);
+        if (accountOpt.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No linked Strava account found");
+        }
+        StravaAccount account = accountOpt.get();
+
+        LOGGER.info("Get Strava activities for user: {}", account);
+        return stravaActivityRepository.findByStravaAccount(account);
+
     }
 
     @Transactional
