@@ -10,4 +10,7 @@ public interface TestData {
 
 	String DEFAULT_USER_EMAIL = "email0@smartroute.com";
 
+	String ORIGIN = "http://localhost:4200";
+
+
 }

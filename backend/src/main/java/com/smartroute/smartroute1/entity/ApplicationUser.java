@@ -1,11 +1,22 @@
 package com.smartroute.smartroute1.entity;
 
+import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
+import com.smartroute.smartroute1.entity.enums.Sex;
+import com.smartroute.smartroute1.entity.enums.Weekday;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Column;
 import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 
 
 @Data
@@ -30,6 +41,25 @@ public class ApplicationUser {
 
     @Column(nullable = false)
     private boolean verified = false;
+
+    @Column
+    private Sex sex;
+
+    @Column
+    private Integer height;
+
+    @Column
+    private BigDecimal weight;
+
+    @Column
+    private LocalDate birthdate;
+
+    @Column
+    private ExperienceLevel experienceLevel;
+
+    @ElementCollection
+    @Enumerated(EnumType.STRING)
+    private Set<Weekday> activeWeekdays = new HashSet<>();
 
     public ApplicationUser() {
     }
