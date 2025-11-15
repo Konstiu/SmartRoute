@@ -182,8 +182,10 @@ class StravaServiceTest extends BaseTest {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> stravaService.importStravaActivities(email));
 
-        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode());
-        assertTrue(ex.getReason().contains("Strava API 4xx"));
+        assertAll(
+                () -> assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode()),
+                () -> assertTrue(ex.getReason().contains("Strava API 4xx"))
+        );
     }
 
     @Test
@@ -203,8 +205,10 @@ class StravaServiceTest extends BaseTest {
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> stravaService.importStravaActivities(email));
 
-        assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatusCode());
-        assertTrue(ex.getReason().contains("Strava API 5xx"));
+        assertAll(
+                () -> assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatusCode()),
+                () -> assertTrue(ex.getReason().contains("Strava API 5xx"))
+        );
     }
 
     @Test
