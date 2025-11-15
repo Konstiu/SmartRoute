@@ -2,7 +2,10 @@ package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
+import com.smartroute.smartroute1.endpoint.dto.StravaActivityViewDto;
 import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
+import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
+import com.smartroute.smartroute1.entity.StravaActivity;
 import com.smartroute.smartroute1.service.StravaService;
 import com.smartroute.smartroute1.service.impl.StravaOauthServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +29,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -41,6 +45,7 @@ public class StravaEndpoint {
     private String baseUrl;
     @Value("${app.frontendUrl}")
     private String frontendUrl;
+    private final StravaActivityMapper activityMapper;
 
     @Operation(
             summary = "Start Strava OAuth connection",
@@ -127,4 +132,20 @@ public class StravaEndpoint {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return stravaService.importStravaAthlete(authentication.getName());
     }
+
+
+    @GetMapping("activities/imp")
+    @ResponseStatus(HttpStatus.OK)
+    @Secured("ROLE_USER")
+    public List<StravaActivityViewDto> getStravaActivities() {
+        LOGGER.info("GET /api/v1/strava/activities/imp");
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        List<StravaActivity> list = stravaService.getStravaActivities(auth.getName());
+        List<StravaActivityViewDto> dtos = new ArrayList<>();
+        for (StravaActivity stravaActivity : list) {
+            dtos.add(activityMapper.toViewDto(stravaActivity));
+        }
+        return dtos;
+    }
+
 }

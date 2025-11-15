@@ -10,6 +10,7 @@ import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +21,7 @@ import java.util.List;
 @Profile("generateData")
 @Component
 @AllArgsConstructor
+@DependsOn("userDataGenerator")
 public class StravaDataGenerator {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final int NUMBER_OF_ACTIVITIES_PER_USER = 3;
