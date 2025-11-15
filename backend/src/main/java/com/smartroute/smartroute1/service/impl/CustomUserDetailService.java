@@ -2,6 +2,7 @@ package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
 import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
+import com.smartroute.smartroute1.endpoint.dto.PersonalDataDto;
 import com.smartroute.smartroute1.endpoint.dto.UserLoginDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.exception.NotFoundException;
@@ -9,6 +10,7 @@ import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.security.JwtTokenizer;
 import com.smartroute.smartroute1.service.EmailSmtpService;
+import com.smartroute.smartroute1.service.RateLimitCheck;
 import com.smartroute.smartroute1.service.UserService;
 import com.smartroute.smartroute1.service.validators.UserValidator;
 import org.slf4j.Logger;
@@ -35,14 +37,16 @@ public class CustomUserDetailService implements UserService {
     private final JwtTokenizer jwtTokenizer;
     private final UserValidator validator;
     private final EmailSmtpService emailService;
+    private final RateLimitCheck rateLimitCheck;
 
     @Autowired
-    public CustomUserDetailService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenizer jwtTokenizer, UserValidator validator, EmailSmtpService emailService) {
+    public CustomUserDetailService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenizer jwtTokenizer, UserValidator validator, EmailSmtpService emailService, RateLimitCheck rateLimitCheck) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenizer = jwtTokenizer;
         this.validator = validator;
         this.emailService = emailService;
+        this.rateLimitCheck = rateLimitCheck;
     }
 
     @Override
@@ -103,15 +107,33 @@ public class CustomUserDetailService implements UserService {
         emailService.sendVerificationEmail(userDto, origin);
 
         String encodedPassword = passwordEncoder.encode(toCreate.password);
-
-        ApplicationUser applicationUser = new ApplicationUser(
-            toCreate.email,
-            encodedPassword,
-            toCreate.firstname.trim().replaceAll("\\s+", " "),
-            toCreate.lastname.trim().replaceAll("\\s+", " ")
+        final ApplicationUser applicationUser = new ApplicationUser(
+                toCreate.email,
+                encodedPassword,
+                toCreate.firstname.trim().replaceAll("\\s+", " "),
+                toCreate.lastname.trim().replaceAll("\\s+", " ")
         );
 
         return userRepository.save(applicationUser);
+    }
+
+    @Override
+    public ApplicationUser updatePersonalData(PersonalDataDto personalData, String userEmail) throws ValidationException {
+        LOGGER.trace("Update user by PersonalDataDto: {}, {}", personalData, userEmail);
+        validator.validatePersonalData(personalData);
+        ApplicationUser user = userRepository.findUserByEmail(userEmail);
+        if (user == null) {
+            throw new NotFoundException(String.format("Could not find the user with the email %s", userEmail));
+        }
+
+        user.setSex(personalData.getSex());
+        user.setHeight(personalData.getHeight());
+        user.setWeight(personalData.getWeight());
+        user.setBirthdate(personalData.getBirthdate());
+        user.setExperienceLevel(personalData.getExperienceLevel());
+        user.setActiveWeekdays(personalData.getActiveWeekdays());
+
+        return userRepository.save(user);
     }
 
     @Override
@@ -153,6 +175,7 @@ public class CustomUserDetailService implements UserService {
                     userDto.setEmail(email);
                     userDto.setFirstname(applicationUser.getFirstname());
                     userDto.setLastname(applicationUser.getLastname());
+                    rateLimitCheck.check(email, "verification");
                     emailService.sendVerificationEmail(userDto, origin);
                 }
             }
@@ -172,6 +195,7 @@ public class CustomUserDetailService implements UserService {
                     && userDetails.isCredentialsNonExpired()
             ) {
                 ApplicationUser applicationUser = findApplicationUserByEmail(email);
+                rateLimitCheck.check(email, "password");
                 emailService.sendPasswordResetEmail(applicationUser, origin);
             }
         } catch (UsernameNotFoundException | NotFoundException ignored) {
