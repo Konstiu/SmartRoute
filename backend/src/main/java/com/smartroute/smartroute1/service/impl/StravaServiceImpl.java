@@ -93,10 +93,6 @@ public class StravaServiceImpl implements StravaService {
             throw new ResponseStatusException(e.getStatusCode(), "Strava API error: " + e.getResponseBodyAsString(), e);
         }
 
-        if (activities == null || activities.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No activities found");
-        }
-
         LOGGER.debug("Number of imported Strava activities: {}", activities.size());
         saveImportedActivities(activities, account);
 
@@ -188,10 +184,6 @@ public class StravaServiceImpl implements StravaService {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Strava API unavailable " + e.getMessage());
         } catch (WebClientResponseException e) {
             throw new ResponseStatusException(e.getStatusCode(), "Strava API error: " + e.getResponseBodyAsString(), e);
-        }
-
-        if (zones == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No zones found");
         }
 
         LOGGER.debug("Imported Strava zones: {}", zones);
