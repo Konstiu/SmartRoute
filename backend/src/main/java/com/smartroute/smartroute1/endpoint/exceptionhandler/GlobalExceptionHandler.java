@@ -2,6 +2,7 @@ package com.smartroute.smartroute1.endpoint.exceptionhandler;
 
 import com.smartroute.smartroute1.exception.ErrorListException;
 import com.smartroute.smartroute1.exception.NotFoundException;
+import com.smartroute.smartroute1.exception.StravaAuthorizationException;
 import com.smartroute.smartroute1.exception.RateLimitExceededException;
 import com.smartroute.smartroute1.exception.ValidationException;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.lang.invoke.MethodHandles;
@@ -102,5 +104,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleValidation(ErrorListException ex, WebRequest request) {
         LOGGER.warn(ex.getMessage());
         return handleExceptionInternal(ex, ex.getMessage(), new HttpHeaders(), HttpStatus.UNPROCESSABLE_ENTITY, request);
+    }
+
+    @ExceptionHandler(value = {StravaAuthorizationException.class})
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    protected ResponseEntity<Object> handleStravaAuth(StravaAuthorizationException ex, WebRequest request) {
+        LOGGER.warn("Strava authorization failed: {}", ex.getMessage());
+        return handleExceptionInternal(ex, ex.getMessage(), new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
+    }
+
+    @ExceptionHandler(value = {ResponseStatusException.class})
+    protected ResponseEntity<Object> handleResponseStatus(ResponseStatusException ex, WebRequest request) {
+        LOGGER.warn("Request failed: {} - {}", ex.getStatusCode(), ex.getReason());
+        return handleExceptionInternal(ex, ex.getReason(), new HttpHeaders(), ex.getStatusCode(), request);
     }
 }
