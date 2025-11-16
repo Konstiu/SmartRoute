@@ -9,7 +9,7 @@
   margin-bottom: 2rem;
 
   ion-icon {
-    font-size: 4.5rem; // instead of 80px
+    font-size: 4.5rem;
     color: var(--ion-color-primary);
 
   }
@@ -52,6 +52,16 @@ ion-input {
 .password-item {
   align-items: center;
 }
+
+.app-logo {
+  display: block;
+  margin: 0 auto 1rem;
+  width: clamp(4rem, 20vw, 6rem);
+  height: auto;
+  border-radius: 1rem;
+  animation: fadeIn 0.6s ease-out;
+}
+
 
 .links-container {
   margin-top: 2rem;
