@@ -76,7 +76,7 @@ export class LoginPage {
   }
 
   goToPasswordReset() {
-    this.router.navigate(['/password-reset']);
+    this.router.navigate(['/request-password-reset']);
   }
 
   private async showToast(message: string, color: string) {

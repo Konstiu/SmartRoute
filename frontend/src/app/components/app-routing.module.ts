@@ -21,6 +21,14 @@ const routes: Routes = [
     // NO canActivate - public route!
   },
   {
+    path: 'request-password-reset',
+    loadComponent: () => import('./resetPassword/request-password-reset/request-reset-password.page').then(m => m.RequestResetPasswordPage),
+  },
+  {
+    path: 'password_reset/:token',
+    loadComponent: () => import('./resetPassword/reset-password.page').then(m => m.ResetPasswordPage)
+  },
+  {
     path: '**',
     loadComponent: () => import('./register/register.page').then(m => m.RegisterPage),
     canActivate:[AuthGuard]
