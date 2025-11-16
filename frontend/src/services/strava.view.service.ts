@@ -21,7 +21,7 @@ export class StravaViewService {
   private getAuthHeaders(): HttpHeaders {
     const token = localStorage.getItem('authToken'); // Adjust based on where you store the token
     return new HttpHeaders({
-      'Authorization': `Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJzZWN1cmUtYmFja2VuZCIsImF1ZCI6InNlY3VyZS1hcHAiLCJzdWIiOiJlbWFpbDBAc21hcnRyb3V0ZS5jb20iLCJleHAiOjE3NjMyNDUyMDgsInJvbCI6WyJST0xFX1VTRVIiXX0.bQXpPrXiDDcugOvVZK5OUHHbBmxKjRt8Jg0gRi1cFZhKO6FXc016dql_0AFgs6Hjuu2vReg-LBA-nIXBQJy8Eg`,
+      'Authorization': `Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJzZWN1cmUtYmFja2VuZCIsImF1ZCI6InNlY3VyZS1hcHAiLCJzdWIiOiJlbWFpbDBAc21hcnRyb3V0ZS5jb20iLCJleHAiOjE3NjMzMjgzODUsInJvbCI6WyJST0xFX1VTRVIiXX0.MLo-P45zKZlfqpVuCadQSbyGwfwJc28oqA-z6TAfB6dxMSxkXipTnYT0-L-ni6bYCtE-LLa-HK1rkyu0LmVqRw`,
       'Content-Type': 'application/json'
     });
     //TODO: Here we have to actually du {token} but because no login module is ready yet we have to set the token ourselves for now

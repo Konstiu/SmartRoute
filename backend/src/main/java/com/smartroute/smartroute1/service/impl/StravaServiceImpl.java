@@ -137,7 +137,7 @@ public class StravaServiceImpl implements StravaService {
             entity.setKilojoules(dto.getKilojoules());
             entity.setKudosCount(dto.getKudosCount());
             entity.setStravaAccount(account);
-            entity.setMap(dto.getMap().getSummaryPolyline());
+            entity.setMap(dto.getMap()!=null? dto.getMap().getSummaryPolyline():null);
             stravaActivityRepository.save(entity);
             LOGGER.debug("Saved Strava activity: {}", entity);
         }
