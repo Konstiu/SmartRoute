@@ -84,7 +84,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
       // Add tile layer
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Data from <a href="https://www.strava.com">Strava</a>'
+        //attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Data from <a href="https://www.strava.com">Strava</a>'
       }).addTo(this.map);
 
       // Decode and add polylines
