@@ -1,6 +1,9 @@
 package com.smartroute.smartroute1.basetest;
 
+import com.smartroute.smartroute1.datagenerator.StravaDataGenerator;
 import com.smartroute.smartroute1.datagenerator.UserDataGenerator;
+import com.smartroute.smartroute1.repository.StravaAccountRepository;
+import com.smartroute.smartroute1.repository.StravaActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,27 +13,39 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class BaseTest {
 
-	@Autowired
-	protected UserRepository userRepository;
+    @Autowired
+    protected UserRepository userRepository;
 
-	@Autowired
-	private UserDataGenerator userDataGenerator;
+    @Autowired
+    private UserDataGenerator userDataGenerator;
 
-	@BeforeEach
-	void setUp() {
-		generateData();
-	}
+    @Autowired
+    private StravaAccountRepository stravaAccountRepository;
 
-	@AfterEach
-	void tearDown() {
-		clearData();
-	}
+    @Autowired
+    private StravaDataGenerator stravaAccountDataGenerator;
 
-	private void generateData() {
-		userDataGenerator.generateUser();
-	}
+    @Autowired
+    private StravaActivityRepository stravaActivityRepository;
 
-	private void clearData() {
-		userRepository.deleteAll();
-	}
+    @BeforeEach
+    void setUp() {
+        generateData();
+    }
+
+    @AfterEach
+    void tearDown() {
+        clearData();
+    }
+
+    private void generateData() {
+        userDataGenerator.generateUser();
+        stravaAccountDataGenerator.generateAccounts();
+    }
+
+    private void clearData() {
+        stravaActivityRepository.deleteAll();
+        stravaAccountRepository.deleteAll();
+        userRepository.deleteAll();
+    }
 }
