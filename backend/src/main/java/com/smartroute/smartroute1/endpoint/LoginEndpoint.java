@@ -23,4 +23,5 @@ public class LoginEndpoint {
     public String login(@RequestBody UserLoginDto userLoginDto) {
         return userService.login(userLoginDto);
     }
+
 }

@@ -1,0 +1,70 @@
+image: registry.reset.inso-w.at/pub/docker/cypress:latest
+
+variables:
+  GIT_STRATEGY: "clone"
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2"
+
+stages:
+  - test
+  - build
+  - deploy
+
+# -------- BACKEND TEST --------
+test-backend:
+  stage: test
+  image: maven:3-eclipse-temurin-21
+  script:
+    - cd backend
+    - mvn -B clean test
+  cache:
+    paths:
+      - backend/.m2/repository
+
+# -------- FRONTEND BUILD --------
+frontend-build:
+  stage: build
+  image: node:24
+  script:
+    - cd frontend
+    - npm install
+    - npm run build
+    - rm -rf ../backend/src/main/resources/static/*
+    - mkdir -p ../backend/src/main/resources/static
+    - cp -r www/* ../backend/src/main/resources/static/
+  cache:
+    paths:
+      - frontend/node_modules
+  artifacts:
+    paths:
+      - backend/src/main/resources/static
+    expire_in: 1 hour
+
+# -------- BACKEND DOCKER IMAGE BUILD --------
+backend-build-image:
+  stage: build
+  image: maven:3-eclipse-temurin-21
+  script:
+    - cd backend
+    - mvn -B clean package -DskipTests
+    - mvn -B jib:build \
+        -Djib.to.image=registry.reset.inso-w.at/$CI_PROJECT_PATH \
+        -Djib.to.tags=$CI_PIPELINE_ID \
+        -Djib.to.auth.username=$CI_REGISTRY_USER \
+        -Djib.to.auth.password=$CI_REGISTRY_PASSWORD
+  needs:
+    - frontend-build
+  only:
+    - master
+
+# -------- DEPLOYMENT --------
+deploy:
+  stage: deploy
+  image: bitnami/kubectl
+  script:
+    - sed -i 's/:latest/:'"$CI_PIPELINE_ID"'/g' kubernetes.yaml
+    - cat kubernetes.yaml
+    - kubectl apply -f kubernetes.yaml
+  only:
+    - master
+  needs:
+    - backend-build-image

@@ -1,13 +1,25 @@
 package com.smartroute.smartroute1.entity;
 
+import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
+import com.smartroute.smartroute1.entity.enums.Sex;
+import com.smartroute.smartroute1.entity.enums.Weekday;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Column;
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
 
 
-
+@Data
 @Entity
 public class ApplicationUser {
 
@@ -22,38 +34,43 @@ public class ApplicationUser {
     private String password;
 
     @Column(nullable = false, length = 100)
-    private Boolean admin;
+    private String firstname;
+
+    @Column(nullable = false, length = 100)
+    private String lastname;
+
+    @Column(nullable = false)
+    private boolean verified = false;
+
+    @Column
+    private Sex sex;
+
+    @Column
+    private Integer height;
+
+    @Column
+    private BigDecimal weight;
+
+    @Column
+    private LocalDate birthdate;
+
+    @Column
+    private ExperienceLevel experienceLevel;
+
+    @ElementCollection
+    @Enumerated(EnumType.STRING)
+    private Set<Weekday> activeWeekdays = new HashSet<>();
 
     public ApplicationUser() {
     }
 
-    public ApplicationUser(String email, String password, Boolean admin) {
+    public ApplicationUser(String email, String password, String firstname, String lastname) {
         this.email = email;
         this.password = password;
-        this.admin = admin;
-    }
+        this.firstname = firstname;
+        this.lastname = lastname;
+        this.verified = false;
 
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
-    public Boolean getAdmin() {
-        return admin;
-    }
-
-    public void setAdmin(Boolean admin) {
-        this.admin = admin;
     }
 }
+
