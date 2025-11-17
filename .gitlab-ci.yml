@@ -1,4 +1,4 @@
-image: registry.reset.inso-w.at/pub/docker/mvn-non-root-21
+image: registry.reset.inso-w.at/pub/docker/debian-mvn
 
 variables:
   GIT_STRATEGY: "clone"
