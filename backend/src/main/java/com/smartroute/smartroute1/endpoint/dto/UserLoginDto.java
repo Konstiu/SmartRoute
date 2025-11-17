@@ -2,9 +2,11 @@ package com.smartroute.smartroute1.endpoint.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
+import lombok.Data;
 
 import java.util.Objects;
 
+@Data
 public class UserLoginDto {
 
     @NotNull(message = "Email must not be null")
@@ -13,22 +15,6 @@ public class UserLoginDto {
 
     @NotNull(message = "Password must not be null")
     private String password;
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
-
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
 
     @Override
     public boolean equals(Object o) {
