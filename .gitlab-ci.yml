@@ -1,4 +1,4 @@
-image: registry.reset.inso-w.at/pub/docker/debian-mvn
+image: registry.reset.inso-w.at/pub/docker/cypress:latest
 
 variables:
   GIT_STRATEGY: "clone"
@@ -29,7 +29,7 @@ frontend-build:
     - npm run build
     - rm -rf ../backend/src/main/resources/static/*
     - mkdir -p ../backend/src/main/resources/static
-    - cp -r dist/* ../backend/src/main/resources/static/
+    - cp -r www/* ../backend/src/main/resources/static/
   cache:
     paths:
       - frontend/node_modules
