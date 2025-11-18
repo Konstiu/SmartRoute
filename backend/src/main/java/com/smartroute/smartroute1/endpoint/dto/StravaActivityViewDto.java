@@ -21,6 +21,5 @@ public class StravaActivityViewDto {
     private Float maxHeartrate;
     private Float averageWatts;
     private Float kilojoules;
-    private Integer kudosCount;
     private String summaryPolyline;
 }
