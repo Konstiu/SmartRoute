@@ -133,7 +133,7 @@ class StravaServiceTest extends BaseTest {
         StravaActivity saved = stored.getFirst();
 
         assertAll(
-                () -> assertEquals(1L, saved.getId()),
+                () -> assertEquals(1L, saved.getStravaId()),
                 () -> assertEquals("Morning Run", saved.getName()),
                 () -> assertEquals(25000.0f, saved.getDistance()),
                 () -> assertEquals(3600, saved.getMovingTime()),
