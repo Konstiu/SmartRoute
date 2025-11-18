@@ -159,6 +159,18 @@
             <version>2.1.7</version>
             <scope>test</scope>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/io.jenetics/jpx -->
+        <dependency>
+            <groupId>io.jenetics</groupId>
+            <artifactId>jpx</artifactId>
+            <version>3.2.1</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/io.leonard/google-polyline-codec -->
+        <dependency>
+            <groupId>io.leonard</groupId>
+            <artifactId>google-polyline-codec</artifactId>
+            <version>0.0.2</version>
+        </dependency>
     </dependencies>
 
     <build>

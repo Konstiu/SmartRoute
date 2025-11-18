@@ -35,4 +35,35 @@ public interface StravaActivityMapper {
 
         return entity;
     }
+
+    default StravaActivityDto entityToDto(StravaActivity entity) {
+        StravaActivityDto dto = new StravaActivityDto();
+
+        if (entity != null) {
+            dto.setId(entity.getId());
+            dto.setName(entity.getName());
+            dto.setDistance(entity.getDistance());
+            dto.setMovingTime(entity.getMovingTime());
+            dto.setElapsedTime(entity.getElapsedTime());
+            dto.setTotalElevationGain(entity.getTotalElevationGain());
+            dto.setType(entity.getType());
+            dto.setSportType(entity.getSportType());
+            dto.setStartDate(entity.getStartDate());
+            dto.setStartDateLocal(entity.getStartDateLocal());
+            dto.setAverageSpeed(entity.getAverageSpeed());
+            dto.setMaxSpeed(entity.getMaxSpeed());
+            dto.setAverageHeartrate(entity.getAverageHeartrate());
+            dto.setMaxHeartrate(entity.getMaxHeartrate());
+            dto.setAverageWatts(entity.getAverageWatts());
+            dto.setKilojoules(entity.getKilojoules());
+            dto.setSufferScore(entity.getSufferScore());
+            if (entity.getSummaryPolyline() != null) {
+                StravaActivityDto.StravaMap mapDto = new StravaActivityDto.StravaMap();
+                mapDto.setSummaryPolyline(entity.getSummaryPolyline());
+                dto.setMap(mapDto);
+            }
+        }
+
+        return dto;
+    }
 }
