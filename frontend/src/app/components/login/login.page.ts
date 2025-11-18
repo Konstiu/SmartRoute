@@ -31,15 +31,11 @@ export class LoginPage {
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(8)]]
+      password: ['', [Validators.required]]
     });
   }
 
   async login() {
-    if (this.loginForm.invalid) {
-      this.showToast('Please fill in all fields correctly', 'warning');
-      return;
-    }
 
     const loading = await this.loadingCtrl.create({
       message: 'Logging in...',
