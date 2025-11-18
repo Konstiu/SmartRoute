@@ -27,7 +27,7 @@ export class RecentRunsPage implements OnInit {
     this.isLoading = true;
     this.error = null;
 
-    this.stravaService.getRecentActivities(1, 30).subscribe({
+    this.stravaService.getRecentActivities().subscribe({
       next: (data) => {
         this.activities = data;
         this.isLoading = false;

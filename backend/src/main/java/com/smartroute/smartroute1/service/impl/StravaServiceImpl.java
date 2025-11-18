@@ -262,9 +262,21 @@ public class StravaServiceImpl implements StravaService {
         }
         StravaAccount account = accountOpt.get();
 
-        LOGGER.info("Get Strava activities for user: {}", account);
         return stravaActivityRepository.findByStravaAccount(account);
 
+    }
+
+    @Override
+    public StravaActivity getStravaActivity(String email, long id) {
+        LOGGER.trace("Get Strava activities for user with mail: {}", email);
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        Optional<StravaAccount> accountOpt = stravaAccountRepository.findByUser(user);
+        if (accountOpt.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No linked Strava account found");
+        }
+        StravaAccount account = accountOpt.get();
+
+        return stravaActivityRepository.findByIdAndStravaAccount(id, account);
     }
 
     @Transactional

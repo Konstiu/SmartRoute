@@ -3,7 +3,7 @@ import {ActivatedRoute} from '@angular/router';
 import {IonicModule} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {StravaViewService} from '../../../../services/strava.view.service';
-import {StravaActivity} from '../../../dtos/StravaActivity';
+import {DetailedStravaActivity} from '../../../dtos/StravaActivity';
 import * as L from 'leaflet';
 
 @Component({
@@ -16,7 +16,7 @@ import * as L from 'leaflet';
 export class ActivityDetailPage implements OnInit, AfterViewInit {
   @ViewChild('map', {static: false}) mapElement!: ElementRef;
 
-  activity: StravaActivity | null = null;
+  activity: DetailedStravaActivity | null = null;
   isLoading = true;
   error: string | null = null;
   map: L.Map | null = null;

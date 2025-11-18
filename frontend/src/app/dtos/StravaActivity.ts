@@ -1,4 +1,4 @@
-export interface StravaActivity {
+export interface DetailedStravaActivity {
   id: number;
   name: string;
   distance: number;
@@ -16,4 +16,16 @@ export interface StravaActivity {
   averageWatts: number | null;
   kilojoules: number | null;
   summaryPolyline: string|null;
+}
+
+export interface StravaActivity {
+  id: number;
+  name: string;
+  distance: number;
+  movingTime: number;
+  totalElevationGain: number;
+  sportType: string;
+  startDateLocal: string;
+  averageSpeed: number;
+  averageHeartrate: number | null;
 }

@@ -1,6 +1,7 @@
 package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
+import com.smartroute.smartroute1.endpoint.dto.DetailedStravaActivityViewDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityViewDto;
 import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
@@ -26,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
@@ -60,13 +62,13 @@ import java.util.List;
                 
                 1. Authenticate your API user
                     Obtain a Bearer token (JWT) by sending:
-                    
+                
                     ```
                     POST {backendBaseUrl}/api/v1/authentication
                     ```
-                    
+                
                     with a valid request body.
-                    
+                
                     Use any tool like **Postman**, **Insomnia**, or **cURL**.
                 
                 2. Open the following URL in your browser:
@@ -101,7 +103,7 @@ import java.util.List;
                    - Athlete Profile  
                    - Activities  
                    - Heart Rate Zones  
-                    
+                
                    If no frontend exists, the redirect will simply show a blank page.  
                    Connection still succeeds.
                 
@@ -211,7 +213,7 @@ public class StravaEndpoint {
     @ResponseStatus(HttpStatus.OK)
     @Secured("ROLE_USER")
     public List<StravaActivityViewDto> getStravaActivities() {
-        LOGGER.info("GET /api/v1/strava/activities/imp");
+        LOGGER.info("GET /api/v1/strava/activities/view");
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         List<StravaActivity> list = stravaService.getStravaActivities(auth.getName());
         List<StravaActivityViewDto> dtos = new ArrayList<>();
@@ -219,6 +221,16 @@ public class StravaEndpoint {
             dtos.add(activityMapper.toViewDto(stravaActivity));
         }
         return dtos;
+    }
+
+    @GetMapping("activity/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    @Secured("ROLE_USER")
+    public DetailedStravaActivityViewDto getOneStravaActivity(@PathVariable("id") long id) {
+        LOGGER.info("GET /api/v1/strava/activity/{}", id);
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        StravaActivity activity = stravaService.getStravaActivity(auth.getName(), id);
+        return activityMapper.toDetailedViewDto(activity);
     }
 
 }

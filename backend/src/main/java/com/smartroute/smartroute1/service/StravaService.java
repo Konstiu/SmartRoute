@@ -42,4 +42,6 @@ public interface StravaService {
     AthleteDetailDto importStravaAthlete(String email);
 
     List<StravaActivity> getStravaActivities(String email);
+
+    StravaActivity getStravaActivity(String email, long id);
 }
