@@ -13,7 +13,7 @@ public interface StravaActivityMapper {
             entity = new StravaActivity();
         }
 
-        entity.setId(dto.getId());
+        entity.setStravaId(dto.getId());
         entity.setName(dto.getName());
         entity.setDistance(dto.getDistance());
         entity.setMovingTime(dto.getMovingTime());
@@ -40,7 +40,7 @@ public interface StravaActivityMapper {
         StravaActivityDto dto = new StravaActivityDto();
 
         if (entity != null) {
-            dto.setId(entity.getId());
+            dto.setId(entity.getStravaId() != null ? entity.getStravaId() : entity.getId());
             dto.setName(entity.getName());
             dto.setDistance(entity.getDistance());
             dto.setMovingTime(entity.getMovingTime());

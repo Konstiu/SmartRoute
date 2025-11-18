@@ -70,7 +70,7 @@ public class StravaDataGenerator {
 
                 for (int i = 0; i < NUMBER_OF_ACTIVITIES_PER_USER; i++) {
                     StravaActivity sa = new StravaActivity();
-                    sa.setId(id++);
+                    sa.setStravaId(id++);
                     sa.setName("Activity " + i);
 
                     float distance = (float) (1 + Math.random() * 25); // 1-26 km
