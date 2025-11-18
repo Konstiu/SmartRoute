@@ -3,7 +3,6 @@ package com.smartroute.smartroute1.service;
 import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
-import com.smartroute.smartroute1.entity.StravaActivity;
 
 import java.util.List;
 
