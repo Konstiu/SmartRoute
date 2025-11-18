@@ -24,6 +24,7 @@ public class WeatherServiceImpl implements WeatherService {
 
     @Override
     public WeatherResponse getHourlyWeather(double latitude, double longitude) {
+        validateCoordinates(latitude, longitude);
         String url = UriComponentsBuilder.fromHttpUrl("https://api.open-meteo.com/v1/forecast")
                 .queryParam("latitude", latitude)
                 .queryParam("longitude", longitude)
@@ -35,6 +36,7 @@ public class WeatherServiceImpl implements WeatherService {
         try {
             ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
             JsonNode root = mapper.readTree(response.getBody());
+            validateHourlyData(root);
             JsonNode hourly = root.path("hourly");
 
             List<String> time = new ArrayList<>();
@@ -61,6 +63,31 @@ public class WeatherServiceImpl implements WeatherService {
         } catch (Exception e) {
             LOGGER.warn("Error fetching or parsing hourly weather data", e);
             throw new ApiException("Failed to retrieve hourly weather data", e);
+        }
+    }
+
+    private void validateHourlyData(JsonNode root) {
+        JsonNode hourly = root.path("hourly");
+
+        if (hourly.isMissingNode() || !hourly.has("time")) {
+            throw new ApiException("Weather API response is missing 'hourly.time' data");
+        }
+
+        if (!hourly.has("temperature_2m")
+                || !hourly.has("precipitation")
+                || !hourly.has("wind_speed_10m")) {
+            throw new ApiException("Weather API response is missing required hourly fields");
+        }
+
+        int size = hourly.get("time").size();
+        if (size == 0) {
+            throw new ApiException("Weather API returned no hourly entries");
+        }
+    }
+
+    private void validateCoordinates(double latitude, double longitude) {
+        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            throw new ApiException("Invalid coordinates: latitude/longitude out of bounds");
         }
     }
 }
