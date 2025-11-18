@@ -1,6 +1,6 @@
 package com.smartroute.smartroute1.endpoint;
 
-import com.smartroute.smartroute1.entity.WeatherResponse;
+import com.smartroute.smartroute1.entity.weather.WeatherResponse;
 import com.smartroute.smartroute1.service.WeatherService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
