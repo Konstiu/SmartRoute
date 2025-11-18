@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.endpoint.mapper;
 
+import com.smartroute.smartroute1.endpoint.dto.DetailedStravaActivityViewDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityViewDto;
 import com.smartroute.smartroute1.entity.StravaAccount;
@@ -37,8 +38,8 @@ public interface StravaActivityMapper {
         return entity;
     }
 
-    default StravaActivityViewDto toViewDto(StravaActivity entity) {
-        StravaActivityViewDto dto = new StravaActivityViewDto();
+    default DetailedStravaActivityViewDto toDetailedViewDto(StravaActivity entity) {
+        DetailedStravaActivityViewDto dto = new DetailedStravaActivityViewDto();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
         dto.setDistance(entity.getDistance());
@@ -56,6 +57,22 @@ public interface StravaActivityMapper {
         dto.setAverageWatts(entity.getAverageWatts());
         dto.setKilojoules(entity.getKilojoules());
         dto.setSummaryPolyline(entity.getSummaryPolyline());
+        return dto;
+
+    }
+
+    default StravaActivityViewDto toViewDto(StravaActivity entity) {
+        StravaActivityViewDto dto = new StravaActivityViewDto();
+        dto.setId(entity.getId());
+        dto.setName(entity.getName());
+        dto.setDistance(entity.getDistance());
+        dto.setMovingTime(entity.getMovingTime());
+        dto.setTotalElevationGain(entity.getTotalElevationGain());
+        dto.setSportType(entity.getSportType());
+        dto.setStartDateLocal(entity.getStartDateLocal());
+        dto.setAverageSpeed(entity.getAverageSpeed());
+        dto.setAverageHeartrate(entity.getAverageHeartrate());
+        dto.setAverageWatts(entity.getAverageWatts());
         return dto;
 
     }

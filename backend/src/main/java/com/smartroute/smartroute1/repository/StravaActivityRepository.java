@@ -8,4 +8,6 @@ import java.util.List;
 
 public interface StravaActivityRepository extends JpaRepository<StravaActivity, Long> {
     List<StravaActivity> findByStravaAccount(StravaAccount account);
+
+    StravaActivity findByIdAndStravaAccount(Long id, StravaAccount stravaAccount);
 }
