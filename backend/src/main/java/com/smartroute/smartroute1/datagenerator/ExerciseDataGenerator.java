@@ -30,7 +30,7 @@ public class ExerciseDataGenerator {
 
     @PostConstruct
     public void importExercises() {
-        if (repository.findAll().isEmpty()) {
+        if (!repository.findAll().isEmpty()) {
             LOGGER.info("Exercises already generated");
         } else {
             try {

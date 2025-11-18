@@ -32,7 +32,7 @@ public class ViennaPointDataGenerator {
     @PostConstruct
     public void importPointsOfInterest() {
 
-        if (repository.findAll().isEmpty()) {
+        if (!repository.findAll().isEmpty()) {
             LOGGER.info("Points of Interest already generated");
         } else {
             ClassPathResource fountains = new ClassPathResource(FOUNTAINFILENAME);
