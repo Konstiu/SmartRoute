@@ -19,12 +19,11 @@ export class StravaViewService {
    * Get authorization headers with Bearer token
    */
   private getAuthHeaders(): HttpHeaders {
-    const token = localStorage.getItem('authToken'); // Adjust based on where you store the token
+    const token = localStorage.getItem('authToken');
     return new HttpHeaders({
-      'Authorization': `Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJpc3MiOiJzZWN1cmUtYmFja2VuZCIsImF1ZCI6InNlY3VyZS1hcHAiLCJzdWIiOiJlbWFpbDBAc21hcnRyb3V0ZS5jb20iLCJleHAiOjE3NjMzMjgzODUsInJvbCI6WyJST0xFX1VTRVIiXX0.MLo-P45zKZlfqpVuCadQSbyGwfwJc28oqA-z6TAfB6dxMSxkXipTnYT0-L-ni6bYCtE-LLa-HK1rkyu0LmVqRw`,
+      'Authorization': token ? `Bearer ${token}` : '',
       'Content-Type': 'application/json'
     });
-    //TODO: Here we have to actually du {token} but because no login module is ready yet we have to set the token ourselves for now
   }
 
   /**
@@ -33,7 +32,7 @@ export class StravaViewService {
    * @param perPage Number of activities per page (default 30, max 200)
    */
   getRecentActivities(page: number = 1, perPage: number = 30): Observable<StravaActivity[]> {
-    const url = `${this.userUri}/activities/imp`;
+    const url = `${this.userUri}/activities/view`;
     return this.http.get<StravaActivity[]>(url, { headers: this.getAuthHeaders() });
   }
 

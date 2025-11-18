@@ -15,5 +15,5 @@ export interface StravaActivity {
   maxHeartrate: number | null;
   averageWatts: number | null;
   kilojoules: number | null;
-  kudosCount: number | null;
+  summaryPolyline: string|null;
 }
