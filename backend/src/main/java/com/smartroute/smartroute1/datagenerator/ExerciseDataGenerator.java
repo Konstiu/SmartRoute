@@ -30,28 +30,32 @@ public class ExerciseDataGenerator {
 
     @PostConstruct
     public void importExercises() {
-        try {
-            LOGGER.info("Importing exercises.json");
-            ObjectMapper mapper = new ObjectMapper();
-            InputStream is = getClass().getClassLoader().getResourceAsStream(EXERCISEFILENAME);
+        if (!repository.findAll().isEmpty()) {
+            LOGGER.info("Exercises already generated");
+        } else {
+            try {
+                LOGGER.info("Importing exercises.json");
+                ObjectMapper mapper = new ObjectMapper();
+                InputStream is = getClass().getClassLoader().getResourceAsStream(EXERCISEFILENAME);
 
-            if (is == null) {
-                LOGGER.error("Could not find exercises.json");
-                return;
+                if (is == null) {
+                    LOGGER.error("Could not find exercises.json");
+                    return;
+                }
+
+                List<ExerciseDto> dtos = mapper.readValue(
+                        is,
+                        new TypeReference<List<ExerciseDto>>() {
+                        }
+                );
+
+                List<Exercise> entities = dtos.stream().map(this::mapToEntity).toList();
+
+                repository.saveAll(entities);
+                LOGGER.info("Successfully imported " + dtos.size() + " exercises");
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-
-            List<ExerciseDto> dtos = mapper.readValue(
-                    is,
-                    new TypeReference<List<ExerciseDto>>() {
-                    }
-            );
-
-            List<Exercise> entities = dtos.stream().map(this::mapToEntity).toList();
-
-            repository.saveAll(entities);
-            LOGGER.info("Successfully imported " + dtos.size() + " exercises");
-        } catch (IOException e) {
-            throw new RuntimeException(e);
         }
     }
 
