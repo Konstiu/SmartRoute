@@ -2,8 +2,8 @@ package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
-import com.smartroute.smartroute1.endpoint.dto.StravaActivityViewDto;
 import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
+import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.AthleteDetail;
 import com.smartroute.smartroute1.entity.StravaAccount;
@@ -46,6 +46,7 @@ public class StravaServiceImpl implements StravaService {
     private final StravaZoneRepository stravaZoneRepository;
     private final StravaActivityRepository stravaActivityRepository;
     private final AthleteDetailRepository athleteDetailRepository;
+    private final StravaActivityMapper activityMapper;
 
     @Override
     @Transactional
@@ -111,33 +112,12 @@ public class StravaServiceImpl implements StravaService {
         }
 
         for (StravaActivityDto dto : stravaActivities) {
-            StravaActivity entity;
-            if (stravaActivityRepository.existsById(dto.getId())) {
-                entity = stravaActivityRepository.getReferenceById(dto.getId());
-                LOGGER.debug("Updating strava activity with id: {}", dto.getId());
-            } else {
-                entity = new StravaActivity();
-            }
+            StravaActivity existing = stravaActivityRepository
+                    .findById(dto.getId())
+                    .orElse(null);
 
-            entity.setId(dto.getId());
-            entity.setName(dto.getName());
-            entity.setDistance(dto.getDistance());
-            entity.setMovingTime(dto.getMovingTime());
-            entity.setElapsedTime(dto.getElapsedTime());
-            entity.setTotalElevationGain(dto.getTotalElevationGain());
-            entity.setType(dto.getType());
-            entity.setSportType(dto.getSportType());
-            entity.setStartDate(dto.getStartDate());
-            entity.setStartDateLocal(dto.getStartDateLocal());
-            entity.setAverageSpeed(dto.getAverageSpeed());
-            entity.setMaxSpeed(dto.getMaxSpeed());
-            entity.setAverageHeartrate(dto.getAverageHeartrate());
-            entity.setMaxHeartrate(dto.getMaxHeartrate());
-            entity.setAverageWatts(dto.getAverageWatts());
-            entity.setKilojoules(dto.getKilojoules());
-            entity.setKudosCount(dto.getKudosCount());
-            entity.setStravaAccount(account);
-            entity.setMap(dto.getMap() != null ? dto.getMap().getSummaryPolyline() : null);
+            StravaActivity entity = activityMapper.dtoToEntity(dto, existing, account);
+
             stravaActivityRepository.save(entity);
             LOGGER.debug("Saved Strava activity: {}", entity);
         }

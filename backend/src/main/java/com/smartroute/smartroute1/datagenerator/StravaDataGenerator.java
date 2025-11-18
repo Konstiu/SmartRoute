@@ -10,8 +10,8 @@ import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.lang.invoke.MethodHandles;
@@ -19,9 +19,9 @@ import java.time.Instant;
 import java.util.List;
 
 @Profile("generateData")
+@Order(2)
 @Component
 @AllArgsConstructor
-@DependsOn("userDataGenerator")
 public class StravaDataGenerator {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final int NUMBER_OF_ACTIVITIES_PER_USER = 3;
@@ -72,21 +72,33 @@ public class StravaDataGenerator {
                     StravaActivity sa = new StravaActivity();
                     sa.setId(id++);
                     sa.setName("Activity " + i);
-                    sa.setDistance((float) (1 + Math.random() * 25)); // 1-26 km
-                    sa.setMovingTime((int) (600 + Math.random() * 7200)); // 10min-2h
+
+                    float distance = (float) (1 + Math.random() * 25); // 1-26 km
+                    float avgSpeed = (float) (60 / (2.5 + Math.random() * 7)); // 2:30-10:00 min/km converted to km/h
+                    int movingTime = (int) (distance * avgSpeed); // 2min30-4h20min
+                    float maxSpeed = (float) Math.min(avgSpeed * 1.25, 6 + Math.random() * 24); // 7.5-30 km/h
+                    sa.setDistance(distance);
+                    sa.setAverageSpeed(avgSpeed);
+                    sa.setMovingTime(movingTime);
+                    sa.setMaxSpeed(maxSpeed);
+
                     sa.setElapsedTime(sa.getMovingTime() + (int) (Math.random() * 6000)); // moving + 0-10 min
-                    sa.setTotalElevationGain((float) (0 + Math.random() * 250)); // 0-250 m
+                    sa.setTotalElevationGain((float) (Math.random() * 100 * distance)); // 0-100 m/km
                     sa.setType("Run");
                     sa.setSportType("Run");
                     sa.setStartDate(Instant.now().minusSeconds((long) (Math.random() * 30 * 24 * 3600)).toString()); // last 30 days
                     sa.setStartDateLocal(Instant.now().minusSeconds((long) (Math.random() * 30 * 24 * 3600)).toString());
-                    sa.setAverageSpeed((float) (5 + Math.random() * 10)); // 5-15 km/h
-                    sa.setMaxSpeed((float) (sa.getAverageSpeed() + Math.random() * 5));
-                    sa.setAverageHeartrate((float) (120 + Math.random() * 60)); // 120-180 bpm
-                    sa.setMaxHeartrate((float) (160 + Math.random() * 40)); // 160-200 bpm
-                    sa.setAverageWatts((float) (100 + Math.random() * 200));
-                    sa.setKilojoules(sa.getAverageWatts() * sa.getMovingTime() / 1000);
-                    sa.setKudosCount((int) (Math.random() * 50)); // 0-50
+
+
+                    float averageHeartrate = (float) (120 + Math.random() * 60);
+                    sa.setAverageHeartrate(averageHeartrate); // 120-180 bpm
+                    float maxHeartrate = (float) Math.min(averageHeartrate * 1.1, (140 + Math.random() * 60));
+                    sa.setMaxHeartrate(maxHeartrate);
+                    float averageWatts = (float) (100 + Math.random() * 200);
+                    sa.setAverageWatts(averageWatts);
+                    sa.setKilojoules(averageWatts * movingTime / 1000);
+                    sa.setSufferScore((int) (maxHeartrate * (movingTime / 60)));
+                    sa.setSummaryPolyline("}_ilHq`mi@o@e@}@eAe@k@a@m@iBoBqBuC}CeBm@o@gA{@wA_AwA_@}Ai@yAi@qBkA{DqBiDkBuCgAiBoA}BiAkCg@cBe@eBcAoDkCiEyCaGeEuDiBuCq@kB{@}Bi@kAw@iAe@wA]yB]gDQcEQkGKkEE}B@eBHoBT{BJ}HHaFBqC");
                     sa.setStravaAccount(acc);
 
                     activityRepository.save(sa);

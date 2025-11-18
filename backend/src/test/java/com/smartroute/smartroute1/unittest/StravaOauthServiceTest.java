@@ -6,7 +6,6 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.StravaAccount;
 import com.smartroute.smartroute1.exception.StravaAuthorizationException;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
-import com.smartroute.smartroute1.repository.StravaActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.impl.StravaOauthServiceImpl;
 import okhttp3.mockwebserver.MockResponse;
@@ -44,8 +43,6 @@ public class StravaOauthServiceTest {
     private UserRepository userRepository;
     @Autowired
     private StravaAccountRepository stravaAccountRepository;
-    @Autowired
-    private StravaActivityRepository stravaActivityRepository;
 
     @BeforeAll
     static void setupServer() throws IOException {
@@ -60,7 +57,6 @@ public class StravaOauthServiceTest {
 
     @BeforeEach
     void resetData() {
-        stravaActivityRepository.deleteAll();
         stravaAccountRepository.deleteAll();
         userRepository.deleteAll();
     }
