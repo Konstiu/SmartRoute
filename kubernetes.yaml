@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: smart-route
+  name: 25ws-ase-pr-inso-05
   namespace: 25ws-ase-pr-inso-05
 spec:
   selector:
     matchLabels:
-      app: smart-route
+      app: 25ws-ase-pr-inso-05
   replicas: 1
   template:
     metadata:
       labels:
-        app: smart-route
+        app: 25ws-ase-pr-inso-05
     spec:
       containers:
-        - name: smart-route-container
-          image: registry.reset.inso-w.at/25ws-ase-pr-inso-05/smart-route:latest
+        - name: 25ws-ase-pr-inso-05-container
+          image: registry.reset.inso-w.at/2025ws-ase-pr-group/25ws-ase-pr-inso-05:latest
           resources:
             requests:
               memory: "128Mi"
@@ -62,34 +62,35 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: s-smart-route-service
+  name: s-25ws-ase-pr-inso-05-service
   namespace: 25ws-ase-pr-inso-05
 spec:
   type: ClusterIP
   clusterIP: None
   selector:
-    app: smart-route
+    app: 25ws-ase-pr-inso-05
   ports:
     - port: 8080
       protocol: TCP
       targetPort: 8080
 ---
+
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: smart-route-ingress
+  name: "25ws-ase-pr-inso-05-ingress"
   namespace: 25ws-ase-pr-inso-05
   annotations:
     nginx.ingress.kubernetes.io/rewrite-target: /
 spec:
   rules:
-    - host: "smart-route.apps.student.inso-w.at"
+    - host: "25ws-ase-pr-inso-05.apps.student.inso-w.at"
       http:
         paths:
           - path: /
             pathType: Prefix
             backend:
               service:
-                name: s-smart-route-service
+                name: s-25ws-ase-pr-inso-05-service
                 port:
                   number: 8080
