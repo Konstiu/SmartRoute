@@ -276,7 +276,11 @@ public class StravaServiceImpl implements StravaService {
         }
         StravaAccount account = accountOpt.get();
 
-        return stravaActivityRepository.findByIdAndStravaAccount(id, account);
+        StravaActivity act = stravaActivityRepository.findByIdAndStravaAccount(id, account);
+        if (act == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Strava activity not found");
+        }
+        return act;
     }
 
     @Transactional
