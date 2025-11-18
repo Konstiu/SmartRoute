@@ -12,6 +12,16 @@ export class UserService {
   private userUri: string = this.globals.backendUri + '/user';
 
 
+  /**
+   * Create a new User
+   * Endpoint: POST /api/v1/user/
+   * Body: {
+   *    "firstname": string,
+   *    "lastname": string,
+   *    "email: string",
+   *    "password": string
+   *    }
+   */
   createUser(toCreate: CreateUserDto): Observable<UserDto> {
     return this.httpClient.post<UserDto>(this.userUri, toCreate, {responseType: 'json'});
   }

@@ -46,10 +46,6 @@
         </ion-icon>
       </ion-item>
       <div class="error-message" *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched">
-        <ion-text color="danger">
-          <small *ngIf="loginForm.get('password')?.errors?.['required']">Password is required</small>
-          <small *ngIf="loginForm.get('password')?.errors?.['minlength']">Password must be at least 8 characters</small>
-        </ion-text>
       </div>
 
       <ion-button
