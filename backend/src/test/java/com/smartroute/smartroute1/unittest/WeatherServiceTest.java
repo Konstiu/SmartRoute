@@ -7,14 +7,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.http.ResponseEntity;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
 class WeatherServiceTest {
-    private static final Logger log = LoggerFactory.getLogger(WeatherServiceTest.class);
 
     @Autowired
     private TestRestTemplate restTemplate;
@@ -32,7 +29,5 @@ class WeatherServiceTest {
         assertThat(body.getTemperature2m()).isNotEmpty();
         assertThat(body.getWindSpeed10m()).isNotEmpty();
         assertThat(body.getPrecipitation()).isNotEmpty();
-
-        log.info("Hourly Weather: {}", body);
     }
 }
