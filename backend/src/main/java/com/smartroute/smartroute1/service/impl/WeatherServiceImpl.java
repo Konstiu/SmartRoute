@@ -7,13 +7,16 @@ import com.smartroute.smartroute1.entity.weather.EventType;
 import com.smartroute.smartroute1.entity.weather.HeatRiskCategory;
 import com.smartroute.smartroute1.entity.weather.WeatherImpactResult;
 import com.smartroute.smartroute1.exception.ApiException;
+import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.WeatherService;
+import com.smartroute.smartroute1.exception.ValidationException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.http.ResponseEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.smartroute.smartroute1.service.validators.WeatherValidator;
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
@@ -24,10 +27,11 @@ public class WeatherServiceImpl implements WeatherService {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper mapper = new ObjectMapper();
+    private final WeatherValidator validator = new WeatherValidator();
 
     @Override
-    public WeatherResponse getHourlyWeather(double latitude, double longitude) {
-        validateCoordinates(latitude, longitude);
+    public WeatherResponse getHourlyWeather(double latitude, double longitude) throws ValidationException {
+        validator.validateCoordinates(latitude, longitude);
         String url = UriComponentsBuilder.fromHttpUrl("https://api.open-meteo.com/v1/forecast")
                 .queryParam("latitude", latitude)
                 .queryParam("longitude", longitude)
@@ -42,7 +46,7 @@ public class WeatherServiceImpl implements WeatherService {
         try {
             ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
             JsonNode root = mapper.readTree(response.getBody());
-            validateHourlyData(root);
+            validator.validateHourlyData(root);
             JsonNode hourly = root.path("hourly");
 
             List<String> time = new ArrayList<>();
@@ -79,31 +83,6 @@ public class WeatherServiceImpl implements WeatherService {
         } catch (Exception e) {
             LOGGER.warn("Error fetching or parsing hourly weather data", e);
             throw new ApiException("Failed to retrieve hourly weather data", e);
-        }
-    }
-
-    private void validateHourlyData(JsonNode root) {
-        JsonNode hourly = root.path("hourly");
-
-        if (hourly.isMissingNode() || !hourly.has("time")) {
-            throw new ApiException("Weather API response is missing 'hourly.time' data");
-        }
-
-        if (!hourly.has("temperature_2m")
-                || !hourly.has("precipitation")
-                || !hourly.has("wind_speed_10m")) {
-            throw new ApiException("Weather API response is missing required hourly fields");
-        }
-
-        int size = hourly.get("time").size();
-        if (size == 0) {
-            throw new ApiException("Weather API returned no hourly entries");
-        }
-    }
-
-    private void validateCoordinates(double latitude, double longitude) {
-        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-            throw new ApiException("Invalid coordinates: latitude/longitude out of bounds");
         }
     }
 

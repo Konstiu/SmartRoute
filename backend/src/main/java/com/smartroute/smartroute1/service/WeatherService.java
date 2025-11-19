@@ -4,6 +4,7 @@ import com.smartroute.smartroute1.entity.weather.EventType;
 import com.smartroute.smartroute1.entity.weather.WeatherImpactResult;
 import com.smartroute.smartroute1.entity.weather.WeatherResponse;
 import com.smartroute.smartroute1.exception.ApiException;
+import com.smartroute.smartroute1.exception.ValidationException;
 
 /** Provides methods to retrieve hourly weather forecast data from an external API. */
 public interface WeatherService {
@@ -18,7 +19,7 @@ public interface WeatherService {
      *
      * @throws ApiException if weather data could not be fetched
      */
-    WeatherResponse getHourlyWeather(double latitude, double longitude);
+    WeatherResponse getHourlyWeather(double latitude, double longitude) throws ValidationException;
 
     /**
      * Estimates the performance impact of weather conditions on a running event.

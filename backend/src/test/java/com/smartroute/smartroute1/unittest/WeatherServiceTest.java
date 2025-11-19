@@ -19,7 +19,6 @@ import static org.junit.jupiter.api.Assertions.*;
 class WeatherServiceTest {
     @Autowired
     private TestRestTemplate restTemplate;
-    
     private final WeatherServiceImpl service = new WeatherServiceImpl();
 
     @Test
