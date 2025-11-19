@@ -2,6 +2,8 @@ package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.entity.weather.WeatherResponse;
 import com.smartroute.smartroute1.service.WeatherService;
+import io.swagger.v3.oas.annotations.Operation;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -17,7 +19,10 @@ public class WeatherEndpoint {
         this.weatherService = weatherService;
     }
 
-    @GetMapping
+    @GetMapping("/hourly")
+    @Secured("ROLE_USER")
+    @Operation(summary = "Get hourly weather data",
+            description = "Returns hourly weather information including temperature, precipitation, wind and radiation values.")
     public WeatherResponse getWeather(
             @RequestParam double lat,
             @RequestParam double lon
