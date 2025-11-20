@@ -1,8 +1,8 @@
 package com.smartroute.smartroute1.endpoint.mapper;
 
-import com.smartroute.smartroute1.endpoint.dto.DetailedStravaActivityViewDto;
+import com.smartroute.smartroute1.endpoint.dto.DetailedActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
-import com.smartroute.smartroute1.endpoint.dto.StravaActivityViewDto;
+import com.smartroute.smartroute1.endpoint.dto.ActivityDto;
 import com.smartroute.smartroute1.entity.StravaAccount;
 import com.smartroute.smartroute1.entity.StravaActivity;
 import org.mapstruct.Mapper;
@@ -38,8 +38,8 @@ public interface StravaActivityMapper {
         return entity;
     }
 
-    default DetailedStravaActivityViewDto toDetailedViewDto(StravaActivity entity) {
-        DetailedStravaActivityViewDto dto = new DetailedStravaActivityViewDto();
+    default DetailedActivityDto toDetailedViewDto(StravaActivity entity) {
+        DetailedActivityDto dto = new DetailedActivityDto();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
         dto.setDistance(entity.getDistance());
@@ -61,8 +61,8 @@ public interface StravaActivityMapper {
 
     }
 
-    default StravaActivityViewDto toViewDto(StravaActivity entity) {
-        StravaActivityViewDto dto = new StravaActivityViewDto();
+    default ActivityDto toViewDto(StravaActivity entity) {
+        ActivityDto dto = new ActivityDto();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
         dto.setDistance(entity.getDistance());
