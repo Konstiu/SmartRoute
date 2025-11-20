@@ -201,6 +201,9 @@ def main():
                         api.login(str(tokenstore_path))
                     except Exception:
                         pass
+            else:
+                api = Garmin(email, password)
+                api.login()
 
         # Collect runs
         runs = collect_last_runs(api, target_count)
