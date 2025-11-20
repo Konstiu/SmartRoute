@@ -6,13 +6,13 @@ import java.util.List;
 
 /**
  * Service for synchronizing Garmin activities for a given user.
- * <p>
- * On the first synchronization, the implementation typically requires
+ *
+ * <p>On the first synchronization, the implementation typically requires
  * the user's Garmin credentials (email and password) in order to obtain
  * OAuth tokens. On subsequent synchronizations, stored tokens can be
  * reused and {@code email} / {@code password} may be {@code null}.
- * <p>
- * The method is expected to:
+ *
+ * <p>The method is expected to:
  * <ul>
  *   <li>Authenticate against Garmin (via credentials or stored tokens).</li>
  *   <li>Fetch the latest activities up to the requested count.</li>
