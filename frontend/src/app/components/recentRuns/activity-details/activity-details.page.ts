@@ -2,7 +2,7 @@ import {Component, OnInit, AfterViewInit, ViewChild, ElementRef} from '@angular/
 import {ActivatedRoute} from '@angular/router';
 import {IonicModule} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
-import {StravaViewService} from '../../../../services/strava.view.service';
+import {ActivitiesService} from '../../../../services/activities.service';
 import {DetailedStravaActivity} from '../../../dtos/StravaActivity';
 import * as L from 'leaflet';
 
@@ -23,7 +23,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
 
   constructor(
     private route: ActivatedRoute,
-    private stravaService: StravaViewService,
+    private stravaService: ActivitiesService,
   ) {
   }
 

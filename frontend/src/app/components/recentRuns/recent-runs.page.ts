@@ -1,7 +1,7 @@
 import {Component, OnInit} from '@angular/core';
 import {IonicModule} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
-import {StravaViewService} from '../../../services/strava.view.service';
+import {ActivitiesService} from '../../../services/activities.service';
 import {StravaActivity} from '../../dtos/StravaActivity';
 import {Router} from "@angular/router";
 
@@ -17,7 +17,7 @@ export class RecentRunsPage implements OnInit {
   isLoading = false;
   error: string | null = null;
 
-  constructor(private stravaService: StravaViewService, private router: Router) {}
+  constructor(private stravaService: ActivitiesService, private router: Router) {}
 
   ngOnInit() {
     this.loadActivities();

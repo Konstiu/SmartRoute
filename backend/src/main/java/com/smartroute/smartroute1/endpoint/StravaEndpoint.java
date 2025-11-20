@@ -1,12 +1,9 @@
 package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
-import com.smartroute.smartroute1.endpoint.dto.DetailedStravaActivityViewDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
-import com.smartroute.smartroute1.endpoint.dto.StravaActivityViewDto;
 import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
 import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
-import com.smartroute.smartroute1.entity.StravaActivity;
 import com.smartroute.smartroute1.service.StravaService;
 import com.smartroute.smartroute1.service.impl.StravaOauthServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,13 +24,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.net.URI;
-import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -206,31 +201,6 @@ public class StravaEndpoint {
         LOGGER.info("GET /api/v1/strava/athlete");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return stravaService.importStravaAthlete(authentication.getName());
-    }
-
-
-    @GetMapping("activities/view")
-    @ResponseStatus(HttpStatus.OK)
-    @Secured("ROLE_USER")
-    public List<StravaActivityViewDto> getStravaActivities() {
-        LOGGER.info("GET /api/v1/strava/activities/view");
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        List<StravaActivity> list = stravaService.getStravaActivities(auth.getName());
-        List<StravaActivityViewDto> dtos = new ArrayList<>();
-        for (StravaActivity stravaActivity : list) {
-            dtos.add(activityMapper.toViewDto(stravaActivity));
-        }
-        return dtos;
-    }
-
-    @GetMapping("activity/{id}")
-    @ResponseStatus(HttpStatus.OK)
-    @Secured("ROLE_USER")
-    public DetailedStravaActivityViewDto getOneStravaActivity(@PathVariable("id") long id) {
-        LOGGER.info("GET /api/v1/strava/activity/{}", id);
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        StravaActivity activity = stravaService.getStravaActivity(auth.getName(), id);
-        return activityMapper.toDetailedViewDto(activity);
     }
 
 }
