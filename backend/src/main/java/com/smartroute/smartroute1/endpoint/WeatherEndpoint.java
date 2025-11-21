@@ -52,8 +52,11 @@ public class WeatherEndpoint {
                                               @RequestParam double temperature,
                                               @RequestParam double relativeHumidity,
                                               @RequestParam double shortwaveRadiation,
-                                              @RequestParam double windSpeed) {
-        WeatherImpactResult impactResult = weatherService.estimateImpact(eventType, baseTimeSeconds, temperature, relativeHumidity, shortwaveRadiation, windSpeed);
+                                              @RequestParam double windSpeed,
+                                              @RequestParam double precipitation,
+                                              @RequestParam int age) {
+        WeatherImpactResult impactResult = weatherService.estimateImpact(eventType, baseTimeSeconds, temperature,
+                relativeHumidity, shortwaveRadiation, windSpeed, precipitation, age);
         return impactResult;
     }
 }

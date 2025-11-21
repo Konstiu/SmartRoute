@@ -111,9 +111,9 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     private static double computeWbgtOutdoorApprox(double temperature,
-                                                  double relativeHumidity,
-                                                  double solarRadWm2,
-                                                  double windMs) {
+                                                   double relativeHumidity,
+                                                   double solarRadWm2,
+                                                   double windMs) {
         double wbgtShade = computeWbgtShade(temperature, relativeHumidity);
 
         double sunCorrection = 0.0;
@@ -132,11 +132,13 @@ public class WeatherServiceImpl implements WeatherService {
             double temperature,
             double relativeHumidity,
             double shortwaveRadiation,
-            double windSpeed
+            double windSpeed,
+            double precipitation,
+            int age
     ) {
         double optimalWbgt = optimalWbgt(eventType);
-        double heatSlope   = heatSlope(eventType);
-        double coldSlope   = coldSlope(eventType);
+        double heatSlope = heatSlope(eventType);
+        double coldSlope = coldSlope(eventType);
         double wbgt = computeWbgtOutdoorApprox(temperature, relativeHumidity, shortwaveRadiation, windSpeed);
         double delta = wbgt - optimalWbgt;
 
@@ -153,9 +155,13 @@ public class WeatherServiceImpl implements WeatherService {
         double factor = 1.0 + penaltyPercent / 100.0;
         long adjustedTime = (long) Math.round(baseTimeSeconds * factor);
 
+        double precipitationPenaltyPercent = calculatePrecipitationImpact(precipitation, age);
+        long rainAdjustedTime = (long) (adjustedTime + (adjustedTime * (precipitationPenaltyPercent / 100)));
+
         HeatRiskCategory risk = classifyHeatRisk(wbgt);
 
-        return new WeatherImpactResult(penaltyPercent, adjustedTime, risk);
+        LOGGER.trace("Penalty: {} Adjusted Time: {}", (penaltyPercent + precipitationPenaltyPercent), rainAdjustedTime);
+        return new WeatherImpactResult((penaltyPercent + precipitationPenaltyPercent), rainAdjustedTime, risk);
     }
 
     private double optimalWbgt(EventType type) {
@@ -204,10 +210,10 @@ public class WeatherServiceImpl implements WeatherService {
             double shortwaveRadiation,
             double windSpeed
     ) {
-        double tempScore  = clamp((temperature - 15.0) / 20.0, -1, 1);
-        double humScore   = clamp((relativeHumidity - 50.0) / 50.0, -1, 1);
+        double tempScore = clamp((temperature - 15.0) / 20.0, -1, 1);
+        double humScore = clamp((relativeHumidity - 50.0) / 50.0, -1, 1);
         double solarScore = clamp((shortwaveRadiation - 400.0) / 800.0, -1, 1);
-        double windScore  = clamp((windSpeed - 2.0) / 8.0, -1, 1);
+        double windScore = clamp((windSpeed - 2.0) / 8.0, -1, 1);
 
         double combined =
                 0.40 * tempScore
@@ -224,4 +230,37 @@ public class WeatherServiceImpl implements WeatherService {
         }
         return Math.max(min, Math.min(max, v));
     }
+
+    private double calculatePrecipitationImpact(double precipMm, int runnerAge) {
+        if (precipMm <= 0.0) {
+            return 0.0;
+        }
+
+        // Base: 0.07% slowdown per mm rain
+        double baseSlope = 0.07;
+
+        double intensityFactor;
+        if (precipMm < 10) {
+            intensityFactor = 0.7;
+        } else if (precipMm < 20) {
+            intensityFactor = 1.0;
+        } else {
+            intensityFactor = 1.3;
+        }
+
+        double impact = precipMm * baseSlope * intensityFactor;
+
+        // higher age = higher impact
+        double ageFactor;
+        if (runnerAge < 30) {
+            ageFactor = 0.5;
+        } else if (runnerAge < 40) {
+            ageFactor = 0.8;
+        } else {
+            ageFactor = 1.0;
+        }
+
+        return impact *= ageFactor;
+    }
+
 }

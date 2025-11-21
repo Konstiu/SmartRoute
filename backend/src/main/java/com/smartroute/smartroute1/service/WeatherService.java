@@ -36,6 +36,10 @@ public interface WeatherService {
      *
      * @param windSpeed Wind speed in m/s.
      *
+     * @param precipitation rain, showers, snow in mm
+     *
+     * @param age Runners age
+     *
      * @return
      *        A {@link WeatherImpactResult} containing:
      *        <ul>
@@ -50,6 +54,8 @@ public interface WeatherService {
             double temperature,
             double relativeHumidity,
             double shortwaveRadiation,
-            double windSpeed
+            double windSpeed,
+            double precipitation,
+            int age
     );
 }
