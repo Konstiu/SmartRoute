@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 import java.lang.invoke.MethodHandles;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 
 @Profile("generateData")
@@ -86,8 +87,8 @@ public class StravaDataGenerator {
                     sa.setTotalElevationGain((float) (Math.random() * 100 * distance)); // 0-100 m/km
                     sa.setType("Run");
                     sa.setSportType("Run");
-                    sa.setStartDate(Instant.now().minusSeconds((long) (Math.random() * 30 * 24 * 3600)).toString()); // last 30 days
-                    sa.setStartDateLocal(Instant.now().minusSeconds((long) (Math.random() * 30 * 24 * 3600)).toString());
+                    sa.setStartDate(Instant.now().minusSeconds((long) (Math.random() * 30 * 24 * 3600))); // last 30 days
+                    sa.setStartDateLocal(Instant.now().minusSeconds((long) (Math.random() * 30 * 24 * 3600)));
 
 
                     float averageHeartrate = (float) (120 + Math.random() * 60);
