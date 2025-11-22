@@ -42,7 +42,6 @@ public class ViennaPointDataGenerator {
                 br.readLine(); //Skip header;
                 String line;
                 while ((line = br.readLine()) != null) {
-                    System.out.println(line);
                     String[] parts = line.split(",");
                     String objectId = parts[1];
                     String point = parts[2];
