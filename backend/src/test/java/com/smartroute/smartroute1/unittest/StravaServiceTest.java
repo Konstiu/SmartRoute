@@ -45,7 +45,7 @@ import static org.mockito.Mockito.when;
 @SpringBootTest
 @ActiveProfiles({"test", "generateData"})
 @Transactional
-class StravaServiceTest extends BaseTest {
+class StravaServiceTest {
 
     public static MockWebServer mockStravaApi;
     @Autowired

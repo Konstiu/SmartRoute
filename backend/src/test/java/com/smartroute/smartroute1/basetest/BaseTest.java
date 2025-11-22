@@ -1,7 +1,9 @@
 package com.smartroute.smartroute1.basetest;
 
+import com.smartroute.smartroute1.datagenerator.InjuryDataGenerator;
 import com.smartroute.smartroute1.datagenerator.StravaDataGenerator;
 import com.smartroute.smartroute1.datagenerator.UserDataGenerator;
+import com.smartroute.smartroute1.repository.InjuryRepository;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
 import com.smartroute.smartroute1.repository.StravaActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
@@ -28,6 +30,12 @@ public class BaseTest {
     @Autowired
     private StravaActivityRepository stravaActivityRepository;
 
+    @Autowired
+    private InjuryRepository injuryRepository;
+
+    @Autowired
+    private InjuryDataGenerator injuryDataGenerator;
+
     @BeforeEach
     void setUp() {
         generateData();
@@ -41,11 +49,14 @@ public class BaseTest {
     private void generateData() {
         userDataGenerator.generateUser();
         stravaAccountDataGenerator.generateAccounts();
+        injuryDataGenerator.generateInjuries();
+
     }
 
     private void clearData() {
-        stravaActivityRepository.deleteAll();
-        stravaAccountRepository.deleteAll();
-        userRepository.deleteAll();
+        stravaActivityRepository.deleteAllInBatch();
+        stravaAccountRepository.deleteAllInBatch();
+        injuryRepository.deleteAllInBatch();
+        userRepository.deleteAllInBatch();
     }
 }

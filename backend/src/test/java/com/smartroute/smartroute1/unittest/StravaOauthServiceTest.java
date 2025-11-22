@@ -1,6 +1,7 @@
 package com.smartroute.smartroute1.unittest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartroute.smartroute1.basetest.BaseTest;
 import com.smartroute.smartroute1.endpoint.dto.StravaTokenResponseDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.StravaAccount;
@@ -10,6 +11,7 @@ import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.impl.StravaOauthServiceImpl;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import org.hibernate.validator.internal.engine.validationcontext.BaseBeanValidationContext;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest()
 @ExtendWith(SpringExtension.class)
 @ActiveProfiles({"test", "generateData"})
-public class StravaOauthServiceTest {
+public class StravaOauthServiceTest extends BaseTest {
     public static MockWebServer mockStravaApi;
     private final ObjectMapper mapper = new ObjectMapper();
     @Autowired
@@ -55,11 +57,6 @@ public class StravaOauthServiceTest {
         mockStravaApi.shutdown();
     }
 
-    @BeforeEach
-    void resetData() {
-        stravaAccountRepository.deleteAll();
-        userRepository.deleteAll();
-    }
 
     @Test
     void testExchangeCodeForToken_createsNewAccount() throws Exception {
@@ -86,7 +83,7 @@ public class StravaOauthServiceTest {
 
         StravaTokenResponseDto result = service.exchangeCodeForToken("code123", "read", "test@smartroute.com");
 
-        StravaAccount savedAccount = stravaAccountRepository.findAll().getFirst();
+        StravaAccount savedAccount = stravaAccountRepository.findByUser(user).orElseThrow(AssertionError::new);
 
         assertAll(
                 () -> assertNotNull(result),
