@@ -5,6 +5,10 @@ import com.smartroute.smartroute1.entity.StravaAccount;
 import com.smartroute.smartroute1.entity.StravaActivity;
 import org.mapstruct.Mapper;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+
 @Mapper
 public interface StravaActivityMapper {
     default StravaActivity dtoToEntity(StravaActivityDto dto, StravaActivity entity, StravaAccount account) {
@@ -21,8 +25,8 @@ public interface StravaActivityMapper {
         entity.setTotalElevationGain(dto.getTotalElevationGain());
         entity.setType(dto.getType());
         entity.setSportType(dto.getSportType());
-        entity.setStartDate(dto.getStartDate());
-        entity.setStartDateLocal(dto.getStartDateLocal());
+        entity.setStartDate(Instant.parse(dto.getStartDate()));
+        entity.setStartDateLocal(Instant.parse(dto.getStartDateLocal()));
         entity.setAverageSpeed(dto.getAverageSpeed());
         entity.setMaxSpeed(dto.getMaxSpeed());
         entity.setAverageHeartrate(dto.getAverageHeartrate());

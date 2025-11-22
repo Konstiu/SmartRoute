@@ -36,6 +36,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -141,8 +142,8 @@ class StravaServiceTest extends BaseTest {
                 () -> assertEquals(150.0f, saved.getTotalElevationGain()),
                 () -> assertEquals("Run", saved.getType()),
                 () -> assertEquals("Running", saved.getSportType()),
-                () -> assertEquals("2025-01-01T08:00:00Z", saved.getStartDate()),
-                () -> assertEquals("2025-01-01T09:00:00+01:00", saved.getStartDateLocal()),
+                () -> assertEquals(Instant.parse("2025-01-01T08:00:00Z"), saved.getStartDate()),
+                () -> assertEquals(Instant.parse("2025-01-01T09:00:00+01:00"), saved.getStartDateLocal()),
                 () -> assertEquals(3.0f, saved.getAverageSpeed()),
                 () -> assertEquals(6.0f, saved.getMaxSpeed()),
                 () -> assertEquals(account.getId(), saved.getStravaAccount().getId())
