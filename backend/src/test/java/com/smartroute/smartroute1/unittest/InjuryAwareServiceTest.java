@@ -1,16 +1,15 @@
 package com.smartroute.smartroute1.unittest;
 
 import com.smartroute.smartroute1.basetest.BaseTest;
-import com.smartroute.smartroute1.endpoint.dto.CreateInjuryStateDto;
 import com.smartroute.smartroute1.entity.Injuries;
 import com.smartroute.smartroute1.entity.enums.BodyPart;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -110,7 +109,7 @@ class InjuryAwareServiceTest extends BaseTest {
         Injuries fracture = new Injuries();
         fracture.setInjuryIndex(0.3);
         fracture.setAffectedArea(BodyPart.BONE_FRACTURE);
-        fracture.setLastHealthyDate(null);
+        fracture.setLastHealthyDate(LocalDate.now().minusDays(1));
 
         Map<BodyPart, Double> map = injuryAwareTrainingService.calculateInjuriesMap(List.of(fracture));
 

@@ -95,19 +95,26 @@ public class InjuryAwareTrainingServiceImpl implements InjuryAwareTrainingServic
             BodyPart area = injury.getAffectedArea();
             LocalDate lastInjuryDate = injury.getLastInjuryDate();
             if (lastInjuryDate == null) {
-                continue;
+                if (area == BodyPart.BONE_FRACTURE
+                        || area == BodyPart.SPINAL_INJURY
+                        || area == BodyPart.RESPIRATION_REGION) {
+                    return true;
+                } else {
+                    continue;
+                }
             }
 
             long daysAgo = ChronoUnit.DAYS.between(lastInjuryDate, today);
             if (daysAgo > windowDays) {
                 continue;
             }
-
             if (area == BodyPart.BONE_FRACTURE
                     || area == BodyPart.SPINAL_INJURY
                     || area == BodyPart.RESPIRATION_REGION) {
                 return true;
             }
+
+
         }
         return false;
     }
