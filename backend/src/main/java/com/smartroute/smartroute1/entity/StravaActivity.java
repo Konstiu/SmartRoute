@@ -10,6 +10,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.Instant;
+
 @Entity
 @Getter
 @Setter
@@ -25,8 +27,8 @@ public class StravaActivity {
     private float totalElevationGain;
     private String type;
     private String sportType;
-    private String startDate;
-    private String startDateLocal;
+    private Instant startDate;
+    private Instant startDateLocal;
     private float averageSpeed;
     private float maxSpeed;
     private Float averageWatts;
@@ -40,4 +42,5 @@ public class StravaActivity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id")
     private StravaAccount stravaAccount;
+
 }
