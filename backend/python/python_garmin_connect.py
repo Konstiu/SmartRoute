@@ -6,6 +6,8 @@ import tempfile
 from pathlib import Path
 from garminconnect import Garmin
 import base64
+import traceback
+
 
 def collect_last_runs(api: Garmin, target_count: int):
     """Fetch recent activities and return the last `target_count` running activities."""
@@ -27,6 +29,7 @@ def collect_last_runs(api: Garmin, target_count: int):
 
     return runs[:target_count]
 
+
 def fetch_details_for_ids(api: Garmin, activities):
     """For each activity, fetch detailed information."""
     results = []
@@ -44,50 +47,52 @@ def fetch_details_for_ids(api: Garmin, activities):
 
     return results
 
+
 def to_garth_b64(obj):
-                    """Normalize several common token input shapes into the base64
-                    string expected by `garth.Client.loads()`.
+    """Normalize several common token input shapes into the base64
+    string expected by `garth.Client.loads()`.
 
-                    Accepts:
-                      - a base64 string produced by `garth.dumps()` (returned as-is)
-                      - a JSON string representing a list or dict
-                      - a parsed dict/list (from json.loads)
-                    """
-                    # If it's a string, first try to detect if it's already base64
-                    if isinstance(obj, str):
-                        # try to decode as base64 JSON
-                        try:
-                            dec = base64.b64decode(obj)
-                            json.loads(dec)
-                            return obj
-                        except Exception:
-                            # not valid base64 payload -> try parsing as JSON string
-                            try:
-                                parsed = json.loads(obj)
-                            except Exception:
-                                raise ValueError("Token input is neither valid base64 nor JSON string")
-                            obj = parsed
+    Accepts:
+      - a base64 string produced by `garth.dumps()` (returned as-is)
+      - a JSON string representing a list or dict
+      - a parsed dict/list (from json.loads)
+    """
+    # If it's a string, first try to detect if it's already base64
+    if isinstance(obj, str):
+        # try to decode as base64 JSON
+        try:
+            dec = base64.b64decode(obj)
+            json.loads(dec)
+            return obj
+        except Exception:
+            # not valid base64 payload -> try parsing as JSON string
+            try:
+                parsed = json.loads(obj)
+            except Exception:
+                raise ValueError("Token input is neither valid base64 nor JSON string")
+            obj = parsed
 
-                    # Now obj is a Python object (list or dict)
-                    if isinstance(obj, list) and len(obj) == 2:
-                        arr = obj
-                    elif isinstance(obj, dict):
-                        # handle common dict shapes
-                        if 'oauth1_token.json' in obj and 'oauth2_token.json' in obj:
-                            arr = [obj['oauth1_token.json'], obj['oauth2_token.json']]
-                        elif 'oauth1' in obj and 'oauth2' in obj:
-                            arr = [obj['oauth1'], obj['oauth2']]
-                        else:
-                            # fallback: try to extract first two dict values
-                            vals = [v for v in obj.values() if isinstance(v, dict)]
-                            if len(vals) >= 2:
-                                arr = vals[:2]
-                            else:
-                                raise ValueError("Unsupported token JSON format for garth.loads")
-                    else:
-                        raise ValueError("Unsupported token format for garth.loads")
+    # Now obj is a Python object (list or dict)
+    if isinstance(obj, list) and len(obj) == 2:
+        arr = obj
+    elif isinstance(obj, dict):
+        # handle common dict shapes
+        if 'oauth1_token.json' in obj and 'oauth2_token.json' in obj:
+            arr = [obj['oauth1_token.json'], obj['oauth2_token.json']]
+        elif 'oauth1' in obj and 'oauth2' in obj:
+            arr = [obj['oauth1'], obj['oauth2']]
+        else:
+            # fallback: try to extract first two dict values
+            vals = [v for v in obj.values() if isinstance(v, dict)]
+            if len(vals) >= 2:
+                arr = vals[:2]
+            else:
+                raise ValueError("Unsupported token JSON format for garth.loads")
+    else:
+        raise ValueError("Unsupported token format for garth.loads")
 
-                    return base64.b64encode(json.dumps(arr).encode()).decode()
+    return base64.b64encode(json.dumps(arr).encode()).decode()
+
 
 def main():
     # Support three invocation patterns:
@@ -95,7 +100,9 @@ def main():
     # 2) Inline token JSON: script.py --token-json '<json>' <activity_count>
 
     if len(sys.argv) < 2:
-        print(json.dumps({"error": "Usage: script.py <email> <password> <activity_count> OR --token-json '<json>' <activity_count>"}), file=sys.stderr)
+        print(json.dumps({
+                             "error": "Usage: script.py <email> <password> <activity_count> OR --token-json '<json>' <activity_count>"}),
+              file=sys.stderr)
         sys.exit(1)
 
     tokenstore_temp = None
@@ -280,9 +287,12 @@ def main():
             tokenstore_temp.cleanup()
 
     except Exception as e:
-        print(json.dumps({"error": str(e)}), file=sys.stderr)
-        if tokenstore_temp:
-            tokenstore_temp.cleanup()
+        error_info = {
+            "error": str(e),
+            "type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }
+        print(json.dumps(error_info), file=sys.stderr)
         sys.exit(1)
 
 

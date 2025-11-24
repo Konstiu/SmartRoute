@@ -1,6 +1,7 @@
 package com.smartroute.smartroute1.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.smartroute.smartroute1.entity.ApplicationUser;
 
 import java.util.List;
 
@@ -26,7 +27,7 @@ public interface GarminImportService {
     /**
      * Synchronizes Garmin activities for the given user.
      *
-     * @param userId        the ID of the application user whose Garmin account should be synchronized
+     * @param user        the application user whose Garmin account should be synchronized
      * @param activityCount the maximum number of recent activities to fetch (e.g. last N runs)
      * @param email         the Garmin account email; required on first login, may be {@code null} when using stored tokens
      * @param password      the Garmin account password; required on first login, may be {@code null} when using stored tokens
@@ -34,6 +35,6 @@ public interface GarminImportService {
      * @throws IllegalArgumentException if the user cannot be found or required credentials are missing on first login
      * @throws RuntimeException         if synchronization with Garmin fails for any reason (authentication, I/O, parsing, etc.)
      */
-    List<JsonNode> syncActivities(Long userId, int activityCount, String email, String password);
+    List<JsonNode> syncActivities(ApplicationUser user, int activityCount, String email, String password);
 
 }
