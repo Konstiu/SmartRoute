@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
-import {RegisterPage} from "./register/register.page";
+import { RegisterPage } from "./register/register.page";
 
 
 const routes: Routes = [
@@ -13,6 +13,10 @@ const routes: Routes = [
     loadComponent: () => import('./register/register.page').then(m => m.RegisterPage)
   },
   {
+    path: 'map',
+    loadComponent: () => import('./map/map.component').then(m => m.MapComponent)
+  },
+  {
     path: '**',
     loadChildren: () => import('./tabs/tabs.module').then(m => m.TabsPageModule)
   }
@@ -23,4 +27,4 @@ const routes: Routes = [
   ],
   exports: [RouterModule]
 })
-export class AppRoutingModule {}
+export class AppRoutingModule { }
