@@ -72,5 +72,10 @@ public class ApplicationUser {
         this.verified = false;
 
     }
+
+    @Override
+    public String toString() {
+        return "email=" + email + ", password=" + password + ", firstname=" + firstname + ", lastname=" + lastname;
+    }
 }
 
