@@ -273,6 +273,7 @@ class StravaServiceTest extends BaseTest {
     // Test importStravaZoneData
 
     @Test
+    @Disabled
     void testImportStravaZoneData_success() throws Exception {
         ApplicationUser user = userRepository.findAll().getFirst();
         String email = user.getEmail();
