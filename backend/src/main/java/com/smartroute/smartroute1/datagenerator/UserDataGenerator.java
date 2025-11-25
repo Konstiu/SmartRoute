@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import jakarta.annotation.PostConstruct;
 
 import java.lang.invoke.MethodHandles;
+import java.time.LocalDate;
 
 @Profile("generateData")
 @Order(1)
@@ -41,6 +42,7 @@ public class UserDataGenerator {
                 user.setFirstname("Max" + i);
                 user.setLastname("Mustermann" + i);
                 user.setPassword(passwordEncoder.encode("password" + i));
+                user.setBirthdate(LocalDate.of(1980, 1, 1));
                 userRepository.save(user);
                 LOGGER.info("saving user {}", user.getEmail());
             }
