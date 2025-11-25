@@ -5,7 +5,6 @@ import com.smartroute.smartroute1.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Profile;
-import org.springframework.core.annotation.Order;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
@@ -18,7 +17,6 @@ import java.util.List;
 import java.time.LocalDate;
 
 @Profile("generateData")
-@Order(1)
 @Component
 public class UserDataGenerator {
 
@@ -42,43 +40,26 @@ public class UserDataGenerator {
             return;
         }
         LOGGER.info("Generating {} user entries", NUMBER_OF_USERS_TO_GENERATE);
-
         List<ApplicationUser> batch = new ArrayList<>(BATCH_SIZE);
-
         String encodedPassword = passwordEncoder.encode("password");
-
         for (int i = 0; i < NUMBER_OF_USERS_TO_GENERATE; i++) {
             ApplicationUser user = new ApplicationUser();
             user.setEmail("email" + i + "@smartroute.com");
             user.setFirstname("Max" + i);
             user.setLastname("Mustermann" + i);
             user.setPassword(encodedPassword);
-
+            user.setBirthdate(LocalDate.of(1980, 1, 1));
             batch.add(user);
-
             if (batch.size() >= BATCH_SIZE) {
                 userRepository.saveAll(batch);
                 LOGGER.debug("Saved batch of {} users", batch.size());
                 batch.clear();
-        } else {
-            LOGGER.info("generating {} user entries", NUMBER_OF_USERS_TO_GENERATE);
-            for (int i = 0; i < NUMBER_OF_USERS_TO_GENERATE; i++) {
-                ApplicationUser user = new ApplicationUser();
-                user.setEmail("email" + i + "@smartroute.com");
-                user.setFirstname("Max" + i);
-                user.setLastname("Mustermann" + i);
-                user.setPassword(passwordEncoder.encode("password" + i));
-                user.setBirthdate(LocalDate.of(1980, 1, 1));
-                userRepository.save(user);
-                LOGGER.info("saving user {}", user.getEmail());
+            }
+            if (!batch.isEmpty()) {
+                userRepository.saveAll(batch);
+                LOGGER.debug("Saved final batch of {} users", batch.size());
             }
         }
-
-        if (!batch.isEmpty()) {
-            userRepository.saveAll(batch);
-            LOGGER.debug("Saved final batch of {} users", batch.size());
-        }
-
         LOGGER.info("Successfully generated {} users", NUMBER_OF_USERS_TO_GENERATE);
     }
 }
