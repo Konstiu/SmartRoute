@@ -53,6 +53,9 @@ public class ApplicationUser {
     private BigDecimal weight;
 
     @Column
+    private Integer ftp;
+
+    @Column
     private LocalDate birthdate;
 
     @Column

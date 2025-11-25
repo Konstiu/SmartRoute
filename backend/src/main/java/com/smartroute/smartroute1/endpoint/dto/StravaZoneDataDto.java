@@ -12,7 +12,7 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 @Getter
 @Setter
-public class ZoneDataDto {
+public class StravaZoneDataDto {
 
     @JsonProperty("heart_rate")
     private HeartRate heartRate;
