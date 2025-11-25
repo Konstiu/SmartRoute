@@ -36,6 +36,9 @@ public class GpxEndpoint {
         LOGGER.info("POST /api/v1/gpx/import-strava");
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         List<StravaActivityDto> dtos = new ArrayList<>();
+        if (files.stream().map(MultipartFile::getSize).reduce(Long::sum).orElse(0L) > 10L * 1024L * 10124L) {
+            throw new ValidationException("Uploaded files exceed maximum total size of 10 MB");
+        }
         for (MultipartFile file : files) {
             try (InputStream is = file.getInputStream()) {
                 StravaActivityDto dto = stravaActivityMapper.entityToDto(
