@@ -4,6 +4,7 @@ import com.smartroute.smartroute1.endpoint.dto.StravaStreamDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.repository.ActivityRepository;
+import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
     private final FitnessScoreService fitnessScoreService;
     private final ActivityRepository activityRepository;
     private final TaskScheduler taskScheduler;
+    private final UserRepository userRepository;
 
     public void fetchHeartRateDataForActivities(int maxBatchSize, List<Activity> activities, String token) {
         LOGGER.trace("fetchHeartRateDataForActivitiesAsync({},{},*token*)", maxBatchSize, activities);
@@ -131,5 +133,25 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 .bodyToFlux(StravaStreamDto.class)
                 .collectList()
                 .block();
+    }
+
+
+    @Override
+    public List<Activity> getActivities(String email) {
+        LOGGER.trace("Get all Strava activities for user with mail: {}", email);
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        return activityRepository.findByUser(user);
+
+    }
+
+    @Override
+    public Activity getActivity(String email, long id) {
+        LOGGER.trace("Get Strava activity for user with mail: {}", email);
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        Activity act = activityRepository.findByIdAndUser(id, user);
+        if (act == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Strava activity not found");
+        }
+        return act;
     }
 }

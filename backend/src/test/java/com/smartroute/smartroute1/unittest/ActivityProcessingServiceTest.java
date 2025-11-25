@@ -8,27 +8,13 @@ import com.smartroute.smartroute1.service.FitnessScoreService;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import jakarta.transaction.Transactional;
 import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.springframework.web.reactive.function.client.ClientRequest;
-import org.springframework.web.reactive.function.client.WebClient;
 
-import java.io.IOException;
-import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 
@@ -36,12 +22,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(SpringExtension.class)
 @SpringBootTest
 @ActiveProfiles({"test", "generateData"})
 @Transactional
 public class ActivityProcessingServiceTest extends BaseTest {
-    public static MockWebServer mockStravaApi;
     @MockBean
     private FitnessScoreService fitnessScoreService;
     @MockBean
@@ -50,23 +34,6 @@ public class ActivityProcessingServiceTest extends BaseTest {
     private ActivityProcessingService activityProcessingService;
     @Autowired
     private ActivityRepository activityRepository;
-
-    @BeforeAll
-    static void setup() throws IOException {
-        mockStravaApi = new MockWebServer();
-        mockStravaApi.start();
-    }
-
-    @AfterAll
-    static void tearDown() throws IOException {
-        mockStravaApi.shutdown();
-    }
-
-    @BeforeEach
-    void beforeEach() {
-        Mockito.reset(fitnessScoreService);
-        activityRepository.deleteAll();
-    }
 
     private Activity getStravaActivity() {
         Activity activity = new Activity();
@@ -95,6 +62,7 @@ public class ActivityProcessingServiceTest extends BaseTest {
     @Test
     void testFetchHeartRateDataForActivities_setsSessionLoad() {
         activityRepository.deleteAll();
+        activityRepository.flush();
         ApplicationUser user = userRepository.findAll().getFirst();
         Activity act1 = getStravaActivity();
         act1.setUser(user);
@@ -121,14 +89,14 @@ public class ActivityProcessingServiceTest extends BaseTest {
             return null;
         }).when(taskScheduler).schedule(any(Runnable.class), any(Instant.class));
 
-        mockStravaApi.enqueue(
+        mockApiServer.enqueue(
                 new MockResponse()
                         .setResponseCode(200)
                         .setHeader("Content-Type", "application/json")
                         .setBody("[{\"type\": \"heartrate\", \"data\": [150,151,152], \"original_size\": 3}]")
         );
 
-        mockStravaApi.enqueue(
+        mockApiServer.enqueue(
                 new MockResponse()
                         .setResponseCode(200)
                         .setHeader("Content-Type", "application/json")
@@ -169,32 +137,6 @@ public class ActivityProcessingServiceTest extends BaseTest {
 
         verify(taskScheduler, times(2))
                 .schedule(any(Runnable.class), any(Instant.class));
-    }
-
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        @Primary
-        public WebClient mockWebClient() {
-            return WebClient.builder()
-                    .defaultHeaders(h -> h.add("Host", "www.strava.com"))
-                    .baseUrl(mockStravaApi.url("/").toString())
-                    .filter((request, next) -> {
-
-                        // Rewrite absolute Strava URLs on the MockWebServer
-                        URI rewritten = mockStravaApi.url("/").resolve(
-                                request.url().getPath()
-                        ).uri();
-
-                        ClientRequest newRequest = ClientRequest.create(request.method(), rewritten)
-                                .headers(h -> h.addAll(request.headers()))
-                                .body(request.body())
-                                .build();
-
-                        return next.exchange(newRequest);
-                    })
-                    .build();
-        }
     }
 }
 
