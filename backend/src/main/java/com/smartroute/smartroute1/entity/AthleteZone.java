@@ -15,7 +15,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class StravaZone {
+public class AthleteZone {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -26,6 +26,6 @@ public class StravaZone {
     private boolean custom;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "account_id")
-    private StravaAccount stravaAccount;
+    @JoinColumn(name = "user_id")
+    private ApplicationUser user;
 }

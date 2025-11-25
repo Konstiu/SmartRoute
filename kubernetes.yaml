@@ -51,6 +51,18 @@ spec:
               httpGet:
                 port: 8080
                 path: /health/prepareShutdown
+          env:
+            - name: STRAVA_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: strava-secret
+                  key: STRAVA_CLIENT_ID
+
+            - name: STRAVA_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: strava-secret
+                  key: STRAVA_CLIENT_SECRET
       imagePullSecrets:
         - name: secret-dockercfg
   revisionHistoryLimit: 2
