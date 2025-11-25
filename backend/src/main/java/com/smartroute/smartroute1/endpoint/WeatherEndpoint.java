@@ -4,7 +4,6 @@ import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
 import com.smartroute.smartroute1.endpoint.mapper.WeatherMapper;
 import com.smartroute.smartroute1.entity.weather.EventType;
 import com.smartroute.smartroute1.entity.weather.WeatherImpactResult;
-import com.smartroute.smartroute1.entity.weather.WeatherResponse;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.WeatherService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -17,6 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/weather")
@@ -37,15 +38,15 @@ public class WeatherEndpoint {
     @Secured("ROLE_USER")
     @Operation(summary = "Get hourly weather data",
             description = "Returns hourly weather information including temperature, precipitation, wind and radiation values.")
-    public ResponseEntity<WeatherDto> getWeather(@RequestParam double lat, @RequestParam double lon) throws ValidationException {
-        WeatherResponse weatherResponse = weatherService.getHourlyWeather(lat, lon);
-        return ResponseEntity.ok(weatherMapper.toDto(weatherResponse));
+    public ResponseEntity<List<WeatherDto>> getWeather(@RequestParam double lat, @RequestParam double lon) throws ValidationException {
+        List<WeatherDto> weatherResponse = weatherService.getHourlyWeather(lat, lon);
+        return ResponseEntity.ok(weatherResponse);
     }
 
     @Operation(
             description = "Get the impact the weather data has on a running route.",
             summary = "Get weather impact.")
-    @PostMapping
+    @PostMapping("/impact")
     @PermitAll
     public WeatherImpactResult estimateImpact(@RequestParam EventType eventType,
                                               @RequestParam long baseTimeSeconds,

@@ -1,6 +1,5 @@
 package com.smartroute.smartroute1.unittest;
 
-import com.smartroute.smartroute1.entity.weather.WeatherResponse;
 import com.smartroute.smartroute1.service.impl.WeatherServiceImpl;
 import com.smartroute.smartroute1.entity.weather.EventType;
 import com.smartroute.smartroute1.entity.weather.HeatRiskCategory;
@@ -11,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
-import org.springframework.http.ResponseEntity;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -19,7 +17,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class WeatherServiceTest {
     @Autowired
     private TestRestTemplate restTemplate;
-    private final WeatherServiceImpl service = new WeatherServiceImpl();
+    @Autowired
+    private WeatherServiceImpl service;
 
     @Test
     @DisplayName("Neutral WBGT should produce minimal penalty and NEUTRAL heat risk")

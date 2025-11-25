@@ -21,4 +21,25 @@ public class WeatherMapper {
 
         return dto;
     }
+
+
+    public WeatherResponse toEntity(WeatherDto dto) {
+        WeatherResponse entity = new WeatherResponse();
+
+        if (dto == null) {
+            return null;
+        }
+
+        if (entity == null) {
+            entity = new WeatherResponse();
+        }
+
+        entity.setTime(dto.getTime());
+        entity.setPrecipitation(dto.getPrecipitation());
+        entity.setRelativeHumidity(dto.getRelativeHumidity());
+        entity.setWindSpeed10m(dto.getWindSpeed10m());
+        entity.setShortWaveRadiation(dto.getShortWaveRadiation());
+
+        return entity;
+    }
 }

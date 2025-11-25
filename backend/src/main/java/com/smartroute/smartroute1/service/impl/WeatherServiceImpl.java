@@ -2,14 +2,16 @@ package com.smartroute.smartroute1.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
+import com.smartroute.smartroute1.endpoint.mapper.WeatherMapper;
 import com.smartroute.smartroute1.entity.weather.WeatherResponse;
 import com.smartroute.smartroute1.entity.weather.EventType;
 import com.smartroute.smartroute1.entity.weather.HeatRiskCategory;
 import com.smartroute.smartroute1.entity.weather.WeatherImpactResult;
 import com.smartroute.smartroute1.exception.ApiException;
 import com.smartroute.smartroute1.exception.ValidationException;
+import com.smartroute.smartroute1.repository.WeatherRepository;
 import com.smartroute.smartroute1.service.WeatherService;
-import com.smartroute.smartroute1.exception.ValidationException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -28,9 +30,15 @@ public class WeatherServiceImpl implements WeatherService {
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper mapper = new ObjectMapper();
     private final WeatherValidator validator = new WeatherValidator();
+    private final WeatherRepository rep;
+    private final WeatherMapper weatherMapper = new WeatherMapper();
+
+    public WeatherServiceImpl(WeatherRepository rep) {
+        this.rep = rep;
+    }
 
     @Override
-    public WeatherResponse getHourlyWeather(double latitude, double longitude) throws ValidationException {
+    public List<WeatherDto> getHourlyWeather(double latitude, double longitude) throws ValidationException {
         validator.validateCoordinates(latitude, longitude);
         String url = UriComponentsBuilder.fromHttpUrl("https://api.open-meteo.com/v1/forecast")
                 .queryParam("latitude", latitude)
@@ -38,7 +46,7 @@ public class WeatherServiceImpl implements WeatherService {
                 .queryParam(
                         "hourly",
                         "temperature_2m,precipitation,wind_speed_10m,"
-                                + "relative_humidity_2m,shortwave_radiation,wind_direction_10m")
+                                + "relative_humidity_2m,shortwave_radiation")
                 .toUriString();
 
         LOGGER.trace("Calling Open-Meteo API with URL: {}", url);
@@ -48,6 +56,7 @@ public class WeatherServiceImpl implements WeatherService {
             JsonNode root = mapper.readTree(response.getBody());
             validator.validateHourlyData(root);
             JsonNode hourly = root.path("hourly");
+
 
             List<String> time = new ArrayList<>();
             if (hourly.has("time")) {
@@ -69,17 +78,39 @@ public class WeatherServiceImpl implements WeatherService {
                 hourly.get("wind_speed_10m").forEach(w -> windSpeed10m.add(w.asDouble()));
             }
 
+            List<Double> relativeHumidity = new ArrayList<>();
+            if (hourly.has("relative_humidity_2m")) {
+                hourly.get("relative_humidity_2m").forEach(rh -> relativeHumidity.add(rh.asDouble()));
+            }
+
             List<Double> shortwaveRadiation = new ArrayList<>();
             if (hourly.has("shortwave_radiation")) {
                 hourly.get("shortwave_radiation").forEach(sr -> shortwaveRadiation.add(sr.asDouble()));
             }
 
-            List<Double> windDirection = new ArrayList<>();
-            if (hourly.has("wind_direction_10m")) {
-                hourly.get("wind_direction_10m").forEach(wd -> windDirection.add(wd.asDouble()));
+            int size = time.size(); // all lists have same length
+            List<WeatherDto> weather = new ArrayList<WeatherDto>();
+            for (int i = 0; i < size; i++) {
+                WeatherDto dto = new WeatherDto(
+                        time.get(i),
+                        temperature2m.get(i),
+                        windSpeed10m.get(i),
+                        precipitation.get(i),
+                        relativeHumidity.get(i),
+                        shortwaveRadiation.get(i)
+                );
+
+                weather.add(dto);
+                WeatherResponse entity = weatherMapper.toEntity(dto);
+                if (entity == null) {
+                    LOGGER.error("Error mapping entity to weather {}", dto);
+                    continue;
+                }
+
+                rep.save(entity);
             }
 
-            return new WeatherResponse(time, temperature2m, windSpeed10m, precipitation, windDirection, shortwaveRadiation);
+            return weather;
         } catch (Exception e) {
             LOGGER.warn("Error fetching or parsing hourly weather data", e);
             throw new ApiException("Failed to retrieve hourly weather data", e);

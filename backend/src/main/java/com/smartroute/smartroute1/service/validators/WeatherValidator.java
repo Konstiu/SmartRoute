@@ -27,8 +27,7 @@ public class WeatherValidator {
                 || !hourly.has("precipitation")
                 || !hourly.has("wind_speed_10m")
                 || !hourly.has("relative_humidity_2m")
-                || !hourly.has("shortwave_radiation")
-                || !hourly.has("wind_direction")) {
+                || !hourly.has("shortwave_radiation")) {
             errors.add("Weather API response is missing required hourly fields");
 
         }

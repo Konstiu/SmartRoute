@@ -1,11 +1,11 @@
 package com.smartroute.smartroute1.entity.weather;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
 import lombok.Data;
-import java.util.List;
 
 @Data
 @Entity
@@ -14,18 +14,24 @@ public class WeatherResponse {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private List<String> time;
-    private List<Double> temperature2m;
-    private List<Double> windSpeed10m;
-    private List<Double> precipitation;
-    private List<Double> relativeHumidity;
-    private List<Double> shortWaveRadiation;
+    @Column
+    private String time;
+    @Column
+    private Double temperature2m;
+    @Column
+    private Double windSpeed10m;
+    @Column
+    private Double precipitation;
+    @Column
+    private Double relativeHumidity;
+    @Column
+    private Double shortWaveRadiation;
 
     public WeatherResponse() {
     }
 
-    public WeatherResponse(List<String> time, List<Double> temperature2m, List<Double> windSpeed10m,
-                           List<Double> precipitation, List<Double> relativeHumidity, List<Double> shortWaveRadiation) {
+    public WeatherResponse(String time, Double temperature2m, Double windSpeed10m,
+                           Double precipitation, Double relativeHumidity, Double shortWaveRadiation) {
         this.time = time;
         this.temperature2m = temperature2m;
         this.windSpeed10m = windSpeed10m;

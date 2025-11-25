@@ -1,19 +1,17 @@
 package com.smartroute.smartroute1.endpoint.dto;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 
-import java.util.List;
-
-@Getter
-@Setter
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class WeatherDto {
-    private Long id;
-
-    private List<String> time;
-    private List<Double> temperature2m;
-    private List<Double> windSpeed10m;
-    private List<Double> precipitation;
-    private List<Double> relativeHumidity;
-    private List<Double> shortWaveRadiation;
+    private String time;
+    private Double temperature2m;
+    private Double windSpeed10m;
+    private Double precipitation;
+    private Double relativeHumidity;
+    private Double shortWaveRadiation;
 }
