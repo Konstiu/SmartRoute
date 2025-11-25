@@ -36,7 +36,7 @@ public class ConsistencyAnalyzerServiceImpl implements ConsistencyAnalyzerServic
                 .findAllByUserAndStartDateBetweenOrderByStartDateAsc(user, start, end));
 
 
-        if (sessions.isEmpty()) {
+        if (sessions.isEmpty() || plannedSessionsPerWeek == 0) {
             return new ConsistencyScoreResultDto(0.0, 0.0, 0.0);
         }
         sessions.sort(Comparator.comparing(Activity::getStartDate));
