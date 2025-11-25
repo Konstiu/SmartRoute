@@ -1,19 +1,24 @@
 package com.smartroute.smartroute1.endpoint.mapper;
 
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
-import com.smartroute.smartroute1.entity.StravaAccount;
-import com.smartroute.smartroute1.entity.StravaActivity;
+import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.Activity;
 import org.mapstruct.Mapper;
+
+import java.time.Instant;
 
 @Mapper
 public interface StravaActivityMapper {
-    default StravaActivity dtoToEntity(StravaActivityDto dto, StravaActivity entity, StravaAccount account) {
-
-        if (entity == null) {
-            entity = new StravaActivity();
+    default Activity dtoToEntity(StravaActivityDto dto, Activity entity, ApplicationUser user) {
+        if (dto == null || dto.getStravaId() == null) {
+            return null;
         }
 
-        entity.setId(dto.getId());
+        if (entity == null) {
+            entity = new Activity();
+        }
+
+        entity.setStravaId(dto.getStravaId());
         entity.setName(dto.getName());
         entity.setDistance(dto.getDistance());
         entity.setMovingTime(dto.getMovingTime());
@@ -21,8 +26,8 @@ public interface StravaActivityMapper {
         entity.setTotalElevationGain(dto.getTotalElevationGain());
         entity.setType(dto.getType());
         entity.setSportType(dto.getSportType());
-        entity.setStartDate(dto.getStartDate());
-        entity.setStartDateLocal(dto.getStartDateLocal());
+        entity.setStartDate(Instant.parse(dto.getStartDate()));
+        entity.setStartDateLocal(Instant.parse(dto.getStartDateLocal()));
         entity.setAverageSpeed(dto.getAverageSpeed());
         entity.setMaxSpeed(dto.getMaxSpeed());
         entity.setAverageHeartrate(dto.getAverageHeartrate());
@@ -31,7 +36,7 @@ public interface StravaActivityMapper {
         entity.setKilojoules(dto.getKilojoules());
         entity.setSufferScore(dto.getSufferScore());
         entity.setSummaryPolyline(dto.getMap() != null ? dto.getMap().getSummaryPolyline() : null);
-        entity.setStravaAccount(account);
+        entity.setUser(user);
 
         return entity;
     }
