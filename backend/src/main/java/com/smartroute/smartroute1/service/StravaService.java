@@ -39,4 +39,5 @@ public interface StravaService {
      * @throws RuntimeException if the Strava account is not linked or API call fails
      */
     AthleteDetailDto importStravaAthlete(String email);
+
 }

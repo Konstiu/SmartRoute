@@ -15,41 +15,25 @@ import com.smartroute.smartroute1.service.StravaService;
 import com.smartroute.smartroute1.service.impl.StravaOauthServiceImpl;
 import jakarta.transaction.Transactional;
 import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
-import org.springframework.web.reactive.function.client.ClientRequest;
-import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.io.IOException;
-import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(SpringExtension.class)
 @SpringBootTest
-@Import(StravaServiceTest.TestConfig.class)
 @ActiveProfiles({"test", "generateData"})
 @Transactional
 class StravaServiceTest extends BaseTest {
-    public static MockWebServer mockStravaApi;
+
     @Autowired
     private StravaService stravaService;
     @Autowired
@@ -60,17 +44,6 @@ class StravaServiceTest extends BaseTest {
     private ActivityRepository activityRepository;
     @MockBean
     private StravaOauthServiceImpl authService;
-
-    @BeforeAll
-    static void setupEach() throws IOException {
-        mockStravaApi = new MockWebServer();
-        mockStravaApi.start();
-    }
-
-    @AfterAll
-    static void tearDownEach() throws IOException {
-        mockStravaApi.shutdown();
-    }
 
     private static StravaActivityDto getTestActivityDto() {
         StravaActivityDto activityDto = new StravaActivityDto();
@@ -110,14 +83,14 @@ class StravaServiceTest extends BaseTest {
         ObjectMapper mapper = new ObjectMapper();
         String json = mapper.writeValueAsString(List.of(activityDto));
 
-        mockStravaApi.enqueue(
+        mockApiServer.enqueue(
                 new MockResponse()
                         .setResponseCode(200)
                         .setHeader("Content-Type", "application/json")
                         .setBody(json)
         );
 
-        mockStravaApi.enqueue(
+        mockApiServer.enqueue(
                 new MockResponse()
                         .setResponseCode(200)
                         .setHeader("Content-Type", "application/json")
@@ -170,14 +143,14 @@ class StravaServiceTest extends BaseTest {
     }
 
     @Test
-    void testImportStravaActivities_api4xx_throwsBadRequest() throws Exception {
+    void testImportStravaActivities_api4xx_throwsBadRequest() {
         ApplicationUser user = userRepository.findAll().getFirst();
         String email = user.getEmail();
         StravaAccount account = stravaAccountRepository.findByUser(user).orElseThrow();
 
         when(authService.ensureValidAccessToken(account)).thenReturn("dummy-token");
 
-        mockStravaApi.enqueue(new MockResponse()
+        mockApiServer.enqueue(new MockResponse()
                 .setResponseCode(400)
                 .setHeader("Content-Type", "application/json")
                 .setBody("{\"message\":\"Authorization Error\"}")
@@ -188,20 +161,22 @@ class StravaServiceTest extends BaseTest {
 
         assertAll(
                 () -> assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode()),
-                () -> assertTrue(ex.getReason().contains("Strava API 4xx"))
+                () -> {
+                    assertNotNull(ex.getReason());
+                    assertTrue(ex.getReason().contains("Strava API 4xx"));
+                }
         );
     }
 
     @Test
-    @Disabled
-    void testImportStravaActivities_api5xx_throwsBadGateway() throws Exception {
+    void testImportStravaActivities_api5xx_throwsBadGateway() {
         ApplicationUser user = userRepository.findAll().getFirst();
         String email = user.getEmail();
         StravaAccount account = stravaAccountRepository.findByUser(user).orElseThrow();
 
         when(authService.ensureValidAccessToken(account)).thenReturn("dummy-token");
 
-        mockStravaApi.enqueue(new MockResponse()
+        mockApiServer.enqueue(new MockResponse()
                 .setResponseCode(500)
                 .setHeader("Content-Type", "application/json")
                 .setBody("{\"message\":\"Internal Server Error\"}")
@@ -212,7 +187,10 @@ class StravaServiceTest extends BaseTest {
 
         assertAll(
                 () -> assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatusCode()),
-                () -> assertTrue(ex.getReason().contains("Strava API 5xx"))
+                () -> {
+                    assertNotNull(ex.getReason());
+                    assertTrue(ex.getReason().contains("Strava API 5xx"));
+                }
         );
     }
 
@@ -232,20 +210,20 @@ class StravaServiceTest extends BaseTest {
 
         when(authService.ensureValidAccessToken(account)).thenReturn("dummy-token");
 
-        mockStravaApi.enqueue(new MockResponse()
+        mockApiServer.enqueue(new MockResponse()
                 .setResponseCode(200)
                 .setHeader("Content-Type", "application/json")
                 .setBody(json)
         );
 
-        mockStravaApi.enqueue(
+        mockApiServer.enqueue(
                 new MockResponse()
                         .setResponseCode(200)
                         .setHeader("Content-Type", "application/json")
                         .setBody("[{\"type\": \"heartrate\", \"data\": [150,151,152], \"original_size\": 3}]")
         );
 
-        mockStravaApi.enqueue(
+        mockApiServer.enqueue(
                 new MockResponse()
                         .setResponseCode(200)
                         .setHeader("Content-Type", "application/json")
@@ -290,7 +268,7 @@ class StravaServiceTest extends BaseTest {
         ObjectMapper mapper = new ObjectMapper();
         String json = mapper.writeValueAsString(zoneData);
 
-        mockStravaApi.enqueue(new MockResponse()
+        mockApiServer.enqueue(new MockResponse()
                 .setResponseCode(200)
                 .setHeader("Content-Type", "application/json")
                 .setBody(json)
@@ -331,7 +309,7 @@ class StravaServiceTest extends BaseTest {
 
         when(authService.ensureValidAccessToken(account)).thenReturn("dummy-token");
 
-        mockStravaApi.enqueue(new MockResponse()
+        mockApiServer.enqueue(new MockResponse()
                 .setResponseCode(400)
                 .setHeader("Content-Type", "application/json")
                 .setBody("{\"message\":\"Authorization Error\"}")
@@ -354,7 +332,7 @@ class StravaServiceTest extends BaseTest {
 
         when(authService.ensureValidAccessToken(account)).thenReturn("dummy-token");
 
-        mockStravaApi.enqueue(new MockResponse()
+        mockApiServer.enqueue(new MockResponse()
                 .setResponseCode(500)
                 .setHeader("Content-Type", "application/json")
                 .setBody("{\"message\":\"Internal Server Error\"}")
@@ -388,7 +366,7 @@ class StravaServiceTest extends BaseTest {
         ObjectMapper mapper = new ObjectMapper();
         String json = mapper.writeValueAsString(athleteDto);
 
-        mockStravaApi.enqueue(new MockResponse()
+        mockApiServer.enqueue(new MockResponse()
                 .setResponseCode(200)
                 .setHeader("Content-Type", "application/json")
                 .setBody(json)
@@ -427,7 +405,7 @@ class StravaServiceTest extends BaseTest {
 
         when(authService.ensureValidAccessToken(account)).thenReturn("dummy-token");
 
-        mockStravaApi.enqueue(new MockResponse()
+        mockApiServer.enqueue(new MockResponse()
                 .setResponseCode(401)
                 .setHeader("Content-Type", "application/json")
                 .setBody("{\"message\":\"Unauthorized\"}")
@@ -438,7 +416,10 @@ class StravaServiceTest extends BaseTest {
 
         assertAll(
                 () -> assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode()),
-                () -> assertTrue(ex.getReason().contains("Strava API 4xx"))
+                () -> {
+                    assertNotNull(ex.getReason());
+                    assertTrue(ex.getReason().contains("Strava API 4xx"));
+                }
         );
     }
 
@@ -450,7 +431,7 @@ class StravaServiceTest extends BaseTest {
 
         when(authService.ensureValidAccessToken(account)).thenReturn("dummy-token");
 
-        mockStravaApi.enqueue(new MockResponse()
+        mockApiServer.enqueue(new MockResponse()
                 .setResponseCode(500)
                 .setHeader("Content-Type", "application/json")
                 .setBody("{\"message\":\"Internal Server Error\"}")
@@ -461,34 +442,10 @@ class StravaServiceTest extends BaseTest {
 
         assertAll(
                 () -> assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatusCode()),
-                () -> assertTrue(ex.getReason().contains("Strava API 5xx"))
+                () -> {
+                    assertNotNull(ex.getReason());
+                    assertTrue(ex.getReason().contains("Strava API 5xx"));
+                }
         );
-    }
-
-
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        @Primary
-        public WebClient mockWebClient() {
-            return WebClient.builder()
-                    .defaultHeaders(h -> h.add("Host", "www.strava.com"))
-                    .baseUrl(mockStravaApi.url("/").toString())
-                    .filter((request, next) -> {
-
-                        // Rewrite absolute Strava URLs on the MockWebServer
-                        URI rewritten = mockStravaApi.url("/").resolve(
-                                request.url().getPath()
-                        ).uri();
-
-                        ClientRequest newRequest = ClientRequest.create(request.method(), rewritten)
-                                .headers(h -> h.addAll(request.headers()))
-                                .body(request.body())
-                                .build();
-
-                        return next.exchange(newRequest);
-                    })
-                    .build();
-        }
     }
 }
