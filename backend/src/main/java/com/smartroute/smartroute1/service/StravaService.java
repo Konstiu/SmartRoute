@@ -2,8 +2,6 @@ package com.smartroute.smartroute1.service;
 
 import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
-import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
-import com.smartroute.smartroute1.entity.StravaActivity;
 import com.smartroute.smartroute1.endpoint.dto.StravaZoneDataDto;
 
 import java.util.List;
@@ -42,7 +40,4 @@ public interface StravaService {
      */
     AthleteDetailDto importStravaAthlete(String email);
 
-    List<StravaActivity> getStravaActivities(String email);
-
-    StravaActivity getStravaActivity(String email, long id);
 }
