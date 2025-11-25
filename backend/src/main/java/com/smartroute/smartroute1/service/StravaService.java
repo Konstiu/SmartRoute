@@ -4,6 +4,7 @@ import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
 import com.smartroute.smartroute1.entity.StravaActivity;
+import com.smartroute.smartroute1.endpoint.dto.StravaZoneDataDto;
 
 import java.util.List;
 
@@ -27,10 +28,10 @@ public interface StravaService {
      * Imports the (heart rate) zone data for the user with the specified email from Strava.
      *
      * @param email the email of the user whose heart rate zone data should be imported
-     * @return a {@link ZoneDataDto} containing the user's heart rate zones
+     * @return a {@link StravaZoneDataDto} containing the user's heart rate zones
      * @throws RuntimeException if the Strava account is not linked or API call fails
      */
-    ZoneDataDto importStravaZoneData(String email);
+    StravaZoneDataDto importStravaZoneData(String email);
 
     /**
      * Imports the athlete detail data for the user with the specified email from Strava.

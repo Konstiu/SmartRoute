@@ -4,6 +4,7 @@ import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.ZoneDataDto;
 import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
+import com.smartroute.smartroute1.endpoint.dto.StravaZoneDataDto;
 import com.smartroute.smartroute1.service.StravaService;
 import com.smartroute.smartroute1.service.impl.StravaOauthServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
@@ -171,7 +172,7 @@ public class StravaEndpoint {
     @Secured("ROLE_USER")
     @GetMapping("/zones")
     @ResponseStatus(HttpStatus.OK)
-    public ZoneDataDto getZones() {
+    public StravaZoneDataDto getZones() {
         LOGGER.info("GET /api/v1/strava/zones");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return stravaService.importStravaZoneData(authentication.getName());
@@ -202,5 +203,4 @@ public class StravaEndpoint {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         return stravaService.importStravaAthlete(authentication.getName());
     }
-
 }
