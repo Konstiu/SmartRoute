@@ -64,7 +64,7 @@ public class StravaDataGenerator {
         } else {
             long id = 0;
             for (ApplicationUser user : userList) {
-                LOGGER.info("generating {} Strava activities for user {}", NUMBER_OF_ACTIVITIES_PER_USER, user.getEmail());
+                LOGGER.debug("generating {} Strava activities for user {}", NUMBER_OF_ACTIVITIES_PER_USER, user.getEmail());
 
                 for (int i = 0; i < NUMBER_OF_ACTIVITIES_PER_USER; i++) {
                     Activity sa = new Activity();

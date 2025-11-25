@@ -32,7 +32,7 @@ import static org.mockito.Mockito.when;
 @SpringBootTest
 @ActiveProfiles({"test", "generateData"})
 @Transactional
-class StravaServiceTest {
+class StravaServiceTest extends BaseTest {
 
     @Autowired
     private StravaService stravaService;

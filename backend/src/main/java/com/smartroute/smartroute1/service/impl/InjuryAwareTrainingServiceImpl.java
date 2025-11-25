@@ -84,10 +84,6 @@ public class InjuryAwareTrainingServiceImpl implements InjuryAwareTrainingServic
 
 
     private boolean hasFullStopInjury(List<Injuries> injuries) {
-        if (injuries == null || injuries.isEmpty()) {
-            return false;
-        }
-
         LocalDate today = LocalDate.now();
         int windowDays = 14;
 
