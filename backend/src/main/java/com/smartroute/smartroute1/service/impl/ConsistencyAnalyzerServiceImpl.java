@@ -5,8 +5,11 @@ import com.smartroute.smartroute1.entity.StravaAccount;
 import com.smartroute.smartroute1.entity.StravaActivity;
 import com.smartroute.smartroute1.repository.StravaActivityRepository;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.lang.invoke.MethodHandles;
 import java.time.Instant;
 
 import java.time.temporal.ChronoUnit;
@@ -17,6 +20,7 @@ import java.util.List;
 @Service
 public class ConsistencyAnalyzerServiceImpl implements ConsistencyAnalyzerService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final StravaActivityRepository stravaActivityRepository;
     private final double alphaF = 0.4;
     private final double betaR = 0.4;
@@ -27,6 +31,7 @@ public class ConsistencyAnalyzerServiceImpl implements ConsistencyAnalyzerServic
 
     @Override
     public ConsistencyScoreResultDto computeScore(StravaAccount user, Instant start, Instant end, int plannedSessionsPerWeek) {
+        LOGGER.trace("Computing Consistency Score for User {}", user);
         List<StravaActivity> sessions = new ArrayList<>(stravaActivityRepository
                 .findAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc(user, start, end));
 
@@ -72,6 +77,7 @@ public class ConsistencyAnalyzerServiceImpl implements ConsistencyAnalyzerServic
 
         double score = 0.5 * frequencyConsistency + 0.5 * sessionRegularity;
         score = Math.max(0, Math.min(1, score));
+        LOGGER.debug("Computed Score for User {}: {}", user, score);
         return new ConsistencyScoreResultDto(score, frequencyConsistency, sessionRegularity);
     }
 }
