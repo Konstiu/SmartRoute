@@ -45,8 +45,8 @@ backend-build-image:
   image: maven:3-eclipse-temurin-21
   script:
     - cd backend
-    - mvn -B clean package -DskipTests
-    - mvn -B clean package -DskipTests jib:build -Djib.to.image=registry.reset.inso-w.at/$CI_PROJECT_PATH -Djib.to.tags=$CI_PIPELINE_ID -Djib.to.auth.username=$CI_REGISTRY_USER -Djib.to.auth.password=$CI_REGISTRY_PASSWORD
+    - mvn clean package -DskipTests
+    - mvn -B jib:build -Djib.to.image=registry.reset.inso-w.at/$CI_PROJECT_PATH -Djib.to.tags=$CI_PIPELINE_ID -Djib.to.auth.username=$CI_REGISTRY_USER -Djib.to.auth.password=$CI_REGISTRY_PASSWORD
   needs:
     - frontend-build
   only:
