@@ -1,7 +1,7 @@
 package com.smartroute.smartroute1.service;
 
 import com.smartroute.smartroute1.endpoint.dto.ConsistencyScoreResultDto;
-import com.smartroute.smartroute1.entity.StravaAccount;
+import com.smartroute.smartroute1.entity.ApplicationUser;
 
 import java.time.Instant;
 
@@ -21,5 +21,5 @@ public interface ConsistencyAnalyzerService {
      * @param plannedTrainingSessions The number of training sessions the user planned to do in a week
      * @return A score dto consisting of the frequency consistency score, regularity consistency score and final score
      */
-    ConsistencyScoreResultDto computeScore(StravaAccount user, Instant start, Instant end, int plannedTrainingSessions);
+    ConsistencyScoreResultDto computeScore(ApplicationUser user, Instant start, Instant end, int plannedTrainingSessions);
 }
