@@ -16,6 +16,8 @@ import org.springframework.test.context.ActiveProfiles;
 import java.time.Instant;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.when;
 
 @ActiveProfiles({"test", "generateData"})
@@ -38,7 +40,7 @@ public class ConsistencyAnalyzerTest {
     }
 
     @Test
-    void testPerfectFrequencyConsistency() {
+    void test_WhenPerfectFrequencyConsistency_ThenScoreIsPerfect() {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
@@ -54,7 +56,7 @@ public class ConsistencyAnalyzerTest {
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 1);
 
-        Assertions.assertAll(
+        assertAll(
                 () -> Assertions.assertEquals(1.0, result.getFrequencyConsistency()),
                 () -> Assertions.assertEquals(1.0, result.getRegularityConsistency()),
                 () -> Assertions.assertEquals(1.0, result.getFinalScore())
@@ -62,7 +64,7 @@ public class ConsistencyAnalyzerTest {
     }
 
     @Test
-    void testUnderTrainingPenalty() {
+    void test_WhenUnderTrainingPenalty_ThenReduceScoreAccordingly() {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
@@ -74,7 +76,7 @@ public class ConsistencyAnalyzerTest {
                 .thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 2);
-        Assertions.assertAll(
+        assertAll(
                 () -> Assertions.assertTrue(result.getFrequencyConsistency() < 0.8),
                 () -> Assertions.assertEquals(1.0, result.getRegularityConsistency()),
                 () -> Assertions.assertTrue(result.getFinalScore() < 1.0)
@@ -82,7 +84,7 @@ public class ConsistencyAnalyzerTest {
     }
 
     @Test
-    void testNoActivities() {
+    void test_WhenNoActivities_ThenScoreIsZero() {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
@@ -91,7 +93,7 @@ public class ConsistencyAnalyzerTest {
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 3);
 
-        Assertions.assertAll(
+        assertAll(
                 () -> Assertions.assertEquals(0.0, result.getFinalScore()),
                 () -> Assertions.assertEquals(0.0, result.getFrequencyConsistency()),
                 () -> Assertions.assertEquals(0.0, result.getRegularityConsistency())
@@ -99,7 +101,7 @@ public class ConsistencyAnalyzerTest {
     }
 
     @Test
-    void testPerfectConsistencyWeeklyOneSession() {
+    void test_WhenPerfectConsistencyWeeklyInOneSession_ThenScoreIsPerfect() {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
@@ -115,7 +117,7 @@ public class ConsistencyAnalyzerTest {
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 1);
 
-        Assertions.assertAll(
+        assertAll(
                 () -> Assertions.assertEquals(1.0, result.getFrequencyConsistency()),
                 () -> Assertions.assertEquals(1.0, result.getRegularityConsistency()),
                 () -> Assertions.assertEquals(1.0, result.getFinalScore())
@@ -123,7 +125,7 @@ public class ConsistencyAnalyzerTest {
     }
 
     @Test
-    void testUnderTrainingWithOneSession() {
+    void test_WhenUnderTrainingWithOneSession_ThenFrequencyConsistencyIsReduced() {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
@@ -135,7 +137,7 @@ public class ConsistencyAnalyzerTest {
                 user, start, end)).thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 5);
-        Assertions.assertAll(
+        assertAll(
                 () -> Assertions.assertTrue(result.getFrequencyConsistency() < 0.5),
                 () -> Assertions.assertEquals(1.0, result.getRegularityConsistency()),
                 () -> Assertions.assertTrue(result.getFinalScore() < 1.0)
@@ -143,7 +145,7 @@ public class ConsistencyAnalyzerTest {
     }
 
     @Test
-    void testOverTrainingPenalty() {
+    void testWhenOverTrainingThenScoreIsReduced() {
         Instant start = Instant.parse("2025-01-24T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
@@ -160,7 +162,7 @@ public class ConsistencyAnalyzerTest {
                 user, start, end)).thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 2);
-        Assertions.assertAll(
+        assertAll(
                 () -> Assertions.assertTrue(result.getFrequencyConsistency() < 0.5),
                 () -> Assertions.assertEquals(1.0, result.getRegularityConsistency()),
                 () -> Assertions.assertTrue(result.getFinalScore() < 0.8)
@@ -168,7 +170,7 @@ public class ConsistencyAnalyzerTest {
     }
 
     @Test
-    void testIrregularSpacingLargeGaps() {
+    void test_WhenIrregularSpacingWithLargeGaps_ThenRegularityConsistencyIsReduced() {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
@@ -184,7 +186,7 @@ public class ConsistencyAnalyzerTest {
                 user, start, end)).thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 1);
-        Assertions.assertAll(
+        assertAll(
                 () -> Assertions.assertEquals(1.0, result.getFrequencyConsistency()),
                 () -> Assertions.assertTrue(result.getRegularityConsistency() < 0.5),
                 () -> Assertions.assertTrue(result.getFinalScore() < 1.0)
@@ -192,7 +194,7 @@ public class ConsistencyAnalyzerTest {
     }
 
     @Test
-    void testTwoSessionsPerfectSpacing() {
+    void test_WhenTwoSessionsWithPerfectSpacing_ThenScoreIsPerfect() {
         Instant start = Instant.parse("2025-01-11T00:00:00Z");
         Instant end = Instant.parse("2025-01-25T23:59:59Z");
 
@@ -205,7 +207,7 @@ public class ConsistencyAnalyzerTest {
                 user, start, end)).thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 1);
-        Assertions.assertAll(
+        assertAll(
                 () -> Assertions.assertEquals(1.0, result.getFrequencyConsistency()),
                 () -> Assertions.assertEquals(1.0, result.getRegularityConsistency()),
                 () -> Assertions.assertEquals(1.0, result.getFinalScore())
@@ -213,7 +215,7 @@ public class ConsistencyAnalyzerTest {
     }
 
     @Test
-    void testThreeSessionsIrregularSpacing() {
+    void test_WhenThreeSessionsWithIrregularSpacing_ThenRegularityConsistencyIsReduced() {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
@@ -227,7 +229,7 @@ public class ConsistencyAnalyzerTest {
                 user, start, end)).thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 1);
-        Assertions.assertAll(
+        assertAll(
                 () -> Assertions.assertTrue(result.getFrequencyConsistency() < 1.0),
                 () -> Assertions.assertTrue(result.getRegularityConsistency() < 0.5),
                 () -> Assertions.assertTrue(result.getFinalScore() < 1.0)
@@ -235,7 +237,7 @@ public class ConsistencyAnalyzerTest {
     }
 
     @Test
-    void testLargeTrainingGapPenalty() {
+    void test_WhenLargeTrainingGap_ThenScoreIsReduced() {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
@@ -248,10 +250,31 @@ public class ConsistencyAnalyzerTest {
                 user, start, end)).thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 1);
-        Assertions.assertAll(
+        assertAll(
                 () -> Assertions.assertTrue(result.getFrequencyConsistency() < 0.9),
                 () -> Assertions.assertTrue(result.getRegularityConsistency() < 0.4),
                 () -> Assertions.assertTrue(result.getFinalScore() < 1.0)
         );
     }
+
+    @Test
+    void test_WhenZeroPlannedSessions_ThenScoreIsReduced() {
+        Instant start = Instant.parse("2025-01-01T00:00:00Z");
+        Instant end = Instant.parse("2025-01-31T23:59:59Z");
+        List<Activity> activities = List.of(
+                activity("2025-01-28T12:00:00Z"),
+                activity("2025-01-03T12:00:00Z")
+        );
+        when(repository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(
+                user, start, end)).thenReturn(activities);
+
+        ConsistencyScoreResultDto result = service.computeScore(user, start, end, 0);
+
+        assertAll(
+                () -> assertEquals(0, result.getFinalScore()),
+                () -> assertEquals(0, result.getRegularityConsistency()),
+                () -> assertEquals(0, result.getFrequencyConsistency())
+        );
+    }
+
 }
