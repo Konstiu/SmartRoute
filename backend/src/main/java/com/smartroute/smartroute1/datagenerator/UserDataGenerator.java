@@ -15,6 +15,7 @@ import jakarta.annotation.PostConstruct;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.List;
+import java.time.LocalDate;
 
 @Profile("generateData")
 @Order(1)
@@ -59,6 +60,17 @@ public class UserDataGenerator {
                 userRepository.saveAll(batch);
                 LOGGER.debug("Saved batch of {} users", batch.size());
                 batch.clear();
+        } else {
+            LOGGER.info("generating {} user entries", NUMBER_OF_USERS_TO_GENERATE);
+            for (int i = 0; i < NUMBER_OF_USERS_TO_GENERATE; i++) {
+                ApplicationUser user = new ApplicationUser();
+                user.setEmail("email" + i + "@smartroute.com");
+                user.setFirstname("Max" + i);
+                user.setLastname("Mustermann" + i);
+                user.setPassword(passwordEncoder.encode("password" + i));
+                user.setBirthdate(LocalDate.of(1980, 1, 1));
+                userRepository.save(user);
+                LOGGER.info("saving user {}", user.getEmail());
             }
         }
 
