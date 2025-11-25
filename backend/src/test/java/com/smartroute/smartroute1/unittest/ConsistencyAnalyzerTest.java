@@ -2,9 +2,9 @@ package com.smartroute.smartroute1.unittest;
 
 
 import com.smartroute.smartroute1.endpoint.dto.ConsistencyScoreResultDto;
-import com.smartroute.smartroute1.entity.StravaAccount;
-import com.smartroute.smartroute1.entity.StravaActivity;
-import com.smartroute.smartroute1.repository.StravaActivityRepository;
+import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import com.smartroute.smartroute1.service.impl.ConsistencyAnalyzerServiceImpl;
 import org.junit.jupiter.api.Assertions;
@@ -21,18 +21,18 @@ import static org.mockito.Mockito.when;
 @ActiveProfiles({"test", "generateData"})
 public class ConsistencyAnalyzerTest {
 
-    private final StravaAccount user = new StravaAccount();
-    private StravaActivityRepository repository;
+    private final ApplicationUser user = new ApplicationUser();
+    private ActivityRepository repository;
     private ConsistencyAnalyzerService service;
 
     @BeforeEach
     void setUp() {
-        repository = Mockito.mock(StravaActivityRepository.class);
+        repository = Mockito.mock(ActivityRepository.class);
         service = new ConsistencyAnalyzerServiceImpl(repository);
     }
 
-    private StravaActivity activity(String isoTime) {
-        StravaActivity act = new StravaActivity();
+    private Activity activity(String isoTime) {
+        Activity act = new Activity();
         act.setStartDate(Instant.parse(isoTime));
         return act;
     }
@@ -42,14 +42,14 @@ public class ConsistencyAnalyzerTest {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
-        List<StravaActivity> activities = List.of(
+        List<Activity> activities = List.of(
                 activity("2025-01-24T12:00:00Z"),
                 activity("2025-01-17T12:00:00Z"),
                 activity("2025-01-10T12:00:00Z"),
                 activity("2025-01-03T12:00:00Z")
         );
 
-        when(repository.findAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc(user, start, end))
+        when(repository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(user, start, end))
                 .thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 1);
@@ -66,11 +66,11 @@ public class ConsistencyAnalyzerTest {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
-        List<StravaActivity> activities = List.of(
+        List<Activity> activities = List.of(
                 activity("2025-01-24T12:00:00Z")
         );
 
-        when(repository.findAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc(user, start, end))
+        when(repository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(user, start, end))
                 .thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 2);
@@ -86,7 +86,7 @@ public class ConsistencyAnalyzerTest {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
-        when(repository.findAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc(
+        when(repository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(
                 user, start, end)).thenReturn(List.of());
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 3);
@@ -103,14 +103,14 @@ public class ConsistencyAnalyzerTest {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
-        List<StravaActivity> activities = List.of(
+        List<Activity> activities = List.of(
                 activity("2025-01-24T12:00:00Z"),
                 activity("2025-01-17T12:00:00Z"),
                 activity("2025-01-10T12:00:00Z"),
                 activity("2025-01-03T12:00:00Z")
         );
 
-        when(repository.findAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc(
+        when(repository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(
                 user, start, end)).thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 1);
@@ -127,11 +127,11 @@ public class ConsistencyAnalyzerTest {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
-        List<StravaActivity> activities = List.of(
+        List<Activity> activities = List.of(
                 activity("2025-01-20T12:00:00Z")
         );
 
-        when(repository.findAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc(
+        when(repository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(
                 user, start, end)).thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 5);
@@ -147,7 +147,7 @@ public class ConsistencyAnalyzerTest {
         Instant start = Instant.parse("2025-01-24T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
-        List<StravaActivity> activities = List.of(
+        List<Activity> activities = List.of(
                 activity("2025-01-30T12:00:00Z"),
                 activity("2025-01-29T12:00:00Z"),
                 activity("2025-01-28T12:00:00Z"),
@@ -156,7 +156,7 @@ public class ConsistencyAnalyzerTest {
                 activity("2025-01-25T12:00:00Z")
         );
 
-        when(repository.findAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc(
+        when(repository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(
                 user, start, end)).thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 2);
@@ -173,14 +173,14 @@ public class ConsistencyAnalyzerTest {
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
         // Very irregular spacing
-        List<StravaActivity> activities = List.of(
+        List<Activity> activities = List.of(
                 activity("2025-01-30T12:00:00Z"),
                 activity("2025-01-25T12:00:00Z"),
                 activity("2025-01-10T12:00:00Z"),
                 activity("2025-01-03T12:00:00Z")
         );
 
-        when(repository.findAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc(
+        when(repository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(
                 user, start, end)).thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 1);
@@ -196,12 +196,12 @@ public class ConsistencyAnalyzerTest {
         Instant start = Instant.parse("2025-01-11T00:00:00Z");
         Instant end = Instant.parse("2025-01-25T23:59:59Z");
 
-        List<StravaActivity> activities = List.of(
+        List<Activity> activities = List.of(
                 activity("2025-01-18T12:00:00Z"),
                 activity("2025-01-11T12:00:00Z")
         );
 
-        when(repository.findAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc(
+        when(repository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(
                 user, start, end)).thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 1);
@@ -217,13 +217,13 @@ public class ConsistencyAnalyzerTest {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
-        List<StravaActivity> activities = List.of(
+        List<Activity> activities = List.of(
                 activity("2025-01-30T12:00:00Z"),
                 activity("2025-01-25T12:00:00Z"),
                 activity("2025-01-05T12:00:00Z")
         );
 
-        when(repository.findAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc(
+        when(repository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(
                 user, start, end)).thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 1);
@@ -239,12 +239,12 @@ public class ConsistencyAnalyzerTest {
         Instant start = Instant.parse("2025-01-01T00:00:00Z");
         Instant end = Instant.parse("2025-01-31T23:59:59Z");
 
-        List<StravaActivity> activities = List.of(
+        List<Activity> activities = List.of(
                 activity("2025-01-28T12:00:00Z"),
                 activity("2025-01-03T12:00:00Z")
         );
 
-        when(repository.findAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc(
+        when(repository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(
                 user, start, end)).thenReturn(activities);
 
         ConsistencyScoreResultDto result = service.computeScore(user, start, end, 1);

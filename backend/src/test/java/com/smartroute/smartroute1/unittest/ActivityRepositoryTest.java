@@ -1,13 +1,12 @@
 package com.smartroute.smartroute1.unittest;
 
 
+import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
-import com.smartroute.smartroute1.entity.StravaAccount;
-import com.smartroute.smartroute1.entity.StravaActivity;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.Sex;
+import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
-import com.smartroute.smartroute1.repository.StravaActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,10 +25,10 @@ import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest()
 @ActiveProfiles({"test", "generateData"})
 @Transactional
-public class StravaActivityRepositoryTest {
+public class ActivityRepositoryTest {
 
     @Autowired
-    private StravaActivityRepository activityRepository;
+    private ActivityRepository activityRepository;
 
     @Autowired
     private StravaAccountRepository accountRepository;
@@ -37,17 +36,15 @@ public class StravaActivityRepositoryTest {
     @Autowired
     private UserRepository userRepository;
 
-    private StravaActivity activity(long id, StravaAccount acc, String date) {
-        StravaActivity a = new StravaActivity();
-        a.setId(id);
+    private Activity activity(long id, ApplicationUser user, String date) {
+        Activity a = new Activity();
         a.setName("A" + id);
-        a.setStravaAccount(acc);
+        a.setUser(user);
         a.setStartDate(Instant.parse(date));
         return activityRepository.save(a);
     }
 
-    private StravaAccount newAcc(long id) {
-        StravaAccount a = new StravaAccount();
+    private ApplicationUser newUser(long id) {
         ApplicationUser u = new ApplicationUser();
         u.setEmail("u " + id + "@test.com");
         u.setActiveWeekdays(null);
@@ -59,28 +56,31 @@ public class StravaActivityRepositoryTest {
         u.setPassword("test");
         u.setSex(Sex.OTHER);
         u.setWeight(BigDecimal.TEN);
-        userRepository.save(u);
 
-        a.setUser(u);
-        return accountRepository.save(a);
+
+        return userRepository.save(u);
     }
 
     @BeforeEach
     public void setUp() {
         activityRepository.deleteAll();
         accountRepository.deleteAll();
+        userRepository.deleteAll();
+        activityRepository.flush();
+        accountRepository.flush();
+        userRepository.flush();
     }
 
 
     @Test
     void testFindAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc() {
 
-        StravaAccount acc1 = newAcc(1L);
-        StravaAccount acc2 = newAcc(2L);
+        ApplicationUser acc1 = newUser(1L);
+        ApplicationUser acc2 = newUser(2L);
 
 
         Instant start = Instant.parse("2025-01-10T00:00:00Z");
-        Instant end = Instant.parse("2025-01-20T23:59:59Z");
+        Instant end = Instant.parse("2025-01-21T00:00:00Z");
 
         activity(2L, acc1, "2025-01-10T12:00:00Z"); // include
         activity(1L, acc1, "2025-01-09T12:00:00Z"); // exclude
@@ -91,15 +91,14 @@ public class StravaActivityRepositoryTest {
 
         activity(6L, acc2, "2025-01-15T12:00:00Z"); // exclude
 
-        List<StravaActivity> results =
-                activityRepository.findAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc(
+        List<Activity> results =
+                activityRepository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(
                         acc1, start, end);
-
         assertAll(
                 () -> assertEquals(3, results.size()),
-                () -> assertEquals(2L, results.get(0).getId()),
-                () -> assertEquals(3L, results.get(1).getId()),
-                () -> assertEquals(4L, results.get(2).getId())
+                () -> assertEquals(Instant.parse("2025-01-10T12:00:00Z"), results.get(0).getStartDate()),
+                () -> assertEquals(Instant.parse("2025-01-15T12:00:00Z"), results.get(1).getStartDate()),
+                () -> assertEquals(Instant.parse("2025-01-20T02:00:00Z"), results.get(2).getStartDate())
         );
     }
 }

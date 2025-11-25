@@ -1,9 +1,9 @@
 package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.endpoint.dto.ConsistencyScoreResultDto;
-import com.smartroute.smartroute1.entity.StravaAccount;
-import com.smartroute.smartroute1.entity.StravaActivity;
-import com.smartroute.smartroute1.repository.StravaActivityRepository;
+import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,25 +21,25 @@ import java.util.List;
 public class ConsistencyAnalyzerServiceImpl implements ConsistencyAnalyzerService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private final StravaActivityRepository stravaActivityRepository;
+    private final ActivityRepository activityRepository;
     private final double alphaF = 0.4;
     private final double betaR = 0.4;
 
-    public ConsistencyAnalyzerServiceImpl(StravaActivityRepository stravaActivityRepository) {
-        this.stravaActivityRepository = stravaActivityRepository;
+    public ConsistencyAnalyzerServiceImpl(ActivityRepository activityRepository) {
+        this.activityRepository = activityRepository;
     }
 
     @Override
-    public ConsistencyScoreResultDto computeScore(StravaAccount user, Instant start, Instant end, int plannedSessionsPerWeek) {
+    public ConsistencyScoreResultDto computeScore(ApplicationUser user, Instant start, Instant end, int plannedSessionsPerWeek) {
         LOGGER.trace("Computing Consistency Score for User {}", user);
-        List<StravaActivity> sessions = new ArrayList<>(stravaActivityRepository
-                .findAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc(user, start, end));
+        List<Activity> sessions = new ArrayList<>(activityRepository
+                .findAllByUserAndStartDateBetweenOrderByStartDateAsc(user, start, end));
 
 
         if (sessions.isEmpty()) {
             return new ConsistencyScoreResultDto(0.0, 0.0, 0.0);
         }
-        sessions.sort(Comparator.comparing(StravaActivity::getStartDate));
+        sessions.sort(Comparator.comparing(Activity::getStartDate));
 
         // Frequency Consistency
         long days = ChronoUnit.DAYS.between(start, end) + 1;
