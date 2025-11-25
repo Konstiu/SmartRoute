@@ -3,8 +3,8 @@ package com.smartroute.smartroute1.endpoint;
 import com.smartroute.smartroute1.endpoint.dto.DetailedActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.ActivityDto;
 import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
-import com.smartroute.smartroute1.entity.StravaActivity;
-import com.smartroute.smartroute1.service.StravaService;
+import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.service.ActivityProcessingService;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -31,7 +31,7 @@ public class ViewActivitiesEndpoint {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final  StravaActivityMapper activityMapper;
-    private final StravaService stravaService;
+    private final ActivityProcessingService activityProcessingService;
 
 
     @GetMapping()
@@ -45,9 +45,9 @@ public class ViewActivitiesEndpoint {
     public List<ActivityDto> getStravaActivities() {
         LOGGER.info("GET /api/v1/activities/");
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        List<StravaActivity> list = stravaService.getStravaActivities(auth.getName());
+        List<Activity> list = activityProcessingService.getActivities(auth.getName());
         List<ActivityDto> dtos = new ArrayList<>();
-        for (StravaActivity stravaActivity : list) {
+        for (Activity stravaActivity : list) {
             dtos.add(activityMapper.toViewDto(stravaActivity));
         }
         return dtos;
@@ -65,7 +65,7 @@ public class ViewActivitiesEndpoint {
     public DetailedActivityDto getOneStravaActivity(@PathVariable("id") long id) {
         LOGGER.info("GET /api/v1/activities/{}", id);
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        StravaActivity activity = stravaService.getStravaActivity(auth.getName(), id);
+        Activity activity = activityProcessingService.getActivity(auth.getName(), id);
         return activityMapper.toDetailedViewDto(activity);
     }
 }

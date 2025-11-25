@@ -3,7 +3,6 @@ package com.smartroute.smartroute1.endpoint.mapper;
 import com.smartroute.smartroute1.endpoint.dto.DetailedActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.ActivityDto;
-import com.smartroute.smartroute1.entity.StravaActivity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Activity;
 import org.mapstruct.Mapper;
@@ -44,7 +43,7 @@ public interface StravaActivityMapper {
         return entity;
     }
 
-    default DetailedActivityDto toDetailedViewDto(StravaActivity entity) {
+    default DetailedActivityDto toDetailedViewDto(Activity entity) {
         DetailedActivityDto dto = new DetailedActivityDto();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
@@ -54,8 +53,8 @@ public interface StravaActivityMapper {
         dto.setTotalElevationGain(entity.getTotalElevationGain());
         dto.setType(entity.getType());
         dto.setSportType(entity.getSportType());
-        dto.setStartDate(entity.getStartDate());
-        dto.setStartDateLocal(entity.getStartDateLocal());
+        dto.setStartDate(String.valueOf(entity.getStartDate()));
+        dto.setStartDateLocal(String.valueOf(entity.getStartDateLocal()));
         dto.setAverageSpeed(entity.getAverageSpeed());
         dto.setMaxSpeed(entity.getMaxSpeed());
         dto.setAverageHeartrate(entity.getAverageHeartrate());
@@ -67,7 +66,7 @@ public interface StravaActivityMapper {
 
     }
 
-    default ActivityDto toViewDto(StravaActivity entity) {
+    default ActivityDto toViewDto(Activity entity) {
         ActivityDto dto = new ActivityDto();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
@@ -75,7 +74,7 @@ public interface StravaActivityMapper {
         dto.setMovingTime(entity.getMovingTime());
         dto.setTotalElevationGain(entity.getTotalElevationGain());
         dto.setSportType(entity.getSportType());
-        dto.setStartDateLocal(entity.getStartDateLocal());
+        dto.setStartDateLocal(String.valueOf(entity.getStartDateLocal()));
         dto.setAverageSpeed(entity.getAverageSpeed());
         dto.setAverageHeartrate(entity.getAverageHeartrate());
         dto.setAverageWatts(entity.getAverageWatts());

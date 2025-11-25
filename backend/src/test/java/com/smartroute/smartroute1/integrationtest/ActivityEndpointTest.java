@@ -2,8 +2,8 @@ package com.smartroute.smartroute1.integrationtest;
 
 import com.smartroute.smartroute1.basetest.BaseTest;
 import com.smartroute.smartroute1.basetest.TestData;
-import com.smartroute.smartroute1.entity.StravaActivity;
-import com.smartroute.smartroute1.repository.StravaActivityRepository;
+import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.repository.ActivityRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -28,7 +28,7 @@ class ActivityEndpointTest extends BaseTest implements TestData {
     private MockMvc mockMvc;
 
     @Autowired
-    private StravaActivityRepository stravaActivityRepository;
+    private ActivityRepository activityRepository;
 
     private static final String STRAVA_BASE_URI = BASE_URI + "/activities";
 
@@ -55,7 +55,7 @@ class ActivityEndpointTest extends BaseTest implements TestData {
     @Test
     @WithMockUser(username = DEFAULT_USER_EMAIL, roles = {"USER"})
     void getOneActivity_shouldReturnDetailedActivity_whenExists() throws Exception {
-        List<StravaActivity> activities = stravaActivityRepository.findAll();
+        List<Activity> activities = activityRepository.findAll();
         Long activityId = activities.get(0).getId();
 
         mockMvc.perform(get(STRAVA_BASE_URI + "/" + activityId)
@@ -83,7 +83,7 @@ class ActivityEndpointTest extends BaseTest implements TestData {
     void getOneActivity_shouldReturn404OrForbidden_whenAccessingOtherUsersActivity() throws Exception {
         // Get activity from first user - just use the first activity in the list
         // Since data generator creates activities in order, first 3 belong to email0
-        List<StravaActivity> activities = stravaActivityRepository.findAll();
+        List<Activity> activities = activityRepository.findAll();
         Long firstUserActivityId = activities.get(0).getId();
 
         // Try to access it as second user (email1@smartroute.com)
