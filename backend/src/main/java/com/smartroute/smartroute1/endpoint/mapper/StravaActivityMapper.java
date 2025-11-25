@@ -1,19 +1,24 @@
 package com.smartroute.smartroute1.endpoint.mapper;
 
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
-import com.smartroute.smartroute1.entity.StravaAccount;
-import com.smartroute.smartroute1.entity.StravaActivity;
+import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.Activity;
 import org.mapstruct.Mapper;
+
+import java.time.Instant;
 
 @Mapper
 public interface StravaActivityMapper {
-    default StravaActivity dtoToEntity(StravaActivityDto dto, StravaActivity entity, StravaAccount account) {
-
-        if (entity == null) {
-            entity = new StravaActivity();
+    default Activity dtoToEntity(StravaActivityDto dto, Activity entity, ApplicationUser user) {
+        if (dto == null || dto.getStravaId() == null) {
+            return null;
         }
 
-        entity.setStravaId(dto.getId());
+        if (entity == null) {
+            entity = new Activity();
+        }
+
+        entity.setStravaId(dto.getStravaId());
         entity.setName(dto.getName());
         entity.setDistance(dto.getDistance());
         entity.setMovingTime(dto.getMovingTime());
@@ -21,8 +26,8 @@ public interface StravaActivityMapper {
         entity.setTotalElevationGain(dto.getTotalElevationGain());
         entity.setType(dto.getType());
         entity.setSportType(dto.getSportType());
-        entity.setStartDate(dto.getStartDate());
-        entity.setStartDateLocal(dto.getStartDateLocal());
+        entity.setStartDate(Instant.parse(dto.getStartDate()));
+        entity.setStartDateLocal(Instant.parse(dto.getStartDateLocal()));
         entity.setAverageSpeed(dto.getAverageSpeed());
         entity.setMaxSpeed(dto.getMaxSpeed());
         entity.setAverageHeartrate(dto.getAverageHeartrate());
@@ -31,16 +36,16 @@ public interface StravaActivityMapper {
         entity.setKilojoules(dto.getKilojoules());
         entity.setSufferScore(dto.getSufferScore());
         entity.setSummaryPolyline(dto.getMap() != null ? dto.getMap().getSummaryPolyline() : null);
-        entity.setStravaAccount(account);
+        entity.setUser(user);
 
         return entity;
     }
 
-    default StravaActivityDto entityToDto(StravaActivity entity) {
+    default StravaActivityDto entityToDto(Activity entity) {
         StravaActivityDto dto = new StravaActivityDto();
 
         if (entity != null) {
-            dto.setId(entity.getStravaId() != null ? entity.getStravaId() : entity.getId());
+            dto.setStravaId(entity.getStravaId());
             dto.setName(entity.getName());
             dto.setDistance(entity.getDistance());
             dto.setMovingTime(entity.getMovingTime());
@@ -48,8 +53,8 @@ public interface StravaActivityMapper {
             dto.setTotalElevationGain(entity.getTotalElevationGain());
             dto.setType(entity.getType());
             dto.setSportType(entity.getSportType());
-            dto.setStartDate(entity.getStartDate());
-            dto.setStartDateLocal(entity.getStartDateLocal());
+            dto.setStartDate(String.valueOf(entity.getStartDate()));
+            dto.setStartDateLocal(String.valueOf(entity.getStartDateLocal()));
             dto.setAverageSpeed(entity.getAverageSpeed());
             dto.setMaxSpeed(entity.getMaxSpeed());
             dto.setAverageHeartrate(entity.getAverageHeartrate());
@@ -66,4 +71,5 @@ public interface StravaActivityMapper {
 
         return dto;
     }
+
 }

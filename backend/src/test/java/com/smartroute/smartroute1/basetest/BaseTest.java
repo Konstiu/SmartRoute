@@ -3,7 +3,7 @@ package com.smartroute.smartroute1.basetest;
 import com.smartroute.smartroute1.datagenerator.StravaDataGenerator;
 import com.smartroute.smartroute1.datagenerator.UserDataGenerator;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
-import com.smartroute.smartroute1.repository.StravaActivityRepository;
+import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,7 +26,7 @@ public class BaseTest {
     private StravaDataGenerator stravaAccountDataGenerator;
 
     @Autowired
-    private StravaActivityRepository stravaActivityRepository;
+    private ActivityRepository activityRepository;
 
     @BeforeEach
     void setUp() {
@@ -44,7 +44,7 @@ public class BaseTest {
     }
 
     private void clearData() {
-        stravaActivityRepository.deleteAll();
+        activityRepository.deleteAll();
         stravaAccountRepository.deleteAll();
         userRepository.deleteAll();
     }

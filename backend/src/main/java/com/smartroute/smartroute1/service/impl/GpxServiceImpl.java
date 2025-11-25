@@ -1,9 +1,10 @@
 package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.entity.ApplicationUser;
-import com.smartroute.smartroute1.entity.StravaActivity;
+import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.exception.ValidationException;
-import com.smartroute.smartroute1.repository.StravaActivityRepository;
+import com.smartroute.smartroute1.repository.ActivityRepository;
+import com.smartroute.smartroute1.service.FitnessScoreService;
 import com.smartroute.smartroute1.service.GpxService;
 import com.smartroute.smartroute1.service.UserService;
 import io.jenetics.jpx.Length;
@@ -29,6 +30,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 
 @Service
@@ -37,29 +39,28 @@ public class GpxServiceImpl implements GpxService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final UserService userService;
-    private final StravaActivityRepository stravaActivityRepository;
+    private final ActivityRepository activityRepository;
+    private final FitnessScoreService fitnessScoreService;
 
     @Override
     @Transactional
-    public StravaActivity importStravaGpxFile(InputStream gpxStream, String email) throws ValidationException {
+    public Activity importStravaGpxFile(InputStream gpxStream, String email) throws ValidationException {
         LOGGER.trace("importStravaGpxFile({}, {})", gpxStream, email);
         try {
-            StravaActivity stravaActivity = new StravaActivity();
+            Activity activity = new Activity();
 
             // set user
             ApplicationUser user = userService.findApplicationUserByEmail(email);
-            stravaActivity.setUser(user);
+            activity.setUser(user);
 
             // parse gpx file
             GPX gpx = GPX.Reader.DEFAULT.read(gpxStream);
 
             // set metadata, i.e. name and start date
             gpx.tracks().findFirst().ifPresent(track -> {
-                stravaActivity.setName(track.getName().orElse("Unnamed Activity"));
+                activity.setName(track.getName().orElse("Unnamed Activity"));
             });
-            gpx.getMetadata().flatMap(Metadata::getTime).ifPresent(time -> {
-                stravaActivity.setStartDate(time.toString());
-            });
+            gpx.getMetadata().flatMap(Metadata::getTime).ifPresent(activity::setStartDate);
 
             // extract all waypoints from all segments of all tracks
             List<WayPoint> allPoints = new ArrayList<>();
@@ -76,6 +77,8 @@ public class GpxServiceImpl implements GpxService {
             double maxHeartRate = 0.0;
             double averageHeartRateSum = 0.0;
             int heartRateCount = 0;
+            List<Float> heartRates = new ArrayList<>();
+            List<Float> timestamps = new ArrayList<>();
 
             for (int i = 1; i < allPoints.size(); i++) {
                 WayPoint p1 = allPoints.get(i - 1);
@@ -92,6 +95,10 @@ public class GpxServiceImpl implements GpxService {
                 Length e2 = p2.getElevation().orElseThrow();
                 double elevationDiff = e2.doubleValue() - e1.doubleValue();
 
+                if (elevationDiff > 0) {
+                    totalElevationGain += elevationDiff;
+                }
+
                 // Calculate time difference in seconds
                 double seconds = Duration.between(t1, t2).toSeconds();
 
@@ -103,20 +110,19 @@ public class GpxServiceImpl implements GpxService {
                     if (hr.get() > maxHeartRate) {
                         maxHeartRate = hr.get();
                     }
+                    heartRates.add(hr.get().floatValue());
+                    timestamps.add(t1.toEpochMilli() / 1000.0f);
                 }
 
                 if (seconds > 0) {
                     double speed = distance / seconds;
-                    totalDistance += distance;
                     if (speed > maxSpeed) {
                         maxSpeed = speed;
                     }
-                    // Consider moving if speed > 0.5 m/s
-                    if (speed > 0.5) {
+                    // Consider moving if speed > 0.3 m/s
+                    if (speed > 0.3) {
                         movingTime += seconds;
-                    }
-                    if (elevationDiff > 0) {
-                        totalElevationGain += elevationDiff;
+                        totalDistance += distance;
                     }
                 }
             }
@@ -127,14 +133,14 @@ public class GpxServiceImpl implements GpxService {
             double averageSpeed = durationSeconds > 0 ? totalDistance / durationSeconds : 0.0;
             double averageHeartRate = heartRateCount > 0 ? averageHeartRateSum / heartRateCount : 0.0;
 
-            stravaActivity.setDistance((float) totalDistance);
-            stravaActivity.setMovingTime((int) movingTime);
-            stravaActivity.setElapsedTime((int) durationSeconds);
-            stravaActivity.setTotalElevationGain((float) totalElevationGain);
-            stravaActivity.setAverageSpeed((float) averageSpeed);
-            stravaActivity.setMaxSpeed((float) maxSpeed);
-            stravaActivity.setAverageHeartrate((float) averageHeartRate);
-            stravaActivity.setMaxHeartrate((float) maxHeartRate);
+            activity.setDistance((float) totalDistance);
+            activity.setMovingTime((int) movingTime);
+            activity.setElapsedTime((int) durationSeconds);
+            activity.setTotalElevationGain((float) totalElevationGain);
+            activity.setAverageSpeed((float) averageSpeed);
+            activity.setMaxSpeed((float) maxSpeed);
+            activity.setAverageHeartrate((float) averageHeartRate);
+            activity.setMaxHeartrate((float) maxHeartRate);
 
             // calculate summary polyline
             final List<Position> path = allPoints
@@ -144,10 +150,23 @@ public class GpxServiceImpl implements GpxService {
                     wp.getLongitude().doubleValue()
                 )).toList();
             String polyline = PolylineUtils.encode(path, 5);
-            stravaActivity.setSummaryPolyline(polyline);
+            activity.setSummaryPolyline(polyline);
 
-            return stravaActivityRepository.save(stravaActivity);
-        } catch (IOException e) {
+            // we do not have a suffer score from GPX, we also have no information about power or energy
+            // therefore we can only use the heart-rate based method TRIMP to calculate the sessionLoad
+            // if also no heart rates are given in GPX, the distance/moving time based method will be used
+            // see FitnessScoreServiceImpl.calculateSessionLoad for details
+            int sessionLoad;
+            if (maxHeartRate > 0) {
+                sessionLoad = fitnessScoreService.calculateSessionLoad(heartRates, timestamps, (float) maxHeartRate, activity);
+            } else {
+                sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain());
+            }
+            activity.setSessionLoad(sessionLoad);
+
+
+            return activityRepository.save(activity);
+        } catch (IOException | NoSuchElementException e) {
             throw new ValidationException("Failed to read GPX file", List.of("GPX file could not be processed"));
         }
     }

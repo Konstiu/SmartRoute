@@ -1,6 +1,6 @@
 package com.smartroute.smartroute1.service;
 
-import com.smartroute.smartroute1.entity.StravaActivity;
+import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.exception.ValidationException;
 
 import java.io.InputStream;
@@ -16,6 +16,6 @@ public interface GpxService {
      * @return The imported StravaActivity entity.
      * @throws ValidationException if the GPX file is invalid or any validation error occurs.
      */
-    StravaActivity importStravaGpxFile(InputStream gpxStream, String email) throws ValidationException;
+    Activity importStravaGpxFile(InputStream gpxStream, String email) throws ValidationException;
 
 }
