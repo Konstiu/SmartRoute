@@ -5,7 +5,7 @@ export class Globals {
   readonly backendUri: string = this.findBackendUrl();
 
   private findBackendUrl(): string {
-    if (window.location.port === '8100') { // local `ionic`, backend at localhost:8080
+    if (window.location.port === '8100') { // local `ionic serve`, backend at localhost:8080
       return 'http://localhost:8080/api/v1';
     } else {
       // assume deployed somewhere and backend is available at same host/port as frontend
