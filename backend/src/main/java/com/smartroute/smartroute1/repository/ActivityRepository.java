@@ -29,4 +29,5 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
             @Param("end") Instant end
     );
 
+    Activity findByIdAndUser(Long id, ApplicationUser user);
 }

@@ -2,6 +2,7 @@ package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
+import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
 import com.smartroute.smartroute1.endpoint.dto.StravaZoneDataDto;
 import com.smartroute.smartroute1.service.StravaService;
 import com.smartroute.smartroute1.service.impl.StravaOauthServiceImpl;
@@ -11,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -55,13 +57,13 @@ import java.util.List;
                 
                 1. Authenticate your API user
                     Obtain a Bearer token (JWT) by sending:
-                    
+                
                     ```
                     POST {backendBaseUrl}/api/v1/authentication
                     ```
-                    
+                
                     with a valid request body.
-                    
+                
                     Use any tool like **Postman**, **Insomnia**, or **cURL**.
                 
                 2. Open the following URL in your browser:
@@ -96,7 +98,7 @@ import java.util.List;
                    - Athlete Profile  
                    - Activities  
                    - Heart Rate Zones  
-                    
+                
                    If no frontend exists, the redirect will simply show a blank page.  
                    Connection still succeeds.
                 
@@ -112,6 +114,8 @@ public class StravaEndpoint {
     private String baseUrl;
     @Value("${app.frontendUrl}")
     private String frontendUrl;
+    @Autowired
+    private StravaActivityMapper activityMapper;
 
     @Operation(
             summary = "Start Strava OAuth connection",
