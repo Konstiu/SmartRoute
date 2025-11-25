@@ -31,59 +31,61 @@ public class ViennaPointDataGenerator {
 
     @PostConstruct
     public void importPointsOfInterest() {
-        ClassPathResource fountains = new ClassPathResource(FOUNTAINFILENAME);
 
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(fountains.getInputStream()))) {
-            LOGGER.info("Importing from" + FOUNTAINFILENAME);
-            br.readLine(); //Skip header;
-            String line;
-            while ((line = br.readLine()) != null) {
-                System.out.println(line);
-                String[] parts = line.split(",");
-                String objectId = parts[1];
-                String point = parts[2];
+        if (!repository.findAll().isEmpty()) {
+            LOGGER.info("Points of Interest already generated");
+        } else {
+            ClassPathResource fountains = new ClassPathResource(FOUNTAINFILENAME);
 
-                Coordinate coordinate = parsePoint(point);
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(fountains.getInputStream()))) {
+                LOGGER.info("Importing from" + FOUNTAINFILENAME);
+                br.readLine(); //Skip header;
+                String line;
+                while ((line = br.readLine()) != null) {
+                    String[] parts = line.split(",");
+                    String objectId = parts[1];
+                    String point = parts[2];
 
-                ViennaPoint poi = new ViennaPoint();
+                    Coordinate coordinate = parsePoint(point);
 
-                poi.setId(objectId);
-                poi.setCoordinate(coordinate);
-                poi.setType(Sanitary.Fountain);
+                    ViennaPoint poi = new ViennaPoint();
 
-                repository.save(poi);
-                LOGGER.debug("Saving fountain with id: " + objectId);
+                    poi.setId(objectId);
+                    poi.setCoordinate(coordinate);
+                    poi.setType(Sanitary.Fountain);
+
+                    repository.save(poi);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
 
-        ClassPathResource toilets = new ClassPathResource(TOILETFILENAME);
+            ClassPathResource toilets = new ClassPathResource(TOILETFILENAME);
 
-        try (BufferedReader br = new BufferedReader(new InputStreamReader(toilets.getInputStream()))) {
-            LOGGER.info("Importing from" + TOILETFILENAME);
-            br.readLine(); //Skip header;
-            String line;
-            while ((line = br.readLine()) != null) {
-                String[] parts = line.split(",");
-                String objectId = parts[3];
-                String point = parts[2];
+            try (BufferedReader br = new BufferedReader(new InputStreamReader(toilets.getInputStream()))) {
+                LOGGER.info("Importing from" + TOILETFILENAME);
+                br.readLine(); //Skip header;
+                String line;
+                while ((line = br.readLine()) != null) {
+                    String[] parts = line.split(",");
+                    String objectId = parts[3];
+                    String point = parts[2];
 
-                Coordinate coordinate = parsePoint(point);
+                    Coordinate coordinate = parsePoint(point);
 
-                ViennaPoint poi = new ViennaPoint();
+                    ViennaPoint poi = new ViennaPoint();
 
-                poi.setId(objectId);
-                poi.setCoordinate(coordinate);
-                poi.setType(Sanitary.Toilet);
+                    poi.setId(objectId);
+                    poi.setCoordinate(coordinate);
+                    poi.setType(Sanitary.Toilet);
 
-                repository.save(poi);
-                LOGGER.debug("Saving toilet with id: " + objectId);
+                    repository.save(poi);
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
             }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+            LOGGER.info("Successfully imported {} Points of Interest", repository.findAll().size());
         }
-
     }
 
     private Coordinate parsePoint(String shape) {
