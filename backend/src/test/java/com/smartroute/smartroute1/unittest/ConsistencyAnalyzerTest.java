@@ -4,6 +4,7 @@ package com.smartroute.smartroute1.unittest;
 import com.smartroute.smartroute1.endpoint.dto.ConsistencyScoreResultDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.exception.CannotCalculateConsistencyScoreException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import com.smartroute.smartroute1.service.impl.ConsistencyAnalyzerServiceImpl;
@@ -16,8 +17,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.time.Instant;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
 @ActiveProfiles({"test", "generateData"})
@@ -91,13 +91,8 @@ public class ConsistencyAnalyzerTest {
         when(repository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(
                 user, start, end)).thenReturn(List.of());
 
-        ConsistencyScoreResultDto result = service.computeScore(user, start, end, 3);
-
-        assertAll(
-                () -> Assertions.assertEquals(0.0, result.getFinalScore()),
-                () -> Assertions.assertEquals(0.0, result.getFrequencyConsistency()),
-                () -> Assertions.assertEquals(0.0, result.getRegularityConsistency())
-        );
+        assertThrows(CannotCalculateConsistencyScoreException.class,
+                () -> service.computeScore(user, start, end, 3));
     }
 
     @Test
@@ -268,13 +263,10 @@ public class ConsistencyAnalyzerTest {
         when(repository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(
                 user, start, end)).thenReturn(activities);
 
-        ConsistencyScoreResultDto result = service.computeScore(user, start, end, 0);
+        assertThrows(CannotCalculateConsistencyScoreException.class,
+                () -> service.computeScore(user, start, end, 0));
 
-        assertAll(
-                () -> assertEquals(0, result.getFinalScore()),
-                () -> assertEquals(0, result.getRegularityConsistency()),
-                () -> assertEquals(0, result.getFrequencyConsistency())
-        );
+
     }
 
 }
