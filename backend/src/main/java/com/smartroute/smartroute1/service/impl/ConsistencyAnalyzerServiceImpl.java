@@ -3,6 +3,7 @@ package com.smartroute.smartroute1.service.impl;
 import com.smartroute.smartroute1.endpoint.dto.ConsistencyScoreResultDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.exception.CannotCalculateConsistencyScoreException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import org.slf4j.Logger;
@@ -24,6 +25,8 @@ public class ConsistencyAnalyzerServiceImpl implements ConsistencyAnalyzerServic
     private final ActivityRepository activityRepository;
     private final double alphaF = 0.4;
     private final double betaR = 0.4;
+    private final double weightF = 0.5;
+    private final double weightR = 0.5;
 
     public ConsistencyAnalyzerServiceImpl(ActivityRepository activityRepository) {
         this.activityRepository = activityRepository;
@@ -36,9 +39,13 @@ public class ConsistencyAnalyzerServiceImpl implements ConsistencyAnalyzerServic
                 .findAllByUserAndStartDateBetweenOrderByStartDateAsc(user, start, end));
 
 
-        if (sessions.isEmpty() || plannedSessionsPerWeek == 0) {
-            return new ConsistencyScoreResultDto(0.0, 0.0, 0.0);
+        if (sessions.isEmpty()) {
+            throw new CannotCalculateConsistencyScoreException("No sessions found for user " + user);
         }
+        if (plannedSessionsPerWeek <= 0) {
+            throw new CannotCalculateConsistencyScoreException("Planned sessions per week are negative or zero");
+        }
+
         sessions.sort(Comparator.comparing(Activity::getStartDate));
 
         // Frequency Consistency
@@ -75,7 +82,7 @@ public class ConsistencyAnalyzerServiceImpl implements ConsistencyAnalyzerServic
 
         // Composite Score
 
-        double score = 0.5 * frequencyConsistency + 0.5 * sessionRegularity;
+        double score = weightF * frequencyConsistency + weightR * sessionRegularity;
         score = Math.max(0, Math.min(1, score));
         LOGGER.debug("Computed Score for User {}: {}", user, score);
         return new ConsistencyScoreResultDto(score, frequencyConsistency, sessionRegularity);
