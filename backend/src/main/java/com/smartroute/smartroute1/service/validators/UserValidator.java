@@ -3,6 +3,7 @@ package com.smartroute.smartroute1.service.validators;
 
 import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
 import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
+import com.smartroute.smartroute1.endpoint.dto.PersonalDataDto;
 import com.smartroute.smartroute1.exception.ValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +11,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.lang.invoke.MethodHandles;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -87,6 +90,28 @@ public class UserValidator {
         }
         if (!errors.isEmpty()) {
             throw new ValidationException("Errors while verifying password change:", errors);
+        }
+    }
+
+    public void validatePersonalData(PersonalDataDto personalDataDto) throws ValidationException {
+        List<String> errors = new ArrayList<>();
+        if (personalDataDto.getHeight() != null && (personalDataDto.getHeight() <= 0 || personalDataDto.getHeight() > 300)) {
+            errors.add("Height must be between 1 and 300");
+        }
+        if (personalDataDto.getWeight() != null && (
+            personalDataDto.getWeight().compareTo(new BigDecimal("0.1")) < 0
+            || personalDataDto.getWeight().compareTo(new BigDecimal("500")) > 0)
+        ) {
+            errors.add("Weight must be between 0.1 and 500");
+        }
+        if (personalDataDto.getBirthdate() != null && personalDataDto.getBirthdate().isAfter(LocalDate.now())) {
+            errors.add("Birthdate must be in the past");
+        }
+        if (personalDataDto.getActiveWeekdays() == null) {
+            errors.add("Active weekdays cannot be null");
+        }
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Errors while verifying personal data:", errors);
         }
     }
 }

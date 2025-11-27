@@ -1,16 +1,26 @@
 package com.smartroute.smartroute1.integrationtest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.icegreen.greenmail.configuration.GreenMailConfiguration;
+import com.icegreen.greenmail.junit5.GreenMailExtension;
+import com.icegreen.greenmail.util.ServerSetupTest;
 import com.smartroute.smartroute1.basetest.BaseTest;
 import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
 import com.smartroute.smartroute1.endpoint.dto.EmailDto;
 import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
+import com.smartroute.smartroute1.endpoint.dto.PersonalDataDto;
+import com.smartroute.smartroute1.endpoint.dto.UserDetailDto;
 import com.smartroute.smartroute1.endpoint.mapper.UserMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
+import com.smartroute.smartroute1.entity.enums.Sex;
+import com.smartroute.smartroute1.entity.enums.Weekday;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.security.JwtTokenizer;
+import jakarta.mail.internet.MimeMessage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.RegisterExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,20 +28,25 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
-import static com.smartroute.smartroute1.basetest.TestData.DEFAULT_USER_EMAIL;
-import static com.smartroute.smartroute1.basetest.TestData.USER_BASE_URI;
+import static com.smartroute.smartroute1.basetest.TestData.*;
+import static com.smartroute.smartroute1.basetest.TestData.ORIGIN;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @ExtendWith(SpringExtension.class)
@@ -58,8 +73,10 @@ class UserEndpointTest extends BaseTest {
     @Autowired
     private JwtTokenizer jwtTokenizer;
 
-    private static final String ORIGIN = "http://localhost:4200";
-
+    @RegisterExtension
+    static GreenMailExtension greenMail = new GreenMailExtension(ServerSetupTest.SMTP)
+            .withConfiguration(GreenMailConfiguration.aConfig().withUser("test", "test"))
+            .withPerMethodLifecycle(false);
 
     // ==================== USER CREATION TESTS ====================
 
@@ -152,6 +169,10 @@ class UserEndpointTest extends BaseTest {
                         .header(HttpHeaders.ORIGIN, ORIGIN)
                         .content(objectMapper.writeValueAsString(payload)))
                 .andExpect(status().isOk());
+
+        // Verify email was sent
+        MimeMessage[] messages = greenMail.getReceivedMessages();
+        assertTrue(messages.length > 0, "At least one email should be sent");
     }
 
     @Test
@@ -269,6 +290,10 @@ class UserEndpointTest extends BaseTest {
                         .header(HttpHeaders.ORIGIN, ORIGIN)
                         .content(objectMapper.writeValueAsString(emailDto)))
                 .andExpect(status().isOk());
+
+        // Verify password reset email was sent
+        MimeMessage[] messages = greenMail.getReceivedMessages();
+        assertTrue(messages.length > 0, "Password reset email should be sent");
     }
 
     @Test
@@ -424,6 +449,133 @@ class UserEndpointTest extends BaseTest {
                 .andExpect(status().isUnauthorized());
     }
 
+
+    // ==================== RATE LIMIT TEST ====================
+
+    @Test
+    void requestPasswordReset_whenRequestsExceedLimit_shouldReturn429() throws Exception {
+        // Given
+        createTestUser("reset_ratelimit@email.com", "Password123!", true);
+        greenMail.purgeEmailFromAllMailboxes();
+
+        // payload
+        Map<String, String> payload = new HashMap<>();
+        payload.put("email", "reset_ratelimit@email.com");
+        String body = objectMapper.writeValueAsString(payload);
+
+        // First 5 should pass
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/v1/user/reset_password")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .header(HttpHeaders.ORIGIN, ORIGIN)
+                            .content(body))
+                    .andExpect(status().isOk());
+
+            MimeMessage[] messages = greenMail.getReceivedMessages();
+            assertEquals(i + 1, messages.length, "Password reset email should be sent");
+            assertEquals("reset_ratelimit@email.com",
+                    messages[i].getAllRecipients()[0].toString());
+        }
+
+        // 6th should be rate limited
+        mockMvc.perform(post("/api/v1/user/reset_password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header(HttpHeaders.ORIGIN, ORIGIN)
+                        .content(body))
+                .andExpect(status().isTooManyRequests());
+    }
+
+    // ==================== UPDATE PERSONAL USER DATA ====================
+    @Test
+    void updatePersonalUserData_withValidData_shouldReturn200() throws Exception {
+        createTestUser("personal_data@email.com", "Password123!", true);
+
+        // payload
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+
+        // authentication
+        String authToken = jwtTokenizer.getAuthToken("personal_data@email.com", List.of("ROLE_USER"));
+
+        // do request
+        var response = mockMvc.perform(put("/api/v1/user/personal-data")
+                .header(HttpHeaders.AUTHORIZATION, authToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(personalDataDto)))
+            .andExpect(status().isOk())
+            .andReturn().getResponse();
+
+        UserDetailDto updatedUser = objectMapper.readValue(response.getContentAsString(),
+            UserDetailDto.class);
+
+        assertAll(
+            () -> assertNotNull(updatedUser),
+            () -> assertEquals(updatedUser.getSex(), personalDataDto.getSex()),
+            () -> assertEquals(updatedUser.getHeight(), personalDataDto.getHeight()),
+            () -> assertEquals(updatedUser.getWeight(), personalDataDto.getWeight()),
+            () -> assertEquals(updatedUser.getBirthdate(), personalDataDto.getBirthdate()),
+            () -> assertEquals(updatedUser.getExperienceLevel(), personalDataDto.getExperienceLevel()),
+            () -> assertEquals(updatedUser.getActiveWeekdays(), personalDataDto.getActiveWeekdays())
+        );
+    }
+
+    @Test
+    void updatePersonalUserData_withoutJwtToken_shouldReturn403() throws Exception {
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        mockMvc.perform(put("/api/v1/user/personal-data")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(personalDataDto)))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updatePersonalUserData_withInvalidHeight_shouldReturn400() throws Exception {
+        String authToken = jwtTokenizer.getAuthToken("personal_data@email.com", List.of("ROLE_USER"));
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        personalDataDto.setHeight(-10);
+        mockMvc.perform(put("/api/v1/user/personal-data")
+                .header(HttpHeaders.AUTHORIZATION, authToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(personalDataDto)))
+            .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void updatePersonalUserData_withInvalidWeight_shouldReturn400() throws Exception {
+        String authToken = jwtTokenizer.getAuthToken("personal_data@email.com", List.of("ROLE_USER"));
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        personalDataDto.setWeight(new BigDecimal(-10));
+        mockMvc.perform(put("/api/v1/user/personal-data")
+                .header(HttpHeaders.AUTHORIZATION, authToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(personalDataDto)))
+            .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void updatePersonalUserData_withInvalidBirthdate_shouldReturn400() throws Exception {
+        String authToken = jwtTokenizer.getAuthToken("personal_data@email.com", List.of("ROLE_USER"));
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        personalDataDto.setBirthdate(LocalDate.of(2500, 1, 1));
+        mockMvc.perform(put("/api/v1/user/personal-data")
+                .header(HttpHeaders.AUTHORIZATION, authToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(personalDataDto)))
+            .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void updatePersonalUserData_withInvalidActiveWeekdays_shouldReturn400() throws Exception {
+        String authToken = jwtTokenizer.getAuthToken("personal_data@email.com", List.of("ROLE_USER"));
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        personalDataDto.setActiveWeekdays(null);
+        mockMvc.perform(put("/api/v1/user/personal-data")
+                .header(HttpHeaders.AUTHORIZATION, authToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(personalDataDto)))
+            .andExpect(status().isUnprocessableEntity());
+    }
+
+
     // ==================== HELPER METHODS ====================
 
     /**
@@ -438,5 +590,19 @@ class UserEndpointTest extends BaseTest {
         user.setVerified(verified);
 
         return userRepository.save(user);
+    }
+
+    /**
+     * Helper method to create a test personal data dto
+     */
+    private PersonalDataDto createTestPersonalDataDto() {
+        return PersonalDataDto.builder()
+            .sex(Sex.MALE)
+            .height(175)
+            .weight(new BigDecimal("78.5"))
+            .birthdate(LocalDate.of(2003, 5, 24))
+            .experienceLevel(ExperienceLevel.BEGINNER)
+            .activeWeekdays(new HashSet<>(Set.of(Weekday.MONDAY, Weekday.TUESDAY, Weekday.WEDNESDAY)))
+            .build();
     }
 }

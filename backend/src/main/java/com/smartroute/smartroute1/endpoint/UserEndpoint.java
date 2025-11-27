@@ -3,6 +3,8 @@ package com.smartroute.smartroute1.endpoint;
 import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
 import com.smartroute.smartroute1.endpoint.dto.EmailDto;
 import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
+import com.smartroute.smartroute1.endpoint.dto.PersonalDataDto;
+import com.smartroute.smartroute1.endpoint.dto.UserDetailDto;
 import com.smartroute.smartroute1.endpoint.mapper.UserMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.exception.ValidationException;
@@ -16,7 +18,11 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.annotation.Secured;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -52,6 +58,19 @@ public class UserEndpoint {
         LOGGER.info("POST /api/v1/user/ body: {}, origin {}", toCreate, origin);
         ApplicationUser user = userService.create(toCreate, origin);
         return mapper.applicationUserToDto(user);
+    }
+
+    @Operation(
+        description = "Updates the personal data of a user with the data in the DTO",
+        summary = "Updates personal user data")
+    @Secured("ROLE_USER")
+    @PutMapping(value = "/personal-data")
+    @ResponseStatus(HttpStatus.OK)
+    public UserDetailDto updatePersonalData(@RequestBody PersonalDataDto toUpdate) throws ValidationException {
+        LOGGER.info("POST /api/v1/user/personal-data body: {}", toUpdate);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        ApplicationUser updatedUser = userService.updatePersonalData(toUpdate, authentication.getName());
+        return mapper.applicationUserToDetailDto(updatedUser);
     }
 
     @Operation(
