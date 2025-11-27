@@ -8,7 +8,8 @@ import lombok.Data;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class StravaActivityDto {
 
-    private Long id;
+    @JsonProperty("id")
+    private Long stravaId;
 
     @JsonProperty("external_id")
     private String externalId;
