@@ -78,7 +78,11 @@ public class StravaServiceImpl implements StravaService {
         List<StravaActivityDto> activities;
         try {
             activities = webClient.get()
-                    .uri(builder.build().toUri())
+                    .uri(uriBuilder -> uriBuilder
+                            .path("/api/v3/athlete/activities")
+                            .queryParam("per_page", 45)
+                            .build()
+                    )
                     .headers(h -> h.setBearerAuth(token))
                     .retrieve()
                     .onStatus(HttpStatusCode::is4xxClientError, response ->
@@ -159,7 +163,7 @@ public class StravaServiceImpl implements StravaService {
         StravaZoneDataDto zones;
         try {
             zones = webClient.get()
-                    .uri(builder.build().toUri())
+                    .uri("/api/v3/athlete/zones")
                     .headers(h -> h.setBearerAuth(token))
                     .retrieve()
                     .onStatus(HttpStatusCode::is4xxClientError, response ->
@@ -285,13 +289,5 @@ public class StravaServiceImpl implements StravaService {
             };
             user.setSex(sex);
         }
-
-        if (user.getWeight() == null) {
-            user.setWeight(BigDecimal.valueOf(athleteDetailDto.getWeight()));
-        }
-
-        user.setFtp(athleteDetailDto.getFtp());
-
-        userRepository.save(user);
     }
 }

@@ -67,12 +67,73 @@ public class GpxServiceTest {
     }
 
     @Test
+    void importValidGpxFile_userWithoutHeartRateZones_shouldCreateActivityWithApproximateSessionLoad() throws Exception {
+        ApplicationUser testUser = createTestUserWithoutZones("gpxImport2@email.com");
+        InputStream gpxStream = new ClassPathResource("activity_strava.gpx").getInputStream();
+        Activity activity = gpxService.importStravaGpxFile(gpxStream, testUser.getEmail());
+
+        assertAll(
+            () -> assertNotNull(activity.getId()),
+            () -> assertNull(activity.getStravaId()),
+            () -> assertEquals("Abendlauf", activity.getName()),
+            () -> assertEquals(8729.5332, activity.getDistance(), 0.1),
+            () -> assertEquals(3377, activity.getMovingTime()),
+            () -> assertEquals(3442, activity.getElapsedTime()),
+            () -> assertEquals(15.5, activity.getTotalElevationGain(), 0.1),
+            () -> assertNull(activity.getType()),
+            () -> assertNull(activity.getSportType()),
+            () -> assertEquals(Instant.parse("2025-10-22T18:41:58Z"), activity.getStartDate()),
+            () -> assertNull(activity.getStartDateLocal()),
+            () -> assertEquals(2.5363064, activity.getAverageSpeed(), 0.001),
+            () -> assertEquals(11.466359, activity.getMaxSpeed(), 0.001),
+            () -> assertEquals(155.86769, activity.getAverageHeartrate(), 0.1),
+            () -> assertEquals(176, activity.getMaxHeartrate(), 0.1),
+            () -> assertNull(activity.getAverageWatts()),
+            () -> assertNull(activity.getKilojoules()),
+            () -> assertNull(activity.getSufferScore()),
+            () -> assertEquals(322, activity.getSessionLoad()),
+            () -> assertNotNull(activity.getSummaryPolyline())
+        );
+    }
+
+    @Test
     void importGpxFile_invalidFile_shouldThrowValidationException() {
         ApplicationUser testUser = createTestUser("gpxImport@email.com");
         InputStream invalidGpxStream = new ByteArrayInputStream("invalid gpx".getBytes());
         assertThrows(ValidationException.class, () -> {
             gpxService.importStravaGpxFile(invalidGpxStream, testUser.getEmail());
         });
+    }
+
+    @Test
+    void importGpxFile_invalidGpxWithNonNumericLat_shouldThrowValidationException() {
+        ApplicationUser testUser = createTestUser("gpxImport@email.com");
+        String invalidGpx = """
+            <gpx version="1.1" creator="Test" xmlns="http://www.topografix.com/GPX/1/1">
+              <trk>
+                <trkseg>
+                  <trkpt lat="abc" lon="11.5"></trkpt>
+                </trkseg>
+              </trk>
+            </gpx>
+            """;
+        InputStream invalidGpxStream = new ByteArrayInputStream(invalidGpx.getBytes());
+        assertThrows(ValidationException.class, () -> gpxService.importStravaGpxFile(invalidGpxStream, testUser.getEmail()));
+    }
+
+    @Test
+    void importGpxFile_emptyTrackSegment_shouldThrowValidationException() {
+        ApplicationUser testUser = createTestUser("gpxImport@email.com");
+        String emptyGpx = """
+            <gpx version="1.1" creator="Test" xmlns="http://www.topografix.com/GPX/1/1">
+              <trk>
+                <trkseg>
+                </trkseg>
+              </trk>
+            </gpx>
+            """;
+        InputStream emptyGpxStream = new ByteArrayInputStream(emptyGpx.getBytes());
+        assertThrows(ValidationException.class, () -> gpxService.importStravaGpxFile(emptyGpxStream, testUser.getEmail()));
     }
 
     // ==================== HELPER METHODS ====================
@@ -126,6 +187,17 @@ public class GpxServiceTest {
         athleteZoneRepository.save(zone4);
         athleteZoneRepository.save(zone5);
 
+        return user;
+    }
+
+    private ApplicationUser createTestUserWithoutZones(String email) {
+        ApplicationUser user = new ApplicationUser();
+        user.setEmail(email);
+        user.setPassword("SOMETHING_THAT_IS_HASHED");
+        user.setFirstname("Test");
+        user.setLastname("User");
+        user.setVerified(true);
+        user = userRepository.save(user);
         return user;
     }
 

@@ -1,6 +1,8 @@
 package com.smartroute.smartroute1.endpoint.mapper;
 
+import com.smartroute.smartroute1.endpoint.dto.DetailedActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
+import com.smartroute.smartroute1.endpoint.dto.ActivityDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Activity;
 import org.mapstruct.Mapper;
@@ -41,35 +43,42 @@ public interface StravaActivityMapper {
         return entity;
     }
 
-    default StravaActivityDto entityToDto(Activity entity) {
-        StravaActivityDto dto = new StravaActivityDto();
-
-        if (entity != null) {
-            dto.setStravaId(entity.getStravaId());
-            dto.setName(entity.getName());
-            dto.setDistance(entity.getDistance());
-            dto.setMovingTime(entity.getMovingTime());
-            dto.setElapsedTime(entity.getElapsedTime());
-            dto.setTotalElevationGain(entity.getTotalElevationGain());
-            dto.setType(entity.getType());
-            dto.setSportType(entity.getSportType());
-            dto.setStartDate(String.valueOf(entity.getStartDate()));
-            dto.setStartDateLocal(String.valueOf(entity.getStartDateLocal()));
-            dto.setAverageSpeed(entity.getAverageSpeed());
-            dto.setMaxSpeed(entity.getMaxSpeed());
-            dto.setAverageHeartrate(entity.getAverageHeartrate());
-            dto.setMaxHeartrate(entity.getMaxHeartrate());
-            dto.setAverageWatts(entity.getAverageWatts());
-            dto.setKilojoules(entity.getKilojoules());
-            dto.setSufferScore(entity.getSufferScore());
-            if (entity.getSummaryPolyline() != null) {
-                StravaActivityDto.StravaMap mapDto = new StravaActivityDto.StravaMap();
-                mapDto.setSummaryPolyline(entity.getSummaryPolyline());
-                dto.setMap(mapDto);
-            }
-        }
-
+    default DetailedActivityDto toDetailedViewDto(Activity entity) {
+        DetailedActivityDto dto = new DetailedActivityDto();
+        dto.setId(entity.getId());
+        dto.setName(entity.getName());
+        dto.setDistance(entity.getDistance());
+        dto.setMovingTime(entity.getMovingTime());
+        dto.setElapsedTime(entity.getElapsedTime());
+        dto.setTotalElevationGain(entity.getTotalElevationGain());
+        dto.setType(entity.getType());
+        dto.setSportType(entity.getSportType());
+        dto.setStartDate(String.valueOf(entity.getStartDate()));
+        dto.setStartDateLocal(String.valueOf(entity.getStartDateLocal()));
+        dto.setAverageSpeed(entity.getAverageSpeed());
+        dto.setMaxSpeed(entity.getMaxSpeed());
+        dto.setAverageHeartrate(entity.getAverageHeartrate());
+        dto.setMaxHeartrate(entity.getMaxHeartrate());
+        dto.setAverageWatts(entity.getAverageWatts());
+        dto.setKilojoules(entity.getKilojoules());
+        dto.setSummaryPolyline(entity.getSummaryPolyline());
         return dto;
+
     }
 
+    default ActivityDto toViewDto(Activity entity) {
+        ActivityDto dto = new ActivityDto();
+        dto.setId(entity.getId());
+        dto.setName(entity.getName());
+        dto.setDistance(entity.getDistance());
+        dto.setMovingTime(entity.getMovingTime());
+        dto.setTotalElevationGain(entity.getTotalElevationGain());
+        dto.setSportType(entity.getSportType());
+        dto.setStartDateLocal(String.valueOf(entity.getStartDateLocal()));
+        dto.setAverageSpeed(entity.getAverageSpeed());
+        dto.setAverageHeartrate(entity.getAverageHeartrate());
+        dto.setAverageWatts(entity.getAverageWatts());
+        return dto;
+
+    }
 }
