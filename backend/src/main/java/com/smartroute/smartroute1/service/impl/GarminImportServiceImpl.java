@@ -66,7 +66,7 @@ public class GarminImportServiceImpl implements GarminImportService {
 
 
             if (firstLogin && (email == null || email.isBlank() || password == null || password.isBlank())) {
-                throw new IllegalArgumentException("Email and password are required for first-time Garmin login");
+                throw new GarminAuthenticationException("Email and password are required for first-time Garmin login");
             }
 
             if (garminAccount == null) {
@@ -294,6 +294,9 @@ public class GarminImportServiceImpl implements GarminImportService {
 
         try {
             JsonNode node = objectMapper.readTree(tokenJson);
+            if (node.has("oauth2_token.json")) {
+                node = node.get("oauth2_token.json");
+            }
             long refreshExpiresAt = node.path("refresh_token_expires_at").asLong(0L);
             if (refreshExpiresAt == 0L) {
                 return false; 
@@ -305,26 +308,6 @@ public class GarminImportServiceImpl implements GarminImportService {
         } catch (Exception e) {
             log.warn("Failed to parse Garmin token JSON, treating as invalid", e);
             return false;
-        }
-    }
-
-    private boolean isAccessTokenExpired(String tokenJson) {
-        if (tokenJson == null || tokenJson.isBlank()) {
-            return true;
-        }
-
-        try {
-            JsonNode node = objectMapper.readTree(tokenJson);
-            long expiresAt = node.path("expires_at").asLong(0L);
-            if (expiresAt == 0L) {
-                return true; // missing → treat as expired
-            }
-
-            long now = Instant.now().getEpochSecond();
-            return now >= (expiresAt - 60);
-        } catch (Exception e) {
-            log.warn("Failed to parse Garmin token JSON, treating access token as expired", e);
-            return true;
         }
     }
 

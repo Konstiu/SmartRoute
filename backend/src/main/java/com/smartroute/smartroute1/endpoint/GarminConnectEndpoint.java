@@ -38,10 +38,9 @@ public class GarminConnectEndpoint {
      */
     @PostMapping("/sync")
     @Secured("ROLE_USER")
-    public ResponseEntity<List<JsonNode>> syncActivities(@RequestBody GarminConnectAccountDto garminConnectDto) throws IOException, InterruptedException, GarminException {
+    public ResponseEntity<List<JsonNode>> syncActivities(@RequestBody GarminConnectAccountDto garminConnectDto) throws GarminException {
         LOGGER.info("GET /api/v1/garmin/sync");
         // TODO : here wer have to do the actual computation
-        // we have to fetch from the database if there is already a token, then we don't need a password and the email only if there is no token or the token is too old, we may want to ask for the credentials
         // currently it only returns the raw json in format of {token:..., activities:[]}
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         ApplicationUser user = userRepository.findUserByEmail(authentication.getName());
