@@ -31,6 +31,10 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
 
     List<Activity> findAllByUserAndStartDateBetweenOrderByStartDateAsc(ApplicationUser user, Instant start, Instant end);
 
+    Activity findAllByUserOrderByStartDateAsc(ApplicationUser user);
+
+    Activity findAllByUserOrderByStartDateDesc(ApplicationUser user);
+
 
     Activity findByIdAndUser(Long id, ApplicationUser user);
 }
