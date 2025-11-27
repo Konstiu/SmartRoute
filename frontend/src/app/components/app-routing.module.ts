@@ -13,10 +13,6 @@ const routes: Routes = [
     loadComponent: () => import('./register/register.page').then(m => m.RegisterPage)
   },
   {
-    path: 'map',
-    loadComponent: () => import('./map/map.component').then(m => m.MapComponent)
-  },
-  {
     path: '**',
     loadChildren: () => import('./tabs/tabs.module').then(m => m.TabsPageModule)
   }
