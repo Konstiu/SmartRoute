@@ -2,6 +2,7 @@ package com.smartroute.smartroute1.basetest;
 
 import com.smartroute.smartroute1.datagenerator.StravaDataGenerator;
 import com.smartroute.smartroute1.datagenerator.UserDataGenerator;
+import com.smartroute.smartroute1.repository.GarminAccountRepository;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
@@ -37,6 +38,9 @@ public class BaseTest {
     @Autowired
     private ActivityRepository activityRepository;
 
+    @Autowired
+    private GarminAccountRepository garminAccountRepository;
+
     @BeforeEach
     void setUp() {
         try {
@@ -59,6 +63,7 @@ public class BaseTest {
     }
 
     private void clearData() {
+        garminAccountRepository.deleteAll();
         activityRepository.deleteAll();
         stravaAccountRepository.deleteAll();
         userRepository.deleteAll();
