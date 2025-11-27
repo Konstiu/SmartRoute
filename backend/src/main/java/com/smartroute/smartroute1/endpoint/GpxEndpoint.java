@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.endpoint;
 
+import com.smartroute.smartroute1.endpoint.dto.DetailedActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
 import com.smartroute.smartroute1.exception.ValidationException;
@@ -32,16 +33,16 @@ public class GpxEndpoint {
 
     @Secured("ROLE_USER")
     @PostMapping("import-strava")
-    public List<StravaActivityDto> importStravaGpx(@RequestParam("files") List<MultipartFile> files) throws ValidationException, IOException {
+    public List<DetailedActivityDto> importStravaGpx(@RequestParam("files") List<MultipartFile> files) throws ValidationException, IOException {
         LOGGER.info("POST /api/v1/gpx/import-strava");
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        List<StravaActivityDto> dtos = new ArrayList<>();
+        List<DetailedActivityDto> dtos = new ArrayList<>();
         if (files.stream().map(MultipartFile::getSize).reduce(Long::sum).orElse(0L) > 10L * 1024L * 10124L) {
             throw new ValidationException("Uploaded files exceed maximum total size of 10 MB");
         }
         for (MultipartFile file : files) {
             try (InputStream is = file.getInputStream()) {
-                StravaActivityDto dto = stravaActivityMapper.entityToDto(
+                DetailedActivityDto dto = stravaActivityMapper.toDetailedViewDto(
                     gpxService.importStravaGpxFile(is, email)
                 );
                 dtos.add(dto);

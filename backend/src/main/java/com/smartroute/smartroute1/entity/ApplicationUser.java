@@ -12,6 +12,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Column;
 import lombok.Data;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -62,6 +63,7 @@ public class ApplicationUser {
 
     @ElementCollection
     @Enumerated(EnumType.STRING)
+    @ToString.Exclude
     private Set<Weekday> activeWeekdays = new HashSet<>();
 
     public ApplicationUser() {
