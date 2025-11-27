@@ -13,6 +13,7 @@ public class WeatherMapper {
 
         if (weatherResponse != null) {
             dto.setTime(weatherResponse.getTime());
+            dto.setTemperature2m(weatherResponse.getTemperature2m());
             dto.setPrecipitation(weatherResponse.getPrecipitation());
             dto.setRelativeHumidity(weatherResponse.getRelativeHumidity());
             dto.setWindSpeed10m(weatherResponse.getWindSpeed10m());
@@ -35,6 +36,7 @@ public class WeatherMapper {
         }
 
         entity.setTime(dto.getTime());
+        entity.setTemperature2m(dto.getTemperature2m());
         entity.setPrecipitation(dto.getPrecipitation());
         entity.setRelativeHumidity(dto.getRelativeHumidity());
         entity.setWindSpeed10m(dto.getWindSpeed10m());

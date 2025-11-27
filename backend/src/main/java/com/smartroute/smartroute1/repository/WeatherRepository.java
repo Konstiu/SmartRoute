@@ -9,5 +9,4 @@ import java.util.List;
 @Repository
 public interface WeatherRepository extends JpaRepository<WeatherResponse, Long> {
     List<WeatherResponse> findAll();
-
 }

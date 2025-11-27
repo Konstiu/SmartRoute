@@ -3,8 +3,7 @@ package com.smartroute.smartroute1.service;
 import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
 import com.smartroute.smartroute1.entity.weather.EventType;
 import com.smartroute.smartroute1.entity.weather.WeatherImpactResult;
-import com.smartroute.smartroute1.entity.weather.WeatherResponse;
-import com.smartroute.smartroute1.exception.ApiException;
+import com.smartroute.smartroute1.exception.WeatherException;
 import com.smartroute.smartroute1.exception.ValidationException;
 
 import java.util.List;
@@ -20,7 +19,7 @@ public interface WeatherService {
      *
      * @return a list of {@link WeatherDto} objects, each representing one hour of forecast data
      *
-     * @throws ApiException if weather data could not be fetched
+     * @throws WeatherException if weather data could not be fetched
      */
     List<WeatherDto> getHourlyWeather(double latitude, double longitude) throws ValidationException;
 

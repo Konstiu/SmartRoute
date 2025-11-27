@@ -2,6 +2,7 @@ package com.smartroute.smartroute1.service.validators;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.smartroute.smartroute1.exception.ValidationException;
+import com.smartroute.smartroute1.exception.WeatherException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -66,4 +67,14 @@ public class WeatherValidator {
             throw new ValidationException("Errors while verifying lat. and long.:", errors);
         }
     }
+
+    public void validateListSizes(List<?>... lists) {
+        int size = lists[0].size();
+        for (List<?> list : lists) {
+            if (list.size() != size) {
+                throw new WeatherException("Hourly lists differ in size — invalid API data");
+            }
+        }
+    }
+
 }

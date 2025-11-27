@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
@@ -8,11 +9,12 @@ import com.smartroute.smartroute1.entity.weather.WeatherResponse;
 import com.smartroute.smartroute1.entity.weather.EventType;
 import com.smartroute.smartroute1.entity.weather.HeatRiskCategory;
 import com.smartroute.smartroute1.entity.weather.WeatherImpactResult;
-import com.smartroute.smartroute1.exception.ApiException;
+import com.smartroute.smartroute1.exception.WeatherException;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.WeatherRepository;
 import com.smartroute.smartroute1.service.WeatherService;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 import org.springframework.http.ResponseEntity;
@@ -38,92 +40,93 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     @Override
-    public List<WeatherDto> getHourlyWeather(double latitude, double longitude) throws ValidationException {
+    public List<WeatherDto> getHourlyWeather(double latitude, double longitude)
+            throws ValidationException {
+
         validator.validateCoordinates(latitude, longitude);
-        String url = UriComponentsBuilder.fromHttpUrl("https://api.open-meteo.com/v1/forecast")
+
+        String url = buildUrl(latitude, longitude);
+        LOGGER.trace("Calling Open-Meteo API with URL: {}", url);
+
+        JsonNode root = fetchWeatherData(url);
+        validator.validateHourlyData(root);
+
+        JsonNode hourly = root.path("hourly");
+        List<String> time = extractStringList(hourly);
+        List<Double> temperature = extractDoubleList(hourly, "temperature_2m");
+        List<Double> precipitation = extractDoubleList(hourly, "precipitation");
+        List<Double> windSpeed = extractDoubleList(hourly, "wind_speed_10m");
+        List<Double> humidity = extractDoubleList(hourly, "relative_humidity_2m");
+        List<Double> radiation = extractDoubleList(hourly, "shortwave_radiation");
+
+        validator.validateListSizes(time, temperature, precipitation, windSpeed, humidity, radiation);
+
+        List<WeatherDto> result = new ArrayList<>();
+        List<WeatherResponse> entities = new ArrayList<>();
+
+        for (int i = 0; i < time.size(); i++) {
+            WeatherDto dto = new WeatherDto(
+                    time.get(i),
+                    temperature.get(i),
+                    windSpeed.get(i),
+                    precipitation.get(i),
+                    humidity.get(i),
+                    radiation.get(i)
+            );
+            result.add(dto);
+            entities.add(weatherMapper.toEntity(dto));
+        }
+
+        rep.saveAll(entities);
+        return result;
+    }
+
+    // Build the Url to open-meteo with necessary parameters.
+    private String buildUrl(double latitude, double longitude) {
+        return UriComponentsBuilder.fromHttpUrl("https://api.open-meteo.com/v1/forecast")
                 .queryParam("latitude", latitude)
                 .queryParam("longitude", longitude)
-                .queryParam(
-                        "hourly",
+                .queryParam("hourly",
                         "temperature_2m,precipitation,wind_speed_10m,"
                                 + "relative_humidity_2m,shortwave_radiation")
                 .toUriString();
+    }
 
-        LOGGER.trace("Calling Open-Meteo API with URL: {}", url);
-
+    // Fetch the weather data from the open-meteo Url.
+    private JsonNode fetchWeatherData(String url) {
         try {
             ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
-            JsonNode root = mapper.readTree(response.getBody());
-            validator.validateHourlyData(root);
-            JsonNode hourly = root.path("hourly");
-
-
-            List<String> time = new ArrayList<>();
-            if (hourly.has("time")) {
-                hourly.get("time").forEach(t -> time.add(t.asText()));
-            }
-
-            List<Double> temperature2m = new ArrayList<>();
-            if (hourly.has("temperature_2m")) {
-                hourly.get("temperature_2m").forEach(t -> temperature2m.add(t.asDouble()));
-            }
-
-            List<Double> precipitation = new ArrayList<>();
-            if (hourly.has("precipitation")) {
-                hourly.get("precipitation").forEach(p -> precipitation.add(p.asDouble()));
-            }
-
-            List<Double> windSpeed10m = new ArrayList<>();
-            if (hourly.has("wind_speed_10m")) {
-                hourly.get("wind_speed_10m").forEach(w -> windSpeed10m.add(w.asDouble()));
-            }
-
-            List<Double> relativeHumidity = new ArrayList<>();
-            if (hourly.has("relative_humidity_2m")) {
-                hourly.get("relative_humidity_2m").forEach(rh -> relativeHumidity.add(rh.asDouble()));
-            }
-
-            List<Double> shortwaveRadiation = new ArrayList<>();
-            if (hourly.has("shortwave_radiation")) {
-                hourly.get("shortwave_radiation").forEach(sr -> shortwaveRadiation.add(sr.asDouble()));
-            }
-
-            int size = time.size(); // all lists have same length
-            List<WeatherDto> weather = new ArrayList<WeatherDto>();
-            for (int i = 0; i < size; i++) {
-                WeatherDto dto = new WeatherDto(
-                        time.get(i),
-                        temperature2m.get(i),
-                        windSpeed10m.get(i),
-                        precipitation.get(i),
-                        relativeHumidity.get(i),
-                        shortwaveRadiation.get(i)
-                );
-
-                weather.add(dto);
-                WeatherResponse entity = weatherMapper.toEntity(dto);
-                if (entity == null) {
-                    LOGGER.error("Error mapping entity to weather {}", dto);
-                    continue;
-                }
-
-                rep.save(entity);
-            }
-
-            return weather;
-        } catch (Exception e) {
-            LOGGER.warn("Error fetching or parsing hourly weather data", e);
-            throw new ApiException("Failed to retrieve hourly weather data", e);
+            return mapper.readTree(response.getBody());
+        } catch (JsonProcessingException e) {
+            LOGGER.error("Error parsing JSON from Open-Meteo", e);
+            throw new WeatherException("Failed to parse Open-Meteo response", e);
+        } catch (RestClientException e) {
+            LOGGER.error("Error calling Open-Meteo API", e);
+            throw new WeatherException("Failed to call Open-Meteo API", e);
         }
     }
 
-    private double valueAt(JsonNode node, int index) {
-        if (node == null || !node.isArray() || index >= node.size()) {
-            return 0.0;
+    // Extract the contents of the fetched weather data given as Double.
+    private List<Double> extractDoubleList(JsonNode hourly, String field) {
+        if (!hourly.has(field)) {
+            throw new WeatherException("Missing field: " + field);
         }
-        return node.get(index).asDouble(0.0);
+        List<Double> list = new ArrayList<>();
+        hourly.get(field).forEach(node -> list.add(node.asDouble()));
+        return list;
     }
 
+    // Extract the contents of the fetched weather data given as String.
+    private List<String> extractStringList(JsonNode hourly) {
+        if (!hourly.has("time")) {
+            throw new WeatherException("Missing field: " + "time");
+        }
+        List<String> list = new ArrayList<>();
+        hourly.get("time").forEach(node -> list.add(node.asText()));
+        return list;
+    }
+
+    // compute the natural wet-bulb temperature in C°. Source: https://journals.ametsoc.org/view/journals/apme/50/11/jamc-d-11-0143.1.xml
     private static double computeWetBulbStull(double temperature, double relativeHumidity) {
 
         double wetBulb =
@@ -136,11 +139,13 @@ public class WeatherServiceImpl implements WeatherService {
         return wetBulb;
     }
 
+    // compute the wet globe-temperature indoors.
     private static double computeWbgtShade(double temperature, double relativeHumidity) {
         double tw = computeWetBulbStull(temperature, relativeHumidity);
         return 0.7 * tw + 0.3 * temperature;
     }
 
+    // approximate the outdoor wet globe-temperature outdoors.
     private static double computeWbgtOutdoorApprox(double temperature,
                                                    double relativeHumidity,
                                                    double solarRadWm2,
@@ -195,6 +200,7 @@ public class WeatherServiceImpl implements WeatherService {
         return new WeatherImpactResult((penaltyPercent + precipitationPenaltyPercent), rainAdjustedTime, risk);
     }
 
+    // The optimal wbgt values for different disciplines.
     private double optimalWbgt(EventType type) {
         return switch (type) {
             case MARATHON_LIKE -> 7.5;
@@ -203,6 +209,7 @@ public class WeatherServiceImpl implements WeatherService {
         };
     }
 
+    // Impact of Heat for different disciplines.
     private double heatSlope(EventType type) {
         return switch (type) {
             case MARATHON_LIKE -> 0.20;
@@ -211,6 +218,7 @@ public class WeatherServiceImpl implements WeatherService {
         };
     }
 
+    // Impact of Cold for different disciplines.
     private double coldSlope(EventType type) {
         return switch (type) {
             case MARATHON_LIKE -> 0.10;
@@ -219,6 +227,7 @@ public class WeatherServiceImpl implements WeatherService {
         };
     }
 
+    // Classification of the heat risk. https://www.weather.gov/arx/wbgt
     private HeatRiskCategory classifyHeatRisk(double wbgt) {
         if (wbgt <= 10.0) {
             return HeatRiskCategory.COLD_COOL;
@@ -235,6 +244,7 @@ public class WeatherServiceImpl implements WeatherService {
         return HeatRiskCategory.EXTREME_HEAT;
     }
 
+    // Estimates the complexity by weighing relevant weather data.
     private double complexityModifier(
             double temperature,
             double relativeHumidity,
@@ -255,6 +265,7 @@ public class WeatherServiceImpl implements WeatherService {
         return 1.0 + 0.3 * combined; // [0.7, 1.3]
     }
 
+    // Normalize values.
     private double clamp(double v, double min, double max) {
         if (Double.isNaN(v)) {
             return 0.0;
@@ -262,6 +273,7 @@ public class WeatherServiceImpl implements WeatherService {
         return Math.max(min, Math.min(max, v));
     }
 
+    // Calculates the impact of precipitation.
     private double calculatePrecipitationImpact(double precipMm, int runnerAge) {
         if (precipMm <= 0.0) {
             return 0.0;

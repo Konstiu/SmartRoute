@@ -22,7 +22,7 @@ class WeatherServiceTest {
 
     @Test
     @DisplayName("Neutral WBGT should produce minimal penalty and NEUTRAL heat risk")
-    void testEstimateImpactNeutral() {
+    void givenNeutralWeatherWhenEstimatingImpactThenNeutralRiskAndMinimalPenalty() {
 
         long baseTime = 3600; // 1 hour
 
@@ -46,7 +46,7 @@ class WeatherServiceTest {
 
     @Test
     @DisplayName("Hot weather should increase penalty for marathon-like event")
-    void testEstimateImpactHeat() {
+    void givenHotWeatherWhenEstimatingImpactThenExtremeHeatRiskAndIncreasedPenalty() {
 
         long baseTime = 7200; // 2 hours
 
@@ -70,7 +70,7 @@ class WeatherServiceTest {
 
     @Test
     @DisplayName("Cold weather should produce time penalty due to cold slope")
-    void testEstimateImpactCold() {
+    void givenColdWeatherWhenEstimatingImpactThenColdCoolRiskAndAdjustedTime()  {
 
         long baseTime = 5000;
 
@@ -94,7 +94,7 @@ class WeatherServiceTest {
 
     @Test
     @DisplayName("Extreme heat should classify as EXTREME_HEAT")
-    void testExtremeHeatClassification() {
+    void givenExtremeHeatConditionsWhenEstimatingImpactThenExtremeHeatRisk() {
 
         WeatherImpactResult result = service.estimateImpact(
                 EventType.TEN_K_LIKE,
@@ -115,7 +115,7 @@ class WeatherServiceTest {
 
     @Test
     @DisplayName("High solar radiation + low wind should trigger extra WBGT sun correction")
-    void testWbgtSunCorrection() {
+    void givenHighSolarLowWindWhenEstimatingImpactThenAdditionalSunCorrectionApplied() {
 
         WeatherImpactResult lowWindHighSun = service.estimateImpact(
                 EventType.MARATHON_LIKE,
@@ -146,7 +146,7 @@ class WeatherServiceTest {
 
     @Test
     @DisplayName("Precipitation Impact Test")
-    void testPrecipitationImpact() {
+    void givenDifferentPrecipLevelsWhenEstimatingImpactThenHigherPrecipitationSlowsRunner() {
 
         WeatherImpactResult noPrecipitation = service.estimateImpact(
                 EventType.MARATHON_LIKE,
@@ -189,7 +189,7 @@ class WeatherServiceTest {
 
     @Test
     @DisplayName("Influence of Age on Precipitation Impact Test")
-    void testAgePrecipitationImpact() {
+    void givenDifferentAgesWithPrecipitationWhenEstimatingImpactThenOlderRunnersGetHigherPenalty() {
 
         WeatherImpactResult youngest = service.estimateImpact(
                 EventType.MARATHON_LIKE,
