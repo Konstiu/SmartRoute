@@ -2,6 +2,7 @@ package com.smartroute.smartroute1.service;
 
 import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
 import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
+import com.smartroute.smartroute1.endpoint.dto.PersonalDataDto;
 import com.smartroute.smartroute1.endpoint.dto.UserLoginDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.exception.ValidationException;
@@ -52,6 +53,15 @@ public interface UserService extends UserDetailsService {
      */
     ApplicationUser create(CreateUserDto toCreate, String origin) throws ValidationException;
 
+    /**
+     * Updates personal data of a user in the database.
+     *
+     * @param toUpdate  The personal data.
+     * @param userEmail The email address of the user to update
+     * @return  The updated user
+     * @throws ValidationException  If any validation error occurs
+     */
+    ApplicationUser updatePersonalData(PersonalDataDto toUpdate, String userEmail) throws ValidationException;
 
     /**
      * sets the user verification status to verify.

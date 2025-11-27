@@ -2,6 +2,7 @@ package com.smartroute.smartroute1.endpoint.mapper;
 
 
 import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
+import com.smartroute.smartroute1.endpoint.dto.UserDetailDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import org.mapstruct.Mapper;
 
@@ -19,5 +20,22 @@ public interface UserMapper {
 
         }
         return createStudentDto;
+    }
+
+    default UserDetailDto applicationUserToDetailDto(ApplicationUser user) {
+        UserDetailDto userDetailDto = new UserDetailDto();
+
+        if (user != null) {
+            userDetailDto.setFirstname(user.getFirstname());
+            userDetailDto.setLastname(user.getLastname());
+            userDetailDto.setEmail(user.getEmail());
+            userDetailDto.setSex(user.getSex());
+            userDetailDto.setHeight(user.getHeight());
+            userDetailDto.setWeight(user.getWeight());
+            userDetailDto.setBirthdate(user.getBirthdate());
+            userDetailDto.setExperienceLevel(user.getExperienceLevel());
+            userDetailDto.setActiveWeekdays(user.getActiveWeekdays());
+        }
+        return userDetailDto;
     }
 }

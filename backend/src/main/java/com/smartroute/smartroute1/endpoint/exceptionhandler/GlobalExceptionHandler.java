@@ -2,6 +2,8 @@ package com.smartroute.smartroute1.endpoint.exceptionhandler;
 
 import com.smartroute.smartroute1.exception.ErrorListException;
 import com.smartroute.smartroute1.exception.NotFoundException;
+import com.smartroute.smartroute1.exception.StravaAuthorizationException;
+import com.smartroute.smartroute1.exception.RateLimitExceededException;
 import com.smartroute.smartroute1.exception.ValidationException;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
 import java.lang.invoke.MethodHandles;
@@ -65,11 +68,54 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return new ResponseEntity<>(body.toString(), headers, status);
     }
 
+
+    /**
+     * Handles {@link RateLimitExceededException} by returning an HTTP 429 (Too Many Requests)
+     * response when a user exceeds the configured rate limit for specific actions
+     * (such as resending verification or password reset emails).
+     *
+     * @param ex      the thrown {@code RateLimitExceededException}
+     * @param request the current web request
+     * @return a {@link ResponseEntity} with the exception message and status 429
+     */
+    @ExceptionHandler(value = {RateLimitExceededException.class})
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    @ApiResponse(responseCode = "429", description = "Too many requests", content = @Content)
+    protected ResponseEntity<Object> handleRateLimitExceededException(RateLimitExceededException ex, WebRequest request) {
+        LOGGER.warn(ex.getMessage());
+        return handleExceptionInternal(ex, ex.getMessage(), new HttpHeaders(), HttpStatus.TOO_MANY_REQUESTS, request);
+    }
+
+    /**
+     * Handles {@link ValidationException} and other {@link ErrorListException}-based exceptions
+     * by returning an HTTP 422 (Unprocessable Entity) response.
+     * <p>
+     * This is used for custom business validation errors where the request structure is valid,
+     * but its content violates domain-specific rules.
+     * </p>
+     *
+     * @param ex      the thrown {@code ErrorListException}
+     * @param request the current web request
+     * @return a {@link ResponseEntity} with the validation message and status 422
+     */
     @ExceptionHandler(value = {ValidationException.class})
     @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
     @ApiResponse(responseCode = "422", description = "Unprocessable Entity", content = @Content)
     protected ResponseEntity<Object> handleValidation(ErrorListException ex, WebRequest request) {
         LOGGER.warn(ex.getMessage());
         return handleExceptionInternal(ex, ex.getMessage(), new HttpHeaders(), HttpStatus.UNPROCESSABLE_ENTITY, request);
+    }
+
+    @ExceptionHandler(value = {StravaAuthorizationException.class})
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    protected ResponseEntity<Object> handleStravaAuth(StravaAuthorizationException ex, WebRequest request) {
+        LOGGER.warn("Strava authorization failed: {}", ex.getMessage());
+        return handleExceptionInternal(ex, ex.getMessage(), new HttpHeaders(), HttpStatus.BAD_REQUEST, request);
+    }
+
+    @ExceptionHandler(value = {ResponseStatusException.class})
+    protected ResponseEntity<Object> handleResponseStatus(ResponseStatusException ex, WebRequest request) {
+        LOGGER.warn("Request failed: {} - {}", ex.getStatusCode(), ex.getReason());
+        return handleExceptionInternal(ex, ex.getReason(), new HttpHeaders(), ex.getStatusCode(), request);
     }
 }
