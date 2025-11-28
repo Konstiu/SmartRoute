@@ -1,11 +1,9 @@
 package com.smartroute.smartroute1.unittest;
 
 import com.smartroute.smartroute1.service.impl.WeatherServiceImpl;
-import com.smartroute.smartroute1.entity.weather.EventType;
-import com.smartroute.smartroute1.entity.weather.HeatRiskCategory;
-import com.smartroute.smartroute1.entity.weather.WeatherImpactResult;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import com.smartroute.smartroute1.entity.enums.HeatRiskCategory;
+import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
+import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
@@ -20,14 +18,38 @@ class WeatherServiceTest {
     @Autowired
     private WeatherServiceImpl service;
 
+    /*
+    public static MockWebServer mockWeatherApi;
+
+    @Autowired
+    private WeatherRepository weatherRepository;
+
+    @BeforeAll
+    static void setupServer() throws IOException {
+        mockWeatherApi = new MockWebServer();
+        mockWeatherApi.start();
+    }
+
+    @AfterAll
+    static void shutdownServer() throws IOException {
+        mockWeatherApi.shutdown();
+    }
+
+    @BeforeEach
+    void resetData() {
+        weatherRepository.deleteAll();
+    }
+    */
+
+
     @Test
     @DisplayName("Neutral WBGT should produce minimal penalty and NEUTRAL heat risk")
     void givenNeutralWeatherWhenEstimatingImpactThenNeutralRiskAndMinimalPenalty() {
 
         long baseTime = 3600; // 1 hour
 
-        WeatherImpactResult result = service.estimateImpact(
-                EventType.TEN_K_LIKE,
+        WeatherImpactDto result = service.estimateImpact(
+                10000,
                 baseTime,
                 15,    // temperature
                 50,    // humidity
@@ -38,9 +60,9 @@ class WeatherServiceTest {
         );
 
         assertAll("NEUTRAL+TEN_K_LIKE impact calculations",
-                () -> assertEquals(HeatRiskCategory.NEUTRAL, result.risk()),
-                () -> assertTrue(result.adjustedTimeSeconds() >= 3500),
-                () -> assertTrue(result.adjustedTimeSeconds() <= 3700)
+                () -> assertEquals(HeatRiskCategory.NEUTRAL, result.getRisk()),
+                () -> assertTrue(result.getAdjustedTimeSeconds() >= 3500),
+                () -> assertTrue(result.getAdjustedTimeSeconds() <= 3700)
         );
     }
 
@@ -50,8 +72,8 @@ class WeatherServiceTest {
 
         long baseTime = 7200; // 2 hours
 
-        WeatherImpactResult result = service.estimateImpact(
-                EventType.MARATHON_LIKE,
+        WeatherImpactDto result = service.estimateImpact(
+                40000,
                 baseTime,
                 30,    // hot temperature
                 70,    // humid
@@ -62,9 +84,9 @@ class WeatherServiceTest {
         );
 
         assertAll("EXTREME_HEAT+MARATHON impact calculations",
-                () -> assertEquals(HeatRiskCategory.EXTREME_HEAT, result.risk()),
-                () -> assertTrue(result.adjustedTimeSeconds() > baseTime),
-                () -> assertTrue(result.penaltyPercent() > 0)
+                () -> assertEquals(HeatRiskCategory.EXTREME_HEAT, result.getRisk()),
+                () -> assertTrue(result.getAdjustedTimeSeconds() > baseTime),
+                () -> assertTrue(result.getPenaltyPercent() > 0)
         );
     }
 
@@ -74,8 +96,8 @@ class WeatherServiceTest {
 
         long baseTime = 5000;
 
-        WeatherImpactResult result = service.estimateImpact(
-                EventType.FIVE_K_LIKE,
+        WeatherImpactDto result = service.estimateImpact(
+                5000,
                 baseTime,
                 0,       // freezing temperature
                 30,
@@ -86,9 +108,9 @@ class WeatherServiceTest {
         );
 
         assertAll("COLD_COOL+FIVE_K_LIKE impact calculations",
-                () -> assertEquals(HeatRiskCategory.COLD_COOL, result.risk()),
-                () -> assertTrue(result.adjustedTimeSeconds() > 0),
-                () -> assertNotEquals(baseTime, result.adjustedTimeSeconds())
+                () -> assertEquals(HeatRiskCategory.COLD_COOL, result.getRisk()),
+                () -> assertTrue(result.getAdjustedTimeSeconds() > 0),
+                () -> assertNotEquals(baseTime, result.getAdjustedTimeSeconds())
         );
     }
 
@@ -96,8 +118,8 @@ class WeatherServiceTest {
     @DisplayName("Extreme heat should classify as EXTREME_HEAT")
     void givenExtremeHeatConditionsWhenEstimatingImpactThenExtremeHeatRisk() {
 
-        WeatherImpactResult result = service.estimateImpact(
-                EventType.TEN_K_LIKE,
+        WeatherImpactDto result = service.estimateImpact(
+                10000,
                 3600,
                 40,
                 90,
@@ -108,8 +130,8 @@ class WeatherServiceTest {
         );
 
         assertAll("EXTREME_HEAT+TEN_K_LIKE impact calculations",
-                () -> assertEquals(HeatRiskCategory.EXTREME_HEAT, result.risk()),
-                () -> assertTrue(result.adjustedTimeSeconds() > 3600)
+                () -> assertEquals(HeatRiskCategory.EXTREME_HEAT, result.getRisk()),
+                () -> assertTrue(result.getAdjustedTimeSeconds() > 3600)
         );
     }
 
@@ -117,8 +139,8 @@ class WeatherServiceTest {
     @DisplayName("High solar radiation + low wind should trigger extra WBGT sun correction")
     void givenHighSolarLowWindWhenEstimatingImpactThenAdditionalSunCorrectionApplied() {
 
-        WeatherImpactResult lowWindHighSun = service.estimateImpact(
-                EventType.MARATHON_LIKE,
+        WeatherImpactDto lowWindHighSun = service.estimateImpact(
+                40000,
                 3600,
                 25,
                 60,
@@ -128,8 +150,8 @@ class WeatherServiceTest {
                 20
         );
 
-        WeatherImpactResult normal = service.estimateImpact(
-                EventType.MARATHON_LIKE,
+        WeatherImpactDto normal = service.estimateImpact(
+                40000,
                 3600,
                 25,
                 60,
@@ -140,7 +162,7 @@ class WeatherServiceTest {
         );
 
         assertAll("High solar test",
-                () -> assertTrue(lowWindHighSun.adjustedTimeSeconds() > normal.adjustedTimeSeconds())
+                () -> assertTrue(lowWindHighSun.getAdjustedTimeSeconds() > normal.getAdjustedTimeSeconds())
         );
     }
 
@@ -148,8 +170,8 @@ class WeatherServiceTest {
     @DisplayName("Precipitation Impact Test")
     void givenDifferentPrecipLevelsWhenEstimatingImpactThenHigherPrecipitationSlowsRunner() {
 
-        WeatherImpactResult noPrecipitation = service.estimateImpact(
-                EventType.MARATHON_LIKE,
+        WeatherImpactDto noPrecipitation = service.estimateImpact(
+                40000,
                 3600,
                 25,
                 60,
@@ -159,8 +181,8 @@ class WeatherServiceTest {
                 20
         );
 
-        WeatherImpactResult mildPrecipitation = service.estimateImpact(
-                EventType.MARATHON_LIKE,
+        WeatherImpactDto mildPrecipitation = service.estimateImpact(
+                40000,
                 3600,
                 25,
                 60,
@@ -170,8 +192,8 @@ class WeatherServiceTest {
                 20
         );
 
-        WeatherImpactResult highPrecipitation = service.estimateImpact(
-                EventType.MARATHON_LIKE,
+        WeatherImpactDto highPrecipitation = service.estimateImpact(
+                40000,
                 3600,
                 25,
                 60,
@@ -182,8 +204,8 @@ class WeatherServiceTest {
         );
 
         assertAll("Slower with higher precipitation",
-                () -> assertTrue(highPrecipitation.adjustedTimeSeconds() > mildPrecipitation.adjustedTimeSeconds()),
-                () -> assertTrue(mildPrecipitation.adjustedTimeSeconds() > noPrecipitation.adjustedTimeSeconds())
+                () -> assertTrue(highPrecipitation.getAdjustedTimeSeconds() > mildPrecipitation.getAdjustedTimeSeconds()),
+                () -> assertTrue(mildPrecipitation.getAdjustedTimeSeconds() > noPrecipitation.getAdjustedTimeSeconds())
         );
     }
 
@@ -191,8 +213,8 @@ class WeatherServiceTest {
     @DisplayName("Influence of Age on Precipitation Impact Test")
     void givenDifferentAgesWithPrecipitationWhenEstimatingImpactThenOlderRunnersGetHigherPenalty() {
 
-        WeatherImpactResult youngest = service.estimateImpact(
-                EventType.MARATHON_LIKE,
+        WeatherImpactDto youngest = service.estimateImpact(
+                40000,
                 3600,
                 25,
                 60,
@@ -202,8 +224,8 @@ class WeatherServiceTest {
                 20
         );
 
-        WeatherImpactResult secondOldest = service.estimateImpact(
-                EventType.MARATHON_LIKE,
+        WeatherImpactDto secondOldest = service.estimateImpact(
+                40000,
                 3600,
                 25,
                 60,
@@ -213,8 +235,8 @@ class WeatherServiceTest {
                 30
         );
 
-        WeatherImpactResult oldest = service.estimateImpact(
-                EventType.MARATHON_LIKE,
+        WeatherImpactDto oldest = service.estimateImpact(
+                40000,
                 3600,
                 25,
                 60,
@@ -225,8 +247,8 @@ class WeatherServiceTest {
         );
 
         assertAll("Slower with higher age in precipitation",
-                () -> assertTrue(secondOldest.adjustedTimeSeconds() > youngest.adjustedTimeSeconds()),
-                () -> assertTrue(oldest.adjustedTimeSeconds() > secondOldest.adjustedTimeSeconds())
+                () -> assertTrue(secondOldest.getAdjustedTimeSeconds() > youngest.getAdjustedTimeSeconds()),
+                () -> assertTrue(oldest.getAdjustedTimeSeconds() > secondOldest.getAdjustedTimeSeconds())
         );
     }
 }

@@ -1,4 +1,4 @@
-package com.smartroute.smartroute1.entity.weather;
+package com.smartroute.smartroute1.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -26,17 +26,4 @@ public class WeatherResponse {
     private Double relativeHumidity;
     @Column
     private Double shortWaveRadiation;
-
-    public WeatherResponse() {
-    }
-
-    public WeatherResponse(String time, Double temperature2m, Double windSpeed10m,
-                           Double precipitation, Double relativeHumidity, Double shortWaveRadiation) {
-        this.time = time;
-        this.temperature2m = temperature2m;
-        this.windSpeed10m = windSpeed10m;
-        this.precipitation = precipitation;
-        this.relativeHumidity = relativeHumidity;
-        this.shortWaveRadiation = shortWaveRadiation;
-    }
 }
