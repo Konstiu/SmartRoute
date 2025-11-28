@@ -9,4 +9,6 @@ import java.util.List;
 @Repository
 public interface WeatherRepository extends JpaRepository<WeatherResponse, Long> {
     List<WeatherResponse> findAll();
+
+    WeatherResponse getByTimeAndLongitudeAndLatitude(String s, Double longitude, Double latitude);
 }

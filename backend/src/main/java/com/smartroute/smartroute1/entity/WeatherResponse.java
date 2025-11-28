@@ -5,9 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
-import lombok.Data;
 
-@Data
 @Entity
 public class WeatherResponse {
     @Id
@@ -16,6 +14,10 @@ public class WeatherResponse {
 
     @Column
     private String time;
+    @Column
+    private Double longitude;
+    @Column
+    private Double latitude;
     @Column
     private Double temperature2m;
     @Column
