@@ -49,7 +49,7 @@ public class WeatherServiceImpl implements WeatherService {
         String url = buildUrl(latitude, longitude);
         LOGGER.trace("Calling Open-Meteo API with URL: {}", url);
 
-        JsonNode root = fetchWeatherData(url);   // now using WebClient
+        JsonNode root = fetchWeatherData(url);
         validator.validateHourlyData(root);
 
         JsonNode hourly = root.path("hourly");
@@ -81,19 +81,16 @@ public class WeatherServiceImpl implements WeatherService {
 
             result.add(dto);
 
+
             if (i < existing.size()) {
-                entity = existing.get(i);
-                weatherMapper.updateEntity(dto, entity);
+                entity = weatherRepository.getByTimeAndLongitudeAndLatitude(time.get(i), longitude, latitude);
+                entity = weatherMapper.toEntity(dto, entity, longitude, latitude);
             } else {
-                entity = weatherMapper.toEntity(dto);
+                entity = weatherMapper.toEntity(dto, null, longitude, latitude);
             }
 
             entities.add(entity);
         }
-
-        //  TESTING
-        LOGGER.info("Mapped entity: {}", entities.getFirst());
-        //
 
         rep.saveAll(entities);
         return result;
@@ -113,7 +110,7 @@ public class WeatherServiceImpl implements WeatherService {
                     .uri(url)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .block(); // since your service is not reactive
+                    .block();
 
             return mapper.readTree(body);
 
