@@ -5,8 +5,14 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 @Entity
+@Setter
+@Getter
+@ToString
 public class WeatherResponse {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
