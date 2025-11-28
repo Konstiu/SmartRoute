@@ -1,4 +1,4 @@
-package com.smartroute.smartroute1.entity.weather;
+package com.smartroute.smartroute1.entity.enums;
 
 public enum HeatRiskCategory {
     COLD_COOL,

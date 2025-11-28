@@ -1,8 +1,7 @@
 package com.smartroute.smartroute1.service;
 
 import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
-import com.smartroute.smartroute1.entity.weather.EventType;
-import com.smartroute.smartroute1.entity.weather.WeatherImpactResult;
+import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.exception.WeatherException;
 import com.smartroute.smartroute1.exception.ValidationException;
 
@@ -26,7 +25,7 @@ public interface WeatherService {
     /**
      * Estimates the performance impact of weather conditions on a running event.
      *
-     * @param eventType The type of running event (5K/10K/marathon-like).
+     * @param distance The distance of the running event in meters.
      *
      * @param baseTimeSeconds The runner's baseline expected time for the event, in seconds, under optimal conditions.
      *
@@ -43,15 +42,15 @@ public interface WeatherService {
      * @param age Runners age
      *
      * @return
-     *        A {@link WeatherImpactResult} containing:
+     *        A {@link WeatherImpactDto} containing:
      *        <ul>
      *            <li>The estimated percentage performance penalty (positive or negative)</li>
      *            <li>The adjusted predicted finish time in seconds</li>
      *            <li>A heat-risk category based on WBGT</li>
      *        </ul>
      */
-    WeatherImpactResult estimateImpact(
-            EventType eventType,
+    WeatherImpactDto estimateImpact(
+            int distance,
             long baseTimeSeconds,
             double temperature,
             double relativeHumidity,
