@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
 import com.smartroute.smartroute1.endpoint.mapper.WeatherMapper;
 import com.smartroute.smartroute1.entity.WeatherResponse;
-import com.smartroute.smartroute1.entity.enums.EventType;
 import com.smartroute.smartroute1.entity.enums.HeatRiskCategory;
 import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.exception.WeatherException;
@@ -194,7 +193,7 @@ public class WeatherServiceImpl implements WeatherService {
             double precipitation,
             int age
     ) {
-        EventType eventType = mapDistanceToEvent(distance);
+        RunEventType eventType = mapDistanceToEvent(distance);
         double optimalWbgt = optimalWbgt(eventType);
         double heatSlope = heatSlope(eventType);
         double coldSlope = coldSlope(eventType);
@@ -223,19 +222,23 @@ public class WeatherServiceImpl implements WeatherService {
         return new WeatherImpactDto((penaltyPercent + precipitationPenaltyPercent), rainAdjustedTime, risk);
     }
 
+    private enum RunEventType {
+        FIVE_K_LIKE, TEN_K_LIKE, MARATHON_LIKE
+    }
+
     // Maps distance of a run to the appropriate EventType.
-    private EventType mapDistanceToEvent(int distance) {
+    private RunEventType mapDistanceToEvent(int distance) {
         if (distance <= 7500) {
-            return EventType.FIVE_K_LIKE;
+            return RunEventType.FIVE_K_LIKE;
         }
         if (distance <= 20000) {
-            return EventType.TEN_K_LIKE;
+            return RunEventType.TEN_K_LIKE;
         }
-        return EventType.MARATHON_LIKE;
+        return RunEventType.MARATHON_LIKE;
     }
 
     // The optimal wbgt values for different disciplines.
-    private double optimalWbgt(EventType type) {
+    private double optimalWbgt(RunEventType type) {
         return switch (type) {
             case MARATHON_LIKE -> 7.5;
             case TEN_K_LIKE -> 10.0;
@@ -244,7 +247,7 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     // Impact of Heat for different disciplines.
-    private double heatSlope(EventType type) {
+    private double heatSlope(RunEventType type) {
         return switch (type) {
             case MARATHON_LIKE -> 0.20;
             case TEN_K_LIKE -> 0.04;
@@ -253,7 +256,7 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     // Impact of Cold for different disciplines.
-    private double coldSlope(EventType type) {
+    private double coldSlope(RunEventType type) {
         return switch (type) {
             case MARATHON_LIKE -> 0.10;
             case TEN_K_LIKE -> 0.15;

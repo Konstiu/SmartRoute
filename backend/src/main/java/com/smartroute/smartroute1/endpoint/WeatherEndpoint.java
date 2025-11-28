@@ -1,7 +1,6 @@
 package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
-import com.smartroute.smartroute1.entity.enums.EventType;
 import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.WeatherService;
@@ -9,6 +8,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import jakarta.annotation.security.PermitAll;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
