@@ -102,4 +102,9 @@ export class RecentRunsPage implements OnInit {
   openActivity(activity:StravaActivity){
     this.router.navigate(['/activity/', activity.id]);
   }
+
+  importGpx() {
+    this.router.navigate(['/import-gpx']);
+  }
+
 }
