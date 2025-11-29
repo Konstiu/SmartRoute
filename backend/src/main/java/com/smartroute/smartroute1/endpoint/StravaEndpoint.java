@@ -64,9 +64,13 @@ import java.util.List;
                 
                     Use any tool like **Postman**, **Insomnia**, or **cURL**.
                 
-                2. Open the following URL in your browser:
-                   `GET /api/v1/strava/connect`
-                    You will be redirected to Strava's authorization screen.
+                2. Send the following request:
+                   `GET /api/v1/strava/connect?origin=register`
+                    With the Bearer Token from step 1.
+                
+                    You will get a URL which links to the Strava's authorization screen.
+                    The frontend would automatically redirect you to this page.
+                    Open the link manually.
                 
                 3. Log into your Strava account and approve permissions.
                 
@@ -75,23 +79,8 @@ import java.util.List;
                    ```
                    {backendBaseUrl}/api/v1/strava/callback?code=...&scope=...
                    ```
-                
-                   However, this request **fails authentication** because the browser does not
-                   include your Bearer token.
-                
-                5. Make a manual GET request to the /callback URL.
-                   Copy the `code` and `scope` parameters from the redirect URL and include the previously generated Bearer token
-                   in your request:
-                
-                    ```
-                    Authorization: Bearer <jwt>
-                    ```
-                
-                    ```
-                    GET {backendBaseUrl}/api/v1/strava/callback?code=XXX&scope=YYY
-                    ```
-                
-                6. The backend processes the code, exchanges it for tokens, links your 
+             
+                   The backend processes the code, exchanges it for tokens, links your 
                    Strava account, and imports:
                    - Athlete Profile  
                    - Activities  
@@ -99,7 +88,7 @@ import java.util.List;
                 
                    If no frontend exists, the redirect will simply show a blank page.  
                    Connection still succeeds.
-                
+             
                 """
 )
 public class StravaEndpoint {
@@ -180,6 +169,11 @@ public class StravaEndpoint {
                 .build();
     }
 
+    @Operation(
+            summary = "Returns connection state information for an authenticated user",
+            description = "Returns a StravaAccountConnectionStateDto containing information about the "
+                    + "connection status and the granted Strava API scopes."
+    )
     @GetMapping("/connection-state")
     @Secured("ROLE_USER")
     @ResponseStatus(value = HttpStatus.OK)
