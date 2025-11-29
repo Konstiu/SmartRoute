@@ -13,7 +13,23 @@ import { CommonModule } from '@angular/common';
   imports: [IonicModule, CommonModule]
 })
 export class ConnectStravaComponent implements OnInit{
-
+  alertButtons = [
+    {
+      text: 'Cancel',
+      role: 'cancel',
+      handler: () => {
+        console.log('Alert canceled');
+      },
+    },
+    {
+      text: 'OK',
+      role: 'confirm',
+      handler: () => {
+        console.log('Alert confirmed');
+        this.disconnectStravaAccount();
+      },
+    },
+  ];
   protected connectionState: StravaAccountConnectionStateDto | undefined;
 
   requiredScopes = [
@@ -52,8 +68,14 @@ export class ConnectStravaComponent implements OnInit{
   }
 
   disconnectStravaAccount(): void {
-    //TODO implement
-    throw new Error("Not implemented");
+    this.stravaService.disconnectStravaAccount().subscribe({
+      next: res => {
+        this.connectionState = res;
+      },
+      error: err => {
+        console.error(err);
+      }
+    });
   }
 
 }

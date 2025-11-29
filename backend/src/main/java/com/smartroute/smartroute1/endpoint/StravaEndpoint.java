@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -79,7 +80,7 @@ import java.util.List;
                    ```
                    {backendBaseUrl}/api/v1/strava/callback?code=...&scope=...
                    ```
-             
+                
                    The backend processes the code, exchanges it for tokens, links your 
                    Strava account, and imports:
                    - Athlete Profile  
@@ -88,7 +89,7 @@ import java.util.List;
                 
                    If no frontend exists, the redirect will simply show a blank page.  
                    Connection still succeeds.
-             
+                
                 """
 )
 public class StravaEndpoint {
@@ -182,6 +183,22 @@ public class StravaEndpoint {
         String email = authentication.getName();
 
         return authService.getConnectionState(email);
+    }
+
+    @Operation(
+            summary = "Disconnects a Strava Account",
+            description = "Revokes the access to the Strava athlete data, deletes the StravaAccount entry in the database"
+                    + " and returns a StravaAccountConnectionStateDto containing information about the connection status "
+                    + "and the granted Strava API scopes."
+    )
+    @DeleteMapping("/disconnect")
+    @Secured("ROLE_USER")
+    @ResponseStatus(value = HttpStatus.OK)
+    public StravaAccountConnectionStateDto disconnect() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+        return authService.disconnectStravaAccount(email);
     }
 
     @Operation(

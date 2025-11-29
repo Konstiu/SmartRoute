@@ -24,7 +24,7 @@ public interface StravaOauthService {
      * Creates and stores a unique state to trace the Strava OAuth request back to a user
      * and a frontend origin.
      *
-     * @param email the user's email
+     * @param email  the user's email
      * @param origin the frontend origin
      * @return a unique state identifier
      */
@@ -37,6 +37,19 @@ public interface StravaOauthService {
      * @return a StravaOauthState containing the user's email and the frontend origin
      */
     StravaOauthState getState(String state);
+
+    /**
+     * Disconnects a Strava Account from the application.
+     *
+     * <p>
+     * Revokes access to the athletes data at the Strava API and
+     * removes the corresponding StravaAccount entry in the database.
+     * </p>
+     *
+     * @param email the user's email
+     * @return the Strava Account connection state
+     */
+    StravaAccountConnectionStateDto disconnectStravaAccount(String email);
 
     /**
      * Returns the Strava connection state for the specified user.

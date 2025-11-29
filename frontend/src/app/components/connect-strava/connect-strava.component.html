@@ -42,10 +42,17 @@
         </div>
       }
 
-      <ion-button expand="block" color="danger">
+      <ion-button id="disconnect" expand="block" color="danger">
         <ion-icon slot="start" name="close-circle-outline" (click)="disconnectStravaAccount()"></ion-icon>
         Disconnect Strava
       </ion-button>
+      <ion-alert
+        trigger="disconnect"
+        header="Disconnect Strava?"
+        message="SmartRoute will no longer be synchronized with your Strava account."
+        [buttons]="alertButtons"
+      >
+      </ion-alert>
 
     </ion-card-content>
   } @else {
