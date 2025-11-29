@@ -119,9 +119,16 @@ public class StravaEndpoint {
                     + "The user will be prompted to grant access to read activity and profile data."
     )
     @GetMapping("/connect")
+    @Secured("ROLE_USER")
     @ResponseStatus(value = HttpStatus.FOUND)
-    public void connect(HttpServletResponse res) throws IOException {
+    public ResponseEntity<String> connect(@RequestParam("origin") String origin) {
         LOGGER.info("GET /api/v1/strava/connect");
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+        String state = authService.createState(email, origin);
+
         String redirectUri = baseUrl + "/api/v1/strava/callback";
         String scopes = "activity:read_all,profile:read_all";
         String url = UriComponentsBuilder.fromUriString("https://www.strava.com/oauth/authorize")
@@ -130,8 +137,10 @@ public class StravaEndpoint {
                 .queryParam("redirect_uri", redirectUri)
                 .queryParam("scope", scopes)
                 .queryParam("approval_prompt", "auto")
+                .queryParam("state", state)
                 .build().toUriString();
-        res.sendRedirect(url);
+
+        return ResponseEntity.ok(url);
     }
 
     @Operation(
@@ -141,19 +150,30 @@ public class StravaEndpoint {
                     + "stores the Strava account connection, and triggers an initial data import "
                     + "(zones and activities)."
     )
-    @Secured("ROLE_USER")
     @GetMapping("/callback")
-    public ResponseEntity<Void> callback(@RequestParam("code") String code, @RequestParam("scope") String scope) {
-        LOGGER.info("GET /api/v1/strava/callback code: {}, scope: {}", code, scope);
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
+    public ResponseEntity<Void> callback(@RequestParam("code") String code, @RequestParam("scope") String scope, @RequestParam("state") String state) {
+        LOGGER.info("GET /api/v1/strava/callback code: {}, scope: {}, state: {}", code, scope, state);
+
+        StravaOauthService.OAuthState oAuthState = authService.getState(state);
+        String email = oAuthState.email;
+        String origin = oAuthState.origin;
+
+        if (email == null || origin == null || email.equals("anonymousUser")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
         authService.exchangeCodeForToken(code, scope, email);
 
-        stravaService.importStravaZoneData(email);
-        stravaService.importStravaActivities(email);
+        if (scope.contains("activity:read_all")) {
+            stravaService.importStravaActivities(email);
+        }
+        if (scope.contains("profile:read_all")) {
+            stravaService.importStravaZoneData(email);
+        }
+
         stravaService.importStravaAthlete(email);
 
-        URI redirectUri = URI.create(frontendUrl + "/connected");
+        URI redirectUri = URI.create(frontendUrl + "/" + origin);
 
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(redirectUri)
