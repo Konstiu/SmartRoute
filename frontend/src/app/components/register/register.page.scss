@@ -1,0 +1,84 @@
+.register-container {
+	max-width: 25rem;
+	margin: 0 auto;
+	padding-top: 2rem;
+}
+
+.logo-container {
+	text-align: center;
+	margin-bottom: 2rem;
+
+	ion-icon {
+		font-size: 4.5rem;
+		color: var(--ion-color-primary);
+	}
+
+	h1 {
+		margin: 1rem 0 0.5rem;
+		font-size: 1.6rem;
+	}
+
+	p {
+		color: var(--ion-color-medium);
+		margin: 0;
+	}
+}
+
+ion-item {
+	--border-radius: 0.5rem;
+	padding-bottom: 0.5rem;
+}
+
+ion-input {
+	--background: transparent;
+}
+
+.error-message {
+	padding: 0.5rem 1rem;
+
+	small {
+		font-size: 0.85rem;
+	}
+}
+
+.password-item {
+	align-items: center;
+}
+
+.app-logo {
+	display: block;
+	margin: 0 auto 1rem;
+	width: clamp(4rem, 20vw, 6rem);
+	height: auto;
+	border-radius: 1rem;
+	animation: fadeIn 0.6s ease-out;
+}
+
+.links-container {
+	margin-top: 2rem;
+	text-align: center;
+
+	p {
+		color: var(--ion-color-medium);
+		margin-bottom: 0.5rem;
+	}
+}
+
+.register-section {
+  margin-top: 2rem;
+
+  p {
+    color: var(--ion-color-medium);
+    margin-bottom: 0.5rem;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+	ion-item {
+		--background: #f2f2f7;
+	}
+
+	ion-input {
+		--background: transparent;
+	}
+}
