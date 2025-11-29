@@ -60,7 +60,10 @@ public class GpxServiceImpl implements GpxService {
             gpx.tracks().findFirst().ifPresent(track -> {
                 activity.setName(track.getName().orElse("Unnamed Activity"));
             });
-            gpx.getMetadata().flatMap(Metadata::getTime).ifPresent(activity::setStartDate);
+            gpx.getMetadata().flatMap(Metadata::getTime).ifPresent(startDate -> {
+                activity.setStartDate(startDate);
+                activity.setStartDateLocal(startDate);
+            });
 
             // extract all waypoints from all segments of all tracks
             List<WayPoint> allPoints = new ArrayList<>();
@@ -71,7 +74,6 @@ public class GpxServiceImpl implements GpxService {
             });
 
             double totalDistance = 0.0;
-            double maxSpeed = 0.0;
             double movingTime = 0.0;
             double totalElevationGain = 0.0;
             double maxHeartRate = 0.0;
@@ -79,6 +81,8 @@ public class GpxServiceImpl implements GpxService {
             int heartRateCount = 0;
             List<Float> heartRates = new ArrayList<>();
             List<Float> timestamps = new ArrayList<>();
+            List<Double> segDurations = new ArrayList<>();
+            List<Double> segDistances = new ArrayList<>();
 
             for (int i = 1; i < allPoints.size(); i++) {
                 WayPoint p1 = allPoints.get(i - 1);
@@ -114,11 +118,11 @@ public class GpxServiceImpl implements GpxService {
                     timestamps.add(t1.toEpochMilli() / 1000.0f);
                 }
 
+                // distance and moving time
                 if (seconds > 0) {
+                    segDurations.add(seconds);
+                    segDistances.add(distance);
                     double speed = distance / seconds;
-                    if (speed > maxSpeed) {
-                        maxSpeed = speed;
-                    }
                     // Consider moving if speed > 0.3 m/s
                     if (speed > 0.3) {
                         movingTime += seconds;
@@ -126,6 +130,9 @@ public class GpxServiceImpl implements GpxService {
                     }
                 }
             }
+
+            // calculate max speed separately (to avoid spikes from GPS errors)
+            double maxSpeed = calculateMaxSpeed(segDurations, segDistances);
 
             Instant startTime = allPoints.getFirst().getTime().orElseThrow();
             Instant endTime = allPoints.getLast().getTime().orElseThrow();
@@ -146,8 +153,8 @@ public class GpxServiceImpl implements GpxService {
             final List<Position> path = allPoints
                 .stream()
                 .map(wp -> Position.fromLngLat(
-                    wp.getLatitude().doubleValue(),
-                    wp.getLongitude().doubleValue()
+                    wp.getLongitude().doubleValue(),
+                    wp.getLatitude().doubleValue()
                 )).toList();
             String polyline = PolylineUtils.encode(path, 5);
             activity.setSummaryPolyline(polyline);
@@ -195,6 +202,66 @@ public class GpxServiceImpl implements GpxService {
                 return hrList.getLength() > 0 ? hrList.item(0).getTextContent() : null;
             })
             .flatMap(str -> Optional.of(str).map(Double::valueOf));
+    }
+
+    public double calculateMaxSpeed(List<Double> segDurations, List<Double> segDistances) {
+        // if no segments, return 0
+        if (segDurations.isEmpty()) {
+            return 0.0;
+        }
+
+        double windowsSeconds = 20.0;
+        double maxAllowedSpeed = 10.0; // m/s (36 km/h), to filter out GPS spikes
+
+        // use sliding window approach to find max speed over WINDOW_SECONDS
+        double maxSpeed = 0.0;
+        double windowTime = 0.0;
+        double windowDist = 0.0;
+        int start = 0;
+
+        for (int end = 0; end < segDurations.size(); end++) {
+            windowTime += segDurations.get(end);
+            windowDist += segDistances.get(end);
+
+            // îf the window time exceeds WINDOW_SECONDS, trim from the start
+            while (windowTime >= windowsSeconds && start <= end) {
+                // calculate time that must be removed from the windows
+                double timeToRemove = windowTime - windowsSeconds;
+
+                double distanceToRemove = 0.0;
+                int idx = start;
+                while (timeToRemove > 0 && idx <= end) {
+                    double segT = segDurations.get(idx);
+                    double segD = segDistances.get(idx);
+                    if (timeToRemove >= segT) {
+                        // remove whole segment
+                        distanceToRemove += segD;
+                        timeToRemove -= segT;
+                        idx++;
+                    } else {
+                        // remove fraction of segment
+                        double frac = timeToRemove / segT;
+                        distanceToRemove += segD * frac;
+                        timeToRemove = 0;
+                    }
+                }
+
+                // check if the current window has the new max speed
+                double trimmedDist = windowDist - distanceToRemove;
+                double speedForWindow = trimmedDist / windowsSeconds; // m/s
+
+                if (speedForWindow <= maxAllowedSpeed) {
+                    maxSpeed = Math.max(maxSpeed, speedForWindow);
+                }
+
+                // move the whole window one to the right by removing the start/left most segment
+                windowTime -= segDurations.get(start);
+                windowDist -= segDistances.get(start);
+                start++;
+            }
+        }
+
+        return maxSpeed;
     }
 
 }
