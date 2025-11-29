@@ -1,0 +1,64 @@
+.strava-card {
+  margin: 1.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.connected-title,
+.not-connected-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  ion-icon {
+    font-size: 1.4rem;
+  }
+}
+
+.scope-list {
+  margin-bottom: 1.2rem;
+
+  h3 {
+    margin-bottom: 0.6rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ion-color-dark);
+  }
+
+  ion-chip {
+    margin: 0.25rem;
+  }
+}
+
+.warning-box, .ok-box {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 0.6rem;
+  text-align: center;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  ion-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+  }
+}
+
+.warning-box {
+  background: rgba(var(--ion-color-warning-rgb), 0.12);
+  color: var(--ion-color-warning);
+}
+
+.ok-box {
+  background: rgba(var(--ion-color-success-rgb), 0.12);
+  color: var(--ion-color-success);
+}
+
+.info-text {
+  margin-bottom: 1rem;
+  color: var(--ion-color-medium);
+  text-align: center;
+  font-size: 0.95rem;
+}
