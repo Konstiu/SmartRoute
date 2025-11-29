@@ -34,7 +34,7 @@ class LoginEndpointTest extends BaseTest {
 
     @Test
     void validUserLogin() throws Exception {
-        String loginData = "{\"password\": \"password0\", \"email\": \"" + DEFAULT_USER_EMAIL + "\"}";
+        String loginData = "{\"password\": \"password\", \"email\": \"" + DEFAULT_USER_EMAIL + "\"}";
         validLoginTest(loginData);
     }
 

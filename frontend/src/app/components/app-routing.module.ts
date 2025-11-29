@@ -29,6 +29,11 @@ const routes: Routes = [
     loadComponent: () => import('./resetPassword/reset-password.page').then(m => m.ResetPasswordPage)
   },
   {
+    path: 'import-gpx',
+    loadComponent: () => import('./import-gpx/import-gpx.page').then(m => m.ImportGpxPage),
+    canActivate: [AuthGuard]
+  },
+  {
     path: '**',
     loadComponent: () => import('./register/register.page').then(m => m.RegisterPage),
     canActivate:[AuthGuard]

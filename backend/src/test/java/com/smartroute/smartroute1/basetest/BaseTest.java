@@ -1,11 +1,14 @@
 package com.smartroute.smartroute1.basetest;
 
+import com.smartroute.smartroute1.datagenerator.InjuryDataGenerator;
 import com.smartroute.smartroute1.datagenerator.StravaDataGenerator;
 import com.smartroute.smartroute1.datagenerator.UserDataGenerator;
 import com.smartroute.smartroute1.repository.GarminAccountRepository;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
+import com.smartroute.smartroute1.entity.AthleteZone;
+import com.smartroute.smartroute1.repository.*;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +44,15 @@ public class BaseTest {
     @Autowired
     private GarminAccountRepository garminAccountRepository;
 
+    @Autowired
+    private InjuryRepository injuryRepository;
+
+    @Autowired
+    private InjuryDataGenerator injuryDataGenerator;
+
+    @Autowired
+    private AthleteZoneRepository athleteZoneRepository;
+
     @BeforeEach
     void setUp() {
         try {
@@ -60,9 +72,16 @@ public class BaseTest {
     private void generateData() {
         userDataGenerator.generateUser();
         stravaAccountDataGenerator.generateAccounts();
+        injuryDataGenerator.generateInjuries();
+
     }
 
     private void clearData() {
+        athleteZoneRepository.deleteAllInBatch();
+        activityRepository.deleteAllInBatch();
+        stravaAccountRepository.deleteAllInBatch();
+        injuryRepository.deleteAllInBatch();
+        userRepository.deleteAllInBatch();
         garminAccountRepository.deleteAll();
         activityRepository.deleteAll();
         stravaAccountRepository.deleteAll();
