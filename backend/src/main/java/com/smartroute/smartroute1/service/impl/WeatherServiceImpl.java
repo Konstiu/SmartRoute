@@ -14,12 +14,17 @@ import com.smartroute.smartroute1.repository.WeatherRepository;
 import com.smartroute.smartroute1.service.WeatherService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.smartroute.smartroute1.service.validators.WeatherValidator;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.server.ResponseStatusException;
+import reactor.core.publisher.Mono;
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
@@ -105,25 +110,32 @@ public class WeatherServiceImpl implements WeatherService {
     // Fetch weather data from open-meteo.
     private JsonNode fetchWeatherData(String url) {
         try {
-            String body = weatherWebClient.get()
+            String weather = weatherWebClient.get()
                     .uri(url)
                     .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new ResponseStatusException(
+                                            HttpStatus.BAD_REQUEST, "Open-Meteo API 4xx: " + body
+                                    )))
+                    )
+                    .onStatus(HttpStatusCode::is5xxServerError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(new ResponseStatusException(
+                                            HttpStatus.BAD_GATEWAY, "Open-Meteo API 5xx: " + body
+                                    )))
+                    )
                     .bodyToMono(String.class)
                     .block();
 
-            return mapper.readTree(body);
+            return mapper.readTree(weather);
 
         } catch (JsonProcessingException e) {
-            LOGGER.error("Error parsing JSON from Open-Meteo", e);
             throw new WeatherException("Failed to parse Open-Meteo response", e);
-
+        } catch (WebClientRequestException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Open-Meteo API unavailable" + e.getMessage());
         } catch (WebClientResponseException e) {
-            LOGGER.error("Open-Meteo returned error: {} {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw new WeatherException("Open-Meteo API error: " + e.getStatusCode(), e);
-
-        } catch (Exception e) {
-            LOGGER.error("Unexpected error calling Open-Meteo", e);
-            throw new WeatherException("Unexpected error calling Open-Meteo", e);
+            throw new ResponseStatusException(e.getStatusCode(), "Open-Meteo error: " + e.getResponseBodyAsString(), e);
         }
     }
 

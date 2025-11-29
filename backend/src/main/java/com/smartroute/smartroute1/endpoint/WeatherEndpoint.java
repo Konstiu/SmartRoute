@@ -24,7 +24,7 @@ public class WeatherEndpoint {
     private final WeatherService weatherService;
 
     @GetMapping("/hourly")
-    //@Secured("ROLE_USER")
+    @Secured("ROLE_USER")
     @Operation(summary = "Get hourly weather data",
             description = "Returns hourly weather information including temperature, precipitation, wind and radiation values.")
     public ResponseEntity<List<WeatherDto>> getWeather(@RequestParam("latitude") double lat, @RequestParam("longitude") double lon) throws ValidationException {
