@@ -25,6 +25,13 @@ export class StravaService {
   }
 
   /**
+   * Disconnects a connected Strava account.
+   */
+  disconnectStravaAccount(): Observable<StravaAccountConnectionStateDto> {
+    return this.httpClient.delete<StravaAccountConnectionStateDto>(this.stravaBaseUri + `/disconnect`);
+  }
+
+  /**
    * Returns Strava API connection state information.
    */
   getConnectionState(): Observable<StravaAccountConnectionStateDto> {

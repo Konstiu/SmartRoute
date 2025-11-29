@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -61,6 +62,62 @@ public class StravaOauthServiceImpl implements StravaOauthService {
     @Override
     public StravaOauthState getState(String state) {
         return stateMap.remove(state);
+    }
+
+    @Override
+    public StravaAccountConnectionStateDto disconnectStravaAccount(String email) {
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+        Optional<StravaAccount> account = stravaAccountRepository.findByUser(user);
+        if (account.isEmpty()) {
+            return new StravaAccountConnectionStateDto(
+                    false,
+                    ""
+            );
+        }
+
+        String token = ensureValidAccessToken(account.get());
+
+        try {
+            webClient.post()
+                    .uri("https://www.strava.com/oauth/deauthorize")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(
+                                            new StravaAuthorizationException(
+                                                    "Strava OAuth 4xx:" + body
+                                            )
+                                    ))
+                    )
+                    .onStatus(HttpStatusCode::is5xxServerError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(
+                                            new ResponseStatusException(
+                                                    HttpStatus.BAD_GATEWAY,
+                                                    "Strava error: " + body
+                                            )
+                                    ))
+                    )
+                    .toBodilessEntity()
+                    .block();
+        } catch (WebClientRequestException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Could not reach Strava OAuth service",
+                    e
+            );
+        }
+
+        stravaAccountRepository.delete(account.get());
+
+        return new StravaAccountConnectionStateDto(
+                false,
+                ""
+        );
     }
 
     @Override
