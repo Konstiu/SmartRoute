@@ -157,6 +157,7 @@ public class StravaOauthServiceImpl implements StravaOauthService {
         }
     }
 
+    @Override
     public String ensureValidAccessToken(StravaAccount account) throws StravaAuthorizationException {
         LOGGER.trace("Ensure access token for user: {}", account);
 
