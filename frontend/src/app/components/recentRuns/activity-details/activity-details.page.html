@@ -23,7 +23,7 @@
     <!-- Activity Content -->
     <div *ngIf="!isLoading">
         <!-- Map -->
-        <div class="map-container">
+        <div *ngIf="activity?.summaryPolyline" class="map-container">
             <div #map id="map"></div>
         </div>
 
@@ -77,7 +77,7 @@
                         <div class="stat-item">
                             <ion-icon name="speedometer-outline"></ion-icon>
                             <div class="stat-value">
-                                {{ activity.averageSpeed.toFixed(2) }}
+                                {{ formatPace(activity.averageSpeed) }}
                             </div>
                             <div class="stat-label">Pace (min/km)</div>
                         </div>
