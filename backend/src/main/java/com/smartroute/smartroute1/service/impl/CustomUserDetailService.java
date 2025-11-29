@@ -97,7 +97,7 @@ public class CustomUserDetailService implements UserService {
         LOGGER.trace("Create user by CreateUserDto: {}", toCreate);
         validator.validateForCreate(toCreate);
         if (userRepository.findUserByEmail(toCreate.email) != null) {
-            throw new ValidationException("Email already exits please try an other one");
+            throw new ValidationException("Email already exists please try an other one");
         }
 
         CreateUserDto userDto = new CreateUserDto();
