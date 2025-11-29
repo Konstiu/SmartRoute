@@ -7,6 +7,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Service for handling Strava OAuth2 operations.
+ *
  * <p>
  * Provides methods to exchange an authorization code for an access token,
  * and to ensure that an access token is valid (refreshing it if necessary).
@@ -14,7 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
  */
 public interface StravaOauthService {
 
-    class OAuthState {
+    class StravaOauthState {
         public String email;
         public String origin;
     }
@@ -33,9 +34,9 @@ public interface StravaOauthService {
      * Retrieves an OAuth state and deletes corresponding entry from the state map.
      *
      * @param state the state identifier
-     * @return a OAuthState containing the user's email and the frontend origin
+     * @return a StravaOauthState containing the user's email and the frontend origin
      */
-    OAuthState getState(String state);
+    StravaOauthState getState(String state);
 
     /**
      * Returns the Strava connection state for the specified user.
@@ -47,6 +48,7 @@ public interface StravaOauthService {
 
     /**
      * Exchanges the authorization code received from Strava for an access token and refresh token.
+     *
      * <p>
      * This method also saves the access credentials to the database for the specified user.
      * </p>
@@ -61,6 +63,7 @@ public interface StravaOauthService {
 
     /**
      * Ensures that the access token of the given Strava account is valid.
+     *
      * <p>
      * If the token is expired, it is refreshed automatically.
      * Returns a token that can be used for API requests.
