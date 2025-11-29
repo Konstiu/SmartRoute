@@ -25,7 +25,8 @@
           autocomplete="given-name"
           [(ngModel)]="createUser.firstname"
           #firstName="ngModel"
-          required>
+          required
+          [disabled]="isSubmitting">
           <div slot="label">First Name</div>
         </ion-input>
       </ion-item>
@@ -41,7 +42,8 @@
           autocomplete="family-name"
           [(ngModel)]="createUser.lastname"
           #lastName="ngModel"
-          required>
+          required
+          [disabled]="isSubmitting">
           <div slot="label">Last Name</div>
         </ion-input>
       </ion-item>
@@ -58,7 +60,8 @@
           [(ngModel)]="createUser.email"
           #emailModel="ngModel"
           required
-          email>
+          email
+          [disabled]="isSubmitting">
           <div slot="label">Email</div>
         </ion-input>
       </ion-item>
@@ -78,7 +81,8 @@
           [(ngModel)]="createUser.password"
           #pw="ngModel"
           required
-          minlength="8">
+          minlength="8"
+          [disabled]="isSubmitting">
           <div slot="label">Password</div>
         </ion-input>
       </ion-item>
@@ -108,7 +112,7 @@
     <div class="links-container">
       <p>Already have an account?</p>
       <div class="register-section">
-        <ion-button fill="outline" expand="block" (click)="goToLogin()">
+        <ion-button fill="outline" expand="block" (click)="goToLogin()" [disabled]="isSubmitting">
           <ion-icon slot="start" name="log-in-outline"></ion-icon>
           Login
         </ion-button>
