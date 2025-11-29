@@ -130,7 +130,23 @@ public class StravaServiceImpl implements StravaService {
                 LOGGER.error("Error mapping entity to activity {}", dto);
                 continue;
             }
-            activityRepository.save(entity);
+            Optional<Activity> storedActivities = activityRepository.getActivitiesByUserAndStartDate(user, entity.getStartDate());
+
+            if (storedActivities.isEmpty()) {
+                activityRepository.save(entity);
+                activities.add(entity);
+            } else {
+                Activity storedActivity = storedActivities.get();
+                storedActivity.setExternalId(entity.getExternalId());
+                storedActivity.setStravaId(entity.getStravaId());
+                storedActivity.setSufferScore(entity.getSufferScore());
+                storedActivity.setAverageWatts(entity.getAverageWatts());
+                storedActivity.setKilojoules(entity.getKilojoules());
+                // always the first name is going to be the new name of the Activity
+                //storedActivity.setName(entity.getName());
+                activityRepository.save(storedActivity);
+                activities.add(storedActivity);
+            }
             activities.add(entity);
             LOGGER.debug("Saved Strava activity: {}", entity);
         }

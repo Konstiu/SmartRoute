@@ -77,13 +77,12 @@ public class BaseTest {
     }
 
     private void clearData() {
+        garminAccountRepository.deleteAllInBatch();
         athleteZoneRepository.deleteAllInBatch();
         activityRepository.deleteAllInBatch();
         stravaAccountRepository.deleteAllInBatch();
         injuryRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
-        garminAccountRepository.deleteAll();
-        activityRepository.deleteAll();
         stravaAccountRepository.deleteAll();
         userRepository.deleteAll();
     }
