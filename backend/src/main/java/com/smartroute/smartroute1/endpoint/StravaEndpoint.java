@@ -1,18 +1,17 @@
 package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
+import com.smartroute.smartroute1.endpoint.dto.StravaAccountConnectionStateDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
-import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
 import com.smartroute.smartroute1.endpoint.dto.StravaZoneDataDto;
+import com.smartroute.smartroute1.service.StravaOauthService;
 import com.smartroute.smartroute1.service.StravaService;
 import com.smartroute.smartroute1.service.impl.StravaOauthServiceImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,7 +25,6 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.net.URI;
 import java.util.List;
@@ -114,8 +112,6 @@ public class StravaEndpoint {
     private String baseUrl;
     @Value("${app.frontendUrl}")
     private String frontendUrl;
-    @Autowired
-    private StravaActivityMapper activityMapper;
 
     @Operation(
             summary = "Start Strava OAuth connection",
@@ -162,6 +158,16 @@ public class StravaEndpoint {
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(redirectUri)
                 .build();
+    }
+
+    @GetMapping("/connection-state")
+    @Secured("ROLE_USER")
+    @ResponseStatus(value = HttpStatus.OK)
+    public StravaAccountConnectionStateDto getConnectionState() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+        return authService.getConnectionState(email);
     }
 
     @Operation(

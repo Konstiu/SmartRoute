@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.service;
 
+import com.smartroute.smartroute1.endpoint.dto.StravaAccountConnectionStateDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaTokenResponseDto;
 import com.smartroute.smartroute1.entity.StravaAccount;
 import org.springframework.web.server.ResponseStatusException;
@@ -12,6 +13,38 @@ import org.springframework.web.server.ResponseStatusException;
  * </p>
  */
 public interface StravaOauthService {
+
+    class OAuthState {
+        public String email;
+        public String origin;
+    }
+
+    /**
+     * Creates and stores a unique state to trace the Strava OAuth request back to a user
+     * and a frontend origin.
+     *
+     * @param email the user's email
+     * @param origin the frontend origin
+     * @return a unique state identifier
+     */
+    String createState(String email, String origin);
+
+    /**
+     * Retrieves an OAuth state and deletes corresponding entry from the state map.
+     *
+     * @param state the state identifier
+     * @return a OAuthState containing the user's email and the frontend origin
+     */
+    OAuthState getState(String state);
+
+    /**
+     * Returns the Strava connection state for the specified user.
+     *
+     * @param email the user's email
+     * @return a StravaAccountConnectionDto containing connection state information
+     */
+    StravaAccountConnectionStateDto getConnectionState(String email);
+
     /**
      * Exchanges the authorization code received from Strava for an access token and refresh token.
      * <p>

@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.smartroute.smartroute1.endpoint.dto.StravaAccountConnectionStateDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaTokenResponseDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.StravaAccount;
@@ -24,7 +25,9 @@ import reactor.core.publisher.Mono;
 
 import java.lang.invoke.MethodHandles;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -42,6 +45,40 @@ public class StravaOauthServiceImpl implements StravaOauthService {
     @Value("${app.baseUrl}")
     private String baseUrl;
 
+    private final Map<String, OAuthState> stateMap = new ConcurrentHashMap<>();
+
+    @Override
+    public String createState(String email, String origin) {
+        String state = UUID.randomUUID().toString();
+        OAuthState oAuthState = new OAuthState();
+        oAuthState.email = email;
+        oAuthState.origin = origin;
+        stateMap.put(state, oAuthState);
+
+        return state;
+    }
+
+    @Override
+    public OAuthState getState(String state) {
+        return stateMap.remove(state);
+    }
+
+    @Override
+    public StravaAccountConnectionStateDto getConnectionState(String email) {
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        Optional<StravaAccount> account = stravaAccountRepository.findByUser(user);
+
+        return new StravaAccountConnectionStateDto(
+                account.isPresent(),
+                account.isPresent() ? account.get().getScopes() : ""
+        );
+    }
+
+    @Override
     public StravaTokenResponseDto exchangeCodeForToken(String code, String scope, String email) throws StravaAuthorizationException {
         LOGGER.trace("Exchanging code: {} for token with scopes: {} for user with email: {}", code, scope, email);
 
