@@ -8,6 +8,8 @@ public interface TestData {
 
 	String USER_BASE_URI = BASE_URI + "/user";
 
+	String USER_INJURY_BASE_URI = USER_BASE_URI + "/injuries";
+
 	String DEFAULT_USER_EMAIL = "email0@smartroute.com";
 
 	String ORIGIN = "http://localhost:4200";
