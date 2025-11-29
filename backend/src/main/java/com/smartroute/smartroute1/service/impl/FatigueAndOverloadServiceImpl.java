@@ -2,6 +2,7 @@ package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.exception.InsufficientTrainingDataException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.service.FatigueAndOverloadService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
@@ -135,7 +136,7 @@ public class FatigueAndOverloadServiceImpl implements FatigueAndOverloadService 
     private LoadState latestState(ApplicationUser user) {
         List<LoadState> curve = computeCurve(user);
         if (curve.isEmpty()) {
-            throw new IllegalStateException("No training history available for user " + user.getId());
+            throw new InsufficientTrainingDataException("No training history available for user " + user.getId());
         }
         return curve.get(curve.size() - 1);
     }
@@ -193,7 +194,7 @@ public class FatigueAndOverloadServiceImpl implements FatigueAndOverloadService 
         return computeCurve(user).stream()
                 .filter(s -> !s.date().isAfter(date))
                 .reduce((a, b) -> b) // take last state up to that date
-                .orElseThrow(() -> new IllegalArgumentException(
+                .orElseThrow(() -> new InsufficientTrainingDataException(
                         "No training history available on or before " + date + " for user " + user.getId()));
     }
 
@@ -227,8 +228,8 @@ public class FatigueAndOverloadServiceImpl implements FatigueAndOverloadService 
      * @return list of daily loads (maybe unsorted; will be sorted upstream)
      */
     private List<DailyLoad> loadDailyFitnessScores(ApplicationUser user) {
-        Activity first = activityRepository.findAllByUserOrderByStartDateAsc(user);
-        Activity last = activityRepository.findAllByUserOrderByStartDateDesc(user);
+        Activity first = !activityRepository.findAllByUserOrderByStartDateAsc(user).isEmpty() ? activityRepository.findAllByUserOrderByStartDateAsc(user).get(0) : null;
+        Activity last = !activityRepository.findAllByUserOrderByStartDateDesc(user).isEmpty() ? activityRepository.findAllByUserOrderByStartDateDesc(user).get(0) : null;
 
         if (first == null || last == null) {
             return List.of();
@@ -248,8 +249,6 @@ public class FatigueAndOverloadServiceImpl implements FatigueAndOverloadService 
             if (score > 0) {
                 result.add(new DailyLoad(d, score));
             }
-
-            throw new UnsupportedOperationException("loadDailyFitnessScores not implemented yet");
         }
         return result;
     }
