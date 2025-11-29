@@ -45,21 +45,21 @@ public class StravaOauthServiceImpl implements StravaOauthService {
     @Value("${app.baseUrl}")
     private String baseUrl;
 
-    private final Map<String, OAuthState> stateMap = new ConcurrentHashMap<>();
+    private final Map<String, StravaOauthState> stateMap = new ConcurrentHashMap<>();
 
     @Override
     public String createState(String email, String origin) {
         String state = UUID.randomUUID().toString();
-        OAuthState oAuthState = new OAuthState();
-        oAuthState.email = email;
-        oAuthState.origin = origin;
-        stateMap.put(state, oAuthState);
+        StravaOauthState stravaOauthState = new StravaOauthState();
+        stravaOauthState.email = email;
+        stravaOauthState.origin = origin;
+        stateMap.put(state, stravaOauthState);
 
         return state;
     }
 
     @Override
-    public OAuthState getState(String state) {
+    public StravaOauthState getState(String state) {
         return stateMap.remove(state);
     }
 

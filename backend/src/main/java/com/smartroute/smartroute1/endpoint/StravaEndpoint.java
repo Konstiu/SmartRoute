@@ -154,9 +154,9 @@ public class StravaEndpoint {
     public ResponseEntity<Void> callback(@RequestParam("code") String code, @RequestParam("scope") String scope, @RequestParam("state") String state) {
         LOGGER.info("GET /api/v1/strava/callback code: {}, scope: {}, state: {}", code, scope, state);
 
-        StravaOauthService.OAuthState oAuthState = authService.getState(state);
-        String email = oAuthState.email;
-        String origin = oAuthState.origin;
+        StravaOauthService.StravaOauthState stravaOauthState = authService.getState(state);
+        String email = stravaOauthState.email;
+        String origin = stravaOauthState.origin;
 
         if (email == null || origin == null || email.equals("anonymousUser")) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
