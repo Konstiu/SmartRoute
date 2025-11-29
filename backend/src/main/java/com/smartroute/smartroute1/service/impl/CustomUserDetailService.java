@@ -76,6 +76,8 @@ public class CustomUserDetailService implements UserService {
 
     @Override
     public String login(UserLoginDto userLoginDto) {
+        LOGGER.trace("Login user by UserLoginDto: {}", userLoginDto);
+        userLoginDto.setEmail(userLoginDto.getEmail().trim().toLowerCase());
         UserDetails userDetails = loadUserByUsername(userLoginDto.getEmail());
         if (userDetails != null
                 && userDetails.isAccountNonExpired()
@@ -95,6 +97,7 @@ public class CustomUserDetailService implements UserService {
     public ApplicationUser create(CreateUserDto toCreate, String origin) throws ValidationException {
 
         LOGGER.trace("Create user by CreateUserDto: {}", toCreate);
+        toCreate.email = toCreate.email.trim().toLowerCase();
         validator.validateForCreate(toCreate);
         if (userRepository.findUserByEmail(toCreate.email) != null) {
             throw new ValidationException("Email already exists please try an other one");
