@@ -137,6 +137,7 @@ public class StravaOauthServiceImpl implements StravaOauthService {
         if (existing.isPresent()) {
             existing.get().setAccessToken(tokenResponseDto.getAccessToken());
             existing.get().setRefreshToken(tokenResponseDto.getRefreshToken());
+            existing.get().setScopes(tokenResponseDto.getScope());
             existing.get().setExpiresAt(Instant.ofEpochSecond(tokenResponseDto.getExpiresAt()));
 
             stravaAccountRepository.save(existing.get());
