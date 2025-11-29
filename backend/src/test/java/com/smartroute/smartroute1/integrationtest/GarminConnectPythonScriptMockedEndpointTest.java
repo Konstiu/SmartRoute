@@ -3,6 +3,9 @@ package com.smartroute.smartroute1.integrationtest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartroute.smartroute1.basetest.BaseTest;
 import com.smartroute.smartroute1.endpoint.dto.GarminConnectAccountDto;
+import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.repository.ActivityRepository;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
@@ -15,7 +18,15 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 
@@ -28,25 +39,39 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
     private MockMvc mockMvc;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    @Autowired
+    private ActivityRepository activityRepository;
 
     @Test
     @WithMockUser(username = "email0@smartroute.com", roles = "USER")
     void syncActivities_withValidRequestBody_shouldReturn200WithGarminData() throws Exception {
+        ApplicationUser user = userRepository.findAll().getFirst();
         GarminConnectAccountDto garminConnectAccountDto = new GarminConnectAccountDto();
         garminConnectAccountDto.setGarminEmail("test@garmin.com");
         garminConnectAccountDto.setGarminPassword("myPassword");
         garminConnectAccountDto.setCount(1);
 
         performSync(garminConnectAccountDto)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].activityId").value(21013233687L))
-                .andExpect(jsonPath("$[0].activityName").value("Vienna Running"))
-                .andExpect(jsonPath("$[0].summary.activityType.typeKey").value("running"))
-                .andExpect(jsonPath("$[0].summary.distance").value(3610.219970703125))
-                .andExpect(jsonPath("$[0].summary.averageHR").value(164.0))
-                .andExpect(jsonPath("$[0].details.measurementCount").value(24));
+                .andExpect(status().isOk());
+
+        long activityId = 21013233687L;
+        long beginTimestamp = 1763377372000L; // from MOCK_ACTIVITY.beginTimestamp
+        Instant startInstant = Instant.ofEpochMilli(beginTimestamp);
+
+        Optional<Activity> activityOpt =
+                activityRepository.getActivitiesByUserAndStartDateAndExternalId(user, startInstant, activityId);
+
+        assertThat(activityOpt)
+                .as("Garmin activity should have been imported")
+                .isPresent();
+
+        Activity activity = activityOpt.get();
+
+        assertAll(
+                () -> assertThat(activity.getExternalId()).isEqualTo(activityId),
+                () -> assertThat(activity.getName()).isEqualTo("Vienna Running"),
+                () -> assertThat(activity.getDistance()).isEqualTo(22.350368f)
+        );
     }
 
     @Test
@@ -98,6 +123,7 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
     @Test
     @WithMockUser(username = "email0@smartroute.com", roles = "USER")
     void syncActivities_withValidRequestBody_WithTokenFromDB_shouldReturn200WithGarminData() throws Exception {
+        ApplicationUser user = userRepository.findAll().getFirst();
         GarminConnectAccountDto garminConnectAccountDto = new GarminConnectAccountDto();
         garminConnectAccountDto.setGarminEmail("test@garmin.com");
         garminConnectAccountDto.setGarminPassword("myPassword");
@@ -109,35 +135,59 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
         GarminConnectAccountDto garminConnectAccountDtoNew = new GarminConnectAccountDto();
         garminConnectAccountDtoNew.setCount(1);
 
-        performSync(garminConnectAccountDto)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(1))
-                .andExpect(jsonPath("$[0].activityId").value(21013233687L))
-                .andExpect(jsonPath("$[0].activityName").value("Vienna Running"))
-                .andExpect(jsonPath("$[0].summary.activityType.typeKey").value("running"))
-                .andExpect(jsonPath("$[0].summary.distance").value(3610.219970703125))
-                .andExpect(jsonPath("$[0].summary.averageHR").value(164.0))
-                .andExpect(jsonPath("$[0].details.measurementCount").value(24));
+        long activityId = 21013233687L;
+        long beginTimestamp = 1763377372000L; // from MOCK_ACTIVITY.beginTimestamp
+        Instant startInstant = Instant.ofEpochMilli(beginTimestamp);
+
+        Optional<Activity> activityOpt =
+                activityRepository.getActivitiesByUserAndStartDateAndExternalId(user, startInstant, activityId);
+
+        assertThat(activityOpt)
+                .as("Garmin activity should have been imported")
+                .isPresent();
+
+        Activity activity = activityOpt.get();
+
+        // assert some important fields
+        assertAll(
+                () -> assertThat(activity.getExternalId()).isEqualTo(activityId),
+                () -> assertThat(activity.getName()).isEqualTo("Vienna Running"),
+                () -> assertThat(activity.getDistance()).isEqualTo(22.350368f)
+        );
+
+
     }
 
     @Test
     @WithMockUser(username = "email0@smartroute.com", roles = "USER")
-    void syncActivities_withCountThree_shouldReturnThreeActivities() throws Exception {
+    void syncActivities_withCountThree_shouldPersistOneMoreActivity() throws Exception {
+        ApplicationUser user = userRepository.findAll().getFirst();
         GarminConnectAccountDto dto = new GarminConnectAccountDto();
         dto.setGarminEmail("test@garmin.com");
         dto.setGarminPassword("myPassword");
         dto.setCount(3);
 
-        performSync(dto)
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(3))
-                .andExpect(jsonPath("$[0].activityId").value(21013233687L))
-                .andExpect(jsonPath("$[1].activityId").value(21013233687L))
-                .andExpect(jsonPath("$[2].activityId").value(21013233687L));
-    }
+        List<Activity> activityList =
+                activityRepository.getActivitiesByUser(user);
+        List<Activity> finalActivityList = activityList;
+        assertAll(
+                () -> assertEquals(3, finalActivityList.size())
+        );
 
+        performSync(dto)
+                .andExpect(status().isOk());
+
+        long activityId = 21013233687L;
+
+        activityList =
+                activityRepository.getActivitiesByUser(user);
+
+        List<Activity> finalActivityList1 = activityList;
+        assertAll(
+                () -> assertThat(finalActivityList1.get(3).getExternalId()).isEqualTo(activityId),
+                () -> assertEquals(4, finalActivityList1.size())
+        );
+    }
 
 
     @NotNull
@@ -147,6 +197,7 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(toJson(dto)));
     }
+
     private String toJson(Object o) throws Exception {
         return objectMapper.writeValueAsString(o);
     }
