@@ -20,7 +20,7 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
             FROM Activity a
             WHERE a.user = :user
             AND a.type = :type
-            AND a.startDateLocal BETWEEN :start AND :end
+            AND a.startDate >= :start AND a.startDate < :end
             """)
     Integer sumSessionLoadForDay(
             @Param("user") ApplicationUser user,
@@ -28,6 +28,13 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
             @Param("start") Instant start,
             @Param("end") Instant end
     );
+
+    List<Activity> findAllByUserAndStartDateBetweenOrderByStartDateAsc(ApplicationUser user, Instant start, Instant end);
+
+    List<Activity> findAllByUserOrderByStartDateAsc(ApplicationUser user);
+
+    List<Activity> findAllByUserOrderByStartDateDesc(ApplicationUser user);
+
 
     Activity findByIdAndUser(Long id, ApplicationUser user);
 }

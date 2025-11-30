@@ -1,6 +1,12 @@
 <ion-header>
   <ion-toolbar>
     <ion-title>Recent Activities</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="importGpx()">
+        <ion-icon slot="start" name="cloud-upload-outline"></ion-icon>
+        Import GPX
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
@@ -37,7 +43,7 @@
         <p class="activity-stats">
           <span><ion-icon name="navigate-outline"></ion-icon> {{ formatDistance(activity.distance) }} km</span>
           <span><ion-icon name="time-outline"></ion-icon> {{ formatDuration(activity.movingTime) }}</span>
-          <span><ion-icon name="speedometer-outline"></ion-icon> {{ activity.averageSpeed.toFixed(2) }}/km</span>
+          <span><ion-icon name="speedometer-outline"></ion-icon> {{ formatPace(activity.averageSpeed) }}/km</span>
         </p>
         <p class="activity-stats-secondary" *ngIf="activity.totalElevationGain || activity.averageHeartrate">
           <span *ngIf="activity.totalElevationGain">

@@ -4,62 +4,119 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="ion-padding" [fullscreen]="true">
-  <form #form="ngForm" (ngSubmit)="onSubmit()">
+<ion-content class="ion-padding">
+  <div class="register-container">
+    <div class="logo-container">
+      <img src="assets/logo.png" alt="SmartRoute Logo" class="app-logo">
+      <h2 class="app-name">SmartRoute</h2>
+      <h1>Create Account</h1>
+      <p>Sign up to get started</p>
+    </div>
 
-    <!-- First Name -->
-    <ion-item>
-      <ion-label position="floating">First Name</ion-label>
-      <ion-input
-        type="text"
-        [(ngModel)]="createUser.firstname"
-        name="firstname"
-        required
-      ></ion-input>
-    </ion-item>
+    <form #form="ngForm" (ngSubmit)="onSubmit()">
+      <div *ngIf="successMessage" class="success-message">
+        <ion-text color="success">{{ successMessage }}</ion-text>
+      </div>
+      <ion-item lines="full">
+        <ion-input
+          labelPlacement="floating"
+          type="text"
+          name="firstname"
+          autocomplete="given-name"
+          [(ngModel)]="createUser.firstname"
+          #firstName="ngModel"
+          required
+          [disabled]="isSubmitting">
+          <div slot="label">First Name</div>
+        </ion-input>
+      </ion-item>
+      <div class="error-message" *ngIf="firstName.invalid && (firstName.touched || form.submitted)">
+        <ion-text color="danger"><small>First name is required</small></ion-text>
+      </div>
 
-    <!-- Last Name -->
-    <ion-item>
-      <ion-label position="floating">Last Name</ion-label>
-      <ion-input
-        type="text"
-        [(ngModel)]="createUser.lastname"
-        name="lastname"
-        required
-      ></ion-input>
-    </ion-item>
+      <ion-item lines="full">
+        <ion-input
+          labelPlacement="floating"
+          type="text"
+          name="lastname"
+          autocomplete="family-name"
+          [(ngModel)]="createUser.lastname"
+          #lastName="ngModel"
+          required
+          [disabled]="isSubmitting">
+          <div slot="label">Last Name</div>
+        </ion-input>
+      </ion-item>
+      <div class="error-message" *ngIf="lastName.invalid && (lastName.touched || form.submitted)">
+        <ion-text color="danger"><small>Last name is required</small></ion-text>
+      </div>
 
-    <!-- Email -->
-    <ion-item>
-      <ion-label position="floating">Email</ion-label>
-      <ion-input
-        type="email"
-        [(ngModel)]="createUser.email"
-        name="email"
-        required
-      ></ion-input>
-    </ion-item>
+      <ion-item lines="full">
+        <ion-input
+          labelPlacement="floating"
+          type="email"
+          name="email"
+          autocomplete="username"
+          [(ngModel)]="createUser.email"
+          #emailModel="ngModel"
+          required
+          email
+          [disabled]="isSubmitting">
+          <div slot="label">Email</div>
+        </ion-input>
+      </ion-item>
+      <div class="error-message" *ngIf="emailModel.invalid && (emailModel.touched || form.submitted)">
+        <ion-text color="danger">
+          <small *ngIf="emailModel.errors?.['required']">Email is required</small>
+          <small *ngIf="emailModel.errors?.['email']">Invalid email format</small>
+        </ion-text>
+      </div>
 
-    <!-- Password -->
-    <ion-item>
-      <ion-label position="floating">Password</ion-label>
-      <ion-input
-        type="password"
-        [(ngModel)]="createUser.password"
-        [minlength]="6"
-        name="password"
-        required
-      ></ion-input>
-    </ion-item>
+      <ion-item lines="full" class="password-item">
+        <ion-input
+          labelPlacement="floating"
+          type="password"
+          name="password"
+          autocomplete="new-password"
+          [(ngModel)]="createUser.password"
+          #pw="ngModel"
+          required
+          minlength="8"
+          [disabled]="isSubmitting">
+          <div slot="label">Password</div>
+        </ion-input>
+      </ion-item>
+      <div class="error-message" *ngIf="pw.invalid && (pw.touched || form.submitted)">
+        <ion-text color="danger">
+          <small *ngIf="pw.errors?.['required']">Password is required</small>
+          <small *ngIf="pw.errors?.['minlength']">Password must be at least 8 characters</small>
+        </ion-text>
+      </div>
 
-    <!-- Submit Button -->
-    <ion-button
-      expand="block"
-      type="submit"
-      class="ion-margin-top"
-    >
-      Register
-    </ion-button>
+      <ion-button
+        expand="block"
+        type="submit"
+        class="ion-margin-top"
+        color="primary"
+        [disabled]="form.invalid || isSubmitting">
+        <ion-icon slot="start" name="person-add-outline"></ion-icon>
+        Create Account
+      </ion-button>
 
-  </form>
+      <div *ngIf="errorMessage" class="error-message">
+        <ion-text color="danger">{{ errorMessage }}</ion-text>
+      </div>
+
+    </form>
+
+    <div class="links-container">
+      <p>Already have an account?</p>
+      <div class="register-section">
+        <ion-button fill="outline" expand="block" (click)="goToLogin()" [disabled]="isSubmitting">
+          <ion-icon slot="start" name="log-in-outline"></ion-icon>
+          Login
+        </ion-button>
+      </div>
+    </div>
+  </div>
 </ion-content>

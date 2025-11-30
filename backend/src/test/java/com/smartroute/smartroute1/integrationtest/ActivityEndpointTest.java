@@ -40,7 +40,7 @@ class ActivityEndpointTest extends BaseTest implements TestData {
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(3)) // NUMBER_OF_ACTIVITIES_PER_USER
+                .andExpect(jsonPath("$.length()").value(10)) // NUMBER_OF_ACTIVITIES_PER_USER
                 .andExpect(jsonPath("$[0].name").exists())
                 .andExpect(jsonPath("$[0].distance").exists());
     }
@@ -107,7 +107,7 @@ class ActivityEndpointTest extends BaseTest implements TestData {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$").isArray())
-                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$.length()").value(10))
                 .andExpect(jsonPath("$[*].type").value(everyItem(is("Run"))))
                 .andExpect(jsonPath("$[*].sportType").value(everyItem(is("Run"))));
     }
