@@ -37,14 +37,14 @@ public class WeatherEndpoint {
             summary = "Get weather impact.")
     @PostMapping("/impact")
     @PermitAll
-    public WeatherImpactDto estimateImpact(@RequestParam("distance in m") int distance,
-                                           @RequestParam("time in s") long baseTimeSeconds,
-                                           @RequestParam("temperature in C°") double temperature,
-                                           @RequestParam("relative humidity") double relativeHumidity,
-                                           @RequestParam("shortwave radiation") double shortwaveRadiation,
-                                           @RequestParam("wind speed") double windSpeed,
+    public WeatherImpactDto estimateImpact(@RequestParam("distance") int distance,
+                                           @RequestParam("time") long baseTimeSeconds,
+                                           @RequestParam("temperature") double temperature,
+                                           @RequestParam("relativeHumidity") double relativeHumidity,
+                                           @RequestParam("shortwaveRadiation") double shortwaveRadiation,
+                                           @RequestParam("windSpeed") double windSpeed,
                                            @RequestParam("precipitation") double precipitation,
-                                           @RequestParam("runner age") int age) {
+                                           @RequestParam("runnerAge") int age) {
         return weatherService.estimateImpact(distance, baseTimeSeconds, temperature,
                 relativeHumidity, shortwaveRadiation, windSpeed, precipitation, age);
     }
