@@ -1,30 +1,34 @@
-import {Injectable} from '@angular/core';
-import {HttpEvent, HttpHandler, HttpInterceptor, HttpRequest} from '@angular/common/http';
-import {AuthService} from '../services/auth.service';
-import {Observable} from 'rxjs';
-import {Globals} from '../global/globals';
+import { HttpInterceptorFn } from '@angular/common/http';
+import { inject } from '@angular/core';
+import { AuthService } from '../services/auth.service';
+import { Globals } from '../global/globals';
 
-@Injectable()
-export class AuthInterceptor implements HttpInterceptor {
+export const authInterceptor: HttpInterceptorFn = (req, next) => {
+  const authService = inject(AuthService);
+  const globals = inject(Globals);
 
-  constructor(private authService: AuthService, private globals: Globals) {
+  const authUri = globals.backendUri + '/authentication';
+  const registerUri = globals.backendUri + '/user';
+  const verifyUri = globals.backendUri + '/user/verify';
+  const resetUri = globals.backendUri + '/user/reset_password';
+
+  console.log("req intercepted: ", req);
+
+  if (req.url === authUri ||
+    (req.url === registerUri && req.method === "POST") ||
+    req.url.startsWith(verifyUri) ||
+    req.url.startsWith(resetUri)) {
+
+    return next(req);
   }
 
-  intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    const authUri = this.globals.backendUri + '/authentication';
-    const registerUri = this.globals.backendUri + '/user';
-    const verifyUri = this.globals.backendUri + '/user/verify';
-    const resetUri = this.globals.backendUri + '/user/reset_password';
-
-
-    if (req.url === authUri || (req.url === registerUri && req.method === "POST")  || req.url.startsWith(verifyUri) || req.url.startsWith(resetUri)) {
-      return next.handle(req);
+  const authReq = req.clone({
+    setHeaders: {
+      Authorization: 'Bearer ' + authService.getToken()
     }
+  });
 
-    const authReq = req.clone({
-      headers: req.headers.set('Authorization', 'Bearer ' + this.authService.getToken())
-    });
+  console.log("req cloned with token:", authService.getToken());
 
-    return next.handle(authReq);
-  }
-}
+  return next(authReq);
+};
