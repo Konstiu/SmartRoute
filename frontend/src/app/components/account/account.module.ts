@@ -13,8 +13,7 @@ import { AccountPageRoutingModule } from './account-routing.module';
     CommonModule,
     FormsModule,
     ExploreContainerComponentModule,
-    AccountPageRoutingModule
-  ],
-  declarations: [AccountPage]
+    AccountPageRoutingModule,
+  ]
 })
 export class AccountPageModule {}

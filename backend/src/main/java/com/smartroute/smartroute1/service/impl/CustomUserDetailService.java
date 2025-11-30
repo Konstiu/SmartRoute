@@ -76,6 +76,11 @@ public class CustomUserDetailService implements UserService {
 
     @Override
     public String login(UserLoginDto userLoginDto) {
+        LOGGER.trace("Login user by UserLoginDto: {}", userLoginDto);
+        if (userLoginDto.getEmail() == null || userLoginDto.getPassword() == null) {
+            throw new BadCredentialsException("Username or password is incorrect");
+        }
+        userLoginDto.setEmail(userLoginDto.getEmail().trim().toLowerCase());
         UserDetails userDetails = loadUserByUsername(userLoginDto.getEmail());
         if (userDetails != null
                 && userDetails.isAccountNonExpired()
@@ -96,8 +101,9 @@ public class CustomUserDetailService implements UserService {
 
         LOGGER.trace("Create user by CreateUserDto: {}", toCreate);
         validator.validateForCreate(toCreate);
+        toCreate.email = toCreate.email.trim().toLowerCase();
         if (userRepository.findUserByEmail(toCreate.email) != null) {
-            throw new ValidationException("Email already exits please try an other one");
+            throw new ValidationException("Email already exists please try an other one");
         }
 
         CreateUserDto userDto = new CreateUserDto();
