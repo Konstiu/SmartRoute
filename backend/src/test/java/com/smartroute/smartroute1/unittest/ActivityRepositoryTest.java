@@ -8,6 +8,7 @@ import com.smartroute.smartroute1.entity.enums.Sex;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
+import com.smartroute.smartroute1.repository.InjuryRepository;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,6 +36,9 @@ public class ActivityRepositoryTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private InjuryRepository injuryRepository;
 
     private Activity activity(long id, ApplicationUser user, String date) {
         Activity a = new Activity();
@@ -65,15 +69,17 @@ public class ActivityRepositoryTest {
     public void setUp() {
         activityRepository.deleteAll();
         accountRepository.deleteAll();
+        injuryRepository.deleteAll();
         userRepository.deleteAll();
         activityRepository.flush();
         accountRepository.flush();
+        injuryRepository.flush();
         userRepository.flush();
     }
 
 
     @Test
-    void testFindAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc() {
+    void testFindAllByStravaAccountAndStartDateBetweenOrderByStartDateAsc() throws Exception {
 
         ApplicationUser acc1 = newUser(1L);
         ApplicationUser acc2 = newUser(2L);
