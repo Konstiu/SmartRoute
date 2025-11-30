@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.smartroute.smartroute1.endpoint.dto.StravaAccountConnectionStateDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaTokenResponseDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.StravaAccount;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -24,7 +26,9 @@ import reactor.core.publisher.Mono;
 
 import java.lang.invoke.MethodHandles;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -42,6 +46,96 @@ public class StravaOauthServiceImpl implements StravaOauthService {
     @Value("${app.baseUrl}")
     private String baseUrl;
 
+    private final Map<String, StravaOauthState> stateMap = new ConcurrentHashMap<>();
+
+    @Override
+    public String createState(String email, String origin) {
+        String state = UUID.randomUUID().toString();
+        StravaOauthState stravaOauthState = new StravaOauthState();
+        stravaOauthState.email = email;
+        stravaOauthState.origin = origin;
+        stateMap.put(state, stravaOauthState);
+
+        return state;
+    }
+
+    @Override
+    public StravaOauthState getState(String state) {
+        return stateMap.remove(state);
+    }
+
+    @Override
+    public StravaAccountConnectionStateDto disconnectStravaAccount(String email) {
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+        Optional<StravaAccount> account = stravaAccountRepository.findByUser(user);
+        if (account.isEmpty()) {
+            return new StravaAccountConnectionStateDto(
+                    false,
+                    ""
+            );
+        }
+
+        String token = ensureValidAccessToken(account.get());
+
+        try {
+            webClient.post()
+                    .uri("https://www.strava.com/oauth/deauthorize")
+                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(
+                                            new StravaAuthorizationException(
+                                                    "Strava OAuth 4xx:" + body
+                                            )
+                                    ))
+                    )
+                    .onStatus(HttpStatusCode::is5xxServerError, response ->
+                            response.bodyToMono(String.class)
+                                    .flatMap(body -> Mono.error(
+                                            new ResponseStatusException(
+                                                    HttpStatus.BAD_GATEWAY,
+                                                    "Strava error: " + body
+                                            )
+                                    ))
+                    )
+                    .toBodilessEntity()
+                    .block();
+        } catch (WebClientRequestException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Could not reach Strava OAuth service",
+                    e
+            );
+        }
+
+        stravaAccountRepository.delete(account.get());
+
+        return new StravaAccountConnectionStateDto(
+                false,
+                ""
+        );
+    }
+
+    @Override
+    public StravaAccountConnectionStateDto getConnectionState(String email) {
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        Optional<StravaAccount> account = stravaAccountRepository.findByUser(user);
+
+        return new StravaAccountConnectionStateDto(
+                account.isPresent(),
+                account.isPresent() ? account.get().getScopes() : ""
+        );
+    }
+
+    @Override
     public StravaTokenResponseDto exchangeCodeForToken(String code, String scope, String email) throws StravaAuthorizationException {
         LOGGER.trace("Exchanging code: {} for token with scopes: {} for user with email: {}", code, scope, email);
 
@@ -100,6 +194,7 @@ public class StravaOauthServiceImpl implements StravaOauthService {
         if (existing.isPresent()) {
             existing.get().setAccessToken(tokenResponseDto.getAccessToken());
             existing.get().setRefreshToken(tokenResponseDto.getRefreshToken());
+            existing.get().setScopes(tokenResponseDto.getScope());
             existing.get().setExpiresAt(Instant.ofEpochSecond(tokenResponseDto.getExpiresAt()));
 
             stravaAccountRepository.save(existing.get());
@@ -119,6 +214,7 @@ public class StravaOauthServiceImpl implements StravaOauthService {
         }
     }
 
+    @Override
     public String ensureValidAccessToken(StravaAccount account) throws StravaAuthorizationException {
         LOGGER.trace("Ensure access token for user: {}", account);
 

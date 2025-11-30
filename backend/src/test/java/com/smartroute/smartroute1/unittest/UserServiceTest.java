@@ -101,7 +101,24 @@ class UserServiceTest {
 
         ValidationException exception = assertThrows(ValidationException.class,
                 () -> userService.create(duplicateUser, ORIGIN));
-        assertTrue(exception.getMessage().contains("Email already exits"));
+        assertTrue(exception.getMessage().contains("Email already exists"));
+    }
+
+    @Test
+    void createUser_withExistingCaseInsensitiveEmail_shouldThrowValidationException() throws Exception {
+        ApplicationUser user = new ApplicationUser("test@email.com", "Password123!", "John", "Doe");
+        CreateUserDto firstUser = userMapper.applicationUserToDto(user);
+        userService.create(firstUser, ORIGIN);
+
+        CreateUserDto duplicateUser = new CreateUserDto();
+        duplicateUser.setEmail("TEST@EMAIL.com");
+        duplicateUser.setPassword("AnotherPassword123!");
+        duplicateUser.setFirstname("Jane");
+        duplicateUser.setLastname("Smith");
+
+        ValidationException exception = assertThrows(ValidationException.class,
+            () -> userService.create(duplicateUser, ORIGIN));
+        assertTrue(exception.getMessage().contains("Email already exists"));
     }
 
     @Test

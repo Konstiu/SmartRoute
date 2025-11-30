@@ -84,7 +84,22 @@ export class RecentRunsPage implements OnInit {
   }
 
   formatDistance(dist: number) : string{
+    dist = dist / 1000; // convert meters to km
     return dist.toFixed(2)
+  }
+
+  formatPace(averageSpeed: number): string {
+    if (averageSpeed <= 0) return "0:00";
+    const paceInKmh = averageSpeed * 3.6; // Convert m/s to km/h
+    const paceInMinutesPerKm = 60 / paceInKmh;
+    let minutes = Math.floor(paceInMinutesPerKm);
+    let seconds = Math.round((paceInMinutesPerKm - minutes) * 60);
+    // Handle edge case where seconds round up to 60
+    if (seconds === 60) {
+      minutes += 1;
+      seconds = 0;
+    }
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
 
   getActivityIcon(sportType: string): string {
@@ -102,4 +117,9 @@ export class RecentRunsPage implements OnInit {
   openActivity(activity:StravaActivity){
     this.router.navigate(['/activity/', activity.id]);
   }
+
+  importGpx() {
+    this.router.navigate(['/import-gpx']);
+  }
+
 }

@@ -1,0 +1,53 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Import GPX</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>GPX Import</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <p>A GPX file is a standard GPS data format used to save routes, tracks, and waypoints. It allows you to easily share and transfer your activity or navigation data between apps and devices.</p>
+
+      <input #fileInput type="file" accept=".gpx" multiple (change)="onFilesSelected($event)" hidden />
+
+      <ion-button expand="block" (click)="onFileButtonClick(fileInput)" [disabled]="uploadInProgress">
+        <ion-icon slot="start" name="cloud-upload-outline"></ion-icon>
+        Choose GPX Files
+      </ion-button>
+
+      <div *ngIf="files.length > 0" class="file-list">
+        <h3>Selected Files <small *ngIf="files.length">(Total: {{ formatFileSize(getTotalBytes()) }})</small>:</h3>
+        <ion-list>
+          <ion-item *ngFor="let f of files; let i = index">
+            <ion-label>{{ f.name }}</ion-label>
+            <ion-note slot="end">{{ formatFileSize(f.size) }}</ion-note>
+            <ion-button slot="end" fill="clear" color="danger" (click)="removeFile(i)" aria-label="Remove file" [disabled]="uploadInProgress">
+              <ion-icon name="trash-outline"></ion-icon>
+            </ion-button>
+          </ion-item>
+        </ion-list>
+      </div>
+      <div *ngIf="files.length > 0 && !errorMessage" class="upload-action">
+        <ion-button expand="block" color="primary" (click)="uploadFiles()" [disabled]="uploadInProgress">
+          <ion-spinner *ngIf="uploadInProgress" slot="start" name="crescent"></ion-spinner>
+          Upload Files
+        </ion-button>
+      </div>
+
+      <div *ngIf="successMessage" class="success-container">
+        <ion-text color="success">{{ successMessage }}</ion-text>
+      </div>
+
+      <div *ngIf="errorMessage" class="error-container">
+        <ion-text color="danger">{{ errorMessage }}</ion-text>
+      </div>
+    </ion-card-content>
+  </ion-card>
+</ion-content>
