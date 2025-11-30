@@ -7,7 +7,7 @@ Because Swagger or direct API calls cannot handle this flow, you need to perform
 
 ---
 
-### Requirements 
+### Requirements
 
 Ensure the following values are correctly configured in `application-secrets.properties`:
 
@@ -19,19 +19,23 @@ Ensure the following values are correctly configured in `application-secrets.pro
 ### Connect a Strava account to a user
 
 1. Authenticate your API user
-    Obtain a Bearer token (JWT) by sending:
-    
+   Obtain a Bearer token (JWT) by sending:
+
     ```
     POST {backendBaseUrl}/api/v1/authentication
     ```
-    
-    with a valid request body.
-    
-    Use any tool like **Postman**, **Insomnia**, or **cURL**.
 
-2. Open the following URL in your browser:
-   `GET /api/v1/strava/connect`
-    You will be redirected to Strava's authorization screen.
+   with a valid request body.
+
+   Use any tool like **Postman**, **Insomnia**, or **cURL**.
+
+2. Send the following request:
+   `GET /api/v1/strava/connect?origin=register`
+   With the Bearer Token from step 1.
+
+   You will get a URL which links to the Strava's authorization screen.
+   The frontend would automatically redirect you to this page.
+   Open the link manually.
 
 3. Log into your Strava account and approve permissions.
 
@@ -41,26 +45,11 @@ Ensure the following values are correctly configured in `application-secrets.pro
    {backendBaseUrl}/api/v1/strava/callback?code=...&scope=...
    ```
 
-   However, this request **fails authentication** because the browser does not
-   include your Bearer token.
-
-5. Make a manual GET request to the /callback URL.
-   Copy the `code` and `scope` parameters from the redirect URL and include the previously generated Bearer token
-   in your request:
-
-    ```
-    Authorization: Bearer <jwt>
-    ```
-
-    ```
-    GET {backendBaseUrl}/api/v1/strava/callback?code=XXX&scope=YYY
-    ```
-
-6. The backend processes the code, exchanges it for tokens, links your 
+   The backend processes the code, exchanges it for tokens, links your 
    Strava account, and imports:
    - Athlete Profile  
    - Activities  
    - Heart Rate Zones  
-    
+
    If no frontend exists, the redirect will simply show a blank page.  
    Connection still succeeds.

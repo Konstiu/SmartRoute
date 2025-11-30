@@ -26,6 +26,11 @@
                 "output": "assets"
               },
               {
+                "glob": "**/*",
+                "input": "node_modules/leaflet/dist/images",
+                "output": "assets/leaflet/"
+              },
+              {
                 "glob": "**/*.svg",
                 "input": "node_modules/ionicons/dist/ionicons/svg",
                 "output": "./svg"
@@ -34,7 +39,10 @@
             "styles": [
               "node_modules/primeicons/primeicons.css",
               "node_modules/primeflex/primeflex.css",
-              "src/global.scss", "src/theme/variables.scss"],
+              "src/global.scss", "src/theme/variables.scss",
+              "node_modules/leaflet/dist/leaflet.css"  // ADD THIS LINE
+            ],
+
             "scripts": []
           },
           "configurations": {

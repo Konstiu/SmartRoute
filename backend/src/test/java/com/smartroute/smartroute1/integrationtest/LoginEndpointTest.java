@@ -34,7 +34,7 @@ class LoginEndpointTest extends BaseTest {
 
     @Test
     void validUserLogin() throws Exception {
-        String loginData = "{\"password\": \"password0\", \"email\": \"" + DEFAULT_USER_EMAIL + "\"}";
+        String loginData = "{\"password\": \"password\", \"email\": \"" + DEFAULT_USER_EMAIL + "\"}";
         validLoginTest(loginData);
     }
 
@@ -42,6 +42,13 @@ class LoginEndpointTest extends BaseTest {
     void UserLoginWithNonexistentEmailReturnsNotFound() throws Exception {
         String loginData = "{\"password\": \"Password123\", \"email\": \"nonexistentEmail@student.tuwien.ac.at\"}";
         invalidLoginTest(loginData, HttpStatus.NOT_FOUND.value());
+    }
+
+    @Test
+    void validUserLoginWithCapitalizedEmail() throws Exception {
+        String loginData = "{\"password\": \"password\", \"email\": \"" + DEFAULT_USER_EMAIL.toUpperCase() + "\"}";
+        validLoginTest(loginData);
+        validLoginTest(loginData);
     }
 
     private void validLoginTest(String loginData)
