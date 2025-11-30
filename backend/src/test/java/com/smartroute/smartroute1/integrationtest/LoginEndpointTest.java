@@ -44,6 +44,13 @@ class LoginEndpointTest extends BaseTest {
         invalidLoginTest(loginData, HttpStatus.NOT_FOUND.value());
     }
 
+    @Test
+    void validUserLoginWithCapitalizedEmail() throws Exception {
+        String loginData = "{\"password\": \"password\", \"email\": \"" + DEFAULT_USER_EMAIL.toUpperCase() + "\"}";
+        validLoginTest(loginData);
+        validLoginTest(loginData);
+    }
+
     private void validLoginTest(String loginData)
             throws Exception {
         MvcResult mvcResult = this.mockMvc.perform(post(LOGIN_BASE_URI)
