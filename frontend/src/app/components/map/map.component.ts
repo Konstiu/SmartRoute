@@ -1,6 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { LeafletDirective, LeafletLayersDirective } from '@bluehalo/ngx-leaflet';
-import { Icon, icon, LatLng, latLng, Layer, MapOptions, marker, polyline, tileLayer } from 'leaflet';
+import { Icon, icon, LatLng, latLng, Layer, MapOptions, marker, tileLayer, Map, Polyline } from 'leaflet';
 import { Geolocation } from "@capacitor/geolocation"
 
 @Component({
@@ -22,8 +22,8 @@ export class MapComponent implements OnInit {
 
   options: MapOptions = {
     layers: [
+      // NOTE: This layer is 'blurry' on HiDPI displays. To remidy this one can use a vector tileset (like https://protomaps.com) or use the detectRetina option below (this however makes the text in the images smaller)
       tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: "Map data from <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>" }),
-      // marker(latLng(48.2081693881957, 16.3738174047985), this.markerOptions),
     ],
     zoom: 10,
     center: latLng(48.2081693881957, 16.3738174047985),
@@ -31,22 +31,25 @@ export class MapComponent implements OnInit {
   layers: Layer[] = [];
 
   @Input() showLocation = false
-  @Input() route = []
+  @Input() route: Polyline | null = null
   @Input() onGeolocationError: ((error: GeolocationPositionError) => void) | null = null
 
   constructor() { }
+
+  // See https://github.com/bluehalo/ngx-leaflet/issues/104
+  onMapReady(map: Map) {
+    setTimeout(() => map.invalidateSize(), 0);
+  }
 
   async ngOnInit() {
     if (this.showLocation) {
       const location = await this.getLocation();
       if (location) {
-        this.options.center = location;
-        this.layers?.push(marker(location, this.markerOptions));
-        this.options.zoom = 15;
+        this.layers.push(marker(location, this.markerOptions));
       }
     }
     if (this.route) {
-      this.layers?.push(polyline(this.route))
+      this.layers.push(this.route)
     }
   }
 
@@ -55,7 +58,7 @@ export class MapComponent implements OnInit {
       const location = await Geolocation.getCurrentPosition();
       return latLng(location.coords.latitude, location.coords.longitude);
     } catch (e) {
-      console.log(e);
+      console.error("ERROR: unable to determine position:", e);
       if (e instanceof GeolocationPositionError && this.onGeolocationError != null) {
         this.onGeolocationError(e);
       }
