@@ -10,8 +10,8 @@ import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Profile;
-import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.lang.invoke.MethodHandles;
@@ -19,7 +19,7 @@ import java.time.Instant;
 import java.util.List;
 
 @Profile("generateData")
-@Order(2)
+@DependsOn("userDataGenerator")
 @Component
 @AllArgsConstructor
 public class StravaDataGenerator {
@@ -37,24 +37,24 @@ public class StravaDataGenerator {
             LOGGER.info("Accounts already generated");
         } else {
             LOGGER.info("generating {} Strava account entries", userList.size());
-            long id = 0;
+
             for (ApplicationUser user : userList) {
                 StravaAccount acc = new StravaAccount();
                 acc.setUser(user);
                 acc.setScopes("read,activity:read_all,profile:read_all");
-                acc.setId(id);
                 acc.setConnectedAt(Instant.now());
-                acc.setAthleteId(id);
-                acc.setAccessToken("DummyAccessToken" + id);
-                acc.setRefreshToken("DummyRefreshToken" + id);
+                acc.setAthleteId(user.getId());
+                acc.setAccessToken("DummyAccessToken" + user.getId());
+                acc.setRefreshToken("DummyRefreshToken" + user.getId());
                 acc.setExpiresAt(Instant.now().plusSeconds(300));
                 stravaAccountRepository.save(acc);
-                LOGGER.info("saving account for user {} ", user.getId());
+                LOGGER.debug("saving account for user {} ", user.getId());
             }
         }
 
         generateActivities();
     }
+
 
     private void generateActivities() {
         List<ApplicationUser> userList = userRepository.findAll();
@@ -64,7 +64,7 @@ public class StravaDataGenerator {
         } else {
             long id = 0;
             for (ApplicationUser user : userList) {
-                LOGGER.info("generating {} Strava activities for user {}", NUMBER_OF_ACTIVITIES_PER_USER, user.getEmail());
+                LOGGER.debug("generating {} Strava activities for user {}", NUMBER_OF_ACTIVITIES_PER_USER, user.getEmail());
 
                 for (int i = 0; i < NUMBER_OF_ACTIVITIES_PER_USER; i++) {
                     Activity sa = new Activity();
