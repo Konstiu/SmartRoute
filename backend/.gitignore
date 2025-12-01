@@ -41,3 +41,5 @@ database/
 ### Eclipse ###
 .settings/
 bin/
+
+application-secrets.properties
