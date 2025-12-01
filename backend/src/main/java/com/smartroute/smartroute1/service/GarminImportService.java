@@ -37,4 +37,22 @@ public interface GarminImportService {
      */
     List<JsonNode> syncActivities(ApplicationUser user, int activityCount, String email, String password);
 
+
+    /**
+     * Checks if the Garmin account is connected for the current user.
+     * This typically means verifying if valid OAuth tokens are stored.
+     *
+     * @param email the email of the user to check Garmin connection for
+     * @return {@code true} if the Garmin account is connected, {@code false} otherwise
+     */
+    boolean isGarminConnected(String email);
+
+    /**
+     * Disconnects the Garmin account for the specified user.
+     * This typically involves removing stored OAuth tokens.
+     * If no Garmin account is connected, the method should complete silently.
+     *
+     * @param email the email of the user whose Garmin account should be disconnected
+     */
+    void disconnectGarminAccount(String email);
 }
