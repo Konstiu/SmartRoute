@@ -15,23 +15,13 @@ export class ActivitiesService {
   // eslint-disable-next-line @angular-eslint/prefer-inject
   constructor(private readonly http: HttpClient) {}
 
-  /**
-   * Get authorization headers with Bearer token
-   */
-  private getAuthHeaders(): HttpHeaders {
-    const token = localStorage.getItem('authToken');
-    return new HttpHeaders({
-      'Authorization': token ? `Bearer ${token}` : '',
-      'Content-Type': 'application/json'
-    });
-  }
 
   /**
    * Fetch recent activities from Strava
    */
   getRecentActivities(): Observable<StravaActivity[]> {
     const url = `${this.userUri}`;
-    return this.http.get<StravaActivity[]>(url, { headers: this.getAuthHeaders() });
+    return this.http.get<StravaActivity[]>(url);
   }
 
 
@@ -40,6 +30,6 @@ export class ActivitiesService {
    */
   getActivityById(id:number): Observable<DetailedStravaActivity>{
     const url = `${this.userUri}/${id}`;
-    return this.http.get<DetailedStravaActivity>(url, { headers: this.getAuthHeaders() });
+    return this.http.get<DetailedStravaActivity>(url);
   }
 }

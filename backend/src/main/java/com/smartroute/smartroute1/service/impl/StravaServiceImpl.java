@@ -32,7 +32,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
 import java.lang.invoke.MethodHandles;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -49,7 +48,6 @@ public class StravaServiceImpl implements StravaService {
     private final ActivityRepository activityRepository;
     private final StravaActivityMapper activityMapper;
     private final ActivityProcessingService activityProcessingService;
-
 
     @Override
     @Transactional
@@ -70,10 +68,6 @@ public class StravaServiceImpl implements StravaService {
         } catch (StravaAuthorizationException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Failed to get Strava access token", e);
         }
-
-        UriComponentsBuilder builder = UriComponentsBuilder
-                .fromUriString("https://www.strava.com/api/v3/athlete/activities")
-                .queryParam("per_page", 45);
 
         List<StravaActivityDto> activities;
         try {
