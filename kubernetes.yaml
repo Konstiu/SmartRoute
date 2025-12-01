@@ -1,0 +1,107 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: 25ws-ase-pr-inso-05
+  namespace: 25ws-ase-pr-inso-05
+spec:
+  selector:
+    matchLabels:
+      app: 25ws-ase-pr-inso-05
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: 25ws-ase-pr-inso-05
+    spec:
+      containers:
+        - name: 25ws-ase-pr-inso-05-container
+          image: registry.reset.inso-w.at/2025ws-ase-pr-group/25ws-ase-pr-inso-05:latest
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "10m"
+              ephemeral-storage: "100Mi"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+              ephemeral-storage: "100Mi"
+          ports:
+            - containerPort: 8080
+          livenessProbe:
+            httpGet:
+              port: 8080
+              path: /health
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          readinessProbe:
+            httpGet:
+              port: 8080
+              path: /health
+            initialDelaySeconds: 3
+            periodSeconds: 3
+          startupProbe:
+            httpGet:
+              port: 8080
+              path: /health
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            failureThreshold: 120
+          lifecycle:
+            preStop:
+              httpGet:
+                port: 8080
+                path: /health/prepareShutdown
+          env:
+            - name: STRAVA_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: strava-secret
+                  key: STRAVA_CLIENT_ID
+
+            - name: STRAVA_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: strava-secret
+                  key: STRAVA_CLIENT_SECRET
+      imagePullSecrets:
+        - name: secret-dockercfg
+  revisionHistoryLimit: 2
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: s-25ws-ase-pr-inso-05-service
+  namespace: 25ws-ase-pr-inso-05
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    app: 25ws-ase-pr-inso-05
+  ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: "25ws-ase-pr-inso-05-ingress"
+  namespace: 25ws-ase-pr-inso-05
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: "25ws-ase-pr-inso-05.apps.student.inso-w.at"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: s-25ws-ase-pr-inso-05-service
+                port:
+                  number: 8080

@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.unittest;
 
+import com.smartroute.smartroute1.basetest.BaseTest;
 import com.smartroute.smartroute1.endpoint.dto.UserLoginDto;
 import com.smartroute.smartroute1.service.UserService;
 import jakarta.transaction.Transactional;
@@ -15,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 @SpringBootTest()
 @ActiveProfiles({ "test", "generateData" })
 @Transactional
-class LoginServiceTest {
+class LoginServiceTest extends BaseTest {
 
 	@Autowired
 	private UserService userService;
@@ -25,7 +26,7 @@ class LoginServiceTest {
 	void login_withValidCredentials_shouldReturnToken() {
 		UserLoginDto loginDto = new UserLoginDto();
 		loginDto.setEmail("email0@smartroute.com");
-		loginDto.setPassword("password0");
+		loginDto.setPassword("password");
 
 		String token = userService.login(loginDto);
 

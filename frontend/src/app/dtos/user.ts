@@ -5,7 +5,7 @@ interface BaseUser {
 }
 
 export interface CreateUserDto extends BaseUser {
-  password: String;
+  password: string;
 }
 
 export class UserDto implements BaseUser {
