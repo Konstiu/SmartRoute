@@ -9,15 +9,7 @@ import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
+import java.util.*;
 
 @Service
 public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService {
@@ -27,7 +19,21 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
 
     private static final Integer REP_MAX = 16;
     private static final Integer REP_MIN = 5;
-    private static final HashMap<Muscle, Muscle> counterparts = new HashMap<>();
+    //This map ensures that muscle counterparts are recommended right after a muscle, for ideal suggestions
+    private static final Map<Muscle, Integer> MUSCLE_ORDER = Map.ofEntries(
+            Map.entry(Muscle.glutes, 1),
+            Map.entry(Muscle.hamstrings, 2),
+            Map.entry(Muscle.calves, 3),
+            Map.entry(Muscle.abs, 4),
+            Map.entry(Muscle.spine, 5),
+            Map.entry(Muscle.upper_back, 6),
+            Map.entry(Muscle.delts, 7),
+            Map.entry(Muscle.adductors, 8),
+            Map.entry(Muscle.biceps, 9),
+            Map.entry(Muscle.triceps, 10),
+            Map.entry(Muscle.pectorals, 11)
+    );
+
     private final ExerciseRepository exerciseRepository;
     private final List<Muscle> toTrain;
 
@@ -70,6 +76,8 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
                 musclesToTrain.removeAll(toRemove);
             }
         }
+
+        musclesToTrain.sort(Comparator.comparingInt(m -> MUSCLE_ORDER.getOrDefault(m, Integer.MAX_VALUE)));
 
         List<Exercise> selected = new ArrayList<>();
 
