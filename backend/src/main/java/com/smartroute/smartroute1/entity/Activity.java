@@ -42,6 +42,8 @@ public class Activity {
 
     private Instant startDate;
 
+    private Long externalId;
+
     private Instant startDateLocal;
 
     private float averageSpeed;
@@ -57,6 +59,8 @@ public class Activity {
     private Float kilojoules;
 
     private Integer sufferScore;
+
+    private Double garminActivityTrainingsLoad;
 
     @Column(columnDefinition = "TEXT")
     private String summaryPolyline;

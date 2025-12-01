@@ -17,7 +17,8 @@ export class RecentRunsPage implements OnInit {
   isLoading = false;
   error: string | null = null;
 
-  constructor(private stravaService: ActivitiesService, private router: Router) {}
+  constructor(private stravaService: ActivitiesService, private router: Router) {
+  }
 
   ngOnInit() {
     this.loadActivities();
@@ -29,6 +30,9 @@ export class RecentRunsPage implements OnInit {
 
     this.stravaService.getRecentActivities().subscribe({
       next: (data) => {
+        this.activities = data.sort((a, b) =>
+          new Date(b.startDateLocal).getTime() - new Date(a.startDateLocal).getTime()
+        );
         this.activities = data;
         this.isLoading = false;
         if (event) {
@@ -52,20 +56,33 @@ export class RecentRunsPage implements OnInit {
 
 
   formatDate(dateString: string): string {
+    if (!dateString) {
+      return '';
+    }
+
     const date = new Date(dateString);
     const now = new Date();
+
+    if (isNaN(date.getTime())) {
+      console.error('Invalid date string:', dateString);
+      return dateString;
+    }
+
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    const timeString = date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false // Use 24-hour format, change to true for 12-hour format
-    });
+    let rawTime: string;
 
-    if (diffDays === 0) return `Today at ${timeString}`;
-    if (diffDays === 1) return `Yesterday at ${timeString}`;
-    if (diffDays < 7) return `${diffDays} days ago at ${timeString}`;
+    const match = dateString.match(/(\d{2}:\d{2})/);
+    if (match) {
+      rawTime = match[1];
+    } else {
+      rawTime = date.toISOString().substring(11, 16);
+    }
+
+    if (diffDays === 0) return `Today at ${rawTime}`;
+    if (diffDays === 1) return `Yesterday at ${rawTime}`;
+    if (diffDays < 7) return `${diffDays} days ago at ${rawTime}`;
 
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'short',
@@ -73,17 +90,17 @@ export class RecentRunsPage implements OnInit {
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
     });
 
-    return `${dateStr} at ${timeString}`;
+    return `${dateStr} at ${rawTime}`;
   }
 
   formatDuration(seconds: number): string {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
-    return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
-  formatDistance(dist: number) : string{
+  formatDistance(dist: number): string {
     dist = dist / 1000; // convert meters to km
     return dist.toFixed(2)
   }
@@ -114,7 +131,7 @@ export class RecentRunsPage implements OnInit {
     return icons[sportType] || icons['default'];
   }
 
-  openActivity(activity:StravaActivity){
+  openActivity(activity: StravaActivity) {
     this.router.navigate(['/activity/', activity.id]);
   }
 
