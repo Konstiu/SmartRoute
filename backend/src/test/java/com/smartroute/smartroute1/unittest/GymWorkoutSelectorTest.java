@@ -1,0 +1,116 @@
+package com.smartroute.smartroute1.unittest;
+
+
+import com.smartroute.smartroute1.basetest.BaseTest;
+import com.smartroute.smartroute1.entity.Exercise;
+import com.smartroute.smartroute1.entity.GymWorkout;
+
+import com.smartroute.smartroute1.entity.enums.BodyPart;
+import com.smartroute.smartroute1.repository.ExerciseRepository;
+import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.annotation.Transactional;
+
+
+import java.util.HashMap;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@Transactional
+@SpringBootTest
+@ActiveProfiles({"test", "generateData"})
+public class GymWorkoutSelectorTest extends BaseTest {
+
+    @Autowired
+    private GymWorkoutSelectorService gymWorkoutSelectorService;
+
+    @Test
+    public void test_WhenPerfectReadinessScore_ThenRepsAreSmallAndSetsAreHigh() {
+        GymWorkout result = gymWorkoutSelectorService.getGymWorkout(new HashMap<>(), 100);
+
+        assertAll(
+                () -> assertEquals(5, result.getReps()),
+                () -> assertEquals(5, result.getSets())
+        );
+    }
+
+    @Test
+    public void test_WhenFlawedReadinessScore_ThenRepsAreMidAndSetsAreMid() {
+        GymWorkout result = gymWorkoutSelectorService.getGymWorkout(new HashMap<>(), 50);
+
+        assertAll(
+                () -> assertEquals(11, result.getReps()),
+                () -> assertEquals(4, result.getSets())
+        );
+    }
+
+    @Test
+    public void test_WhenZeroReadinessScore_ThenRepsAreHighAndSetsAreSmall() {
+        GymWorkout result = gymWorkoutSelectorService.getGymWorkout(new HashMap<>(), 0);
+
+        assertAll(
+                () -> assertEquals(16, result.getReps()),
+                () -> assertEquals(2, result.getSets())
+        );
+    }
+
+    @Test
+    public void test_WhenNoInjuries_ThenNumberOfExercisesDoesNotChange() {
+        GymWorkout result = gymWorkoutSelectorService.getGymWorkout(new HashMap<>(), 100);
+
+        assertEquals(11, result.getExercises().size());
+    }
+
+    @Test
+    public void test_WhenOneInjuryPresent_ThenNoRecommendationForIt() {
+        HashMap<BodyPart, Double> injuries = new HashMap<>();
+        injuries.put(BodyPart.SPINAL_INJURY, 0.0);
+
+        GymWorkout result = gymWorkoutSelectorService.getGymWorkout(injuries, 100);
+
+        assertAll(
+                () -> assertEquals(10, result.getExercises().size()),
+                () -> assertEquals(0, result.getExercises().stream().filter(e -> e.getTargetMuscles().contains("spine")).count()),
+                () -> assertEquals(0, result.getExercises().stream().filter(e -> e.getSecondaryMuscles().contains("spine")).count()),
+                () -> assertEquals(1, result.getExercises().stream().filter(e -> e.getTargetMuscles().contains("adductors")).count())
+        );
+
+    }
+
+    @Test
+    public void test_WhenTwoInjuryPresent_ThenNoRecommendationForThem() {
+        HashMap<BodyPart, Double> injuries = new HashMap<>();
+        injuries.put(BodyPart.SPINAL_INJURY, 0.0);
+        injuries.put(BodyPart.LOWER_LEG_REGION, 0.0);
+
+        GymWorkout result = gymWorkoutSelectorService.getGymWorkout(injuries, 100);
+
+        assertAll(
+                () -> assertEquals(9, result.getExercises().size()),
+                () -> assertEquals(0, result.getExercises().stream().filter(e -> e.getTargetMuscles().contains("spine")).count()),
+                () -> assertEquals(0, result.getExercises().stream().filter(e -> e.getSecondaryMuscles().contains("spine")).count()),
+                () -> assertEquals(0, result.getExercises().stream().filter(e -> e.getTargetMuscles().contains("calves")).count()),
+                () -> assertEquals(0, result.getExercises().stream().filter(e -> e.getSecondaryMuscles().contains("calves")).count()),
+                () -> assertEquals(1, result.getExercises().stream().filter(e -> e.getTargetMuscles().contains("adductors")).count())
+        );
+
+    }
+
+    @Test
+    public void test_WhenAllRelevantBodyPartsInjured_ReturnsEmptyList() {
+        HashMap<BodyPart, Double> injuries = new HashMap<>();
+        for (BodyPart bodyPart : BodyPart.values()) {
+            injuries.put(bodyPart, 0.0);
+        }
+
+        GymWorkout result = gymWorkoutSelectorService.getGymWorkout(injuries, 100);
+
+        assertEquals(0, result.getExercises().size());
+    }
+
+
+}
