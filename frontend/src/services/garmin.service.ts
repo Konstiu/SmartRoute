@@ -27,7 +27,7 @@ export class GarminService {
    *   interceptor elsewhere in the app so calls are made on behalf of the
    *   authenticated user.
    */
-  
+
   /**
    * Returns whether a Garmin account is currently connected for the logged-in user.
    *
@@ -43,23 +43,22 @@ export class GarminService {
    * Triggers a manual Garmin sync on the backend.
    *
    * Backend endpoint: POST `${baseUri}/sync`
-   * Body: { email: string, password: string, count: number }
+   * Body: { garminEmail: string, garminPassword: string, count: number }
    *
    * The `email` and `password` parameters are used by the server to authenticate
-   * against Garmin (if your backend implements that flow). `count` controls how
-   * many items (e.g., activities) to sync; its interpretation is backend-specific.
+   * against Garmin. `count` controls how many items (e.g., activities) to sync.
    *
    * The method returns an Observable of the backend response. The frontend
    * component should subscribe and handle success/error states (loading UI,
    * toasts, etc.).
    *
-   * @param email - user email used for Garmin authentication
-   * @param password - user password used for Garmin authentication
+   * @param garminEmail - user email used for Garmin authentication
+   * @param garminPassword - user password used for Garmin authentication
    * @param count - number of items to sync (must be >= 1)
    * @returns Observable<any> - backend response (success payload or error)
    */
-  sync(email: string, password: string, count: number): Observable<any> {
-    const body = { email, password, count };
+  sync(garminEmail: string, garminPassword: string, count: number): Observable<any> {
+    const body = { garminEmail, garminPassword, count };
     return this.http.post<any>(this.baseUri + '/sync', body);
   }
 
