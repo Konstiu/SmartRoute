@@ -463,6 +463,7 @@ public class GarminImportServiceImpl implements GarminImportService {
 
                 String activityType = summary.path("activityType").path("typeKey").asText("");
                 imported.setType(mapGarminTypeToActivityType(activityType));
+                imported.setSportType(mapGarminTypeToActivityType(activityType));
 
                 // No existing activity → just save the imported one
                 toSave = imported;
@@ -492,6 +493,7 @@ public class GarminImportServiceImpl implements GarminImportService {
 
         String activityType = summary.path("activityType").path("typeKey").asText("");
         activity.setType(mapGarminTypeToActivityType(activityType));
+        activity.setSportType(mapGarminTypeToActivityType(activityType));
 
         // Timestamps
         long startTimestamp = summary.path("beginTimestamp").asLong();
@@ -596,6 +598,7 @@ public class GarminImportServiceImpl implements GarminImportService {
             storedActivity.setMaxHeartrate(activity.getMaxHeartrate());
             storedActivity.setSummaryPolyline(storedActivity.getSummaryPolyline());
             storedActivity.setExternalId(activity.getExternalId());
+            storedActivity.setSportType(activity.getSportType());
             saved = activityRepository.save(storedActivity);
         }
 
