@@ -19,6 +19,7 @@ import com.smartroute.smartroute1.service.GpxService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.FatalBeanException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -38,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.logging.Logger;
 
 @Slf4j
 @Service
@@ -48,7 +50,9 @@ public class GarminImportServiceImpl implements GarminImportService {
     @Value("${garmin.python.script.path:${user.dir}/python/python_garmin_connect.py}")
     private String pythonScriptPath;
 
-    @Value("${garmin.python.executable:${user.dir}/python/.venv/bin/python3.12}")
+    @Value("#{T(java.lang.System).getProperty('os.name').toLowerCase().contains('win') ? "
+        + "'${garmin.python.executable.windows:${user.dir}/python/.venv/Scripts/python.exe}' :"
+        + "'${garmin.python.executable:${user.dir}/python/.venv/bin/python3.12}'}")
     private String pythonExecutable;
 
     private final ObjectMapper objectMapper;
@@ -57,6 +61,41 @@ public class GarminImportServiceImpl implements GarminImportService {
     private final ActivityRepository activityRepository;
     private final GpxService gpxService;
     private final FitnessScoreService fitnessScoreService;
+
+    @Override
+    @Transactional
+    public boolean isGarminConnected(String email) {
+        log.trace("isGarminConnected({}) called", email);
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        if (user == null) {
+            throw new FatalBeanException("User not found: " + email);
+        }
+
+        GarminAccount garminAccount = garminAccountRepository.findByUser(user);
+        if (garminAccount == null || garminAccount.getTokenJson() == null || garminAccount.getTokenJson().isBlank()) {
+            log.info("No Garmin account or tokens found for user: {}", email);
+            return false;
+        }
+
+        boolean valid = hasValidRefreshToken(garminAccount.getTokenJson());
+        log.info("Garmin account connection status for user {}: {}", email, valid ? "connected" : "not connected");
+        return valid;
+    }
+
+    @Override
+    @Transactional
+    public void disconnectGarminAccount(String email) {
+        log.trace("disconnectGarminAccount({}) called", email);
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        if (user == null) {
+            throw new FatalBeanException("User not found: " + email);
+        }
+        GarminAccount garminAccount = garminAccountRepository.findByUser(user);
+        if (garminAccount != null) {
+            garminAccountRepository.delete(garminAccount);
+            log.info("Garmin account disconnected for user: {}", email);
+        }
+    }
 
     /**
      * Sync activities for the given user.

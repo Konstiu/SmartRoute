@@ -10,13 +10,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
@@ -48,5 +51,22 @@ public class GarminConnectEndpoint {
         List<JsonNode> activities = garminImportService.syncActivities(user, garminConnectDto.getCount(), garminConnectDto.getGarminEmail(), garminConnectDto.getGarminPassword());
 
         return ResponseEntity.ok(activities);
+    }
+
+    @GetMapping("/connection-state")
+    @Secured("ROLE_USER")
+    public ResponseEntity<Boolean> isGarminConnected() {
+        LOGGER.info("GET /api/v1/garmin/connected");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return garminImportService.isGarminConnected(authentication.getName()) ? ResponseEntity.ok(true) : ResponseEntity.ok(false);
+    }
+
+    @PostMapping("/disconnect")
+    @Secured("ROLE_USER")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void disconnectGarmin() {
+        LOGGER.info("POST /api/v1/garmin/disconnect");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        garminImportService.disconnectGarminAccount(authentication.getName());
     }
 }

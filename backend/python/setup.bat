@@ -3,7 +3,7 @@ cd /d %~dp0
 
 echo Setting up Python 3.12 virtual environment...
 
-python3.12 -m venv .venv --copies
+python -m venv .venv --copies
 
 call .venv\Scripts\activate
 
