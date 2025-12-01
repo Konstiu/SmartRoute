@@ -1,9 +1,10 @@
 import { Component } from '@angular/core';
 import {ConnectStravaComponent} from '../connect-strava/connect-strava.component'
-import { IonicModule } from '@ionic/angular';
+import { AlertController, IonicModule } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ExploreContainerComponentModule } from '../explore-container/explore-container.module';
+import { AuthService } from 'src/services/auth.service';
 
 @Component({
   selector: 'app-account',
@@ -14,6 +15,35 @@ import { ExploreContainerComponentModule } from '../explore-container/explore-co
 })
 export class AccountPage {
 
-  constructor() {}
+  constructor(
+    private authService: AuthService,
+    private alertController: AlertController
+  ) {}
+
+  async presentLogoutConfirm() {
+    const alert = await this.alertController.create({
+      header: 'Logout',
+      message: 'Are you sure you want to logout?',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+        },
+        {
+          text: 'Logout',
+          role: 'confirm',
+          handler: () => {
+            this.logout();
+          },
+        },
+      ],
+    });
+
+    await alert.present();
+  }
+
+  logout() {
+    this.authService.logoutUser();
+  }
 
 }
