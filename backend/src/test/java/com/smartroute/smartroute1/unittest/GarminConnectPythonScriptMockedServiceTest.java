@@ -98,4 +98,84 @@ public class GarminConnectPythonScriptMockedServiceTest {
         """.formatted(expiredTs, expiredTs, expiredTs, expiredTs);
     }
 
+    @Test
+    void isGarminConnected_withValidToken_returnsTrue() throws Exception {
+        ApplicationUser user = userRepository.findAll().getFirst();
+        // sync once to create account and token
+        garminImportService.syncActivities(user, 1, "test@email.com", "myGarminPassword");
+
+        boolean connected = garminImportService.isGarminConnected(user.getEmail());
+        assertTrue(connected, "User should be reported as connected when a valid token exists");
+    }
+
+    @Test
+    void isGarminConnected_withoutToken_returnsFalse() throws Exception {
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        // remove any existing token
+        GarminAccount account = garminAccountRepository.findByUser(user);
+        if (account != null) {
+            account.setTokenJson(null);
+            garminAccountRepository.save(account);
+        }
+
+        boolean connected = garminImportService.isGarminConnected(user.getEmail());
+        assertFalse(connected, "User without token should not be reported as connected");
+    }
+
+    @Test
+    void isGarminConnected_withExpiredToken_returnsFalse() throws Exception {
+        ApplicationUser user = userRepository.findAll().getFirst();
+        // sync first to create account and token
+        garminImportService.syncActivities(user, 1, "test@email.com", "myGarminPassword");
+        GarminAccount account = garminAccountRepository.findByUser(user);
+        assertNotNull(account);
+
+        long now = Instant.now().getEpochSecond();
+        String expiredTokenJson = getString(now);
+
+        account.setTokenJson(expiredTokenJson);
+        garminAccountRepository.save(account);
+
+        boolean connected = garminImportService.isGarminConnected(user.getEmail());
+        assertFalse(connected, "User with expired token should not be reported as connected");
+    }
+
+    @Test
+    void disconnectGarminAccount_existingAccount_removesAccount() throws Exception {
+        ApplicationUser user = userRepository.findAll().getFirst();
+        // ensure an account exists by performing a sync which stores tokens
+        garminImportService.syncActivities(user, 1, "test@email.com", "myGarminPassword");
+
+        GarminAccount account = garminAccountRepository.findByUser(user);
+        assertNotNull(account, "GarminAccount should exist after successful sync");
+
+        // Disconnect
+        garminImportService.disconnectGarminAccount(user.getEmail());
+
+        // Account should be removed
+        GarminAccount after = garminAccountRepository.findByUser(user);
+        assertNull(after, "GarminAccount should have been removed after disconnect");
+
+        // isGarminConnected must return false
+        assertFalse(garminImportService.isGarminConnected(user.getEmail()));
+    }
+
+    @Test
+    void disconnectGarminAccount_noAccount_completesSilently() {
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        // Ensure no account exists
+        GarminAccount account = garminAccountRepository.findByUser(user);
+        if (account != null) {
+            garminAccountRepository.delete(account);
+        }
+
+        // Should stay silent
+        garminImportService.disconnectGarminAccount(user.getEmail());
+
+        // Still not connected
+        assertFalse(garminImportService.isGarminConnected(user.getEmail()));
+    }
+
 }
