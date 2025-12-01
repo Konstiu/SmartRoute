@@ -5,13 +5,14 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ExploreContainerComponentModule } from '../explore-container/explore-container.module';
 import { AuthService } from 'src/services/auth.service';
+import { ConnectGarminComponent } from "../connect-garmin/connect-garmin.component";
 
 @Component({
   selector: 'app-account',
   templateUrl: 'account.page.html',
   styleUrls: ['account.page.scss'],
   standalone: true,
-  imports: [ConnectStravaComponent, IonicModule, CommonModule, FormsModule, ExploreContainerComponentModule]
+  imports: [ConnectStravaComponent, IonicModule, CommonModule, FormsModule, ExploreContainerComponentModule, ConnectGarminComponent]
 })
 export class AccountPage {
 
