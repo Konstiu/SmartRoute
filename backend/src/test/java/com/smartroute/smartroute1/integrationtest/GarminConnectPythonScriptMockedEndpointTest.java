@@ -160,7 +160,7 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
 
     @Test
     @WithMockUser(username = "email0@smartroute.com", roles = "USER")
-    void syncActivities_withCountThree_shouldPersistOneMoreActivity() throws Exception {
+    void syncActivities_withCountTen_shouldPersistOneMoreActivity() throws Exception {
         ApplicationUser user = userRepository.findAll().getFirst();
         GarminConnectAccountDto dto = new GarminConnectAccountDto();
         dto.setGarminEmail("test@garmin.com");
@@ -171,7 +171,7 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
                 activityRepository.getActivitiesByUser(user);
         List<Activity> finalActivityList = activityList;
         assertAll(
-                () -> assertEquals(3, finalActivityList.size())
+                () -> assertEquals(10, finalActivityList.size())
         );
 
         performSync(dto)
@@ -184,8 +184,8 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
 
         List<Activity> finalActivityList1 = activityList;
         assertAll(
-                () -> assertThat(finalActivityList1.get(3).getExternalId()).isEqualTo(activityId),
-                () -> assertEquals(4, finalActivityList1.size())
+                () -> assertThat(finalActivityList1.get(10).getExternalId()).isEqualTo(activityId),
+                () -> assertEquals(11, finalActivityList1.size())
         );
     }
 
