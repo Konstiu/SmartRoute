@@ -9,7 +9,16 @@ import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 
 @Service
 public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService {
