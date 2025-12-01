@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>frontend</string>
+        <string>Smartroute</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -46,8 +46,8 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-  <string>Location service is used to show the location on the map, it is used for determining the starting position of the route and it is used to get accurate weather information relevant to your location.</string>
+  <string>The location is used to show you location on the map and to get accurate weather information.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-  <string>Location service is used to show the location on the map, it is used for determining the starting position of the route and it is used to get accurate weather information relevant to your location.</string>
+  <string>The location is used to show you location on the map and to get accurate weather information.</string>
 </dict>
 </plist>
