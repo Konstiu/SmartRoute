@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.Base64;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -135,8 +136,11 @@ public class GarminImportServiceImpl implements GarminImportService {
                 result = executePythonScript(email, password, activityCount);
             } else {
                 // for token-based login
-                // Usage: script.py  --token-json '<json>' <activity_count>
-                result = executePythonScript("--token-json", garminAccount.getTokenJson(), activityCount);
+                // Usage: script.py  --token-base64 '<base64>' <activity_count>
+                String base64Token = Base64.getEncoder().encodeToString(
+                        garminAccount.getTokenJson().getBytes(StandardCharsets.UTF_8)
+                );
+                result = executePythonScript("--token-base64", base64Token, activityCount);
             }
 
             // Update tokens in DB (tokens may be refreshed on every run)
@@ -378,7 +382,7 @@ public class GarminImportServiceImpl implements GarminImportService {
         JsonNode summary = activity.get("summary");
         JsonNode details = activity.get("details");
 
-        long activityId = summary.path("activityId").asLong(-1L);
+        String activityId = summary.path("activityId").asText(null);
         String activityName = summary.path("activityName").asText("Unnamed");
 
         boolean hasPolyline = summary.path("hasPolyline").asBoolean(false);
@@ -474,7 +478,7 @@ public class GarminImportServiceImpl implements GarminImportService {
         gpx.append("  </trk>\n");
         gpx.append("</gpx>\n");
 
-        activityId = summary.path("activityId").asLong();
+        activityId = summary.path("activityId").asText(null);
 
         log.debug("Generated GPX for Garmin activity {} ({} points)", activityId, pointCount);
 
@@ -502,6 +506,7 @@ public class GarminImportServiceImpl implements GarminImportService {
 
                 String activityType = summary.path("activityType").path("typeKey").asText("");
                 imported.setType(mapGarminTypeToActivityType(activityType));
+                imported.setSportType(mapGarminTypeToActivityType(activityType));
 
                 // No existing activity → just save the imported one
                 toSave = imported;
@@ -612,7 +617,7 @@ public class GarminImportServiceImpl implements GarminImportService {
 
         activity.setSessionLoad(sessionLoad);
         activity.setGarminActivityTrainingsLoad(summary.path("activityTrainingLoad").asDouble());
-        activity.setExternalId(summary.get("activityId").asLong());
+        activity.setExternalId(summary.get("activityId").asText());
 
         // Save activity
         Activity saved;

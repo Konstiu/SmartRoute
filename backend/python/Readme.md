@@ -69,7 +69,8 @@ python python_garmin_connect.py \
 |        2 | `password` | Garmin account password       | No       |
 |        3 | `count`    | Number of activities to fetch | Yes      |
 
-If you don't want to use your email and password, you can alternatively use your token, which is being returned upon a successful request. with ```.venv/bin/python3.12 python_script.py --token-json "$TOKEN_JSON" 3 ```
+If you don't want to use your email and password, you can alternatively use your token, which is being returned upon a successful request. with ```.venv/bin/python3.12 python_garmin_connect.py --token-json "$TOKEN_JSON" 3 ```
+For Windows support you can execute the programm with the flag --token-bas64, ```.venv/bin/python3.12 python_garmin_connect.py --token-base64 "$BASE_64" 3 ``` since windows has some issues with escaping the ```"``` you have to encode your token with base64
 
 ---
 
