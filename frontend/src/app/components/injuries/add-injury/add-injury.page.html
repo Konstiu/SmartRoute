@@ -1,0 +1,103 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>{{ isEditMode ? 'Edit Injury' : 'Add Injury' }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <form [formGroup]="injuryForm" (ngSubmit)="submit()">
+    <!-- Body Part Selection -->
+    <div class="form-section">
+      <h3>Select Affected Area</h3>
+      <div class="body-parts-grid">
+        <ion-button
+          *ngFor="let part of bodyParts"
+          [fill]="injuryForm.get('affectedArea')?.value === part.value ? 'solid' : 'outline'"
+          [color]="injuryForm.get('affectedArea')?.value === part.value ? 'primary' : 'medium'"
+          (click)="selectBodyPart(part.value)"
+          class="body-part-button">
+          <div class="button-content">
+            <ion-icon [name]="part.icon"></ion-icon>
+            <span>{{ part.label }}</span>
+          </div>
+        </ion-button>
+      </div>
+      <div class="error-message" *ngIf="injuryForm.get('affectedArea')?.invalid && injuryForm.get('affectedArea')?.touched">
+        <ion-text color="danger">
+          <small>Please select an affected area</small>
+        </ion-text>
+      </div>
+    </div>
+
+    <!-- Injury Index (Severity) -->
+    <div class="form-section">
+      <h3>Injury Severity</h3>
+      <div class="severity-indicator">
+        <span class="severity-label">{{ getInjurySeverityLabel() }}</span>
+        <span class="severity-percentage">{{ (injuryForm.get('injuryIndex')?.value * 100).toFixed(0) }}%</span>
+      </div>
+      <ion-range
+        formControlName="injuryIndex"
+        [min]="0"
+        [max]="1"
+        [step]="0.01"
+        [pin]="true"
+        [pinFormatter]="pinFormatter"
+        (ionChange)="onInjuryIndexChange($event)"
+        color="primary">
+        <ion-label slot="start">Mild</ion-label>
+        <ion-label slot="end">Severe</ion-label>
+      </ion-range>
+    </div>
+
+    <!-- Last Injury Date -->
+    <div class="form-section">
+      <ion-item lines="full">
+        <ion-input
+          labelPlacement="floating"
+          type="date"
+          formControlName="lastInjuryDate"
+          [max]="maxDate">
+          <div slot="label">Last Injury Date</div>
+        </ion-input>
+      </ion-item>
+      <div class="error-message" *ngIf="injuryForm.get('lastInjuryDate')?.invalid && injuryForm.get('lastInjuryDate')?.touched">
+        <ion-text color="danger">
+          <small>Please select the last injury date</small>
+        </ion-text>
+      </div>
+    </div>
+
+    <!-- Last Healthy Date (Optional) -->
+    <div class="form-section">
+      <ion-item lines="full">
+        <ion-input
+          labelPlacement="floating"
+          type="date"
+          formControlName="lastHealthyDate"
+          [max]="maxDate">
+          <div slot="label">Last Healthy Date (Optional)</div>
+        </ion-input>
+      </ion-item>
+      <p class="helper-text">Leave empty if still injured</p>
+    </div>
+
+    <!-- Submit Button -->
+    <ion-button
+      expand="block"
+      type="submit"
+      [disabled]="injuryForm.invalid || submitting"
+      class="ion-margin-top">
+      <ion-spinner *ngIf="submitting" name="crescent"></ion-spinner>
+      <span *ngIf="!submitting">
+        <ion-icon slot="start" [name]="isEditMode ? 'save-outline' : 'add-circle-outline'"></ion-icon>
+        {{ isEditMode ? 'Update Injury' : 'Add Injury' }}
+      </span>
+    </ion-button>
+  </form>
+</ion-content>
