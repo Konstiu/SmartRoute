@@ -59,7 +59,7 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
         Instant startInstant = Instant.ofEpochMilli(beginTimestamp);
 
         Optional<Activity> activityOpt =
-                activityRepository.getActivitiesByUserAndStartDateAndExternalId(user, startInstant, activityId);
+                activityRepository.getActivitiesByUserAndStartDateAndExternalId(user, startInstant, String.valueOf(activityId));
 
         assertThat(activityOpt)
                 .as("Garmin activity should have been imported")
@@ -68,7 +68,7 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
         Activity activity = activityOpt.get();
 
         assertAll(
-                () -> assertThat(activity.getExternalId()).isEqualTo(activityId),
+                () -> assertThat(activity.getExternalId()).isEqualTo(String.valueOf(activityId)),
                 () -> assertThat(activity.getName()).isEqualTo("Vienna Running"),
                 () -> assertThat(activity.getDistance()).isEqualTo(22.350368f)
         );
@@ -140,7 +140,7 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
         Instant startInstant = Instant.ofEpochMilli(beginTimestamp);
 
         Optional<Activity> activityOpt =
-                activityRepository.getActivitiesByUserAndStartDateAndExternalId(user, startInstant, activityId);
+                activityRepository.getActivitiesByUserAndStartDateAndExternalId(user, startInstant, String.valueOf(activityId));
 
         assertThat(activityOpt)
                 .as("Garmin activity should have been imported")
@@ -150,7 +150,7 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
 
         // assert some important fields
         assertAll(
-                () -> assertThat(activity.getExternalId()).isEqualTo(activityId),
+                () -> assertThat(activity.getExternalId()).isEqualTo(String.valueOf(activityId)),
                 () -> assertThat(activity.getName()).isEqualTo("Vienna Running"),
                 () -> assertThat(activity.getDistance()).isEqualTo(22.350368f)
         );
@@ -184,7 +184,7 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
 
         List<Activity> finalActivityList1 = activityList;
         assertAll(
-                () -> assertThat(finalActivityList1.get(10).getExternalId()).isEqualTo(activityId),
+                () -> assertThat(finalActivityList1.get(10).getExternalId()).isEqualTo(String.valueOf(activityId)),
                 () -> assertEquals(11, finalActivityList1.size())
         );
     }
