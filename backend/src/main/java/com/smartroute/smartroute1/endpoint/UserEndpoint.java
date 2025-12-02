@@ -19,6 +19,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.security.PermitAll;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -83,6 +84,19 @@ public class UserEndpoint {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         ApplicationUser updatedUser = userService.updatePersonalData(toUpdate, authentication.getName());
         return mapper.applicationUserToDetailDto(updatedUser);
+    }
+
+    @Operation(
+        description = "Retrieves the personal data of the authenticated user.",
+        summary = "Get personal user data")
+    @Secured("ROLE_USER")
+    @GetMapping(value = "/personal-data")
+    @ResponseStatus(HttpStatus.OK)
+    public UserDetailDto getPersonalData() {
+        LOGGER.info("GET /api/v1/user/personal-data");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        ApplicationUser user = userService.findApplicationUserByEmailWithWeekdays(authentication.getName());
+        return mapper.applicationUserToDetailDto(user);
     }
 
     @Operation(

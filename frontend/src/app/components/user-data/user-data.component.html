@@ -1,6 +1,9 @@
 <ion-header>
   <ion-toolbar>
-    <ion-title class="ion-text-center">User Data</ion-title>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/"></ion-back-button>
+    </ion-buttons>
+    <ion-title>User Data</ion-title>
   </ion-toolbar>
 </ion-header>
 
@@ -71,8 +74,10 @@
       </ion-select>
     </ion-item>
 
-    <ion-button expand="block" type="submit" class="ion-margin-top" [disabled]="userDataControl.invalid">
-      Continue
+    <ion-button expand="block" type="submit" class="ion-margin-top" [disabled]="userDataControl.invalid || isLoading">
+      <ion-icon slot="start" name="save-outline"></ion-icon>
+      <ion-spinner *ngIf="isLoading" name="crescent" slot="start"></ion-spinner>
+      Save
     </ion-button>
 
     <ion-toast

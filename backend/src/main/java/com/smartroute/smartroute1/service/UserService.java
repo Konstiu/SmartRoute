@@ -35,6 +35,14 @@ public interface UserService extends UserDetailsService {
     ApplicationUser findApplicationUserByEmail(String email);
 
     /**
+     * Find an application user based on the email address including the active weekdays.
+     *
+     * @param email the email address
+     * @return a application user with weekdays loaded
+     */
+    ApplicationUser findApplicationUserByEmailWithWeekdays(String email);
+
+    /**
      * Log in a user.
      *
      * @param userLoginDto login credentials
