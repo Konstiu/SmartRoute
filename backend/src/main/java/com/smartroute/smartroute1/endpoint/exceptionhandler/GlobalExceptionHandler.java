@@ -5,6 +5,10 @@ import com.smartroute.smartroute1.exception.NotFoundException;
 import com.smartroute.smartroute1.exception.StravaAuthorizationException;
 import com.smartroute.smartroute1.exception.RateLimitExceededException;
 import com.smartroute.smartroute1.exception.ValidationException;
+import com.smartroute.smartroute1.exception.garmin.GarminAuthenticationException;
+import com.smartroute.smartroute1.exception.garmin.GarminException;
+import com.smartroute.smartroute1.exception.garmin.GarminNoDataException;
+import com.smartroute.smartroute1.exception.garmin.GarminScriptException;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.slf4j.Logger;
@@ -37,6 +41,32 @@ import java.util.Map;
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
+
+    @ExceptionHandler(GarminNoDataException.class)
+    public ResponseEntity<Object> handleGarminNoData(GarminNoDataException ex, WebRequest request) {
+        LOGGER.info("No Garmin data found: {}", ex.getMessage());
+        return handleExceptionInternal(ex, ex.getMessage(), new HttpHeaders(), HttpStatus.NOT_FOUND, request);
+    }
+
+    @ExceptionHandler(GarminAuthenticationException.class)
+    public ResponseEntity<Object> handleGarminAuth(GarminAuthenticationException ex, WebRequest request) {
+        LOGGER.warn("Garmin authentication failed: {}", ex.getMessage());
+        return handleExceptionInternal(ex, ex.getMessage(), new HttpHeaders(), HttpStatus.UNAUTHORIZED, request);
+    }
+
+    @ExceptionHandler(GarminScriptException.class)
+    public ResponseEntity<Object> handleGarminScript(GarminScriptException ex, WebRequest request) {
+        LOGGER.error("Garmin script error: {}", ex.getMessage(), ex);
+        return handleExceptionInternal(ex, "Failed to execute Garmin sync", new HttpHeaders(), HttpStatus.INTERNAL_SERVER_ERROR, request);
+    }
+
+    @ExceptionHandler(GarminException.class)
+    public ResponseEntity<Object> handleGarminGeneric(GarminException ex, WebRequest request) {
+        LOGGER.error("Garmin error: {}", ex.getMessage(), ex);
+        return handleExceptionInternal(ex, "An error occurred while syncing with Garmin", new HttpHeaders(), HttpStatus.INTERNAL_SERVER_ERROR, request);
+    }
+
 
     /**
      * Use the @ExceptionHandler annotation to write handler for custom exceptions.
