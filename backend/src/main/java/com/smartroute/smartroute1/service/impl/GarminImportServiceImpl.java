@@ -339,7 +339,7 @@ public class GarminImportServiceImpl implements GarminImportService {
         JsonNode summary = activity.get("summary");
         JsonNode details = activity.get("details");
 
-        long activityId = summary.path("activityId").asLong(-1L);
+        String activityId = summary.path("activityId").asText(null);
         String activityName = summary.path("activityName").asText("Unnamed");
 
         boolean hasPolyline = summary.path("hasPolyline").asBoolean(false);
@@ -435,7 +435,7 @@ public class GarminImportServiceImpl implements GarminImportService {
         gpx.append("  </trk>\n");
         gpx.append("</gpx>\n");
 
-        activityId = summary.path("activityId").asLong();
+        activityId = summary.path("activityId").asText(null);
 
         log.debug("Generated GPX for Garmin activity {} ({} points)", activityId, pointCount);
 
@@ -575,7 +575,7 @@ public class GarminImportServiceImpl implements GarminImportService {
 
         activity.setSessionLoad(sessionLoad);
         activity.setGarminActivityTrainingsLoad(summary.path("activityTrainingLoad").asDouble());
-        activity.setExternalId(summary.get("activityId").asLong());
+        activity.setExternalId(summary.get("activityId").asText());
 
         // Save activity
         Activity saved;
