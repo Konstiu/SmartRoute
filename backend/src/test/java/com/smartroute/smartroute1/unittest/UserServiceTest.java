@@ -314,6 +314,28 @@ class UserServiceTest {
                 () -> userService.findApplicationUserByEmail("nonexistent@email.com"));
     }
 
+    @Test
+    void findApplicationUserByEmailWithWeekdays_withExistingUser_shouldReturnUserWithWeekdays() throws Exception {
+        ApplicationUser created = createAndVerifyUser("weekdays_user@email.com", "Password123!");
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        // update user to set weekdays
+        userService.updatePersonalData(personalDataDto, created.getEmail());
+
+        ApplicationUser found = userService.findApplicationUserByEmailWithWeekdays(created.getEmail());
+
+        assertNotNull(found);
+        assertAll(
+            () -> assertEquals(created.getEmail(), found.getEmail()),
+            () -> assertEquals(personalDataDto.getActiveWeekdays(), found.getActiveWeekdays())
+        );
+    }
+
+    @Test
+    void findApplicationUserByEmailWithWeekdays_withNonExistentUser_shouldThrowNotFoundException() {
+        assertThrows(NotFoundException.class,
+                () -> userService.findApplicationUserByEmailWithWeekdays("nonexistent_weekdays@email.com"));
+    }
+
     // ==================== RATE LIMIT TEST ====================
 
     @Test
@@ -424,3 +446,4 @@ class UserServiceTest {
             .build();
     }
 }
+
