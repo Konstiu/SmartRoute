@@ -1058,8 +1058,72 @@ class UserEndpointTest extends BaseTest {
                 .andExpect(jsonPath("$[0].affectedArea").value("UPPER_REGION"));
     }
 
+    @Test
+    void getPersonalData_authenticatedUser_shouldReturnPersonalData() throws Exception {
+        // Given - create and populate a test user
+        String email = "personal_test@example.com";
+        String password = "Password123!";
+        ApplicationUser user = createTestUser(email, password, true);
 
-// ==================== HELPER METHODS ====================
+        // set personal data directly on the entity
+        user.setSex(Sex.MALE);
+        user.setHeight(180);
+        user.setWeight(new BigDecimal("75.5"));
+        user.setBirthdate(LocalDate.of(1990, 1, 1));
+        user.setExperienceLevel(ExperienceLevel.BEGINNER);
+        user.setActiveWeekdays(new HashSet<>(Set.of(Weekday.MONDAY, Weekday.WEDNESDAY, Weekday.FRIDAY)));
+        userRepository.save(user);
+
+        // When - login to get JWT
+        String loginData = objectMapper.writeValueAsString(Map.of("email", email, "password", password));
+        MvcResult loginResult = this.mockMvc.perform(post(LOGIN_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginData))
+                .andReturn();
+        String loginBody = loginResult.getResponse().getContentAsString();
+        String token = loginBody.replace("Bearer ", "");
+
+        // Then - request personal data with Authorization header
+        this.mockMvc.perform(get(USER_BASE_URI + "/personal-data")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$.sex").value("MALE"))
+                .andExpect(jsonPath("$.height").value(180))
+                .andExpect(jsonPath("$.activeWeekdays.length()").value(3));
+    }
+
+    @Test
+    void getPersonalData_unauthenticated_shouldReturnUnauthorized() throws Exception {
+        this.mockMvc.perform(get(USER_BASE_URI + "/personal-data"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getPersonalData_authenticatedUserWithoutPersonalData_shouldReturnEmptyWeekdays() throws Exception {
+        // Given - create a user without personal data (defaults should be empty)
+        String email = "nopersonal@example.com";
+        String password = "Password123!";
+        createTestUser(email, password, true);
+
+        // login
+        String loginData = objectMapper.writeValueAsString(Map.of("email", email, "password", password));
+        MvcResult loginResult = this.mockMvc.perform(post(LOGIN_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginData))
+                .andReturn();
+        String loginBody = loginResult.getResponse().getContentAsString();
+        String token = loginBody.replace("Bearer ", "");
+
+        // When & Then
+        this.mockMvc.perform(get(USER_BASE_URI + "/personal-data")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$.activeWeekdays.length()").value(0));
+    }
+
+    // ==================== HELPER METHODS ====================
 
     /**
      * Helper method to create a test user in the database
@@ -1089,3 +1153,4 @@ class UserEndpointTest extends BaseTest {
                 .build();
     }
 }
+

@@ -17,7 +17,8 @@ export class RecentRunsPage implements OnInit {
   isLoading = false;
   error: string | null = null;
 
-  constructor(private stravaService: ActivitiesService, private router: Router) {}
+  constructor(private stravaService: ActivitiesService, private router: Router) {
+  }
 
   ngOnInit() {
     this.loadActivities();
@@ -29,6 +30,9 @@ export class RecentRunsPage implements OnInit {
 
     this.stravaService.getRecentActivities().subscribe({
       next: (data) => {
+        this.activities = data.sort((a, b) =>
+          new Date(b.startDateLocal).getTime() - new Date(a.startDateLocal).getTime()
+        );
         this.activities = data;
         this.isLoading = false;
         if (event) {
@@ -63,9 +67,9 @@ export class RecentRunsPage implements OnInit {
       hour12: false // Use 24-hour format, change to true for 12-hour format
     });
 
-    if (diffDays === 0) return `Today at ${timeString}`;
-    if (diffDays === 1) return `Yesterday at ${timeString}`;
-    if (diffDays < 7) return `${diffDays} days ago at ${timeString}`;
+    if (diffDays === 1) return `Today at ${timeString}`;
+    if (diffDays === 2) return `Yesterday at ${timeString}`;
+    if (diffDays < 8) return `${diffDays-1} days ago at ${timeString}`;
 
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'short',
@@ -80,10 +84,10 @@ export class RecentRunsPage implements OnInit {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
-    return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
-  formatDistance(dist: number) : string{
+  formatDistance(dist: number): string {
     dist = dist / 1000; // convert meters to km
     return dist.toFixed(2)
   }
@@ -114,7 +118,7 @@ export class RecentRunsPage implements OnInit {
     return icons[sportType] || icons['default'];
   }
 
-  openActivity(activity:StravaActivity){
+  openActivity(activity: StravaActivity) {
     this.router.navigate(['/activity/', activity.id]);
   }
 
