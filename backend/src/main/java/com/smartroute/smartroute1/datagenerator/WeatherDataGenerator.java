@@ -65,6 +65,7 @@ public class WeatherDataGenerator {
                     double diffuseRadiation = daylight > 0 ? daylight * 800 : 0;
                     double surfacePressure = 1000;
                     double dewPoint = 4;
+                    double snowDepth = 0;
 
                     WeatherDto dto = new WeatherDto(
                             t.toString(),
@@ -76,7 +77,8 @@ public class WeatherDataGenerator {
                             directRadiation,
                             diffuseRadiation,
                             surfacePressure,
-                            dewPoint
+                            dewPoint,
+                            snowDepth
                     );
 
                     entity = mapper.toEntity(dto, null, longitude, latitude);

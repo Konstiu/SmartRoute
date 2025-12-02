@@ -299,14 +299,12 @@ class WeatherServiceTest {
 
     }
 
-
-
     @Test
     @DisplayName("Neutral WBGT should produce minimal penalty and NEUTRAL heat risk")
     void test() {
         WeatherResponse weather = new WeatherResponse();
-        weather.setPrecipitation(0.0);
-        weather.setTemperature2m(-4.0);
+        weather.setPrecipitation(20.0);
+        weather.setTemperature2m(20.0);
         weather.setRelativeHumidity(60.0);
         weather.setWindSpeed10m(5.0);
         weather.setShortWaveRadiation(500.0);
@@ -316,6 +314,7 @@ class WeatherServiceTest {
         weather.setLatitude(48.21);
         weather.setSurfacePressure(1013.0);
         weather.setDewPoint(20.0);
+        weather.setSnowDepth(0.0);
         weather.setTime("2025-06-20T14:00");
 
         long baseTime = 3600; // 1 hour
@@ -328,6 +327,7 @@ class WeatherServiceTest {
         );
 
         LOGGER.info("Weather Penalty: {}", result.getPenaltyPercent());
+        LOGGER.info("Weather Score: {}", service.calculateWeatherScore(weather, 20, 5000));
     }
 
 

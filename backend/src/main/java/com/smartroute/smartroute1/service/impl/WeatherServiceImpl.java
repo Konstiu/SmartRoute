@@ -68,8 +68,9 @@ public class WeatherServiceImpl implements WeatherService {
         List<Double> surfacePressure = extractDoubleList(hourly, "surface_pressure");
         List<Double> directRadiation = extractDoubleList(hourly, "direct_radiation");
         List<Double> diffuseRadiation = extractDoubleList(hourly, "diffuse_radiation");
+        List<Double> snowDepth = extractDoubleList(hourly, "snow_depth");
 
-        validator.validateListSizes(time, temperature, precipitation, windSpeed, humidity, radiation, dewPoint, directRadiation, diffuseRadiation);
+        validator.validateListSizes(time, temperature, precipitation, windSpeed, humidity, radiation, dewPoint, directRadiation, diffuseRadiation, snowDepth);
 
         List<WeatherDto> result = new ArrayList<>();
         List<WeatherResponse> entities = new ArrayList<>();
@@ -88,7 +89,8 @@ public class WeatherServiceImpl implements WeatherService {
                     dewPoint.get(i),
                     surfacePressure.get(i),
                     directRadiation.get(i),
-                    diffuseRadiation.get(i)
+                    diffuseRadiation.get(i),
+                    snowDepth.get(i)
             );
 
             result.add(dto);
@@ -112,7 +114,7 @@ public class WeatherServiceImpl implements WeatherService {
     private String buildUrl(double latitude, double longitude) {
         return "https://api.open-meteo.com/v1/forecast?latitude=" + latitude
                 + "&longitude=" + longitude
-                + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation";
+                + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation,snow_depth";
     }
 
     // Fetch weather data from open-meteo.
@@ -324,11 +326,61 @@ public class WeatherServiceImpl implements WeatherService {
         return HeatRiskCategory.NEUTRAL;
     }
 
-    public double calculateWeatherScore(HeatRiskCategory risk) {
-        double weatherScore = 1;
+    public double calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters) {
+        RunEventType type = mapDistanceToEvent(distanceMeters);
+        double wbgt = computeWbgt(weather);
+        double optimal = optimalWbgt(type);
 
-        return weatherScore;
+        double delta = wbgt - optimal;
+        double heatSlope = heatSlope(type);
+        double coldSlope = coldSlope(type);
+
+        double wbgtPenalty = delta > 0 ? delta * heatSlope : -delta * coldSlope;
+        wbgtPenalty = clamp(wbgtPenalty, 0, 40);
+
+        double windChill = calculateWindChill(weather.getTemperature2m(), weather.getWindSpeed10m());
+        HeatRiskCategory cold = classifyColdRisk(windChill);
+
+        double coldPenalty = switch (cold) {
+            case EXTREME_COLD -> 100;
+            case SEVERE_COLD -> 100;
+            case VERY_HIGH_COLD_RISK -> 80;
+            case HIGH_COLD_RISK -> 60;
+            case MODERATE_COLD -> 40;
+            case LOW_COLD -> 20;
+            default -> 0;
+        };
+
+        HeatRiskCategory heat = classifyHeatRisk(wbgt);
+        double heatPenalty = switch (heat) {
+            case LOW_HEAT -> 25;
+            case MODERATE_HEAT -> 50;
+            case HIGH_HEAT -> 75;
+            case EXTREME_HEAT -> 100;
+            default -> 0;
+        };
+
+
+        double rainPenalty = clamp(calculatePrecipitationImpact(weather.getPrecipitation(), age), 0, 25);
+
+        double snowPenalty = clamp(snowDepthImpact(weather.getSnowDepth()), 0, 40);
+
+        double complexityPenalty = Math.max((complexityModifier(weather) - 1.0) * 50, 0);
+
+        double totalPenalty =
+                1
+                        - (1 - wbgtPenalty / 100.0)
+                        * (1 - coldPenalty / 100.0)
+                        * (1 - heatPenalty / 100.0)
+                        * (1 - rainPenalty / 100.0)
+                        * (1 - snowPenalty / 100.0)
+                        * (1 - complexityPenalty / 100.0);
+
+        double score = 1.0 - totalPenalty;
+
+        return clamp(score, 0.0, 1.0);
     }
+
 
     public WeatherImpactDto estimateImpact(int distance, long baseTimeSeconds, WeatherResponse weather, int age) {
         RunEventType eventType = mapDistanceToEvent(distance);
@@ -449,7 +501,7 @@ public class WeatherServiceImpl implements WeatherService {
         return Math.max(min, Math.min(max, v));
     }
 
-    // Calculates the impact of precipitation.
+    // Calculates the impact of precipitation in percent.
     private double calculatePrecipitationImpact(double precipMm, int runnerAge) {
         if (precipMm <= 0.0) {
             return 0.0;
@@ -480,5 +532,45 @@ public class WeatherServiceImpl implements WeatherService {
         }
 
         return impact *= ageFactor;
+    }
+
+    // Returns the impact of snow depth in percent.
+    private double snowDepthImpact(double snowDepth) {
+        double snowImpact = 0.0;
+
+        if (snowDepth <= 0) {
+            snowImpact = 0.0; // No snow, no penalty
+        }
+
+        // <1 cm: small traction effect
+        if (snowDepth < 1.0) {
+            snowImpact = 0.01; // ~1%
+        }
+
+        // 1–5 cm: packed trail snow (5–10% slowdown)
+        if (snowDepth <= 5.0) {
+            // Linear interpolation from 5% to 10%
+            double t = (snowDepth - 1.0) / (5.0 - 1.0);
+            snowImpact = 0.05 + t * 0.05;
+        }
+
+        // 5–10 cm: soft snow (10–20% slowdown)
+        if (snowDepth <= 10.0) {
+            double t = (snowDepth - 5.0) / (10.0 - 5.0);
+            snowImpact = 0.10 + t * 0.10;
+        }
+
+        // 10–20 cm: deep snow (20–40% slowdown)
+        if (snowDepth <= 20.0) {
+            double t = (snowDepth - 10.0) / (20.0 - 10.0);
+            snowImpact = 0.20 + t * 0.20;
+        }
+
+        // >20 cm: extreme, running becomes power-hiking
+        if (snowDepth > 20.0) {
+            snowImpact = 0.40;
+        }
+
+        return snowImpact * 100;
     }
 }

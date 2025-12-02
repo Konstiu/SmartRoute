@@ -18,4 +18,5 @@ public class WeatherDto {
     private Double diffuseRadiation;
     private Double surfacePressure;
     private Double dewPoint;
+    private Double snowDepth;
 }

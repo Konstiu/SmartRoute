@@ -24,6 +24,7 @@ public interface WeatherMapper {
             entity.setDiffuseRadiation(dto.getDiffuseRadiation());
             entity.setSurfacePressure(dto.getSurfacePressure());
             entity.setDewPoint(dto.getDewPoint());
+            entity.setSnowDepth(dto.getSnowDepth());
         }
 
         return entity;

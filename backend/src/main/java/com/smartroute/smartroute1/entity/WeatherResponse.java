@@ -42,4 +42,6 @@ public class WeatherResponse {
     private Double surfacePressure;
     @Column
     private Double dewPoint;
+    @Column
+    private Double snowDepth;
 }
