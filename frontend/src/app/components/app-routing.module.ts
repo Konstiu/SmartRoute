@@ -34,6 +34,11 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'user-data',
+    loadComponent: () => import('./user-data/user-data.component').then(m => m.UserDataComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: '**',
     loadComponent: () => import('./register/register.page').then(m => m.RegisterPage),
     canActivate:[AuthGuard]
