@@ -56,33 +56,20 @@ export class RecentRunsPage implements OnInit {
 
 
   formatDate(dateString: string): string {
-    if (!dateString) {
-      return '';
-    }
-
     const date = new Date(dateString);
     const now = new Date();
-
-    if (isNaN(date.getTime())) {
-      console.error('Invalid date string:', dateString);
-      return dateString;
-    }
-
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    let rawTime: string;
+    const timeString = date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false // Use 24-hour format, change to true for 12-hour format
+    });
 
-    const match = dateString.match(/(\d{2}:\d{2})/);
-    if (match) {
-      rawTime = match[1];
-    } else {
-      rawTime = date.toISOString().substring(11, 16);
-    }
-
-    if (diffDays === 0) return `Today at ${rawTime}`;
-    if (diffDays === 1) return `Yesterday at ${rawTime}`;
-    if (diffDays < 7) return `${diffDays} days ago at ${rawTime}`;
+    if (diffDays === 1) return `Today at ${timeString}`;
+    if (diffDays === 2) return `Yesterday at ${timeString}`;
+    if (diffDays < 8) return `${diffDays-1} days ago at ${timeString}`;
 
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'short',
@@ -90,7 +77,7 @@ export class RecentRunsPage implements OnInit {
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
     });
 
-    return `${dateStr} at ${rawTime}`;
+    return `${dateStr} at ${timeString}`;
   }
 
   formatDuration(seconds: number): string {

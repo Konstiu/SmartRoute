@@ -211,9 +211,9 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
       hour12: false // Use 24-hour format, change to true for 12-hour format
     });
 
-    if (diffDays === 0) return `Today at ${timeString}`;
-    if (diffDays === 1) return `Yesterday at ${timeString}`;
-    if (diffDays < 7) return `${diffDays} days ago at ${timeString}`;
+    if (diffDays === 1) return `Today at ${timeString}`;
+    if (diffDays === 2) return `Yesterday at ${timeString}`;
+    if (diffDays < 8) return `${diffDays-1} days ago at ${timeString}`;
 
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'short',

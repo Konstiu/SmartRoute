@@ -39,7 +39,7 @@ public interface StravaActivityMapper {
         entity.setSufferScore(dto.getSufferScore());
         entity.setSummaryPolyline(dto.getMap() != null ? dto.getMap().getSummaryPolyline() : null);
         entity.setUser(user);
-        entity.setExternalId(dto.getExternalId() != null ? Long.valueOf(dto.getExternalId()) : null);
+        entity.setExternalId(dto.getExternalId() != null ? dto.getExternalId() : null);
 
         return entity;
     }
