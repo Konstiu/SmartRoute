@@ -27,6 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 import java.lang.invoke.MethodHandles;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.ArrayList;
 
@@ -45,9 +46,7 @@ public class WeatherServiceImpl implements WeatherService {
 
     @Override
     @Transactional
-    public List<WeatherDto> getHourlyWeather(double latitude, double longitude)
-            throws ValidationException {
-
+    public List<WeatherDto> getHourlyWeather(double latitude, double longitude) throws ValidationException {
         validator.validateCoordinates(latitude, longitude);
 
         String url = buildUrl(latitude, longitude);
@@ -64,8 +63,12 @@ public class WeatherServiceImpl implements WeatherService {
         List<Double> windSpeed = extractDoubleList(hourly, "wind_speed_10m");
         List<Double> humidity = extractDoubleList(hourly, "relative_humidity_2m");
         List<Double> radiation = extractDoubleList(hourly, "shortwave_radiation");
+        List<Double> dewPoint = extractDoubleList(hourly, "dew_point_2m");
+        List<Double> surfacePressure = extractDoubleList(hourly, "surface_pressure");
+        List<Double> directRadiation = extractDoubleList(hourly, "direct_radiation");
+        List<Double> diffuseRadiation = extractDoubleList(hourly, "diffuse_radiation");
 
-        validator.validateListSizes(time, temperature, precipitation, windSpeed, humidity, radiation);
+        validator.validateListSizes(time, temperature, precipitation, windSpeed, humidity, radiation, dewPoint, directRadiation, diffuseRadiation);
 
         List<WeatherDto> result = new ArrayList<>();
         List<WeatherResponse> entities = new ArrayList<>();
@@ -80,7 +83,11 @@ public class WeatherServiceImpl implements WeatherService {
                     windSpeed.get(i),
                     precipitation.get(i),
                     humidity.get(i),
-                    radiation.get(i)
+                    radiation.get(i),
+                    dewPoint.get(i),
+                    surfacePressure.get(i),
+                    directRadiation.get(i),
+                    diffuseRadiation.get(i)
             );
 
             result.add(dto);
@@ -104,7 +111,7 @@ public class WeatherServiceImpl implements WeatherService {
     private String buildUrl(double latitude, double longitude) {
         return "https://api.open-meteo.com/v1/forecast?latitude=" + latitude
                 + "&longitude=" + longitude
-                + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation";
+                + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation";
     }
 
     // Fetch weather data from open-meteo.
@@ -159,8 +166,8 @@ public class WeatherServiceImpl implements WeatherService {
         return list;
     }
 
-    // compute the natural wet-bulb temperature in C°. Source: https://journals.ametsoc.org/view/journals/apme/50/11/jamc-d-11-0143.1.xml
-    private static double computeWetBulbStull(double temperature, double relativeHumidity) {
+    // Compute the natural wet-bulb temperature in C°. Source: https://journals.ametsoc.org/view/journals/apme/50/11/jamc-d-11-0143.1.xml
+    private static double computeWetBulbTemp(double temperature, double relativeHumidity) {
 
         double wetBulb =
                 temperature * Math.atan(0.151977 * Math.sqrt(relativeHumidity + 8.313659))
@@ -172,45 +179,152 @@ public class WeatherServiceImpl implements WeatherService {
         return wetBulb;
     }
 
-    // compute the wet globe-temperature indoors.
-    private static double computeWbgtShade(double temperature, double relativeHumidity) {
-        double tw = computeWetBulbStull(temperature, relativeHumidity);
-        return 0.7 * tw + 0.3 * temperature;
+    // Compute the wet bulb globe-temperature.
+    public double computeWbgt(WeatherResponse weather) {
+        final double temperature = weather.getTemperature2m();
+        final double relativeHumidity = weather.getRelativeHumidity();
+
+        double twb = computeWetBulbTemp(temperature, relativeHumidity);
+        double tg = computeGlobeTemperature(weather);
+
+        return 0.7 * twb + 0.2 * tg + 0.1 * temperature;
     }
 
-    // approximate the outdoor wet globe-temperature outdoors.
-    private static double computeWbgtOutdoorApprox(double temperature,
-                                                   double relativeHumidity,
-                                                   double solarRadWm2,
-                                                   double windMs) {
-        double wbgtShade = computeWbgtShade(temperature, relativeHumidity);
+    //  Compute estimated black globe temperature (Tg) in °C. Source: https://www.weather.gov/media/tsa/pdf/WBGTpaper2.pdf
+    public double computeGlobeTemperature(WeatherResponse weather) {
+        final String time = weather.getTime();
+        final double temperature = weather.getTemperature2m();
+        final double windSpeed = weather.getWindSpeed10m();
+        final double solarRadiation = weather.getShortWaveRadiation();
+        final double directRadiation = weather.getDirectRadiation() / solarRadiation;
+        final double diffuseRadiation = weather.getDiffuseRadiation() / solarRadiation;
+        final double longitude = weather.getLongitude();
+        final double latitude = weather.getLatitude();
+        final double dewPoint = weather.getDewPoint();
+        final double surfacePressure = weather.getSurfacePressure();
 
-        double sunCorrection = 0.0;
-        if (solarRadWm2 > 600 && windMs < 2.0) {
-            sunCorrection = 2.0;
-        } else if (solarRadWm2 > 300) {
-            sunCorrection = 1.0;
+        double windSpeedMetersPerHour = windSpeed * 1000;
+        double zenithAngle = computeSolarZenithAngle(latitude, longitude, time);
+        double vaporPressure = computeVaporPressure(temperature, dewPoint, surfacePressure);
+        double atmosphericEmissivity = 0.575 * Math.pow(vaporPressure, 1.0 / 7.0);
+
+        final double B = computeB(solarRadiation, directRadiation, diffuseRadiation, zenithAngle, atmosphericEmissivity, temperature);
+        final double C = computeC(windSpeedMetersPerHour);
+
+        return (B + C * temperature + 7680000.0) / (C + 256000.0);
+    }
+
+    // Computes vapor pressure.
+    private double computeVaporPressure(double temperature, double dewPoint, double surfacePressure) {
+        double term1 = Math.exp(17.67 * (dewPoint - temperature) / (dewPoint + 243.5));
+        double term2 = (1.0007 + 0.00000346 * surfacePressure);
+        double term3 = 6.112 * Math.exp((17.502 * temperature) / (240.97 + temperature));
+        return term1 * term2 * term3;
+    }
+
+    private double computeB(double solarRadiation, double directBeamRadiation, double diffuseBeamRadiation, double zenithAngle, double atmosphericEmissivity, double temperature) {
+        final double Sigma = 5.67 * Math.pow(10, -8); // Stefan-Boltzmann constant
+
+        double term1 = solarRadiation * (directBeamRadiation / (4 * Sigma * Math.cos(zenithAngle)) + (1.2 / Sigma) * diffuseBeamRadiation);
+
+        double term2 = atmosphericEmissivity * Math.pow(temperature, 4);
+
+        return term1 + term2;
+    }
+
+    private double computeC(double windSpeed) {
+        final double H = 0.315; // convective coefficient constant
+        return (H * Math.pow(windSpeed, 0.58)) / (5.3865 * Math.pow(10, -8));
+    }
+
+    // Solar zenith angle using NOAA algorithm.
+    private double computeSolarZenithAngle(double latitude, double longitude, String time) {
+        double latRad = Math.toRadians(latitude);
+
+        int dayOfYear = extractDayOfYear(time);
+        int hour = extractHour(time);
+
+        double gamma = 2.0 * Math.PI / 365.0 * (dayOfYear - 1 + (double) (hour - 12) / 24);
+
+        double decl = 0.006918
+                - 0.399912 * Math.cos(gamma)
+                + 0.070257 * Math.sin(gamma)
+                - 0.006758 * Math.cos(2 * gamma)
+                + 0.000907 * Math.sin(2 * gamma)
+                - 0.002697 * Math.cos(3 * gamma)
+                + 0.00148 * Math.sin(3 * gamma);
+
+        double eqTime = 229.18 * (0.000075
+                + 0.001868 * Math.cos(gamma)
+                - 0.032077 * Math.sin(gamma)
+                - 0.014615 * Math.cos(2 * gamma)
+                - 0.040849 * Math.sin(2 * gamma));
+
+        double timeOffset = eqTime + 4 * longitude;
+        double tst = hour * 60 + timeOffset;
+        double ha = Math.toRadians((tst / 4.0) - 180.0);
+
+        double cosZ = Math.sin(latRad) * Math.sin(decl) + Math.cos(latRad) * Math.cos(decl) * Math.cos(ha);
+
+        cosZ = Math.max(-1, Math.min(1, cosZ));
+
+        return Math.acos(cosZ);
+    }
+
+    // Returns the hour (0–23)
+    private int extractHour(String isoTime) {
+        LocalDateTime dt = LocalDateTime.parse(isoTime);
+        return dt.getHour();
+    }
+
+    // Returns the day of the year
+    private static int extractDayOfYear(String isoTime) {
+        LocalDateTime dt = LocalDateTime.parse(isoTime);
+        return dt.getDayOfYear();
+    }
+
+    // Calculates wind chill, a measurement of perceived coldness. Source: https://www.canada.ca/en/environment-climate-change/services/weather-health/wind-chill-cold-weather/wind-chill-index.html
+    private double calculateWindChill(double temperature, double windSpeed) {
+        return 13.12 + 0.6215 * temperature + (0.3965 * temperature - 11.37) * Math.pow(windSpeed, 0.16);
+    }
+
+    // Classification of cold risk: https://www.canada.ca/en/environment-climate-change/services/weather-health/wind-chill-cold-weather/wind-chill-index.html
+    private HeatRiskCategory classifyColdRisk(double windChill) {
+        if (windChill <= -55) {
+            return HeatRiskCategory.EXTREME_COLD;
         }
-
-        return wbgtShade + sunCorrection;
+        if (windChill >= -54 && windChill <= -48) {
+            return HeatRiskCategory.SEVERE_COLD;
+        }
+        if (windChill >= -47 && windChill <= -40) {
+            return HeatRiskCategory.VERY_HIGH_COLD_RISK;
+        }
+        if (windChill >= -39 && windChill <= -28) {
+            return HeatRiskCategory.HIGH_COLD_RISK;
+        }
+        if (windChill >= -27 && windChill <= -10) {
+            return HeatRiskCategory.MODERATE_COLD;
+        }
+        if (windChill >= -9 && windChill <= 0) {
+            return HeatRiskCategory.LOW_COLD;
+        }
+        return HeatRiskCategory.NEUTRAL;
     }
 
-    public WeatherImpactDto estimateImpact(
-            int distance,
-            long baseTimeSeconds,
-            double temperature,
-            double relativeHumidity,
-            double shortwaveRadiation,
-            double windSpeed,
-            double precipitation,
-            int age
-    ) {
+    public double calculateWeatherScore(HeatRiskCategory risk) {
+        double weatherScore = 1;
+
+        return weatherScore;
+    }
+
+    public WeatherImpactDto estimateImpact(int distance, long baseTimeSeconds, WeatherResponse weather, int age) {
         RunEventType eventType = mapDistanceToEvent(distance);
         double optimalWbgt = optimalWbgt(eventType);
         double heatSlope = heatSlope(eventType);
         double coldSlope = coldSlope(eventType);
-        double wbgt = computeWbgtOutdoorApprox(temperature, relativeHumidity, shortwaveRadiation, windSpeed);
+        double wbgt = computeWbgt(weather);
         double delta = wbgt - optimalWbgt;
+        final double precipitation = weather.getPrecipitation();
 
         double penaltyBase;
         if (delta > 0) {
@@ -219,7 +333,7 @@ public class WeatherServiceImpl implements WeatherService {
             penaltyBase = -delta * coldSlope;
         }
 
-        double modifier = complexityModifier(temperature, relativeHumidity, shortwaveRadiation, windSpeed);
+        double modifier = complexityModifier(weather);
         double penaltyPercent = penaltyBase * modifier;
 
         double factor = 1.0 + penaltyPercent / 100.0;
@@ -262,7 +376,7 @@ public class WeatherServiceImpl implements WeatherService {
     private double heatSlope(RunEventType type) {
         return switch (type) {
             case MARATHON_LIKE -> 0.20;
-            case TEN_K_LIKE -> 0.04;
+            case TEN_K_LIKE -> 0.25;
             case FIVE_K_LIKE -> 0.30;
         };
     }
@@ -278,31 +392,31 @@ public class WeatherServiceImpl implements WeatherService {
 
     // Classification of the heat risk: https://www.weather.gov/arx/wbgt
     private HeatRiskCategory classifyHeatRisk(double wbgt) {
-        if (wbgt <= 10.0) {
-            return HeatRiskCategory.COLD_COOL;
-        }
-        if (wbgt <= 18.0) {
+        if (wbgt < 18.3) {
             return HeatRiskCategory.NEUTRAL;
         }
-        if (wbgt <= 23.0) {
+        if (wbgt >= 18.3 && wbgt <= 22.2) {
+            return HeatRiskCategory.LOW_HEAT;
+        }
+        if (wbgt > 22.2 && wbgt <= 25.56) {
             return HeatRiskCategory.MODERATE_HEAT;
         }
-        if (wbgt <= 28.0) {
+        if (wbgt > 25.56 && wbgt <= 27.8) {
             return HeatRiskCategory.HIGH_HEAT;
         }
         return HeatRiskCategory.EXTREME_HEAT;
     }
 
     // Estimates the complexity by weighing relevant weather data.
-    private double complexityModifier(
-            double temperature,
-            double relativeHumidity,
-            double shortwaveRadiation,
-            double windSpeed
-    ) {
+    private double complexityModifier(WeatherResponse weather) {
+        final double temperature = weather.getTemperature2m();
+        final double windSpeed = weather.getWindSpeed10m();
+        final double relativeHumidity = weather.getRelativeHumidity();
+        final double solarRadiation = weather.getShortWaveRadiation();
+
         double tempScore = clamp((temperature - 15.0) / 20.0, -1, 1);
         double humScore = clamp((relativeHumidity - 50.0) / 50.0, -1, 1);
-        double solarScore = clamp((shortwaveRadiation - 400.0) / 800.0, -1, 1);
+        double solarScore = clamp((solarRadiation - 400.0) / 800.0, -1, 1);
         double windScore = clamp((windSpeed - 2.0) / 8.0, -1, 1);
 
         double combined =

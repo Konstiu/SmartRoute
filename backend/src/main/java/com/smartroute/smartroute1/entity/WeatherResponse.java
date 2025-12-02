@@ -34,4 +34,12 @@ public class WeatherResponse {
     private Double relativeHumidity;
     @Column
     private Double shortWaveRadiation;
+    @Column
+    private Double directRadiation;
+    @Column
+    private Double diffuseRadiation;
+    @Column
+    private Double surfacePressure;
+    @Column
+    private Double dewPoint;
 }
