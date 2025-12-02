@@ -32,7 +32,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
 import java.lang.invoke.MethodHandles;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -49,7 +48,6 @@ public class StravaServiceImpl implements StravaService {
     private final ActivityRepository activityRepository;
     private final StravaActivityMapper activityMapper;
     private final ActivityProcessingService activityProcessingService;
-
 
     @Override
     @Transactional
@@ -70,10 +68,6 @@ public class StravaServiceImpl implements StravaService {
         } catch (StravaAuthorizationException e) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Failed to get Strava access token", e);
         }
-
-        UriComponentsBuilder builder = UriComponentsBuilder
-                .fromUriString("https://www.strava.com/api/v3/athlete/activities")
-                .queryParam("per_page", 45);
 
         List<StravaActivityDto> activities;
         try {
@@ -130,7 +124,23 @@ public class StravaServiceImpl implements StravaService {
                 LOGGER.error("Error mapping entity to activity {}", dto);
                 continue;
             }
-            activityRepository.save(entity);
+            Optional<Activity> storedActivities = activityRepository.getActivitiesByUserAndStartDate(user, entity.getStartDate());
+
+            if (storedActivities.isEmpty()) {
+                activityRepository.save(entity);
+                activities.add(entity);
+            } else {
+                Activity storedActivity = storedActivities.get();
+                storedActivity.setExternalId(entity.getExternalId());
+                storedActivity.setStravaId(entity.getStravaId());
+                storedActivity.setSufferScore(entity.getSufferScore());
+                storedActivity.setAverageWatts(entity.getAverageWatts());
+                storedActivity.setKilojoules(entity.getKilojoules());
+                // always the first name is going to be the new name of the Activity
+                //storedActivity.setName(entity.getName());
+                activityRepository.save(storedActivity);
+                activities.add(storedActivity);
+            }
             activities.add(entity);
             LOGGER.debug("Saved Strava activity: {}", entity);
         }

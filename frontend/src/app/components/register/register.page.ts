@@ -1,11 +1,11 @@
-import {Component, inject} from '@angular/core';
-import {CreateUserDto} from "../../dtos/user";
-import {FormsModule, NgForm} from "@angular/forms";
-import {UserService} from "../../../services/user.service";
-import {Router} from "@angular/router";
-import {IonicModule, ToastController} from "@ionic/angular";
+import { Component, inject } from '@angular/core';
+import { CreateUserDto } from "../../dtos/user";
+import { FormsModule, NgForm } from "@angular/forms";
+import { UserService } from "../../../services/user.service";
+import { Router } from "@angular/router";
+import { IonicModule, ToastController } from "@ionic/angular";
 import { CommonModule } from '@angular/common';
-import {AuthService} from '../../../services/auth.service';
+import { AuthService } from '../../../services/auth.service';
 import { AuthRequest } from 'src/app/dtos/auth-request';
 
 @Component({
@@ -56,8 +56,8 @@ export class RegisterPage {
             this.successMessage = 'Registration successful.';
             const toast = await this.toastCtrl.create({ message: 'Registration successful', color: 'success', duration: 2000 });
             await toast.present();
-            // navigate to main area
-            this.router.navigate(['/tabs/trainingPlan']);
+            // continue to enter personal user data
+            this.router.navigate(['/user-data', false]);
           },
           error: async (loginErr) => {
             this.isSubmitting = false;
