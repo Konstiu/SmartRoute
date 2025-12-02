@@ -10,6 +10,10 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path:"test-abc",
+    loadComponent: () => import('./injuries/injuries.page').then(m=>m.InjuriesPage),
+  },
+  {
     path: 'register',
     loadComponent: () => import('./register/register.page').then(m => m.RegisterPage),
   },
