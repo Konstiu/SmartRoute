@@ -7,17 +7,15 @@ const routes: Routes = [
   {
     path: '',
     loadChildren: () => import('./tabs/tabs.module').then(m => m.TabsPageModule),
-    canActivate:[AuthGuard]
+    canActivate: [AuthGuard]
   },
   {
     path: 'register',
     loadComponent: () => import('./register/register.page').then(m => m.RegisterPage),
-    canActivate:[AuthGuard]
   },
   {
     path: 'login',
     loadComponent: () => import('./login/login.page').then(m => m.LoginPage),
-    canActivate:[AuthGuard]
     // NO canActivate - public route!
   },
   {
@@ -34,9 +32,13 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'user-data/:returnToCallsite',
+    loadComponent: () => import('./user-data-form/user-data-form.component').then(m => m.UserDataFormComponent),
+    canActivate: [AuthGuard]
+  },
+  {
     path: '**',
     loadComponent: () => import('./register/register.page').then(m => m.RegisterPage),
-    canActivate:[AuthGuard]
   }
 ];
 
@@ -46,4 +48,4 @@ const routes: Routes = [
   ],
   exports: [RouterModule]
 })
-export class AppRoutingModule {}
+export class AppRoutingModule { }

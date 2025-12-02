@@ -22,6 +22,7 @@ import reactor.core.publisher.Mono;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -98,7 +99,21 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             }
 
             activity.setSessionLoad(sessionLoad);
-            activityRepository.save(activity);
+            Optional<Activity> storedActivities = activityRepository.getActivitiesByUserAndStartDate(user, activity.getStartDate());
+
+            if (storedActivities.isEmpty()) {
+                activityRepository.save(activity);
+            } else {
+                Activity storedActivity = storedActivities.get();
+                storedActivity.setExternalId(activity.getExternalId());
+                storedActivity.setStravaId(activity.getStravaId());
+                storedActivity.setSufferScore(activity.getSufferScore());
+                storedActivity.setAverageWatts(activity.getAverageWatts());
+                storedActivity.setKilojoules(activity.getKilojoules());
+                // always the first name is going to be the new name of the Activity
+                //storedActivity.setName(entity.getName());
+                activityRepository.save(storedActivity);
+            }
 
             LOGGER.debug("Saved sessionLoad {} for activity {}", sessionLoad, activity.getId());
         } catch (Exception ex) {

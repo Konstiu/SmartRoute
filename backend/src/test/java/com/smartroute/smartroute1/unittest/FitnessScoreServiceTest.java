@@ -53,12 +53,12 @@ class FitnessScoreServiceTest extends BaseTest {
         a1.setUser(user);
         a1.setType("Run");
         a1.setSessionLoad(100);
-        a1.setStartDateLocal(Instant.now());
+        a1.setStartDate(Instant.now());
 
         a2.setUser(user);
         a2.setType("Run");
         a2.setSessionLoad(50);
-        a2.setStartDateLocal(Instant.now());
+        a2.setStartDate(Instant.now());
 
         activityRepository.save(a1);
         activityRepository.save(a2);
@@ -77,12 +77,12 @@ class FitnessScoreServiceTest extends BaseTest {
         a1.setUser(user);
         a1.setType("Run");
         a1.setSessionLoad(100);
-        a1.setStartDateLocal(Instant.now());
+        a1.setStartDate(Instant.now());
 
         a2.setUser(user);
         a2.setType("Run");
         a2.setSessionLoad(50);
-        a2.setStartDateLocal(Instant.now());
+        a2.setStartDate(Instant.now());
 
         activityRepository.save(a1);
         activityRepository.save(a2);
@@ -101,12 +101,12 @@ class FitnessScoreServiceTest extends BaseTest {
         a1.setUser(user);
         a1.setType("Run");
         a1.setSessionLoad(100);
-        a1.setStartDateLocal(Instant.now());
+        a1.setStartDate(Instant.now());
 
         a2.setUser(user);
         a2.setType("Ride");
         a2.setSessionLoad(50);
-        a2.setStartDateLocal(Instant.now());
+        a2.setStartDate(Instant.now());
 
         activityRepository.save(a1);
         activityRepository.save(a2);
