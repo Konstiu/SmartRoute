@@ -59,7 +59,7 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
         Instant startInstant = Instant.ofEpochMilli(beginTimestamp);
 
         Optional<Activity> activityOpt =
-                activityRepository.getActivitiesByUserAndStartDateAndExternalId(user, startInstant, activityId);
+                activityRepository.getActivitiesByUserAndStartDateAndExternalId(user, startInstant, String.valueOf(activityId));
 
         assertThat(activityOpt)
                 .as("Garmin activity should have been imported")
@@ -140,7 +140,7 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
         Instant startInstant = Instant.ofEpochMilli(beginTimestamp);
 
         Optional<Activity> activityOpt =
-                activityRepository.getActivitiesByUserAndStartDateAndExternalId(user, startInstant, activityId);
+                activityRepository.getActivitiesByUserAndStartDateAndExternalId(user, startInstant, String.valueOf(activityId));
 
         assertThat(activityOpt)
                 .as("Garmin activity should have been imported")
