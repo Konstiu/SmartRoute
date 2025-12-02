@@ -1,8 +1,5 @@
 <ion-header>
   <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-back-button defaultHref="/"></ion-back-button>
-    </ion-buttons>
     <ion-title>User Data</ion-title>
   </ion-toolbar>
 </ion-header>
@@ -11,7 +8,7 @@
   <form #form="ngForm" (ngSubmit)="onSubmit()">
 
     <ion-item>
-      <ion-label position="floating">Height
+      <ion-label position="floating">Height (in cm)
       @if (userDataControl.controls.height.invalid && (userDataControl.controls.height.touched)) {
         @if (userDataControl.controls.height.hasError("min") || userDataControl.controls.height.hasError("max")) {
           <ion-text color="danger">Height is outside of the valid range (1-300).</ion-text>
@@ -21,7 +18,7 @@
     </ion-item>
 
     <ion-item>
-      <ion-label position="floating">Weight
+      <ion-label position="floating">Weight (in kg)
       @if (userDataControl.controls.weight.invalid && (userDataControl.controls.weight.touched)) {
         @if (userDataControl.controls.weight.hasError("min") || userDataControl.controls.weight.hasError("max")) {
           <ion-text color="danger">Weight is outside of the valid range (0.1-500).</ion-text>
@@ -76,16 +73,26 @@
 
     <ion-button expand="block" type="submit" class="ion-margin-top" [disabled]="userDataControl.invalid || isLoading">
       <ion-icon slot="start" name="save-outline"></ion-icon>
-      <ion-spinner *ngIf="isLoading" name="crescent" slot="start"></ion-spinner>
+      @if(isLoading) {
+        <ion-spinner name="crescent" slot="start"></ion-spinner>
+      }
       Save
     </ion-button>
 
     <ion-toast
-        [isOpen]="errorToastOpen"
+        [isOpen]="sendErrorToastOpen"
         color="danger"
         message="There was an error when sending the user data. Please try again later."
         [duration]="5000"
-        (didDismiss)="setErrorToastOpen(false)"
+        (didDismiss)="setSendErrorToastOpen(false)"
+      ></ion-toast>
+
+    <ion-toast
+        [isOpen]="getErrorToastOpen"
+        color="danger"
+        message="There was an error when retrieving the personal data. Please try again later."
+        [duration]="5000"
+        (didDismiss)="setGetErrorToastOpen(false)"
       ></ion-toast>
   </form>
 </ion-content>
