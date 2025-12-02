@@ -43,4 +43,6 @@ public interface WeatherService {
      *        </ul>
      */
     WeatherImpactDto estimateImpact(int distance, long baseTimeSeconds, WeatherResponse weather, int age);
+
+    double calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters);
 }
