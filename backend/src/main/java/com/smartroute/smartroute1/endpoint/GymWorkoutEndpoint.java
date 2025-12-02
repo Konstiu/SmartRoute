@@ -1,6 +1,7 @@
 package com.smartroute.smartroute1.endpoint;
 
 
+import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.GymWorkout;
 import com.smartroute.smartroute1.entity.enums.BodyPart;
@@ -43,8 +44,8 @@ public class GymWorkoutEndpoint {
             summary = "Get all gym workouts of the authenticated user",
             description = "Returns a list of gym workouts for the currently logged-in user. "
     )
-    public List<GymWorkout> getGymWorkouts() {
-        LOGGER.info("/api/v1/gym");
+    public List<GymWorkoutDto> getGymWorkouts() {
+        LOGGER.info("GET /api/v1/gym");
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
@@ -59,8 +60,8 @@ public class GymWorkoutEndpoint {
             summary = "Create a new gym workout for the authenticated user",
             description = "Returns the new gym workout for the currently logged-in user. "
     )
-    public GymWorkout getGymWorkout() {
-        LOGGER.info("/api/v1/gym/generate");
+    public GymWorkoutDto getGymWorkout() {
+        LOGGER.info("GET /api/v1/gym/generate");
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
