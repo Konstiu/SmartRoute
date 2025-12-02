@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.Base64;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -96,8 +97,11 @@ public class GarminImportServiceImpl implements GarminImportService {
                 result = executePythonScript(email, password, activityCount);
             } else {
                 // for token-based login
-                // Usage: script.py  --token-json '<json>' <activity_count>
-                result = executePythonScript("--token-json", garminAccount.getTokenJson(), activityCount);
+                // Usage: script.py  --token-base64 '<base64>' <activity_count>
+                String base64Token = Base64.getEncoder().encodeToString(
+                        garminAccount.getTokenJson().getBytes(StandardCharsets.UTF_8)
+                );
+                result = executePythonScript("--token-base64", base64Token, activityCount);
             }
 
             // Update tokens in DB (tokens may be refreshed on every run)
@@ -493,7 +497,6 @@ public class GarminImportServiceImpl implements GarminImportService {
 
         String activityType = summary.path("activityType").path("typeKey").asText("");
         activity.setType(mapGarminTypeToActivityType(activityType));
-        activity.setSportType(mapGarminTypeToActivityType(activityType));
 
         // Timestamps
         long startTimestamp = summary.path("beginTimestamp").asLong();
@@ -598,7 +601,6 @@ public class GarminImportServiceImpl implements GarminImportService {
             storedActivity.setMaxHeartrate(activity.getMaxHeartrate());
             storedActivity.setSummaryPolyline(storedActivity.getSummaryPolyline());
             storedActivity.setExternalId(activity.getExternalId());
-            storedActivity.setSportType(activity.getSportType());
             saved = activityRepository.save(storedActivity);
         }
 
