@@ -42,7 +42,7 @@ public class Activity {
 
     private Instant startDate;
 
-    private Long externalId;
+    private String externalId;
 
     private Instant startDateLocal;
 
