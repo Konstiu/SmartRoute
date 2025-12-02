@@ -66,6 +66,10 @@ management:
       export:
         enabled: true
 
+app:
+  baseUrl: "http://localhost:8080"
+  frontendUrl: "http://localhost:8100"
+
 ---
 spring:
   config:
@@ -75,3 +79,6 @@ spring:
     timeout-per-shutdown-phase: 30s
 server:
   shutdown: graceful
+app:
+  baseUrl: "https://25ws-ase-pr-inso-05.apps.student.inso-w.at"
+  frontendUrl: "https://25ws-ase-pr-inso-05.apps.student.inso-w.at"
