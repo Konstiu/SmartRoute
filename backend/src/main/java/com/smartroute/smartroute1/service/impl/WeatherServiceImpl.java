@@ -12,6 +12,7 @@ import com.smartroute.smartroute1.exception.WeatherException;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.WeatherRepository;
 import com.smartroute.smartroute1.service.WeatherService;
+import com.smartroute.smartroute1.util.Coordinate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -194,14 +195,24 @@ public class WeatherServiceImpl implements WeatherService {
     public double computeGlobeTemperature(WeatherResponse weather) {
         final String time = weather.getTime();
         final double temperature = weather.getTemperature2m();
-        final double windSpeed = weather.getWindSpeed10m();
-        final double solarRadiation = weather.getShortWaveRadiation();
-        final double directRadiation = weather.getDirectRadiation() / solarRadiation;
-        final double diffuseRadiation = weather.getDiffuseRadiation() / solarRadiation;
+        double windSpeed = weather.getWindSpeed10m();
+        double solarRadiation = weather.getShortWaveRadiation();
         final double longitude = weather.getLongitude();
         final double latitude = weather.getLatitude();
         final double dewPoint = weather.getDewPoint();
         final double surfacePressure = weather.getSurfacePressure();
+
+        // approximation cannot cope with 0 wind speed or 0 shortwave radiation.
+        if (windSpeed == 0.0) {
+            windSpeed += 0.1;
+        }
+
+        if (solarRadiation == 0.0) {
+            solarRadiation += 0.1;
+        }
+
+        final double directRadiation = weather.getDirectRadiation() / solarRadiation;
+        final double diffuseRadiation = weather.getDiffuseRadiation() / solarRadiation;
 
         double windSpeedMetersPerHour = windSpeed * 1000;
         double zenithAngle = computeSolarZenithAngle(latitude, longitude, time);
@@ -222,8 +233,9 @@ public class WeatherServiceImpl implements WeatherService {
         return term1 * term2 * term3;
     }
 
+    // Computes constant B for the estimated black globe temperature.
     private double computeB(double solarRadiation, double directBeamRadiation, double diffuseBeamRadiation, double zenithAngle, double atmosphericEmissivity, double temperature) {
-        final double Sigma = 5.67 * Math.pow(10, -8); // Stefan-Boltzmann constant
+        final double Sigma = 5.67 * Math.pow(10, -8);
 
         double term1 = solarRadiation * (directBeamRadiation / (4 * Sigma * Math.cos(zenithAngle)) + (1.2 / Sigma) * diffuseBeamRadiation);
 
@@ -232,6 +244,7 @@ public class WeatherServiceImpl implements WeatherService {
         return term1 + term2;
     }
 
+    // Computes constant C for the estimated black globe temperature.
     private double computeC(double windSpeed) {
         final double H = 0.315; // convective coefficient constant
         return (H * Math.pow(windSpeed, 0.58)) / (5.3865 * Math.pow(10, -8));
@@ -468,5 +481,4 @@ public class WeatherServiceImpl implements WeatherService {
 
         return impact *= ageFactor;
     }
-
 }

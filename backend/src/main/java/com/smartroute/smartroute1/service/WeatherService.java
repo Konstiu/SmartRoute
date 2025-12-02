@@ -43,14 +43,4 @@ public interface WeatherService {
      *        </ul>
      */
     WeatherImpactDto estimateImpact(int distance, long baseTimeSeconds, WeatherResponse weather, int age);
-
-
-    /**
-     * Calculates the wbgt.
-     *
-     * @param weather weather data.
-     *
-     * @return wbgt in C°.
-     */
-    double computeWbgt(WeatherResponse weather);
 }
