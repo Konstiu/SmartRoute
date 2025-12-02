@@ -1,0 +1,26 @@
+<ion-card>
+  <ion-card-header>
+    <ion-card-title class="connected-title">
+      Personal Data
+    </ion-card-title>
+  </ion-card-header>
+
+  <ion-card-content>
+    <ion-grid>
+      <ion-list>
+        <ion-item>Sex <span class="spacing"></span> {{ displaySex() }}</ion-item>
+        <ion-item>Height <span class="spacing"></span> {{ userData?.height + "cm" }}</ion-item>
+        <ion-item>Weight <span class="spacing"></span> {{ userData?.weight + "cm" }}</ion-item>
+        <ion-item>Birthdate <span class="spacing"></span> {{ displayBirthdate() }}</ion-item>
+        <ion-item>Experience Level <span class="spacing"></span> {{ displayExperienceLevel() }}</ion-item>
+        <ion-item>Active Weekdays <span class="spacing"></span> {{ displayActiveWeekdays() }}</ion-item>
+      </ion-list>
+    </ion-grid>
+
+    <ion-button style="margin-top: 1em;" (click)="updateUserData()">Change personal data</ion-button>
+  </ion-card-content>
+
+  <ion-toast [isOpen]="errorToastOpen" color="danger"
+    message="There was an error when receiving the user data. Please try again later." [duration]="5000"
+    (didDismiss)="setErrorToastOpen(false)"></ion-toast>
+</ion-card>
