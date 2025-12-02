@@ -1,7 +1,7 @@
 import {Injectable} from "@angular/core";
 import {Capacitor} from "@capacitor/core";
 
-@Injectable({providedIn: "root"})
+@Injectable({ providedIn: "root" })
 export class Globals {
   readonly backendUri: string = this.findBackendUrl();
 
