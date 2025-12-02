@@ -1,6 +1,6 @@
-import {Injectable} from "@angular/core";
+import { Injectable } from "@angular/core";
 
-@Injectable({providedIn: "root"})
+@Injectable({ providedIn: "root" })
 export class Globals {
   readonly backendUri: string = this.findBackendUrl();
 
