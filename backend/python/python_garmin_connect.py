@@ -98,11 +98,15 @@ def main():
     # Support three invocation patterns:
     # 1) Legacy credential mode: script.py <email> <password> <activity_count>
     # 2) Inline token JSON: script.py --token-json '<json>' <activity_count>
+    # 3) Inline base64 encoded token script.py --token-base64 '<base63>' <activity_count>
 
     if len(sys.argv) < 2:
         print(json.dumps({
-                             "error": "Usage: script.py <email> <password> <activity_count> OR --token-json '<json>' <activity_count>"}),
-              file=sys.stderr)
+            "error": "Invalid arguments. Usage:\n\n" +
+                     "  python script.py user@example.com password123 10\n" +
+                     "  python script.py --token-json '{\"token\":\"...\"}' 10\n" +
+                     "  python script.py --token-base64 'base64string' 10"
+        }),              file=sys.stderr)
         sys.exit(1)
 
     tokenstore_temp = None
@@ -134,6 +138,27 @@ def main():
         # Keep inline object in memory; we'll try in-memory injection first and
         # only write temporary token files as a fallback if injection fails.
         inline_obj = obj
+
+    if sys.argv[1] == "--token-base64":
+        if len(sys.argv) < 3:
+            print(json.dumps({"error": "Missing token JSON"}), file=sys.stderr)
+            sys.exit(1)
+        if len(sys.argv) < 4:
+            print(json.dumps({"error": "Missing activity_count"}), file=sys.stderr)
+            sys.exit(1)
+        inline = sys.argv[2]
+        try:
+            inline_obj = base64.b64decode(inline_obj).decode('utf-8')
+            obj = json.loads(inline)
+        except Exception as e:
+            print(json.dumps({"error": f"Invalid token JSON: {e}"}), file=sys.stderr)
+            sys.exit(1)
+        try:
+            target_count = int(sys.argv[3])
+        except Exception:
+            print(json.dumps({"error": "activity_count must be integer"}), file=sys.stderr)
+            sys.exit(1)
+
 
     elif len(sys.argv) == 4 and '@' in sys.argv[1]:
         # legacy credential invocation
