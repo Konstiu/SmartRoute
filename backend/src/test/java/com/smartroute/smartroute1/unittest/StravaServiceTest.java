@@ -65,6 +65,26 @@ class StravaServiceTest extends BaseTest {
         activityDto.setMaxSpeed(6.0f);
         return activityDto;
     }
+    private static StravaActivityDto getTestActivityDto2() {
+        StravaActivityDto activityDto = new StravaActivityDto();
+        activityDto.setStravaId(1L);
+        activityDto.setName("Morning Run");
+
+        activityDto.setDistance(25000.0f);
+        activityDto.setMovingTime(3600);
+        activityDto.setElapsedTime(3700);
+        activityDto.setTotalElevationGain(150.0f);
+
+        activityDto.setType("Run");
+        activityDto.setSportType("Running");
+
+        activityDto.setStartDate("2025-01-01T08:00:01Z");
+        activityDto.setStartDateLocal("2025-01-01T09:00:01+01:00");
+
+        activityDto.setAverageSpeed(3.0f);
+        activityDto.setMaxSpeed(6.0f);
+        return activityDto;
+    }
 
     // Test importStravaActivities
 
@@ -201,7 +221,7 @@ class StravaServiceTest extends BaseTest {
         StravaAccount account = stravaAccountRepository.findByUser(user).orElseThrow();
 
         StravaActivityDto a1 = getTestActivityDto();
-        StravaActivityDto a2 = getTestActivityDto();
+        StravaActivityDto a2 = getTestActivityDto2();
         a2.setStravaId(2L);
         a2.setName("Evening Ride");
 

@@ -26,4 +26,16 @@
 
 
   <app-connect-strava></app-connect-strava>
+
+  <app-connect-garmin></app-connect-garmin>
+
+  <ion-card>
+    <ion-card-content>
+      <ion-button expand="block" color="danger" (click)="presentLogoutConfirm()">
+        <ion-icon slot="start" name="log-out-outline"></ion-icon>
+        Logout
+      </ion-button>
+    </ion-card-content>
+  </ion-card>
+  
 </ion-content>
