@@ -37,4 +37,10 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
 
 
     Activity findByIdAndUser(Long id, ApplicationUser user);
+
+    Optional<Activity> getActivitiesByUserAndStartDate(ApplicationUser user, Instant startDate);
+
+    Optional<Activity> getActivitiesByUserAndStartDateAndExternalId(ApplicationUser user, Instant startDate, String externalId);
+
+    List<Activity> getActivitiesByUser(ApplicationUser user);
 }

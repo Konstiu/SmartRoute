@@ -1,0 +1,91 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/"></ion-back-button>
+    </ion-buttons>
+    <ion-title>User Data</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding" [fullscreen]="true">
+  <form #form="ngForm" (ngSubmit)="onSubmit()">
+
+    <ion-item>
+      <ion-label position="floating">Height
+      @if (userDataControl.controls.height.invalid && (userDataControl.controls.height.touched)) {
+        @if (userDataControl.controls.height.hasError("min") || userDataControl.controls.height.hasError("max")) {
+          <ion-text color="danger">Height is outside of the valid range (1-300).</ion-text>
+        }
+      }</ion-label>
+      <ion-input type="number" [formControl]="userDataControl.controls.height" name="height" required min="1" max="300"></ion-input>
+    </ion-item>
+
+    <ion-item>
+      <ion-label position="floating">Weight
+      @if (userDataControl.controls.weight.invalid && (userDataControl.controls.weight.touched)) {
+        @if (userDataControl.controls.weight.hasError("min") || userDataControl.controls.weight.hasError("max")) {
+          <ion-text color="danger">Weight is outside of the valid range (0.1-500).</ion-text>
+        }
+      }</ion-label>
+      <ion-input type="number" [formControl]="userDataControl.controls.weight" name="weight" required min="0.1" max="500"></ion-input>
+    </ion-item>
+
+    <ion-item>
+      <ion-label position="floating">Birthdate
+      @if (userDataControl.controls.birthdate.invalid && (userDataControl.controls.birthdate.touched)) {
+        @if (userDataControl.controls.birthdate.hasError("past")) {
+          <ion-text color="danger">Date must not be in the future.</ion-text>
+        }
+      }</ion-label>
+
+      <ion-input type="date" [formControl]="userDataControl.controls.birthdate" name="birthdate" required [max]="today" past></ion-input>
+    </ion-item>
+
+    <ion-item>
+      <ion-label interface="action-sheet">Sex</ion-label>
+      <ion-select [formControl]="userDataControl.controls.sex" aria-label="Sex" interface="popover" placeholder="select" required>
+        <ion-select-option value="MALE">Male</ion-select-option>
+        <ion-select-option value="FEMALE">Female</ion-select-option>
+        <ion-select-option value="OTHER">Other</ion-select-option>
+      </ion-select>
+    </ion-item>
+
+    <ion-item>
+      <ion-label interface="action-sheet">Experience Level</ion-label>
+      <ion-select [formControl]="userDataControl.controls.experienceLevel" aria-label="Experience level" interface="popover" placeholder="select" required>
+        <ion-select-option value="BEGINNER">Beginner</ion-select-option>
+        <ion-select-option value="CASUAL">Casual</ion-select-option>
+        <ion-select-option value="INTERMEDIATE">Intermediate</ion-select-option>
+        <ion-select-option value="ADVANCED">Advanced</ion-select-option>
+        <ion-select-option value="COMPETITIVE_ATHLETE">Competitive athlete</ion-select-option>
+      </ion-select>
+    </ion-item>
+
+    <ion-item>
+      <ion-label interface="action-sheet">Active Weekdays</ion-label>
+      <ion-select [formControl]="userDataControl.controls.activeWeekdays" aria-label="Active weekends" interface="popover" placeholder="select" [multiple]="true" required>
+        <ion-select-option value="MONDAY">Monday</ion-select-option>
+        <ion-select-option value="TUESDAY">Tuesday</ion-select-option>
+        <ion-select-option value="WEDNESDAY">Wednesday</ion-select-option>
+        <ion-select-option value="THURSDAY">Thursday</ion-select-option>
+        <ion-select-option value="FRIDAY">Friday</ion-select-option>
+        <ion-select-option value="SATURDAY">Saturday</ion-select-option>
+        <ion-select-option value="SUNDAY">Sunday</ion-select-option>
+      </ion-select>
+    </ion-item>
+
+    <ion-button expand="block" type="submit" class="ion-margin-top" [disabled]="userDataControl.invalid || isLoading">
+      <ion-icon slot="start" name="save-outline"></ion-icon>
+      <ion-spinner *ngIf="isLoading" name="crescent" slot="start"></ion-spinner>
+      Save
+    </ion-button>
+
+    <ion-toast
+        [isOpen]="errorToastOpen"
+        color="danger"
+        message="There was an error when sending the user data. Please try again later."
+        [duration]="5000"
+        (didDismiss)="setErrorToastOpen(false)"
+      ></ion-toast>
+  </form>
+</ion-content>
