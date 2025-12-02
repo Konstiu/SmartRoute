@@ -1,5 +1,8 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.smartroute.smartroute1.endpoint.dto.ExerciseDto;
+import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
+import com.smartroute.smartroute1.endpoint.mapper.ExerciseMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Exercise;
 import com.smartroute.smartroute1.entity.GymWorkout;
@@ -50,13 +53,15 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
     private final ExerciseRepository exerciseRepository;
     private final UserService userService;
     private final GymWorkoutRepository gymWorkoutRepository;
+    private final ExerciseMapper exerciseMapper;
     private final List<Muscle> toTrain;
 
 
-    public GymWorkoutSelectorServiceImpl(ExerciseRepository exerciseRepository, UserService userService, GymWorkoutRepository gymWorkoutRepository) {
+    public GymWorkoutSelectorServiceImpl(ExerciseRepository exerciseRepository, UserService userService, GymWorkoutRepository gymWorkoutRepository, ExerciseMapper exerciseMapper) {
         this.exerciseRepository = exerciseRepository;
         this.userService = userService;
         this.gymWorkoutRepository = gymWorkoutRepository;
+        this.exerciseMapper = exerciseMapper;
         this.toTrain = getTrainingMuscles();
 
 
@@ -76,12 +81,20 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
 
     @Override
     @Transactional(readOnly = true)
-    public GymWorkout getGymWorkout(ApplicationUser user, Map<BodyPart, Double> injuriesMap, Integer readinessScore) {
+    public GymWorkoutDto getGymWorkout(ApplicationUser user, Map<BodyPart, Double> injuriesMap, Integer readinessScore) {
         GymWorkout gymWorkout = getGymWorkout(injuriesMap, readinessScore);
 
         gymWorkout.setUser(user);
 
-        return gymWorkoutRepository.save(gymWorkout);
+        gymWorkout = gymWorkoutRepository.save(gymWorkout);
+
+        GymWorkoutDto gymWorkoutDto = new GymWorkoutDto();
+        gymWorkoutDto.setExercises(exerciseMapper.entityListToDtoList(gymWorkout.getExercises()));
+        gymWorkoutDto.setId(gymWorkout.getId());
+        gymWorkoutDto.setReps(gymWorkout.getReps());
+        gymWorkoutDto.setSets(gymWorkout.getSets());
+
+        return gymWorkoutDto;
 
     }
 
@@ -132,10 +145,23 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
     }
 
     @Override
-    public List<GymWorkout> getAllGymWorkouts(String email) {
+    public List<GymWorkoutDto> getAllGymWorkouts(String email) {
         ApplicationUser user = userService.findApplicationUserByEmail(email);
 
-        return gymWorkoutRepository.findAllByUser(user);
+        List<GymWorkout> gymWorkouts = gymWorkoutRepository.findAllByUser(user);
+
+        List<GymWorkoutDto> gymWorkoutDtos = new ArrayList<>();
+        GymWorkoutDto gymWorkoutDto;
+
+        for (GymWorkout gymWorkout : gymWorkouts) {
+            gymWorkoutDto = new GymWorkoutDto();
+            gymWorkoutDto.setId(gymWorkout.getId());
+            gymWorkoutDto.setExercises(exerciseMapper.entityListToDtoList(gymWorkout.getExercises()));
+            gymWorkoutDto.setReps(gymWorkout.getReps());
+            gymWorkoutDto.setSets(gymWorkout.getSets());
+            gymWorkoutDtos.add(gymWorkoutDto);
+        }
+        return gymWorkoutDtos;
     }
 
     /**

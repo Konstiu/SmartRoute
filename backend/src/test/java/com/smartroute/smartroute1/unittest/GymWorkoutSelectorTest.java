@@ -2,16 +2,14 @@ package com.smartroute.smartroute1.unittest;
 
 
 import com.smartroute.smartroute1.basetest.BaseTest;
+import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
-import com.smartroute.smartroute1.entity.Exercise;
 import com.smartroute.smartroute1.entity.GymWorkout;
 
 import com.smartroute.smartroute1.entity.enums.BodyPart;
 import com.smartroute.smartroute1.entity.enums.Sex;
-import com.smartroute.smartroute1.repository.ExerciseRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
-import com.smartroute.smartroute1.service.UserService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -140,7 +138,7 @@ public class GymWorkoutSelectorTest extends BaseTest {
         gymWorkoutSelectorService.getGymWorkout(user, new HashMap<>(), 100);
 
 
-        List<GymWorkout> result = gymWorkoutSelectorService.getAllGymWorkouts(USEREMAIL);
+        List<GymWorkoutDto> result = gymWorkoutSelectorService.getAllGymWorkouts(USEREMAIL);
 
         assertEquals(2, result.size());
     }

@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.service;
 
+import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.GymWorkout;
 import com.smartroute.smartroute1.entity.enums.BodyPart;
@@ -34,7 +35,7 @@ public interface GymWorkoutSelectorService {
      * @param readinessScore determines how many sets and reps the user should do
      * @return A Gymworkout entity with a list of exercises and sets & reps count
      */
-    GymWorkout getGymWorkout(ApplicationUser user, Map<BodyPart, Double> injuriesMap, Integer readinessScore);
+    GymWorkoutDto getGymWorkout(ApplicationUser user, Map<BodyPart, Double> injuriesMap, Integer readinessScore);
 
     /**
      * Get all gymworkouts for a user specified by their email.
@@ -42,5 +43,5 @@ public interface GymWorkoutSelectorService {
      * @param email the email of the user to search for.
      * @return the list of all gym workouts created for that user.
      */
-    List<GymWorkout> getAllGymWorkouts(String email);
+    List<GymWorkoutDto> getAllGymWorkouts(String email);
 }
