@@ -1,28 +1,26 @@
 import { Component } from '@angular/core';
-import { Router } from '@angular/router';
-import {ConnectStravaComponent} from '../connect-strava/connect-strava.component'
+import { ConnectStravaComponent } from '../connect-strava/connect-strava.component'
 import { AlertController, IonicModule } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ExploreContainerComponentModule } from '../explore-container/explore-container.module';
 import { AuthService } from 'src/services/auth.service';
 import { ConnectGarminComponent } from "../connect-garmin/connect-garmin.component";
-
+import { UserDataDisplayComponent } from '../user-data-display/user-data-display.component';
 
 @Component({
   selector: 'app-account',
   templateUrl: 'account.page.html',
   styleUrls: ['account.page.scss'],
   standalone: true,
-  imports: [ConnectStravaComponent, IonicModule, CommonModule, FormsModule, ExploreContainerComponentModule, ConnectGarminComponent]
+  imports: [ConnectStravaComponent, IonicModule, CommonModule, FormsModule, ExploreContainerComponentModule, ConnectGarminComponent, UserDataDisplayComponent]
 })
 export class AccountPage {
 
   constructor(
     private authService: AuthService,
     private alertController: AlertController,
-    private router: Router
-  ) {}
+  ) { }
 
   async presentLogoutConfirm() {
     const alert = await this.alertController.create({
@@ -46,12 +44,7 @@ export class AccountPage {
     await alert.present();
   }
 
-  editUserData() {
-    this.router.navigate(['/user-data']);
-  }
-
   logout() {
     this.authService.logoutUser();
   }
-
 }
