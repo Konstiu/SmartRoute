@@ -10,6 +10,7 @@ import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import com.smartroute.smartroute1.service.DaySelectorService;
 import com.smartroute.smartroute1.service.FatigueAndOverloadService;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
+import com.smartroute.smartroute1.service.ReadinessScoreService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +24,7 @@ import java.util.Set;
 @AllArgsConstructor
 public class DaySelectorServiceImpl implements DaySelectorService {
     private ActivityRepository activityRepository;
+    private ReadinessScoreService readinessScoreService;
     private ConsistencyAnalyzerService consistencyAnalyzerService;
     private InjuryAwareTrainingService injuryAwareTrainingService;
     private FatigueAndOverloadService fatigueAndOverloadService;
@@ -30,6 +32,9 @@ public class DaySelectorServiceImpl implements DaySelectorService {
     @Override
     public boolean isTrainingDay(LocalDate date, ApplicationUser user) {
         ExperienceLevel experienceLevel = user.getExperienceLevel();
+        if (experienceLevel == null) {
+            experienceLevel = ExperienceLevel.CASUAL;
+        }
 
         Instant from = date.minusDays(7).atStartOfDay(ZoneId.systemDefault()).toInstant();
         Instant to = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
@@ -48,7 +53,7 @@ public class DaySelectorServiceImpl implements DaySelectorService {
                         Math.clamp(plannedWeeklySessions, minWeeklySessions, maxWeeklySessions))
                 .getFinalScore();
 
-        int readinessScore = 0; // TODO readinessScore service
+        int readinessScore = readinessScoreService.calculateReadinessScore(user, date);
         double overloadScore = calculateOverload(fatigueAndOverloadService.tsbOn(user, date));
         double injuryConstraint = calculateInjuryConstraint(injuryAwareTrainingService.findInjuriesByEmail(user.getEmail()));
 
