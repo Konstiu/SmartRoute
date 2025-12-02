@@ -1,11 +1,15 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Exercise;
 import com.smartroute.smartroute1.entity.GymWorkout;
 import com.smartroute.smartroute1.entity.enums.BodyPart;
 import com.smartroute.smartroute1.entity.enums.Muscle;
 import com.smartroute.smartroute1.repository.ExerciseRepository;
+import com.smartroute.smartroute1.repository.GymWorkoutRepository;
+import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
+import com.smartroute.smartroute1.service.UserService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,10 +48,15 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
     );
 
     private final ExerciseRepository exerciseRepository;
+    private final UserService userService;
+    private final GymWorkoutRepository gymWorkoutRepository;
     private final List<Muscle> toTrain;
 
-    public GymWorkoutSelectorServiceImpl(ExerciseRepository exerciseRepository) {
+
+    public GymWorkoutSelectorServiceImpl(ExerciseRepository exerciseRepository, UserService userService, GymWorkoutRepository gymWorkoutRepository) {
         this.exerciseRepository = exerciseRepository;
+        this.userService = userService;
+        this.gymWorkoutRepository = gymWorkoutRepository;
         this.toTrain = getTrainingMuscles();
 
 
@@ -63,6 +72,17 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
         return Arrays.stream(Muscle.values())
                 .filter(m -> m.getBodyPart() == bodyPart)
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GymWorkout getGymWorkout(ApplicationUser user, Map<BodyPart, Double> injuriesMap, Integer readinessScore) {
+        GymWorkout gymWorkout = getGymWorkout(injuriesMap, readinessScore);
+
+        gymWorkout.setUser(user);
+
+        return gymWorkoutRepository.save(gymWorkout);
+
     }
 
     @Override
@@ -109,6 +129,13 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
         gymWorkout.setSets((int) Math.round(sets));
 
         return gymWorkout;
+    }
+
+    @Override
+    public List<GymWorkout> getAllGymWorkouts(String email) {
+        ApplicationUser user = userService.findApplicationUserByEmail(email);
+
+        return gymWorkoutRepository.findAllByUser(user);
     }
 
     /**
