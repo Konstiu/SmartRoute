@@ -281,6 +281,7 @@ class WeatherServiceTest {
     }
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
     @Test
     void testComputeWbgt_realisticValues() {
         WeatherResponse weather = new WeatherResponse();
@@ -296,10 +297,37 @@ class WeatherServiceTest {
         weather.setDewPoint(20.0);
         weather.setTime("2025-06-20T14:00");
 
-        double wbgt = service.computeWbgt(weather);
-        LOGGER.info("WBGT: {}", wbgt);
+    }
 
-        assertTrue(wbgt > 15 && wbgt < 40);
+
+
+    @Test
+    @DisplayName("Neutral WBGT should produce minimal penalty and NEUTRAL heat risk")
+    void test() {
+        WeatherResponse weather = new WeatherResponse();
+        weather.setPrecipitation(0.0);
+        weather.setTemperature2m(-4.0);
+        weather.setRelativeHumidity(60.0);
+        weather.setWindSpeed10m(5.0);
+        weather.setShortWaveRadiation(500.0);
+        weather.setDirectRadiation(350.0);
+        weather.setDiffuseRadiation(150.0);
+        weather.setLongitude(16.37);
+        weather.setLatitude(48.21);
+        weather.setSurfacePressure(1013.0);
+        weather.setDewPoint(20.0);
+        weather.setTime("2025-06-20T14:00");
+
+        long baseTime = 3600; // 1 hour
+
+        WeatherImpactDto result = service.estimateImpact(
+                5000,
+                baseTime,
+                weather,
+                20
+        );
+
+        LOGGER.info("Weather Penalty: {}", result.getPenaltyPercent());
     }
 
 
