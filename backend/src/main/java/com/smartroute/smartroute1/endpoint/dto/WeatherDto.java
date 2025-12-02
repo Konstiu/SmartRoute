@@ -14,4 +14,8 @@ public class WeatherDto {
     private Double precipitation;
     private Double relativeHumidity;
     private Double shortWaveRadiation;
+    private Double directRadiation;
+    private Double diffuseRadiation;
+    private Double surfacePressure;
+    private Double dewPoint;
 }

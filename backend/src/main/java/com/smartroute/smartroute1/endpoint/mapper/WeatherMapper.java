@@ -20,6 +20,10 @@ public interface WeatherMapper {
             entity.setRelativeHumidity(dto.getRelativeHumidity());
             entity.setWindSpeed10m(dto.getWindSpeed10m());
             entity.setShortWaveRadiation(dto.getShortWaveRadiation());
+            entity.setDirectRadiation(dto.getDirectRadiation());
+            entity.setDiffuseRadiation(dto.getDiffuseRadiation());
+            entity.setSurfacePressure(dto.getSurfacePressure());
+            entity.setDewPoint(dto.getDewPoint());
         }
 
         return entity;

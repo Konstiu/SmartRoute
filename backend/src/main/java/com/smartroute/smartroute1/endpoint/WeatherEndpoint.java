@@ -31,21 +31,22 @@ public class WeatherEndpoint {
         List<WeatherDto> weatherResponse = weatherService.getHourlyWeather(lat, lon);
         return ResponseEntity.ok(weatherResponse);
     }
-
-    @Operation(
-            description = "Get the impact the weather data has on a running route.",
-            summary = "Get weather impact.")
-    @PostMapping("/impact")
-    @PermitAll
-    public WeatherImpactDto estimateImpact(@RequestParam("distance") int distance,
-                                           @RequestParam("time") long baseTimeSeconds,
-                                           @RequestParam("temperature") double temperature,
-                                           @RequestParam("relativeHumidity") double relativeHumidity,
-                                           @RequestParam("shortwaveRadiation") double shortwaveRadiation,
-                                           @RequestParam("windSpeed") double windSpeed,
-                                           @RequestParam("precipitation") double precipitation,
-                                           @RequestParam("runnerAge") int age) {
-        return weatherService.estimateImpact(distance, baseTimeSeconds, temperature,
-                relativeHumidity, shortwaveRadiation, windSpeed, precipitation, age);
-    }
 }
+
+//    @Operation(
+//            description = "Get the impact the weather data has on a running route.",
+//            summary = "Get weather impact.")
+//    @PostMapping("/impact")
+//    @PermitAll
+//    public WeatherImpactDto estimateImpact(@RequestParam("distance") int distance,
+//                                           @RequestParam("time") long baseTimeSeconds,
+//                                           @RequestParam("temperature") double temperature,
+//                                           @RequestParam("relativeHumidity") double relativeHumidity,
+//                                           @RequestParam("shortwaveRadiation") double shortwaveRadiation,
+//                                           @RequestParam("windSpeed") double windSpeed,
+//                                           @RequestParam("precipitation") double precipitation,
+//                                           @RequestParam("runnerAge") int age) {
+//        return weatherService.estimateImpact(distance, baseTimeSeconds, temperature,
+//                relativeHumidity, shortwaveRadiation, windSpeed, precipitation, age);
+//    }
+

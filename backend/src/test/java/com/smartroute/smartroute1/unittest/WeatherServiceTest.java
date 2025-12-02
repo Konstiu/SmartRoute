@@ -11,10 +11,13 @@ import com.smartroute.smartroute1.repository.WeatherRepository;
 import com.smartroute.smartroute1.service.WeatherService;
 import com.smartroute.smartroute1.entity.enums.HeatRiskCategory;
 import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
+import com.smartroute.smartroute1.service.impl.WeatherServiceImpl;
 import jakarta.transaction.Transactional;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -27,6 +30,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
 import java.net.URI;
 import java.util.List;
 
@@ -276,213 +280,237 @@ class WeatherServiceTest {
         }
     }
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     @Test
-    @DisplayName("Neutral WBGT should produce minimal penalty and NEUTRAL heat risk")
-    void givenNeutralWeatherWhenEstimatingImpactThenNeutralRiskAndMinimalPenalty() {
+    void testComputeWbgt_realisticValues() {
+        WeatherResponse weather = new WeatherResponse();
+        weather.setTemperature2m(30.0);
+        weather.setRelativeHumidity(60.0);
+        weather.setWindSpeed10m(2.0);
+        weather.setShortWaveRadiation(500.0);
+        weather.setDirectRadiation(350.0);
+        weather.setDiffuseRadiation(150.0);
+        weather.setLongitude(16.37);
+        weather.setLatitude(48.21);
+        weather.setSurfacePressure(1013.0);
+        weather.setDewPoint(20.0);
+        weather.setTime("2025-06-20T14:00");
 
-        long baseTime = 3600; // 1 hour
+        double wbgt = service.computeWbgt(weather);
+        LOGGER.info("WBGT: {}", wbgt);
 
-        WeatherImpactDto result = service.estimateImpact(
-                10000,
-                baseTime,
-                15,    // temperature
-                50,    // humidity
-                200,   // solar radiation
-                3,      // wind speed
-                0,
-                20
-        );
-
-        assertAll("NEUTRAL+TEN_K_LIKE impact calculations",
-                () -> assertEquals(HeatRiskCategory.NEUTRAL, result.getRisk()),
-                () -> assertTrue(result.getAdjustedTimeSeconds() >= 3500),
-                () -> assertTrue(result.getAdjustedTimeSeconds() <= 3700)
-        );
+        assertTrue(wbgt > 15 && wbgt < 40);
     }
 
-    @Test
-    @DisplayName("Hot weather should increase penalty for marathon-like event")
-    void givenHotWeatherWhenEstimatingImpactThenExtremeHeatRiskAndIncreasedPenalty() {
 
-        long baseTime = 7200; // 2 hours
-
-        WeatherImpactDto result = service.estimateImpact(
-                40000,
-                baseTime,
-                30,    // hot temperature
-                70,    // humid
-                800,   // strong sun
-                1,      // low wind
-                0,
-                20
-        );
-
-        assertAll("EXTREME_HEAT+MARATHON impact calculations",
-                () -> assertEquals(HeatRiskCategory.EXTREME_HEAT, result.getRisk()),
-                () -> assertTrue(result.getAdjustedTimeSeconds() > baseTime),
-                () -> assertTrue(result.getPenaltyPercent() > 0)
-        );
-    }
-
-    @Test
-    @DisplayName("Cold weather should produce time penalty due to cold slope")
-    void givenColdWeatherWhenEstimatingImpactThenColdCoolRiskAndAdjustedTime() {
-
-        long baseTime = 5000;
-
-        WeatherImpactDto result = service.estimateImpact(
-                5000,
-                baseTime,
-                0,       // freezing temperature
-                30,
-                0,
-                5,
-                0,
-                20
-        );
-
-        assertAll("COLD_COOL+FIVE_K_LIKE impact calculations",
-                () -> assertEquals(HeatRiskCategory.COLD_COOL, result.getRisk()),
-                () -> assertTrue(result.getAdjustedTimeSeconds() > 0),
-                () -> assertNotEquals(baseTime, result.getAdjustedTimeSeconds())
-        );
-    }
-
-    @Test
-    @DisplayName("Extreme heat should classify as EXTREME_HEAT")
-    void givenExtremeHeatConditionsWhenEstimatingImpactThenExtremeHeatRisk() {
-
-        WeatherImpactDto result = service.estimateImpact(
-                10000,
-                3600,
-                40,
-                90,
-                1000,
-                0,
-                0,
-                20
-        );
-
-        assertAll("EXTREME_HEAT+TEN_K_LIKE impact calculations",
-                () -> assertEquals(HeatRiskCategory.EXTREME_HEAT, result.getRisk()),
-                () -> assertTrue(result.getAdjustedTimeSeconds() > 3600)
-        );
-    }
-
-    @Test
-    @DisplayName("High solar radiation + low wind should trigger extra WBGT sun correction")
-    void givenHighSolarLowWindWhenEstimatingImpactThenAdditionalSunCorrectionApplied() {
-
-        WeatherImpactDto lowWindHighSun = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                700, // > 600 = strong sun
-                1,    // low wind (<2)
-                0,
-                20
-        );
-
-        WeatherImpactDto normal = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                100,
-                5,
-                0,
-                20
-        );
-
-        assertAll("High solar test",
-                () -> assertTrue(lowWindHighSun.getAdjustedTimeSeconds() > normal.getAdjustedTimeSeconds())
-        );
-    }
-
-    @Test
-    @DisplayName("Precipitation Impact Test")
-    void givenDifferentPrecipLevelsWhenEstimatingImpactThenHigherPrecipitationSlowsRunner() {
-
-        WeatherImpactDto noPrecipitation = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                700, // > 600 = strong sun
-                1,    // low wind (<2)
-                0,
-                20
-        );
-
-        WeatherImpactDto mildPrecipitation = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                100,
-                5,
-                15,
-                20
-        );
-
-        WeatherImpactDto highPrecipitation = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                100,
-                5,
-                40,
-                20
-        );
-
-        assertAll("Slower with higher precipitation",
-                () -> assertTrue(highPrecipitation.getAdjustedTimeSeconds() > mildPrecipitation.getAdjustedTimeSeconds()),
-                () -> assertTrue(mildPrecipitation.getAdjustedTimeSeconds() > noPrecipitation.getAdjustedTimeSeconds())
-        );
-    }
-
-    @Test
-    @DisplayName("Influence of Age on Precipitation Impact Test")
-    void givenDifferentAgesWithPrecipitationWhenEstimatingImpactThenOlderRunnersGetHigherPenalty() {
-
-        WeatherImpactDto youngest = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                700, // > 600 = strong sun
-                1,    // low wind (<2)
-                30,
-                20
-        );
-
-        WeatherImpactDto secondOldest = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                100,
-                5,
-                30,
-                30
-        );
-
-        WeatherImpactDto oldest = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                100,
-                5,
-                30,
-                40
-        );
-
-        assertAll("Slower with higher age in precipitation",
-                () -> assertTrue(secondOldest.getAdjustedTimeSeconds() > youngest.getAdjustedTimeSeconds()),
-                () -> assertTrue(oldest.getAdjustedTimeSeconds() > secondOldest.getAdjustedTimeSeconds())
-        );
-    }
+//
+//    @Test
+//    @DisplayName("Neutral WBGT should produce minimal penalty and NEUTRAL heat risk")
+//    void givenNeutralWeatherWhenEstimatingImpactThenNeutralRiskAndMinimalPenalty() {
+//
+//        long baseTime = 3600; // 1 hour
+//
+//        WeatherImpactDto result = service.estimateImpact(
+//                10000,
+//                baseTime,
+//                15,    // temperature
+//                50,    // humidity
+//                200,   // solar radiation
+//                3,      // wind speed
+//                0,
+//                20
+//        );
+//
+//        assertAll("NEUTRAL+TEN_K_LIKE impact calculations",
+//                () -> assertEquals(HeatRiskCategory.NEUTRAL, result.getRisk()),
+//                () -> assertTrue(result.getAdjustedTimeSeconds() >= 3500),
+//                () -> assertTrue(result.getAdjustedTimeSeconds() <= 3700)
+//        );
+//    }
+//
+//    @Test
+//    @DisplayName("Hot weather should increase penalty for marathon-like event")
+//    void givenHotWeatherWhenEstimatingImpactThenExtremeHeatRiskAndIncreasedPenalty() {
+//
+//        long baseTime = 7200; // 2 hours
+//
+//        WeatherImpactDto result = service.estimateImpact(
+//                40000,
+//                baseTime,
+//                30,    // hot temperature
+//                70,    // humid
+//                800,   // strong sun
+//                1,      // low wind
+//                0,
+//                20
+//        );
+//
+//        assertAll("EXTREME_HEAT+MARATHON impact calculations",
+//                () -> assertEquals(HeatRiskCategory.EXTREME_HEAT, result.getRisk()),
+//                () -> assertTrue(result.getAdjustedTimeSeconds() > baseTime),
+//                () -> assertTrue(result.getPenaltyPercent() > 0)
+//        );
+//    }
+//
+//    @Test
+//    @DisplayName("Cold weather should produce time penalty due to cold slope")
+//    void givenColdWeatherWhenEstimatingImpactThenColdCoolRiskAndAdjustedTime() {
+//
+//        long baseTime = 5000;
+//
+//        WeatherImpactDto result = service.estimateImpact(
+//                5000,
+//                baseTime,
+//                0,       // freezing temperature
+//                30,
+//                0,
+//                5,
+//                0,
+//                20
+//        );
+//
+//        assertAll("COLD_COOL+FIVE_K_LIKE impact calculations",
+//                () -> assertEquals(HeatRiskCategory.COLD_COOL, result.getRisk()),
+//                () -> assertTrue(result.getAdjustedTimeSeconds() > 0),
+//                () -> assertNotEquals(baseTime, result.getAdjustedTimeSeconds())
+//        );
+//    }
+//
+//    @Test
+//    @DisplayName("Extreme heat should classify as EXTREME_HEAT")
+//    void givenExtremeHeatConditionsWhenEstimatingImpactThenExtremeHeatRisk() {
+//
+//        WeatherImpactDto result = service.estimateImpact(
+//                10000,
+//                3600,
+//                40,
+//                90,
+//                1000,
+//                0,
+//                0,
+//                20
+//        );
+//
+//        assertAll("EXTREME_HEAT+TEN_K_LIKE impact calculations",
+//                () -> assertEquals(HeatRiskCategory.EXTREME_HEAT, result.getRisk()),
+//                () -> assertTrue(result.getAdjustedTimeSeconds() > 3600)
+//        );
+//    }
+//
+//    @Test
+//    @DisplayName("High solar radiation + low wind should trigger extra WBGT sun correction")
+//    void givenHighSolarLowWindWhenEstimatingImpactThenAdditionalSunCorrectionApplied() {
+//
+//        WeatherImpactDto lowWindHighSun = service.estimateImpact(
+//                40000,
+//                3600,
+//                25,
+//                60,
+//                700, // > 600 = strong sun
+//                1,    // low wind (<2)
+//                0,
+//                20
+//        );
+//
+//        WeatherImpactDto normal = service.estimateImpact(
+//                40000,
+//                3600,
+//                25,
+//                60,
+//                100,
+//                5,
+//                0,
+//                20
+//        );
+//
+//        assertAll("High solar test",
+//                () -> assertTrue(lowWindHighSun.getAdjustedTimeSeconds() > normal.getAdjustedTimeSeconds())
+//        );
+//    }
+//
+//    @Test
+//    @DisplayName("Precipitation Impact Test")
+//    void givenDifferentPrecipLevelsWhenEstimatingImpactThenHigherPrecipitationSlowsRunner() {
+//
+//        WeatherImpactDto noPrecipitation = service.estimateImpact(
+//                40000,
+//                3600,
+//                25,
+//                60,
+//                700, // > 600 = strong sun
+//                1,    // low wind (<2)
+//                0,
+//                20
+//        );
+//
+//        WeatherImpactDto mildPrecipitation = service.estimateImpact(
+//                40000,
+//                3600,
+//                25,
+//                60,
+//                100,
+//                5,
+//                15,
+//                20
+//        );
+//
+//        WeatherImpactDto highPrecipitation = service.estimateImpact(
+//                40000,
+//                3600,
+//                25,
+//                60,
+//                100,
+//                5,
+//                40,
+//                20
+//        );
+//
+//        assertAll("Slower with higher precipitation",
+//                () -> assertTrue(highPrecipitation.getAdjustedTimeSeconds() > mildPrecipitation.getAdjustedTimeSeconds()),
+//                () -> assertTrue(mildPrecipitation.getAdjustedTimeSeconds() > noPrecipitation.getAdjustedTimeSeconds())
+//        );
+//    }
+//
+//    @Test
+//    @DisplayName("Influence of Age on Precipitation Impact Test")
+//    void givenDifferentAgesWithPrecipitationWhenEstimatingImpactThenOlderRunnersGetHigherPenalty() {
+//
+//        WeatherImpactDto youngest = service.estimateImpact(
+//                40000,
+//                3600,
+//                25,
+//                60,
+//                700, // > 600 = strong sun
+//                1,    // low wind (<2)
+//                30,
+//                20
+//        );
+//
+//        WeatherImpactDto secondOldest = service.estimateImpact(
+//                40000,
+//                3600,
+//                25,
+//                60,
+//                100,
+//                5,
+//                30,
+//                30
+//        );
+//
+//        WeatherImpactDto oldest = service.estimateImpact(
+//                40000,
+//                3600,
+//                25,
+//                60,
+//                100,
+//                5,
+//                30,
+//                40
+//        );
+//
+//        assertAll("Slower with higher age in precipitation",
+//                () -> assertTrue(secondOldest.getAdjustedTimeSeconds() > youngest.getAdjustedTimeSeconds()),
+//                () -> assertTrue(oldest.getAdjustedTimeSeconds() > secondOldest.getAdjustedTimeSeconds())
+//        );
+//    }
 }

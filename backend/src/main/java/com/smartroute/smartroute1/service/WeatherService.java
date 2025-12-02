@@ -2,6 +2,7 @@ package com.smartroute.smartroute1.service;
 
 import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
 import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
+import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.WeatherException;
 import com.smartroute.smartroute1.exception.ValidationException;
 
@@ -29,15 +30,7 @@ public interface WeatherService {
      *
      * @param baseTimeSeconds The runner's baseline expected time for the event, in seconds, under optimal conditions.
      *
-     * @param temperature Temperature in degrees Celsius.
-     *
-     * @param relativeHumidity Relative humidity as a percentage (0–100).
-     *
-     * @param shortwaveRadiation Solar radiation in W/m².
-     *
-     * @param windSpeed Wind speed in m/s.
-     *
-     * @param precipitation rain, showers, snow in mm
+     * @param weather Weather Data.
      *
      * @param age Runners age
      *
@@ -49,14 +42,15 @@ public interface WeatherService {
      *            <li>A heat-risk category based on WBGT</li>
      *        </ul>
      */
-    WeatherImpactDto estimateImpact(
-            int distance,
-            long baseTimeSeconds,
-            double temperature,
-            double relativeHumidity,
-            double shortwaveRadiation,
-            double windSpeed,
-            double precipitation,
-            int age
-    );
+    WeatherImpactDto estimateImpact(int distance, long baseTimeSeconds, WeatherResponse weather, int age);
+
+
+    /**
+     * Calculates the wbgt.
+     *
+     * @param weather weather data.
+     *
+     * @return wbgt in C°.
+     */
+    double computeWbgt(WeatherResponse weather);
 }
