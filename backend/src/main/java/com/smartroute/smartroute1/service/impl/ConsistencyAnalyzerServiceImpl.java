@@ -3,8 +3,10 @@ package com.smartroute.smartroute1.service.impl;
 import com.smartroute.smartroute1.endpoint.dto.ConsistencyScoreResultDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.ConsistencyScore;
 import com.smartroute.smartroute1.exception.CannotCalculateConsistencyScoreException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
+import com.smartroute.smartroute1.repository.ConsistencyRepository;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,13 +25,15 @@ public class ConsistencyAnalyzerServiceImpl implements ConsistencyAnalyzerServic
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final ActivityRepository activityRepository;
+    private final ConsistencyRepository consistencyRepository;
     private final double alphaF = 0.4;
     private final double betaR = 0.4;
     private final double weightF = 0.5;
     private final double weightR = 0.5;
 
-    public ConsistencyAnalyzerServiceImpl(ActivityRepository activityRepository) {
+    public ConsistencyAnalyzerServiceImpl(ActivityRepository activityRepository, ConsistencyRepository consistencyRepository) {
         this.activityRepository = activityRepository;
+        this.consistencyRepository = consistencyRepository;
     }
 
     @Override
@@ -84,7 +88,10 @@ public class ConsistencyAnalyzerServiceImpl implements ConsistencyAnalyzerServic
 
         double score = weightF * frequencyConsistency + weightR * sessionRegularity;
         score = Math.max(0, Math.min(1, score));
-        LOGGER.debug("Computed Score for User {}: {}", user, score);
-        return new ConsistencyScoreResultDto(score, frequencyConsistency, sessionRegularity);
+        ConsistencyScoreResultDto result = new ConsistencyScoreResultDto(score, frequencyConsistency, sessionRegularity);
+
+        consistencyRepository.save(new ConsistencyScore(user, result));
+        LOGGER.debug("Computed and Saved Score for User {}: {}", user, score);
+        return result;
     }
 }
