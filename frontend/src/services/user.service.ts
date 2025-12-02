@@ -19,6 +19,23 @@ export class UserService {
   }
 
   /**
+   * Retrieve the authenticated user's personal data from the backend.
+   *
+   * Performs an HTTP GET to `${this.userUri}/personal-data` and returns an Observable that emits the user's details.
+   * Emits a single UserDetailDto on success and then completes.
+   *
+   * @returns {Observable<UserDetailDto>} An observable that yields the user's personal data.
+   * @example
+   * this.userService.getUserData().subscribe({
+   *   next: data => console.log('User data', data),
+   *   error: err => console.error('Failed to load user data', err)
+   * });
+   */
+  getUserData(): Observable<UserDetailDto> {
+    return this.httpClient.get<UserDetailDto>(this.userUri + "/personal-data");
+  }
+
+  /**
    * Create a new User
    * Endpoint: POST /api/v1/user/
    * Body: {
