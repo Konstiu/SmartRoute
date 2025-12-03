@@ -40,7 +40,7 @@ import java.util.List;
 public class ViewActivitiesEndpoint {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private final  StravaActivityMapper activityMapper;
+    private final StravaActivityMapper activityMapper;
     private final ActivityProcessingService activityProcessingService;
     private final ActivityService activityService;
 
@@ -83,7 +83,15 @@ public class ViewActivitiesEndpoint {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Secured("ROLE_USER")
     @Operation(
-
+            summary = "Synchronize activities from connected services",
+            description = """
+                    Triggers a synchronization with all connected activity providers (Strava, Garmin).
+                    The backend fetches the latest <count> activities from each platform and merges
+                    them into the database.
+                    
+                    This endpoint does not return data — it only initiates a sync process.
+                    Use GET /api/v1/activities to fetch updated activities afterwards.
+                    """
     )
     public void synchronize(@RequestBody Integer count) {
         LOGGER.info("POST /api/v1/activities/sync/");
