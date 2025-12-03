@@ -299,6 +299,10 @@ public class WeatherServiceImpl implements WeatherService {
 
     // Calculates wind chill, a measurement of perceived coldness. Source: https://www.canada.ca/en/environment-climate-change/services/weather-health/wind-chill-cold-weather/wind-chill-index.html
     private double calculateWindChill(double temperature, double windSpeed) {
+        // formula is only valid for wind speeds above 5km/h. If it is below, simply return ambient temperature.
+        if (windSpeed < 5.0) {
+            return temperature;
+        }
         return 13.12 + 0.6215 * temperature + (0.3965 * temperature - 11.37) * Math.pow(windSpeed, 0.16);
     }
 
@@ -385,6 +389,7 @@ public class WeatherServiceImpl implements WeatherService {
         return new WeatherImpactDto(performancePenalty, weatherScore, riskClassification);
     }
 
+    // Estimates the speed penalty from different weather factors.
     private double estimatePerformancePenalty(int distance, WeatherResponse weather, int age) {
         RunEventType eventType = mapDistanceToEvent(distance);
         double optimalWbgt = optimalWbgt(eventType);
