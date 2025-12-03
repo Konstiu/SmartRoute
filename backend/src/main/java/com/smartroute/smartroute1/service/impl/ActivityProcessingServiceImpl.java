@@ -21,6 +21,8 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -168,5 +170,13 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Strava activity not found");
         }
         return act;
+    }
+
+    @Override
+    public Optional<Activity> getLastActivityBeforeDate(String email, LocalDate date) {
+        LOGGER.trace("Get last Strava activity before date {} for user with mail: {}", date, email);
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        Instant instant = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        return activityRepository.findTopByUserAndStartDateBeforeOrderByStartDateDesc(user, instant);
     }
 }
