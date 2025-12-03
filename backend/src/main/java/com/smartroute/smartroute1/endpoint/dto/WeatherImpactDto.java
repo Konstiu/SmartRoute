@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class WeatherImpactDto {
     private double penaltyPercent;
-    private long adjustedTimeSeconds;
-    private HeatRiskCategory risk;
+    private double weatherScore;
+    private HeatRiskCategory riskCategory;
 }

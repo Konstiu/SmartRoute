@@ -88,6 +88,11 @@ class WeatherServiceTest {
         ArrayNode wind = hourly.putArray("wind_speed_10m");
         ArrayNode hum = hourly.putArray("relative_humidity_2m");
         ArrayNode rad = hourly.putArray("shortwave_radiation");
+        ArrayNode dewPoint = hourly.putArray("dew_point_2m");
+        ArrayNode surfacePressure = hourly.putArray("surface_pressure");
+        ArrayNode directRadiation = hourly.putArray("direct_radiation");
+        ArrayNode diffuseRadiation = hourly.putArray("diffuse_radiation");
+        ArrayNode snowDepth = hourly.putArray("snow_depth");
 
         for (WeatherDto dto : dtos) {
             t.add(dto.getTime());
@@ -96,6 +101,11 @@ class WeatherServiceTest {
             wind.add(dto.getWindSpeed10m());
             hum.add(dto.getRelativeHumidity());
             rad.add(dto.getShortWaveRadiation());
+            dewPoint.add(dto.getDewPoint());
+            surfacePressure.add(dto.getSurfacePressure());
+            directRadiation.add(dto.getDirectRadiation());
+            diffuseRadiation.add(dto.getDiffuseRadiation());
+            snowDepth.add(dto.getSnowDepth());
         }
 
         return mapper.writeValueAsString(root);
@@ -303,8 +313,8 @@ class WeatherServiceTest {
     @DisplayName("Neutral WBGT should produce minimal penalty and NEUTRAL heat risk")
     void test() {
         WeatherResponse weather = new WeatherResponse();
-        weather.setPrecipitation(20.0);
-        weather.setTemperature2m(20.0);
+        weather.setPrecipitation(0.0);
+        weather.setTemperature2m(25.0);
         weather.setRelativeHumidity(60.0);
         weather.setWindSpeed10m(5.0);
         weather.setShortWaveRadiation(500.0);
@@ -317,17 +327,9 @@ class WeatherServiceTest {
         weather.setSnowDepth(0.0);
         weather.setTime("2025-06-20T14:00");
 
-        long baseTime = 3600; // 1 hour
+        WeatherImpactDto result = service.calculateWeatherScore(weather, 20, 50000);
 
-        WeatherImpactDto result = service.estimateImpact(
-                5000,
-                baseTime,
-                weather,
-                20
-        );
-
-        LOGGER.info("Weather Penalty: {}", result.getPenaltyPercent());
-        LOGGER.info("Weather Score: {}", service.calculateWeatherScore(weather, 20, 5000));
+        LOGGER.info("Weather Penalty, Weather Score, RISK: {}, {}, {}", result.getPenaltyPercent(), result.getWeatherScore(), result.getRiskCategory());
     }
 
 

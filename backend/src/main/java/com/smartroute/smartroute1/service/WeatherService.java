@@ -26,23 +26,20 @@ public interface WeatherService {
     /**
      * Estimates the performance impact of weather conditions on a running event.
      *
-     * @param distance The distance of the running event in meters.
-     *
-     * @param baseTimeSeconds The runner's baseline expected time for the event, in seconds, under optimal conditions.
      *
      * @param weather Weather Data.
      *
      * @param age Runners age
      *
+     * @param distanceMeters The distance of the running event in meters.
+     *
      * @return
      *        A {@link WeatherImpactDto} containing:
      *        <ul>
-     *            <li>The estimated percentage performance penalty (positive or negative)</li>
-     *            <li>The adjusted predicted finish time in seconds</li>
-     *            <li>A heat-risk category based on WBGT</li>
+     *            <li>The estimated percentage performance penalty</li>
+     *            <li>The weather score</li>
+     *            <li>A heat-risk category based on WBGT or windchill</li>
      *        </ul>
      */
-    WeatherImpactDto estimateImpact(int distance, long baseTimeSeconds, WeatherResponse weather, int age);
-
-    double calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters);
+    WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters);
 }
