@@ -4,15 +4,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
+import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.endpoint.mapper.WeatherMapper;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.HeatRiskCategory;
-import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.exception.WeatherException;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.WeatherRepository;
 import com.smartroute.smartroute1.service.WeatherService;
-import com.smartroute.smartroute1.util.Coordinate;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -326,7 +325,7 @@ public class WeatherServiceImpl implements WeatherService {
         return HeatRiskCategory.NEUTRAL;
     }
 
-    public double calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters) {
+    public WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters) {
         RunEventType type = mapDistanceToEvent(distanceMeters);
         double wbgt = computeWbgt(weather);
         double optimal = optimalWbgt(type);
@@ -334,55 +333,59 @@ public class WeatherServiceImpl implements WeatherService {
         double delta = wbgt - optimal;
         double heatSlope = heatSlope(type);
         double coldSlope = coldSlope(type);
+        HeatRiskCategory riskClassification;
 
         double wbgtPenalty = delta > 0 ? delta * heatSlope : -delta * coldSlope;
-        wbgtPenalty = clamp(wbgtPenalty, 0, 40);
-
-        double windChill = calculateWindChill(weather.getTemperature2m(), weather.getWindSpeed10m());
-        HeatRiskCategory cold = classifyColdRisk(windChill);
-
-        double coldPenalty = switch (cold) {
-            case EXTREME_COLD -> 100;
-            case SEVERE_COLD -> 100;
-            case VERY_HIGH_COLD_RISK -> 80;
-            case HIGH_COLD_RISK -> 60;
-            case MODERATE_COLD -> 40;
-            case LOW_COLD -> 20;
-            default -> 0;
-        };
+        double modifier = complexityModifier(weather);
+        double weightedWbgtPenalty = wbgtPenalty * modifier;
+        weightedWbgtPenalty = clamp(weightedWbgtPenalty, 0, 40);
 
         HeatRiskCategory heat = classifyHeatRisk(wbgt);
-        double heatPenalty = switch (heat) {
+        riskClassification = heat;
+        double temperatureRiskPenalty = switch (heat) {
             case LOW_HEAT -> 25;
             case MODERATE_HEAT -> 50;
             case HIGH_HEAT -> 75;
-            case EXTREME_HEAT -> 100;
+            case EXTREME_HEAT -> 100; // severe risk, outdoor activity should be prohibited.
             default -> 0;
         };
 
+        // if wbgt indicates lower than optimal temperature, estimate temperature risk using wind chill.
+        if (heat == HeatRiskCategory.LOW_COLD) {
+            double windChill = calculateWindChill(weather.getTemperature2m(), weather.getWindSpeed10m());
+            HeatRiskCategory cold = classifyColdRisk(windChill);
+            riskClassification = cold;
+
+            temperatureRiskPenalty = switch (cold) {
+                case EXTREME_COLD -> 100;  // severe risk, outdoor activity should be prohibited.
+                case SEVERE_COLD -> 100;  // severe risk, outdoor activity should be prohibited.
+                case VERY_HIGH_COLD_RISK -> 80;
+                case HIGH_COLD_RISK -> 60;
+                case MODERATE_COLD -> 40;
+                case LOW_COLD -> 20;
+                default -> 0;
+            };
+        }
 
         double rainPenalty = clamp(calculatePrecipitationImpact(weather.getPrecipitation(), age), 0, 25);
 
         double snowPenalty = clamp(snowDepthImpact(weather.getSnowDepth()), 0, 40);
 
-        double complexityPenalty = Math.max((complexityModifier(weather) - 1.0) * 50, 0);
-
         double totalPenalty =
                 1
-                        - (1 - wbgtPenalty / 100.0)
-                        * (1 - coldPenalty / 100.0)
-                        * (1 - heatPenalty / 100.0)
+                        - (1 - weightedWbgtPenalty / 100.0)
+                        * (1 - temperatureRiskPenalty / 100.0)
                         * (1 - rainPenalty / 100.0)
-                        * (1 - snowPenalty / 100.0)
-                        * (1 - complexityPenalty / 100.0);
+                        * (1 - snowPenalty / 100.0);
 
         double score = 1.0 - totalPenalty;
+        double weatherScore = clamp(score, 0.0, 1.0);
+        double performancePenalty = estimatePerformancePenalty(distanceMeters, weather, age) / 100;
 
-        return clamp(score, 0.0, 1.0);
+        return new WeatherImpactDto(performancePenalty, weatherScore, riskClassification);
     }
 
-
-    public WeatherImpactDto estimateImpact(int distance, long baseTimeSeconds, WeatherResponse weather, int age) {
+    private double estimatePerformancePenalty(int distance, WeatherResponse weather, int age) {
         RunEventType eventType = mapDistanceToEvent(distance);
         double optimalWbgt = optimalWbgt(eventType);
         double heatSlope = heatSlope(eventType);
@@ -401,16 +404,12 @@ public class WeatherServiceImpl implements WeatherService {
         double modifier = complexityModifier(weather);
         double penaltyPercent = penaltyBase * modifier;
 
-        double factor = 1.0 + penaltyPercent / 100.0;
-        long adjustedTime = (long) Math.round(baseTimeSeconds * factor);
+        double totalPenalty = calculatePrecipitationImpact(precipitation, age)
+                + snowDepthImpact(weather.getSnowDepth())
+                + penaltyPercent;
 
-        double precipitationPenaltyPercent = calculatePrecipitationImpact(precipitation, age);
-        long rainAdjustedTime = (long) (adjustedTime + (adjustedTime * (precipitationPenaltyPercent / 100)));
-
-        HeatRiskCategory risk = classifyHeatRisk(wbgt);
-
-        LOGGER.trace("Penalty: {} Adjusted Time: {}", (penaltyPercent + precipitationPenaltyPercent), rainAdjustedTime);
-        return new WeatherImpactDto((penaltyPercent + precipitationPenaltyPercent), rainAdjustedTime, risk);
+        LOGGER.trace("Penalty: {}", totalPenalty);
+        return totalPenalty;
     }
 
     private enum RunEventType {
@@ -457,7 +456,10 @@ public class WeatherServiceImpl implements WeatherService {
 
     // Classification of the heat risk: https://www.weather.gov/arx/wbgt
     private HeatRiskCategory classifyHeatRisk(double wbgt) {
-        if (wbgt < 18.3) {
+        if (wbgt < 10.0) {
+            return HeatRiskCategory.LOW_COLD;
+        }
+        if (wbgt >= 10.0 && wbgt < 18.3) {
             return HeatRiskCategory.NEUTRAL;
         }
         if (wbgt >= 18.3 && wbgt <= 22.2) {
