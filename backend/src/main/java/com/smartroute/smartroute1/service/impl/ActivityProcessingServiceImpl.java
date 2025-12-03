@@ -35,8 +35,9 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
     private final TaskScheduler taskScheduler;
     private final UserRepository userRepository;
 
+    @Override
     public void fetchHeartRateDataForActivities(int maxBatchSize, List<Activity> activities, String token) {
-        LOGGER.trace("fetchHeartRateDataForActivitiesAsync({},{},*token*)", maxBatchSize, activities);
+        LOGGER.trace("fetchHeartRateDataForActivities({},{},*token*)", maxBatchSize, activities);
 
         // Lists of activities with and without sufferScore are separated to immediately calculate fitnessScore for
         // all activities with the necessary data available.
@@ -56,7 +57,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 .sorted((a, b) -> b.getStartDate().compareTo(a.getStartDate()))
                 .toList();
 
-        LOGGER.info("Async calculate sessionLoad for {} activities", activitiesMissingSessionLoad.size());
+        LOGGER.info("Calculate sessionLoad for {} activities", activitiesMissingSessionLoad.size());
         try {
             for (int i = 0; i < activitiesMissingSessionLoad.size(); i += maxBatchSize) {
                 int batchNumber = i / maxBatchSize;
@@ -149,7 +150,6 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 .collectList()
                 .block();
     }
-
 
     @Override
     public List<Activity> getActivities(String email) {
