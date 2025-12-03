@@ -148,7 +148,8 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
     public List<GymWorkoutDto> getAllGymWorkouts(String email) {
         ApplicationUser user = userService.findApplicationUserByEmail(email);
 
-        List<GymWorkout> gymWorkouts = gymWorkoutRepository.findAllByUser(user);
+        List<GymWorkout> gymWorkouts = gymWorkoutRepository.findAllByUserOrderByIdDesc(user);
+
 
         List<GymWorkoutDto> gymWorkoutDtos = new ArrayList<>();
         GymWorkoutDto gymWorkoutDto;
