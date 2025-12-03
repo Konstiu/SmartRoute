@@ -30,7 +30,12 @@ public class WeatherValidator {
                 || !hourly.has("precipitation")
                 || !hourly.has("wind_speed_10m")
                 || !hourly.has("relative_humidity_2m")
-                || !hourly.has("shortwave_radiation")) {
+                || !hourly.has("shortwave_radiation")
+                || !hourly.has("dew_point_2m")
+                || !hourly.has("surface_pressure")
+                || !hourly.has("direct_radiation")
+                || !hourly.has("diffuse_radiation")
+                || !hourly.has("snow_depth")) {
 
             errors.add("Weather API response is missing required hourly fields");
             throw new ValidationException("Errors while verifying weather data:", errors);
