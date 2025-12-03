@@ -43,5 +43,5 @@ public interface WeatherService {
      *            <li>Classification of wind speed</li>
      *        </ul>
      */
-    WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters);
+    WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters) throws ValidationException;
 }

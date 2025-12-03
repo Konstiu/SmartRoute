@@ -184,7 +184,7 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     // Compute the wet bulb globe-temperature.
-    public double computeWbgt(WeatherResponse weather) {
+    private double computeWbgt(WeatherResponse weather) {
         final double temperature = weather.getTemperature2m();
         final double relativeHumidity = weather.getRelativeHumidity();
 
@@ -371,7 +371,10 @@ public class WeatherServiceImpl implements WeatherService {
         return WindIntensity.GALE_AND_BEYOND;
     }
 
-    public WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters) {
+    public WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters) throws ValidationException {
+        validator.validateWeatherValues(weather);
+        validator.validateAgeAndDistance(age, distanceMeters);
+
         RunEventType type = mapDistanceToEvent(distanceMeters);
         double wbgt = computeWbgt(weather);
         double optimal = optimalWbgt(type);
