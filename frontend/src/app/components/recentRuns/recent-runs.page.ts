@@ -2,7 +2,7 @@ import {Component, OnInit} from '@angular/core';
 import {IonicModule} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../services/activities.service';
-import {StravaActivity} from '../../dtos/StravaActivity';
+import {Activity} from '../../dtos/Activity';
 import {Router} from "@angular/router";
 
 @Component({
@@ -13,7 +13,7 @@ import {Router} from "@angular/router";
   imports: [IonicModule, CommonModule]
 })
 export class RecentRunsPage implements OnInit {
-  activities: StravaActivity[] = [];
+  activities: Activity[] = [];
   isLoading = false;
   error: string | null = null;
 
@@ -118,7 +118,7 @@ export class RecentRunsPage implements OnInit {
     return icons[sportType] || icons['default'];
   }
 
-  openActivity(activity: StravaActivity) {
+  openActivity(activity: Activity) {
     this.router.navigate(['/activity/', activity.id]);
   }
 
