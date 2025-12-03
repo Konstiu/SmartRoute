@@ -311,7 +311,7 @@ class WeatherServiceTest {
 
     @Test
     @DisplayName("Neutral WBGT should produce minimal penalty and NEUTRAL heat risk")
-    void test() {
+    void test() throws ValidationException {
         WeatherResponse weather = new WeatherResponse();
         weather.setPrecipitation(0.0);
         weather.setTemperature2m(0.0);
@@ -323,7 +323,7 @@ class WeatherServiceTest {
         weather.setLongitude(16.37);
         weather.setLatitude(48.21);
         weather.setSurfacePressure(1013.0);
-        weather.setDewPoint(20.0);
+        weather.setDewPoint(0.0);
         weather.setSnowDepth(0.0);
         weather.setTime("2025-06-20T14:00");
 
