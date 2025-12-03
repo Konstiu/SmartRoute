@@ -1,136 +1,127 @@
-.injuries-container {
-  max-width: 800px;
-  margin: 0 auto;
-}
+.form-section {
+  margin-bottom: 1.25rem;
 
-.loading-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
-
-  ion-spinner {
-    margin-bottom: 16px;
+  .section-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    margin: 0 0 0.75rem 0;
+    color: var(--ion-color-dark);
   }
 
-  p {
-    color: var(--ion-color-medium);
+  &.half-width {
+    flex: 1;
+    min-width: 0;
   }
 }
 
-.empty-state {
+// Two column layout for severity and dates
+.form-row {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px 20px;
+  gap: 1rem;
+  margin-bottom: 1rem;
+
+  @media (max-width: 48rem) {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+.body-parts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+
+  .body-part-button {
+    height: 50px;
+    margin: 0;
+    font-size: 11px;
+
+    .button-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.125rem;
+
+      ion-icon {
+        font-size: 1.125rem;
+      }
+
+      span {
+        font-size: 0.688rem;
+        white-space: nowrap;
+      }
+    }
+  }
+}
+
+// Compact severity display
+.severity-display-compact {
+  background: var(--ion-color-light);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
   text-align: center;
 
-  .empty-icon {
-    font-size: 80px;
-    color: var(--ion-color-medium);
-    margin-bottom: 20px;
-    opacity: 0.5;
-  }
-
-  h2 {
-    font-size: 24px;
+  .severity-label {
+    display: block;
+    font-size: 0.875rem;
     font-weight: 600;
-    margin-bottom: 8px;
-    color: var(--ion-color-dark);
-  }
-
-  p {
     color: var(--ion-color-medium);
-    font-size: 16px;
+    margin-bottom: 0.25rem;
   }
-}
 
-.injuries-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.injury-card {
-  margin: 0 0 16px 0;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border-radius: 16px;
-  overflow: hidden;
-
-  ion-card-content {
-    padding: 20px;
-  }
-}
-
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--ion-color-light-shade);
-}
-
-.title-section {
-  flex: 1;
-
-  h2 {
-    margin: 0 0 8px 0;
-    font-size: 20px;
+  .severity-percentage {
+    display: block;
+    font-size: 1.5rem;
     font-weight: 700;
-    color: var(--ion-color-dark);
-    line-height: 1.2;
+    color: var(--ion-color-primary);
   }
 }
 
-.severity-badge {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 6px 12px;
-  border-radius: 12px;
-  letter-spacing: 0.5px;
+ion-range {
+  padding: 0.25rem 0;
+  --bar-height: 0.25rem;
+  --knob-size: 1rem;
 }
 
-.delete-btn {
-  margin: -8px -8px 0 0;
-  --padding-start: 8px;
-  --padding-end: 8px;
-}
+// Compact date inputs
+.date-item-compact {
+  --background: transparent;
+  --padding-start: 0;
+  --padding-end: 0;
+  --inner-padding-end: 0;
+  margin-bottom: 0.75rem;
 
-.card-body {
-  margin-bottom: 16px;
-}
+  ion-label {
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+    font-size: 1.3rem;
+  }
 
-.info-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 12px;
-
-  &:last-child {
-    margin-bottom: 0;
+  ion-input {
+    --padding-start: 0.75rem;
+    --padding-end: 0.75rem;
+    --background: var(--ion-color-light);
+    --border-radius: 0.5rem;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    min-height: 2.5rem;
   }
 }
 
-.info-icon {
-  font-size: 20px;
-  color: var(--ion-color-primary);
-  margin-top: 2px;
-  flex-shrink: 0;
+.error-message {
+  margin-bottom: 0.5rem;
+  padding-left: 0.25rem;
+
+  small {
+    font-size: 0.75rem;
+  }
 }
 
-.info-text {
-  color: var(--ion-color-dark);
-  font-size: 15px;
-  line-height: 1.5;
-  flex: 1;
-}
-
-.edit-btn {
-  margin-top: 12px;
+.submit-button {
+  margin-top: 1rem;
+  --border-radius: 0.5rem;
   font-weight: 600;
-  height: 44px;
+  height: 3rem;
 }

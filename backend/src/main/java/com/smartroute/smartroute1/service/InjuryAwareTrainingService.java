@@ -123,4 +123,13 @@ public interface InjuryAwareTrainingService {
      */
     List<Injuries> findInjuriesByEmail(String email);
 
+    /**
+     * Deletes one injury by its id and the corresponding User email.
+     * When there is no Injury with that ID for that user it will throw a NOT_FOUND Error.
+     *
+     * @param email the user's Email
+     * @param id the id of the Injury to delete
+     */
+    void deleteInjuriesByEmailAndId(String email, long id);
+
 }

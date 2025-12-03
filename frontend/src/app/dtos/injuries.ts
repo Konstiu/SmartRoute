@@ -21,8 +21,8 @@ export enum BodyPart {
 export interface CreateInjuryStateDto {
   injuryIndex: number;  // 0.0 to 1.0 - severity of injury
   affectedArea: BodyPart | string;
-  lastHealthyDate?: string | null;  // ISO date string: YYYY-MM-DD
-  lastInjuryDate: string;  // ISO date string: YYYY-MM-DD
+  lastHealthyDate: string;  // ISO date string: YYYY-MM-DD
+  lastInjuryDate?: string | null;  // ISO date string: YYYY-MM-DD
 }
 
 /**
@@ -33,8 +33,8 @@ export interface UpdateInjuryDto {
   injuryId: number;
   injuryIndex: number;  // 0.0 to 1.0
   affectedArea: BodyPart | string;
-  lastHealthyDate?: string | null;  // ISO date string: YYYY-MM-DD
-  lastInjuryDate: string;  // ISO date string: YYYY-MM-DD
+  lastHealthyDate: string;  // ISO date string: YYYY-MM-DD
+  lastInjuryDate?: string | null;  // ISO date string: YYYY-MM-DD
 }
 
 /**
@@ -45,8 +45,8 @@ export interface ViewInjuryDto {
   injuryId: number;
   injuryIndex: number;  // 0.0 to 1.0 - severity indicator
   affectedArea: BodyPart | string;
-  lastHealthyDate?: string | null;  // ISO date string: YYYY-MM-DD
-  lastInjuryDate: string;  // ISO date string: YYYY-MM-DD
+  lastHealthyDate: string;  // ISO date string: YYYY-MM-DD
+  lastInjuryDate?: string | null;  // ISO date string: YYYY-MM-DD
 }
 
 /**
