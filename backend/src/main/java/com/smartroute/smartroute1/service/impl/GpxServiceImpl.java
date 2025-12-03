@@ -172,7 +172,46 @@ public class GpxServiceImpl implements GpxService {
             activity.setSessionLoad(sessionLoad);
 
 
-            return activityRepository.save(activity);
+            List<Activity> storedActivities = activityRepository.findAllByUserAndStartDate(user, activity.getStartDate());
+            Activity storedActivity = null;
+            if (storedActivities.size() > 1) {
+                float newDistance = activity.getDistance();
+
+                for (Activity stored : storedActivities) {
+                    float storedDistance = stored.getDistance();
+                    float distanceDiff = Math.abs(storedDistance - newDistance);
+
+                    if (distanceDiff <= 1000) {
+                        storedActivity = stored;
+                        break;
+                    }
+                }
+            } else if (storedActivities.size() == 1) {
+                storedActivity = storedActivities.get(0);
+            }
+            if (storedActivity == null) {
+                return activityRepository.save(activity);
+            } else {
+                storedActivity.setTotalElevationGain(activity.getTotalElevationGain());
+                storedActivity.setAverageSpeed(activity.getAverageSpeed());
+                storedActivity.setMaxSpeed(activity.getMaxSpeed());
+                storedActivity.setAverageHeartrate(activity.getAverageHeartrate());
+                storedActivity.setSessionLoad(activity.getSessionLoad());
+                storedActivity.setStartDate(activity.getStartDate());
+                storedActivity.setElapsedTime(activity.getElapsedTime());
+                storedActivity.setMovingTime(activity.getMovingTime());
+                storedActivity.setMaxHeartrate(activity.getMaxHeartrate());
+                storedActivity.setExternalId(activity.getExternalId());
+                storedActivity.setSummaryPolyline(storedActivity.getSummaryPolyline());
+                storedActivity.setAverageWatts(storedActivity.getAverageWatts());
+                storedActivity.setKilojoules(storedActivity.getKilojoules());
+                storedActivity.setStravaId(storedActivity.getStravaId());
+                storedActivity.setSufferScore(storedActivity.getSufferScore());
+                storedActivity.setSportType(storedActivity.getSportType());
+                // always the first name is going to be the new name of the Activity
+                //storedActivity.setName(entity.getName());
+                return activityRepository.save(storedActivity);
+            }
         } catch (IOException | NoSuchElementException e) {
             throw new ValidationException("Failed to read GPX file", List.of("GPX file could not be processed"));
         }
