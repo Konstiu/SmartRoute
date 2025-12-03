@@ -8,6 +8,8 @@ import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.endpoint.mapper.WeatherMapper;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.HeatRiskCategory;
+import com.smartroute.smartroute1.entity.enums.RainIntensity;
+import com.smartroute.smartroute1.entity.enums.WindIntensity;
 import com.smartroute.smartroute1.exception.WeatherException;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.WeatherRepository;
@@ -205,11 +207,11 @@ public class WeatherServiceImpl implements WeatherService {
 
         // approximation cannot cope with 0 wind speed or 0 shortwave radiation.
         if (windSpeed == 0.0) {
-            windSpeed += 0.1;
+            windSpeed += 1.0;
         }
 
         if (solarRadiation == 0.0) {
-            solarRadiation += 0.1;
+            solarRadiation += 1.0;
         }
 
         final double directRadiation = weather.getDirectRadiation() / solarRadiation;
@@ -247,7 +249,7 @@ public class WeatherServiceImpl implements WeatherService {
 
     // Computes constant C for the estimated black globe temperature.
     private double computeC(double windSpeed) {
-        final double H = 0.315; // convective coefficient constant
+        final double H = 0.315;
         return (H * Math.pow(windSpeed, 0.58)) / (5.3865 * Math.pow(10, -8));
     }
 
@@ -329,6 +331,46 @@ public class WeatherServiceImpl implements WeatherService {
         return HeatRiskCategory.NEUTRAL;
     }
 
+    // Classifies precipitation (mm/h) into categories of severity. Source: https://rainsimulator.com/guides/intensity-categories
+    private RainIntensity classifyRainSeverity(double precipitation) {
+        if (precipitation == 0.0) {
+            return RainIntensity.NONE;
+        }
+        if (precipitation > 0.0 && precipitation < 0.25) {
+            return RainIntensity.TRACE;
+        }
+        if (precipitation >= 0.25 && precipitation < 1.0) {
+            return RainIntensity.VERY_LIGHT;
+        }
+        if (precipitation >= 1 && precipitation < 2.5) {
+            return RainIntensity.LIGHT;
+        }
+        if (precipitation >= 2.5 && precipitation < 10) {
+            return RainIntensity.MODERATE;
+        }
+        if (precipitation >= 10 && precipitation < 50) {
+            return RainIntensity.HEAVY;
+        }
+        return RainIntensity.VIOLENT;
+    }
+
+    // Classifies wind speed (km/h | 10 m above ground) into categories of severity. Source: https://www.rmets.org/metmatters/beaufort-wind-scale
+    private WindIntensity classifyWindSeverity(double windSpeed) {
+        if (windSpeed < 1) {
+            return WindIntensity.CALM;
+        }
+        if (windSpeed >= 1 && windSpeed <= 19) {
+            return WindIntensity.GENTLE_BREEZE;
+        }
+        if (windSpeed >= 20 && windSpeed < 38) {
+            return WindIntensity.MODERATE_BREEZE;
+        }
+        if (windSpeed >= 38 && windSpeed <= 49) {
+            return WindIntensity.STRONG_BREEZE;
+        }
+        return WindIntensity.GALE_AND_BEYOND;
+    }
+
     public WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters) {
         RunEventType type = mapDistanceToEvent(distanceMeters);
         double wbgt = computeWbgt(weather);
@@ -337,7 +379,7 @@ public class WeatherServiceImpl implements WeatherService {
         double delta = wbgt - optimal;
         double heatSlope = heatSlope(type);
         double coldSlope = coldSlope(type);
-        HeatRiskCategory riskClassification;
+        HeatRiskCategory temperatureRiskCategory;
 
         double wbgtPenalty = delta > 0 ? delta * heatSlope : -delta * coldSlope;
         double modifier = complexityModifier(weather);
@@ -345,48 +387,57 @@ public class WeatherServiceImpl implements WeatherService {
         weightedWbgtPenalty = clamp(weightedWbgtPenalty, 0, 40);
 
         HeatRiskCategory heat = classifyHeatRisk(wbgt);
-        riskClassification = heat;
-        double temperatureRiskPenalty = switch (heat) {
-            case LOW_HEAT -> 25;
-            case MODERATE_HEAT -> 50;
-            case HIGH_HEAT -> 75;
-            case EXTREME_HEAT -> 100; // severe risk, outdoor activity should be prohibited.
-            default -> 0;
-        };
+        temperatureRiskCategory = heat;
+        double temperatureRiskPenalty = weatherPenalty(wbgt, 100.0, 0.35, 25.0, 1.25);
 
         // if wbgt indicates lower than optimal temperature, estimate temperature risk using wind chill.
         if (heat == HeatRiskCategory.LOW_COLD) {
             double windChill = calculateWindChill(weather.getTemperature2m(), weather.getWindSpeed10m());
-            HeatRiskCategory cold = classifyColdRisk(windChill);
-            riskClassification = cold;
-
-            temperatureRiskPenalty = switch (cold) {
-                case EXTREME_COLD -> 100;  // severe risk, outdoor activity should be prohibited.
-                case SEVERE_COLD -> 100;  // severe risk, outdoor activity should be prohibited.
-                case VERY_HIGH_COLD_RISK -> 80;
-                case HIGH_COLD_RISK -> 60;
-                case MODERATE_COLD -> 40;
-                case LOW_COLD -> 20;
-                default -> 0;
-            };
+            temperatureRiskCategory = classifyColdRisk(windChill);
+            temperatureRiskPenalty = 100 - weatherPenalty(windChill, 100.0, 0.18, -25.0, 1.35);
         }
 
-        double rainPenalty = clamp(calculatePrecipitationImpact(weather.getPrecipitation(), age), 0, 25);
+        double precipitation = weather.getPrecipitation();
+        double precipitationPenalty = weatherPenalty(precipitation, 100.0, 0.18, 12.0, 1.6);
 
-        double snowPenalty = clamp(snowDepthImpact(weather.getSnowDepth()), 0, 40);
+        double windSpeed = weather.getWindSpeed10m();
+        double windPenalty = weatherPenalty(windSpeed, 100.0, 0.12, 40.0, 1.4);
+
+        double snowPenalty = weatherPenalty(weather.getSnowDepth(), 100.0, 2.0, 7.0, 1.0);
+
+        double slipRisk = 0.0;
+        if (weather.getTemperature2m() <= 4.0) {
+            slipRisk = 0.1;
+        }
 
         double totalPenalty =
                 1
                         - (1 - weightedWbgtPenalty / 100.0)
                         * (1 - temperatureRiskPenalty / 100.0)
-                        * (1 - rainPenalty / 100.0)
-                        * (1 - snowPenalty / 100.0);
+                        * (1 - precipitationPenalty / 100.0)
+                        * (1 - windPenalty / 100.0)
+                        * (1 - snowPenalty / 100.0)
+                        * 1 - slipRisk;
 
         double score = 1.0 - totalPenalty;
+        score = (double) Math.round(score * 100.0) / 100; // round to 2 decimals.
         double weatherScore = clamp(score, 0.0, 1.0);
-        double performancePenalty = estimatePerformancePenalty(distanceMeters, weather, age) / 100;
 
-        return new WeatherImpactDto(performancePenalty, weatherScore, riskClassification);
+        double performancePenalty = estimatePerformancePenalty(distanceMeters, weather, age) / 100;
+        performancePenalty = (double) Math.round(performancePenalty * 1000.0) / 1000;  // round to 3 decimals.
+
+        RainIntensity rainCategory = classifyRainSeverity(precipitation);
+        WindIntensity windCategory = classifyWindSeverity(windSpeed);
+
+        return new WeatherImpactDto(performancePenalty, weatherScore, temperatureRiskCategory, rainCategory, windCategory);
+    }
+
+    private double weatherPenalty(double weatherParameter, double maximumPenalty, double steepness, double midPoint, double shape) {
+        // Generalized logistic / Richards curve
+        double penalty = maximumPenalty / Math.pow(1.0 + Math.pow(Math.E, -steepness * (weatherParameter - midPoint)), 1.0 / shape);
+
+        // clamp for safety
+        return Math.min(100.0, Math.max(0.0, penalty));
     }
 
     // Estimates the speed penalty from different weather factors.
@@ -409,9 +460,7 @@ public class WeatherServiceImpl implements WeatherService {
         double modifier = complexityModifier(weather);
         double penaltyPercent = penaltyBase * modifier;
 
-        double totalPenalty = calculatePrecipitationImpact(precipitation, age)
-                + snowDepthImpact(weather.getSnowDepth())
-                + penaltyPercent;
+        double totalPenalty = precipitationSlowdown(precipitation, age) + snowDepthSlowdown(weather.getSnowDepth()) + penaltyPercent;
 
         LOGGER.trace("Penalty: {}", totalPenalty);
         return totalPenalty;
@@ -500,7 +549,7 @@ public class WeatherServiceImpl implements WeatherService {
         return 1.0 + 0.3 * combined; // [0.7, 1.3]
     }
 
-    // Normalize values.
+    // Helper function to normalize values.
     private double clamp(double v, double min, double max) {
         if (Double.isNaN(v)) {
             return 0.0;
@@ -509,7 +558,7 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     // Calculates the impact of precipitation in percent.
-    private double calculatePrecipitationImpact(double precipMm, int runnerAge) {
+    private double precipitationSlowdown(double precipMm, int runnerAge) {
         if (precipMm <= 0.0) {
             return 0.0;
         }
@@ -542,7 +591,7 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     // Returns the impact of snow depth in percent.
-    private double snowDepthImpact(double snowDepth) {
+    private double snowDepthSlowdown(double snowDepth) {
         double snowImpact = 0.0;
 
         if (snowDepth <= 0) {

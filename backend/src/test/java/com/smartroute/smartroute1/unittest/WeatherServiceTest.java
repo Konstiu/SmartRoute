@@ -314,9 +314,9 @@ class WeatherServiceTest {
     void test() {
         WeatherResponse weather = new WeatherResponse();
         weather.setPrecipitation(0.0);
-        weather.setTemperature2m(25.0);
-        weather.setRelativeHumidity(60.0);
-        weather.setWindSpeed10m(5.0);
+        weather.setTemperature2m(0.0);
+        weather.setRelativeHumidity(10.0);
+        weather.setWindSpeed10m(1.0);
         weather.setShortWaveRadiation(500.0);
         weather.setDirectRadiation(350.0);
         weather.setDiffuseRadiation(150.0);
