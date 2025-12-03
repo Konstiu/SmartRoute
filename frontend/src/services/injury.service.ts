@@ -21,9 +21,7 @@ export class InjuryService {
    */
   async getInjuries(): Promise<ViewInjuryDto[]> {
     try {
-      return await firstValueFrom(
-        this.http.get<ViewInjuryDto[]>(this.baseUri)
-      );
+      return await firstValueFrom(this.http.get<ViewInjuryDto[]>(this.baseUri));
     } catch (error) {
       console.error('Error fetching injuries:', error);
       throw error;
@@ -39,12 +37,7 @@ export class InjuryService {
   async createInjuries(injuries: CreateInjuryStateDto[]): Promise<void> {
     try {
       await firstValueFrom(
-        this.http.post<void>(this.baseUri, injuries, {
-          headers: new HttpHeaders({
-            'Content-Type': 'application/json'
-          })
-        })
-      );
+        this.http.post<void>(this.baseUri, injuries));
     } catch (error) {
       console.error('Error creating injuries:', error);
       throw error;
@@ -96,7 +89,7 @@ export class InjuryService {
   async deleteInjury(injuryId: number): Promise<void> {
     try {
       await firstValueFrom(
-        this.http.delete<void>(`${this.baseUri}/injuryId}`)
+        this.http.delete<void>(`${this.baseUri}/${injuryId}`)
       );
     } catch (error) {
       console.error('Error deleting injury:', error);
@@ -170,25 +163,25 @@ export class InjuryService {
 
   /**
    * Get active (not recovered) injuries
-   * An injury is considered active if lastHealthyDate is null or before lastInjuryDate
+   * An injury is considered active if lastInjuryDate is null or before lastHealthyDate
    */
   async getActiveInjuries(): Promise<ViewInjuryDto[]> {
     const injuries = await this.getInjuries();
     return injuries.filter(injury => {
-      if (!injury.lastHealthyDate) return true;
-      return new Date(injury.lastHealthyDate) <= new Date(injury.lastInjuryDate);
+      if (!injury.lastInjuryDate) return true;
+      return new Date(injury.lastInjuryDate) <= new Date(injury.lastHealthyDate);
     });
   }
 
   /**
    * Get recovered injuries
-   * An injury is considered recovered if lastHealthyDate is after lastInjuryDate
+   * An injury is considered recovered if lastInjuryDate is after lastHealthyDate
    */
   async getRecoveredInjuries(): Promise<ViewInjuryDto[]> {
     const injuries = await this.getInjuries();
     return injuries.filter(injury => {
-      if (!injury.lastHealthyDate) return false;
-      return new Date(injury.lastHealthyDate) > new Date(injury.lastInjuryDate);
+      if (!injury.lastInjuryDate) return false;
+      return new Date(injury.lastInjuryDate) > new Date(injury.lastHealthyDate);
     });
   }
 }

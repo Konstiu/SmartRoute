@@ -75,8 +75,8 @@ public class InjuryDataGenerator {
                         ? random.nextInt(RECENT_DAYS + 1)
                         : random.nextInt(RECENT_DAYS + 1, MAX_DAYS_BACK + 1);
 
-                LocalDate lastInjuryDate = today.minusDays(daysAgo);
-                injury.setLastInjuryDate(lastInjuryDate);
+                LocalDate lastHealthyDate = today.minusDays(daysAgo);
+                injury.setLastHealthyDate(lastHealthyDate);
 
                 BodyPart area = injury.getAffectedArea();
                 double injuryIndex = (area == BodyPart.BONE_FRACTURE
@@ -86,15 +86,15 @@ public class InjuryDataGenerator {
                         : 0.1 + random.nextDouble() * 0.7;
 
                 injury.setInjuryIndex(injuryIndex);
-                LocalDate lastHealthyDate = null;
+                LocalDate lastInjuryDate = null;
                 if (!recent || random.nextDouble() < 0.3) {
                     int daysToHealthy = random.nextInt(1, MAX_HEALTHY_DAYS + 1);
-                    lastHealthyDate = lastInjuryDate.plusDays(daysToHealthy);
-                    if (lastHealthyDate.isAfter(today)) {
-                        lastHealthyDate = today;
+                    lastInjuryDate = lastHealthyDate.plusDays(daysToHealthy);
+                    if (lastInjuryDate.isAfter(today)) {
+                        lastInjuryDate = today;
                     }
                 }
-                injury.setLastHealthyDate(lastHealthyDate);
+                injury.setLastInjuryDate(lastInjuryDate);
                 batch.add(injury);
                 if (batch.size() >= BATCH_SIZE) {
                     injuryRepository.saveAll(batch);

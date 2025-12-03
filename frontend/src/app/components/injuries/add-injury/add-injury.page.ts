@@ -1,8 +1,16 @@
-import { Component, Input, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { IonicModule, ModalController, ToastController } from '@ionic/angular';
-import { InjuryService } from '../../../../services/injury.service';
+import {Component, Input, OnInit} from '@angular/core';
+import {CommonModule} from '@angular/common';
+import {
+  FormsModule,
+  ReactiveFormsModule,
+  FormBuilder,
+  FormGroup,
+  Validators,
+  ValidatorFn,
+  AbstractControl, ValidationErrors
+} from '@angular/forms';
+import {IonicModule, ModalController, ToastController} from '@ionic/angular';
+import {InjuryService} from '../../../../services/injury.service';
 import {
   CreateInjuryStateDto,
   UpdateInjuryDto,
@@ -10,6 +18,7 @@ import {
   BODY_PARTS,
   BodyPartInfo
 } from '../../../dtos/injuries';
+
 
 @Component({
   selector: 'app-add-injury',
@@ -61,20 +70,58 @@ export class AddInjuryComponent implements OnInit {
         [Validators.required, Validators.min(0), Validators.max(1)]
       ],
       lastInjuryDate: [
-        this.injury?.lastInjuryDate || new Date().toISOString().split('T')[0],
-        Validators.required
+        this.injury?.lastInjuryDate || '',
       ],
-      lastHealthyDate: [this.injury?.lastHealthyDate || '']
+      lastHealthyDate: [this.injury?.lastHealthyDate || new Date().toISOString().split('T')[0],
+        Validators.required
+      ]
+    }, {
+      validators: this.dateRangeValidator()
     });
   }
 
+
+  dateRangeValidator(): ValidatorFn {
+    return (formGroup: AbstractControl): ValidationErrors | null => {
+      const lastHealthyDate = formGroup.get('lastHealthyDate')?.value;
+      const lastInjuryDate = formGroup.get('lastInjuryDate')?.value;
+
+      // If lastInjuryDate is null or empty, it's valid (still injured)
+      if (!lastInjuryDate) {
+        return null;
+      }
+
+      // If lastHealthyDate is empty, we can't validate
+      if (!lastHealthyDate) {
+        return null;
+      }
+
+      const startDate = new Date(lastHealthyDate);
+      const endDate = new Date(lastInjuryDate);
+
+      // End date must be after or equal to start date
+      if (endDate < startDate) {
+        return {dateRange: true};
+      }
+
+      return null;
+    };
+  }
+
+  getSeverityRangeColor(): string {
+    const value = this.injuryForm.get('injuryIndex')?.value || 0;
+    if (value < 0.33) return 'success';
+    if (value < 0.67) return 'warning';
+    return 'danger';
+  }
+
   selectBodyPart(bodyPart: string) {
-    this.injuryForm.patchValue({ affectedArea: bodyPart });
+    this.injuryForm.patchValue({affectedArea: bodyPart});
   }
 
   onInjuryIndexChange(event: any) {
     const value = parseFloat(event.detail.value);
-    this.injuryForm.patchValue({ injuryIndex: value });
+    this.injuryForm.patchValue({injuryIndex: value});
   }
 
   getInjurySeverityLabel(): string {
@@ -102,8 +149,8 @@ export class AddInjuryComponent implements OnInit {
           injuryId: this.injury.injuryId,
           injuryIndex: formValue.injuryIndex,
           affectedArea: formValue.affectedArea,
-          lastInjuryDate: formValue.lastInjuryDate,
-          lastHealthyDate: formValue.lastHealthyDate || null
+          lastInjuryDate: formValue.lastInjuryDate || null,
+          lastHealthyDate: formValue.lastHealthyDate
         };
         await this.injuryService.updateInjuries([updateDto]);
         await this.showToast('Injury updated successfully', 'success');
@@ -111,14 +158,14 @@ export class AddInjuryComponent implements OnInit {
         const createDto: CreateInjuryStateDto = {
           injuryIndex: formValue.injuryIndex,
           affectedArea: formValue.affectedArea,
-          lastInjuryDate: formValue.lastInjuryDate,
-          lastHealthyDate: formValue.lastHealthyDate || null
+          lastInjuryDate: formValue.lastInjuryDate || null,
+          lastHealthyDate: formValue.lastHealthyDate
         };
         await this.injuryService.createInjuries([createDto]);
         await this.showToast('Injury added successfully', 'success');
       }
 
-      this.modalController.dismiss({ reload: true });
+      this.modalController.dismiss({reload: true});
     } catch (error) {
       console.error('Error submitting injury:', error);
       await this.showToast(

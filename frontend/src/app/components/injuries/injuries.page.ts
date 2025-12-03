@@ -1,10 +1,10 @@
-import { Component, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { IonicModule, ModalController, AlertController, ToastController } from '@ionic/angular';
-import { InjuryService } from '../../../services/injury.service';
-import { ViewInjuryDto } from '../../dtos/injuries';
-import { AddInjuryComponent } from './add-injury/add-injury.page';
+import {Component, OnInit} from '@angular/core';
+import {CommonModule} from '@angular/common';
+import {FormsModule} from '@angular/forms';
+import {IonicModule, ModalController, AlertController, ToastController} from '@ionic/angular';
+import {InjuryService} from '../../../services/injury.service';
+import {ViewInjuryDto} from '../../dtos/injuries';
+import {AddInjuryComponent} from './add-injury/add-injury.page';
 
 @Component({
   selector: 'app-injuries',
@@ -19,7 +19,9 @@ import { AddInjuryComponent } from './add-injury/add-injury.page';
 })
 export class InjuriesPage implements OnInit {
   injuries: ViewInjuryDto[] = [];
+  allInjuries: ViewInjuryDto[] = [];
   loading = false;
+  showOldInjuries = false;
 
   bodyPartLabels: { [key: string]: string } = {
     NECK_REGION: 'Neck',
@@ -39,7 +41,8 @@ export class InjuriesPage implements OnInit {
     private modalController: ModalController,
     private alertController: AlertController,
     private toastController: ToastController
-  ) {}
+  ) {
+  }
 
   ngOnInit() {
     this.loadInjuries();
@@ -52,13 +55,58 @@ export class InjuriesPage implements OnInit {
   async loadInjuries() {
     this.loading = true;
     try {
-      this.injuries = await this.injuryService.getInjuries();
+      this.allInjuries = await this.injuryService.getInjuries();
+
+      // Sort by start date (most recent first)
+      this.allInjuries.sort((a, b) => {
+        const dateA = new Date(a.lastHealthyDate).getTime();
+        const dateB = new Date(b.lastHealthyDate).getTime();
+        return dateB - dateA; // Descending order (newest first)
+      });
+
+      this.filterInjuries();
     } catch (error) {
       console.error('Error loading injuries:', error);
       await this.showToast('Failed to load injuries', 'danger');
     } finally {
       this.loading = false;
     }
+  }
+
+  filterInjuries() {
+    if (this.showOldInjuries) {
+      this.injuries = [...this.allInjuries];
+    } else {
+      const fourteenDaysAgo = new Date();
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
+      this.injuries = this.allInjuries.filter(injury => {
+        // Show if end date is within last 14 days, or if still ongoing (no end date)
+        if (!injury.lastInjuryDate) {
+          return true; // Always show ongoing injuries
+        }
+        const endDate = new Date(injury.lastInjuryDate);
+        return endDate >= fourteenDaysAgo;
+      });
+    }
+  }
+
+  toggleOldInjuries() {
+    this.showOldInjuries = !this.showOldInjuries;
+    this.filterInjuries();
+  }
+
+  getOldInjuriesCount(): number {
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
+    return this.allInjuries.filter(injury => {
+      if (!injury.lastInjuryDate) {
+        return false; // Ongoing injuries are not "old"
+      }
+      const endDate = new Date(injury.lastInjuryDate);
+      return endDate < fourteenDaysAgo;
+    }).length;
   }
 
   async openAddInjuryModal() {
@@ -68,7 +116,7 @@ export class InjuriesPage implements OnInit {
 
     await modal.present();
 
-    const { data } = await modal.onWillDismiss();
+    const {data} = await modal.onWillDismiss();
     if (data?.reload) {
       this.loadInjuries();
     }
@@ -84,7 +132,7 @@ export class InjuriesPage implements OnInit {
 
     await modal.present();
 
-    const { data } = await modal.onWillDismiss();
+    const {data} = await modal.onWillDismiss();
     if (data?.reload) {
       this.loadInjuries();
     }
