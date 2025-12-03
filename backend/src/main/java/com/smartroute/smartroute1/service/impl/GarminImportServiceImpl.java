@@ -608,7 +608,6 @@ public class GarminImportServiceImpl implements GarminImportService {
             sessionLoad = fitnessScoreService.calculateSessionLoad(
                     heartRates,
                     timestamps,
-                    maxHr,
                     activity
             );
 

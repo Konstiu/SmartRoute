@@ -165,7 +165,7 @@ public class GpxServiceImpl implements GpxService {
             // see FitnessScoreServiceImpl.calculateSessionLoad for details
             int sessionLoad;
             if (maxHeartRate > 0) {
-                sessionLoad = fitnessScoreService.calculateSessionLoad(heartRates, timestamps, (float) maxHeartRate, activity);
+                sessionLoad = fitnessScoreService.calculateSessionLoad(heartRates, timestamps, activity);
             } else {
                 sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain());
             }
