@@ -8,5 +8,5 @@ import java.util.List;
 
 public interface GymWorkoutRepository extends JpaRepository<GymWorkout, Long> {
 
-    List<GymWorkout> findAllByUser(ApplicationUser user);
+    List<GymWorkout> findAllByUserOrderByIdDesc(ApplicationUser user);
 }
