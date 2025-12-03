@@ -1,0 +1,40 @@
+.button-group {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  padding: 16px 0;
+
+  ion-button {
+    min-width: 120px;
+    max-width: 180px;
+
+    &.sync-button {
+      // Any specific sync button styles
+    }
+
+    &.disconnect-button {
+      // Any specific disconnect button styles
+    }
+  }
+}
+
+.connection-button {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+
+  ion-button {
+    min-width: 200px;
+    max-width: 300px;
+  }
+}
+
+// Optional: smaller buttons
+.button-group--small {
+  ion-button {
+    min-width: 100px;
+    max-width: 140px;
+    --padding-start: 12px;
+    --padding-end: 12px;
+  }
+}

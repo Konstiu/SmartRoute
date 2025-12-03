@@ -7,6 +7,7 @@ import { ExploreContainerComponentModule } from '../explore-container/explore-co
 import { AuthService } from 'src/services/auth.service';
 import { ConnectGarminComponent } from "../connect-garmin/connect-garmin.component";
 import { UserDataDisplayComponent } from '../user-data-display/user-data-display.component';
+import {Router} from "@angular/router";
 
 @Component({
   selector: 'app-account',
@@ -20,6 +21,7 @@ export class AccountPage {
   constructor(
     private authService: AuthService,
     private alertController: AlertController,
+    private router: Router
   ) { }
 
   async presentLogoutConfirm() {
@@ -42,6 +44,14 @@ export class AccountPage {
     });
 
     await alert.present();
+  }
+
+  navigateToSync() {
+    this.router.navigate(['/sync-activities']);
+  }
+
+  navigateToInjuries() {
+    this.router.navigate(['/injuries']);
   }
 
   logout() {
