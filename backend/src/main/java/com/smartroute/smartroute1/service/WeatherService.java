@@ -39,6 +39,8 @@ public interface WeatherService {
      *            <li>The estimated percentage performance penalty</li>
      *            <li>The weather score</li>
      *            <li>A heat-risk category based on WBGT or windchill</li>
+     *            <li>Classification of precipitation</li>
+     *            <li>Classification of wind speed</li>
      *        </ul>
      */
     WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters);
