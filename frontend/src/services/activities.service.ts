@@ -12,12 +12,15 @@ export class ActivitiesService {
   private globals = inject(Globals);
   private userUri: string = this.globals.backendUri + '/activities';
 
+  private readonly MAX_REFRESHES = 3;
+  private readonly COOLDOWN_MS = 5 * 60 * 1000;
+
   // eslint-disable-next-line @angular-eslint/prefer-inject
   constructor(private readonly http: HttpClient) {}
 
 
   /**
-   * Fetch recent activities from Strava
+   * Fetch recent activities.
    */
   getRecentActivities(): Observable<Activity[]> {
     const url = `${this.userUri}`;
@@ -48,6 +51,18 @@ export class ActivitiesService {
       sessionStorage.setItem('last_activities_refresh', String(Date.now()));
     }
 
+    return refreshCount < this.MAX_REFRESHES;
+  }
+
+  /**
+   * Increments the refresh count and sets the last refresh time.
+   */
+  incrementRefreshCount(): void {
+    const refreshCount = Number(sessionStorage.getItem('activities_refresh_count')) || 0;
+
+    sessionStorage.setItem('activities_refresh_count', String(refreshCount + 1));
+    sessionStorage.setItem('last_activities_refresh', String(Date.now()));
+  }
 
   /**
    * Fetch one single activity by its id.
