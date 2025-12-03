@@ -1,7 +1,7 @@
 import {inject, Injectable} from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import {map, Observable} from 'rxjs';
-import {DetailedStravaActivity, StravaActivity} from '../app/dtos/StravaActivity';
+import {DetailedActivity, Activity} from '../app/dtos/Activity';
 import {Globals} from "../global/globals";
 
 @Injectable({
@@ -19,17 +19,41 @@ export class ActivitiesService {
   /**
    * Fetch recent activities from Strava
    */
-  getRecentActivities(): Observable<StravaActivity[]> {
+  getRecentActivities(): Observable<Activity[]> {
     const url = `${this.userUri}`;
-    return this.http.get<StravaActivity[]>(url);
+    return this.httpClient.get<Activity[]>(url);
   }
+
+  /**
+   * Fetches activities from all connected Services (Strava, Garmin).
+   */
+  refreshActivities(count: number): Observable<void> {
+    const url = `${this.userUri}/sync`;
+    return this.httpClient.post<void>(url, count);
+  }
+
+  /**
+   * Checks if the user reached the refresh limit.
+   */
+  canRefresh(): boolean {
+    const refreshCount = Number(sessionStorage.getItem('activities_refresh_count')) || 0;
+    const lastRefreshStr = sessionStorage.getItem('last_activities_refresh');
+    if (!lastRefreshStr) return true;
+
+    const lastRefresh = Number(lastRefreshStr);
+    const now = Date.now();
+
+    if (now - lastRefresh >= this.COOLDOWN_MS) {
+      sessionStorage.setItem('activities_refresh_count', String(0));
+      sessionStorage.setItem('last_activities_refresh', String(Date.now()));
+    }
 
 
   /**
    * Fetch one single activity by its id.
    */
-  getActivityById(id:number): Observable<DetailedStravaActivity>{
+  getActivityById(id:number): Observable<DetailedActivity>{
     const url = `${this.userUri}/${id}`;
-    return this.http.get<DetailedStravaActivity>(url);
+    return this.httpClient.get<DetailedActivity>(url);
   }
 }
