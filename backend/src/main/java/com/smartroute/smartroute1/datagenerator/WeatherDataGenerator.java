@@ -81,7 +81,7 @@ public class WeatherDataGenerator {
                             snowDepth
                     );
 
-                    entity = mapper.toEntity(dto, null, longitude, latitude);
+                    entity = mapper.toEntity(dto, null, latitude, longitude);
 
 
                     list.add(entity);
