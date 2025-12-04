@@ -86,17 +86,14 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
     }
 
     @Override
-    public Integer calculateSessionLoad(List<Float> heartRates, List<Float> timestamps, Float maxHeartRate, Activity activity) {
-        LOGGER.trace("calculateSessionLoad({}, {}, {}, {})", heartRates, timestamps, maxHeartRate, activity);
+    public Integer calculateSessionLoad(List<Float> heartRates, List<Float> timestamps, Activity activity) {
+        LOGGER.trace("calculateSessionLoad({}, {}, {})", heartRates, timestamps, activity);
 
         float elevationFactor = 1 + ELEVATION_COEFFICIENT * activity.getTotalElevationGain() / 100;
         int trimp;
         try {
             Map<Integer, Float> timeInHrZones;
-            if (maxHeartRate == null) {
-                maxHeartRate = Collections.max(heartRates);
-            }
-            timeInHrZones = calculateTimeInZones(heartRates, timestamps, maxHeartRate, activity.getUser());
+            timeInHrZones = calculateTimeInZones(heartRates, timestamps, activity.getUser());
             trimp = calculateTrimp(timeInHrZones);
             return Math.round(trimp * elevationFactor);
         } catch (NoSuchElementException e) {
@@ -163,11 +160,7 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
         LOGGER.trace("calculateTimeInZones({}, {})", stravaStreams, user);
 
         // Find all zones for the athlete and fall back to zone calculation if missing
-        int age = user.getBirthdate() != null ? Period.between(
-            user.getBirthdate(),
-            LocalDate.now()
-        ).getYears() : 30;
-        int maxHr = 220 - age;
+        int maxHr = approximateMaxHr(user);
         List<AthleteZone> zones = getUserTimeZonesOrFallbackToApproximation(user, maxHr);
 
         // Get data
@@ -180,12 +173,20 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
         return getTimeInZonesFromData(heartRateData, timeData, zones);
     }
 
-    private Map<Integer, Float> calculateTimeInZones(List<Float> heartRates, List<Float> timeStamps, float maxHeartRate, ApplicationUser user) {
+    private Map<Integer, Float> calculateTimeInZones(List<Float> heartRates, List<Float> timeStamps, ApplicationUser user) {
         LOGGER.trace("calculateTimeInZones({}, {}, {})", heartRates, timeStamps, user);
         // Find all zones for the athlete and fall back to zone calculation if missing
-        List<AthleteZone> zones = getUserTimeZonesOrFallbackToApproximation(user, maxHeartRate);
+        List<AthleteZone> zones = getUserTimeZonesOrFallbackToApproximation(user, approximateMaxHr(user));
         // Calculate time in zones
         return getTimeInZonesFromData(heartRates, timeStamps, zones);
+    }
+
+    private int approximateMaxHr(ApplicationUser user) {
+        int age = user.getBirthdate() != null ? Period.between(
+                user.getBirthdate(),
+                LocalDate.now()
+        ).getYears() : 30;
+        return 220 - age;
     }
 
     // Helper method to calculate time in zones from heart rate and time data
