@@ -1,0 +1,35 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>{{ exercise.name }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-card>
+  <div class="gif-container">
+    <img [src]="exercise.gifUrl" alt="{{exercise.name}}"/>
+  </div>
+
+  <ion-card-content>
+    <p><b>Target Muscles:</b> {{ exercise.targetMuscles.join(', ') }}</p>
+    <p><b>Secondary Muscles:</b> {{ exercise.secondaryMuscles.join(', ') }}</p>
+    <p><b>Body Parts:</b> {{ exercise.bodyParts.join(', ') }}</p>
+    <p><b>Equipment:</b> {{ exercise.equipments.join(', ') }}</p>
+
+    <div *ngIf="exercise.instructions?.length > 0">
+      <p><b>Instructions:</b></p>
+      <ol>
+        <li *ngFor="let step of exercise.instructions">{{ step }}</li>
+      </ol>
+    </div>
+
+    <div *ngIf="!exercise.instructions || exercise.instructions.length === 0">
+      <p><i>No instructions available for this exercise.</i></p>
+    </div>
+  </ion-card-content>
+</ion-card>
+

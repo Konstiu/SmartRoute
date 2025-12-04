@@ -1,0 +1,49 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-title>Your Gym Workouts</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-refresher (ionRefresh)="doRefresh($event)" slot="fixed">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <!-- Loading -->
+  <div *ngIf="isLoading && gymWorkouts.length === 0" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading workouts...</p>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="error && gymWorkouts.length === 0" class="error-container">
+    <ion-icon color="danger" name="alert-circle-outline"></ion-icon>
+    <p>{{ error }}</p>
+    <ion-button (click)="loadWorkouts()">Retry</ion-button>
+  </div>
+
+  <!-- Workout List -->
+  <ion-list *ngIf="!isLoading || gymWorkouts.length > 0">
+    <ion-item (click)="openWorkout(workout)" *ngFor="let workout of gymWorkouts" button detail="true">
+      <ion-icon color="primary" name="barbell-outline" slot="start"></ion-icon>
+      <ion-label>
+        <h2>Workout #{{ workout.id }}</h2>
+        <p>{{ workout.sets }} sets × {{ workout.reps }} reps</p>
+      </ion-label>
+    </ion-item>
+  </ion-list>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && gymWorkouts.length === 0 && !error" class="empty-container">
+    <ion-icon color="medium" name="fitness-outline"></ion-icon>
+    <h2>No Workouts Yet</h2>
+    <p>Your generated workouts will appear here</p>
+  </div>
+
+  <!-- Generate Workout Button -->
+  <ion-fab horizontal="end" slot="fixed" vertical="bottom">
+    <ion-fab-button (click)="generateWorkout()" color="primary">
+      <ion-icon name="add-circle-outline"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+</ion-content>
