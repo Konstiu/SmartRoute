@@ -100,17 +100,42 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             }
 
             activity.setSessionLoad(sessionLoad);
-            Optional<Activity> storedActivities = activityRepository.getActivitiesByUserAndStartDate(user, activity.getStartDate());
 
-            if (storedActivities.isEmpty()) {
+            List<Activity> storedActivities = activityRepository.findAllByUserAndStartDate(user, activity.getStartDate());
+            Activity storedActivity = null;
+            if (storedActivities.size() > 1) {
+                float newDistance = activity.getDistance();
+
+                for (Activity stored : storedActivities) {
+                    float storedDistance = stored.getDistance();
+                    float distanceDiff = Math.abs(storedDistance - newDistance);
+
+                    if (distanceDiff <= 1000) {
+                        storedActivity = stored;
+                        break;
+                    }
+                }
+            } else if (storedActivities.size() == 1) {
+                storedActivity = storedActivities.get(0);
+            }
+            if (storedActivity == null) {
                 activityRepository.save(activity);
             } else {
-                Activity storedActivity = storedActivities.get();
                 storedActivity.setExternalId(activity.getExternalId());
                 storedActivity.setStravaId(activity.getStravaId());
                 storedActivity.setSufferScore(activity.getSufferScore());
                 storedActivity.setAverageWatts(activity.getAverageWatts());
                 storedActivity.setKilojoules(activity.getKilojoules());
+                storedActivity.setTotalElevationGain(storedActivity.getTotalElevationGain());
+                storedActivity.setStartDate(storedActivity.getStartDate());
+                storedActivity.setElapsedTime(storedActivity.getElapsedTime());
+                storedActivity.setMovingTime(storedActivity.getMovingTime());
+                storedActivity.setMaxHeartrate(storedActivity.getMaxHeartrate());
+                storedActivity.setSummaryPolyline(storedActivity.getSummaryPolyline());
+                storedActivity.setAverageHeartrate(activity.getAverageHeartrate());
+                storedActivity.setAverageSpeed(activity.getAverageSpeed());
+                storedActivity.setMaxSpeed(activity.getMaxSpeed());
+                storedActivity.setSessionLoad(activity.getSessionLoad());
                 // always the first name is going to be the new name of the Activity
                 //storedActivity.setName(entity.getName());
                 activityRepository.save(storedActivity);
