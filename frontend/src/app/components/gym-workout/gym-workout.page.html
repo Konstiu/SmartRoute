@@ -63,6 +63,18 @@
       </ion-card-content>
     </ion-card>
 
+    <!-- Fallback if no exercises available -->
+    <div *ngIf="day1Exercises.length === 0 && day2Exercises.length === 0" class="injury-warning">
+      <ion-card color="danger">
+        <ion-card-header>
+          <ion-card-title>⚠️ No Exercises Available</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <p>You seem to be too injured to train safely right now. Please rest and consult a doctor if necessary.</p>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
   </div>
 
 </ion-content>
