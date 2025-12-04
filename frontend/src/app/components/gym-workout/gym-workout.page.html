@@ -1,0 +1,70 @@
+<ion-content>
+
+  <!-- Loading and Error -->
+  <div *ngIf="isLoading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading workout...</p>
+  </div>
+
+  <div *ngIf="error" class="error-container">
+    <ion-icon color="danger" name="alert-circle-outline"></ion-icon>
+    <p>{{ error }}</p>
+  </div>
+
+  <!-- Workout Details -->
+  <div *ngIf="!isLoading && workout">
+
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Workout #{{ workout.id }}</ion-card-title>
+        <ion-card-subtitle>
+          {{ workout.sets }} sets × {{ workout.reps }} reps
+        </ion-card-subtitle>
+      </ion-card-header>
+    </ion-card>
+
+    <!-- Day 1 Card -->
+    <ion-card *ngIf="day1Exercises.length > 0">
+      <ion-card-header>
+        <ion-card-title>Day 1</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list>
+          <ion-item (click)="openExercise(ex)" *ngFor="let ex of day1Exercises" button>
+            <ion-thumbnail slot="start">
+              <img [src]="ex.gifUrl"/>
+            </ion-thumbnail>
+            <ion-label>
+              <h2>{{ ex.name }}</h2>
+              <p>{{ ex.targetMuscles.join(', ') }}</p>
+              <p>{{ workout.sets }} sets × {{ workout.reps }} reps</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Day 2 Card -->
+    <ion-card *ngIf="day2Exercises.length > 0">
+      <ion-card-header>
+        <ion-card-title>Day 2</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list>
+          <ion-item (click)="openExercise(ex)" *ngFor="let ex of day2Exercises" button>
+            <ion-thumbnail slot="start">
+              <img [src]="ex.gifUrl"/>
+            </ion-thumbnail>
+            <ion-label>
+              <h2>{{ ex.name }}</h2>
+              <p>{{ ex.targetMuscles.join(', ') }}</p>
+              <p>{{ workout.sets }} sets × {{ workout.reps }} reps</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+    </ion-card>
+
+  </div>
+
+</ion-content>

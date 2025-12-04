@@ -1,0 +1,44 @@
+.loading-container,
+.error-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  margin-top: 40px;
+}
+
+.gif-card {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.exercise-gif {
+  width: 100%;
+  border-radius: 12px;
+}
+
+ion-chip {
+  margin: 4px;
+}
+
+.exercise-disclaimer {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--ion-color-medium);
+  padding: 16px 0;
+}
+
+.gif-container {
+  display: flex;
+  margin: 16px auto 0 auto;
+  justify-content: center;
+
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    //box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    //transition: transform 0.2s, box-shadow 0.2s;
+  }
+}
