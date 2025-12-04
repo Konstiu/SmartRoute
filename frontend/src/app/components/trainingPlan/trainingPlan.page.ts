@@ -3,14 +3,15 @@ import {Component} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {
   formatDistance,
-  formatWindDirection,
   formatElevation,
   formatPace,
-  formatWindSpeed,
   formatPrecipitation,
   formatTemperature,
+  formatWindDirection,
+  formatWindSpeed,
 } from "../../util/formatters";
 import {RecommendedActivityDto, SessionType} from "../../dtos/recommended-activity";
+import {BodyPart, getBodyPartLabel, getSeverityColor} from "../../dtos/injuries";
 
 @Component({
   selector: 'app-trainingplan',
@@ -22,8 +23,8 @@ import {RecommendedActivityDto, SessionType} from "../../dtos/recommended-activi
 export class TrainingPlanPage {
   date: string = new Date().toLocaleDateString();
   recommendedActivity: RecommendedActivityDto | undefined = {
-    title: "Easy Run",
-    type: SessionType.RUN,
+    title: "Gym Session",
+    type: SessionType.GYM,
     route: {
       distance: 5421,
       pace: 2.6,
@@ -39,43 +40,76 @@ export class TrainingPlanPage {
       relativeHumidity: 50,
     },
     athleteStatus: {
-      tsb: -4,
-      readinessScore: 65,
-      injuryIndex: 0.0,
+      tsb: 22,
+      readinessScore: 75,
+      injuryIndex: 0.4,
       injuries: [
-        {title: "Leg injury"}
+        {
+          injuryId: 0,
+          injuryIndex: 0.8,
+          affectedArea: BodyPart.FEET_REGION,
+          lastHealthyDate: "",
+          lastInjuryDate: "",
+        }
       ]
+    },
+    gymSession: {
+      id: 0,
+      exercises: [
+        {name: "Exercise 1", exerciseId: "1", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
+        {name: "Exercise 2", exerciseId: "2", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
+        {name: "Exercise 3", exerciseId: "3", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
+        {name: "Exercise 4", exerciseId: "4", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
+      ],
+      sets: 4,
+      reps: 40,
     }
   };
 
   interpretReadinessScore(readinessScore: number): string {
     if (readinessScore >= 85) {
-      return `${readinessScore} - Excellent - peak readiness`;
+      return `${readinessScore} - Excellent, peak readiness`;
     }
     if (readinessScore >= 70) {
-      return `${readinessScore} - Good - you can train hard`;
+      return `${readinessScore} - Good, you can train hard`;
     }
     if (readinessScore >= 40) {
-      return `${readinessScore} - Moderate - normal training OK`;
+      return `${readinessScore} - Moderate, normal training OK`;
     }
     if (readinessScore >= 15) {
-      return `${readinessScore} - Low - consider easier training`;
+      return `${readinessScore} - Low, consider easier training`;
     }
-    return `${readinessScore} - Very low - recovery recommended`;
+    return `${readinessScore} - Very low, recovery recommended`;
+  }
+
+  getReadinessScoreColor(readinessScore: number): string {
+    if (readinessScore >= 85) {
+      return "success";
+    }
+    if (readinessScore >= 70) {
+      return "success";
+    }
+    if (readinessScore >= 40) {
+      return "warning";
+    }
+    if (readinessScore >= 15) {
+      return "danger";
+    }
+    return "danger";
   }
 
   interpretTSB(tsb: number): string {
     if (tsb >= 15) {
-      return `${tsb} - Very Fresh - optimal for competition`;
+      return `${tsb} - Very Fresh, optimal for competition`;
     }
     if (tsb >= 5) {
-      return `${tsb} - Fresh - good training readiness`;
+      return `${tsb} - Fresh, good training readiness`;
     }
     if (tsb >= -5) {
-      return `${tsb} - Neutral - normal training`;
+      return `${tsb} - Neutral, normal training`;
     }
     if (tsb >= -15) {
-      return `${tsb} - Fatigued - reduce intensity`;
+      return `${tsb} - Fatigued, reduce intensity`;
     }
     if (tsb >= -30) {
       return `${tsb} - Very fatigued - high risk of overtraining`;
@@ -83,7 +117,7 @@ export class TrainingPlanPage {
     return `${tsb} - Extremely fatigued - rest required`;
   }
 
-  tsbIcon(tsb: number): string {
+  getTsbIcon(tsb: number): string {
     if (tsb >= 15) {
       return "battery-charging-outline";
     }
@@ -102,6 +136,25 @@ export class TrainingPlanPage {
     return "battery-empty-outline";
   }
 
+  getTsbColor(tsb: number):string {
+    if (tsb >= 15) {
+      return "success";
+    }
+    if (tsb >= 5) {
+      return "success";
+    }
+    if (tsb >= -5) {
+      return "warning";
+    }
+    if (tsb >= -15) {
+      return "warning";
+    }
+    if (tsb >= -30) {
+      return "danger";
+    }
+    return "danger";
+  }
+
   protected readonly SessionType = SessionType;
   protected readonly formatDistance = formatDistance;
   protected readonly formatPace = formatPace;
@@ -110,4 +163,6 @@ export class TrainingPlanPage {
   protected readonly formatWindDirection = formatWindDirection;
   protected readonly formatWindSpeed = formatWindSpeed;
   protected readonly formatPrecipitation = formatPrecipitation;
+  protected readonly getBodyPartLabel = getBodyPartLabel;
+  protected readonly getSeverityColor = getSeverityColor;
 }
