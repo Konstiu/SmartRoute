@@ -110,13 +110,18 @@
                 </ion-label>
                 </ion-item>
               @if (recommendedActivity!.athleteStatus.injuryIndex < 1 && recommendedActivity!.athleteStatus.injuries && recommendedActivity!.athleteStatus.injuries!.length > 0) {
-                <ion-item>You are injured:
-                  <ion-list>
-                    @for (injury of recommendedActivity!.athleteStatus!.injuries; track injury.title) {
-                      <ion-item>{{ injury.title }}</ion-item>
-                    }
-                  </ion-list>
-                  {{ recommendedActivity!.athleteStatus.injuryIndex }}
+                <ion-item>
+                  <ion-label>
+                    <ion-icon name="bandage-outline"></ion-icon>
+                    You are injured (severity:  {{ (1 - recommendedActivity!.athleteStatus.injuryIndex) }}):
+                    <ul>
+                      @for (injury of recommendedActivity!.athleteStatus!.injuries; track injury.title) {
+                        <li>
+                          {{ injury.title }}
+                        </li>
+                      }
+                    </ul>
+                  </ion-label>
                 </ion-item>
               }
             </ion-list>
