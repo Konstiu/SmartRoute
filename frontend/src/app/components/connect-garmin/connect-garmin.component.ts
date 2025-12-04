@@ -1,8 +1,8 @@
-import {Component, inject, Input, OnInit} from '@angular/core';
-import { AlertController, IonicModule, LoadingController, ToastController } from '@ionic/angular';
-import { CommonModule } from '@angular/common';
-import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { GarminService } from 'src/services/garmin.service';
+import {Component, inject, Input, OnInit, Output, EventEmitter} from '@angular/core';
+import {AlertController, IonicModule, LoadingController, ToastController} from '@ionic/angular';
+import {CommonModule} from '@angular/common';
+import {FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators} from '@angular/forms';
+import {GarminService} from 'src/services/garmin.service';
 
 @Component({
   selector: 'app-connect-garmin',
@@ -11,11 +11,11 @@ import { GarminService } from 'src/services/garmin.service';
   styleUrls: ['./connect-garmin.component.scss'],
   imports: [IonicModule, CommonModule, FormsModule, ReactiveFormsModule]
 })
-export class ConnectGarminComponent implements OnInit{
+export class ConnectGarminComponent implements OnInit {
+  @Output() connectionChanged = new EventEmitter<boolean>();
 
   protected connectionState: boolean | undefined;
 
-  // reactive form for manual sync
   garminForm: FormGroup;
   showPassword = false;
   isSyncing: boolean = false;
@@ -28,12 +28,12 @@ export class ConnectGarminComponent implements OnInit{
     private fb: FormBuilder,
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private toastController: ToastController,
   ) {
     this.garminForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required]],
-      count: [10, [Validators.required, Validators.min(1)]]
+      password: ['', [Validators.required]]
     });
   }
 
@@ -41,39 +41,52 @@ export class ConnectGarminComponent implements OnInit{
     this.garminService.getConnectionState().subscribe({
       next: result => {
         this.connectionState = result;
+        this.connectionChanged.emit(result || false);
       },
       error: error => {
-        console.error("Failed to load Garmin connection state: " + error)
+        console.error("Failed to load Garmin connection state: " + error);
+        this.connectionChanged.emit(false);
       }
     })
   }
 
   async doSync(): Promise<void> {
-    
-    const { email, password, count } = this.garminForm.value;
+    const {email, password} = this.garminForm.value;
 
     this.isSyncing = true;
 
     const loading = await this.loadingCtrl.create({
-      message: 'Syncing...',
+      message: 'Connecting to Garmin...',
       spinner: 'crescent'
     });
     await loading.present();
 
-    this.garminService.sync(email, password, count).subscribe({
+    // Sync with only 1 activity to verify credentials
+    this.garminService.sync(email, password, 1).subscribe({
       next: async res => {
         await loading.dismiss();
         this.isSyncing = false;
-        const toast = await this.toastCtrl.create({ message: 'Sync completed successfully.', color: 'success', duration: 3000, position: 'top' });
-        await toast.present();
+        this.refreshConnectionState();
+        await this.showToast('Garmin connected successfully! Use the sync button to import more activities.', 'success')
       },
       error: async err => {
         console.error(err);
         await loading.dismiss();
         this.isSyncing = false;
-        const message = err?.error?.message || 'Sync failed. Please check credentials or try again.';
-        const toast = await this.toastCtrl.create({ message, color: 'danger', duration: 4000, position: 'top' });
-        await toast.present();
+        const message = err?.error?.message || 'Connection failed. Please check your credentials.';
+        await this.showToast(message, 'danger')
+      }
+    });
+  }
+
+  private refreshConnectionState(): void {
+    this.garminService.getConnectionState().subscribe({
+      next: result => {
+        this.connectionState = result;
+        this.connectionChanged.emit(result || false);
+      },
+      error: error => {
+        console.error("Failed to refresh Garmin connection state: " + error);
       }
     });
   }
@@ -86,7 +99,7 @@ export class ConnectGarminComponent implements OnInit{
     if (this.isSyncing) {
       return false;
     }
-    if (this.connectionState === true && this.garminForm.controls['count']?.value > 0) {
+    if (this.connectionState === true) {
       return true;
     }
     return this.garminForm.valid;
@@ -120,17 +133,31 @@ export class ConnectGarminComponent implements OnInit{
       next: async () => {
         this.isSyncing = false;
         this.connectionState = false;
-        const toast = await this.toastCtrl.create({ message: 'Garmin disconnected successfully.', color: 'success', duration: 3000, position: 'top' });
-        await toast.present();
+        this.connectionChanged.emit(false);
+        await this.showToast('Garmin disconnected successfully.', 'success')
       },
       error: async (err) => {
         console.error(err);
         this.isSyncing = false;
         const message = err?.error?.message || 'Failed to disconnect Garmin. Please try again.';
-        const toast = await this.toastCtrl.create({ message, color: 'danger', duration: 4000, position: 'top' });
-        await toast.present();
+        await this.showToast(message, 'danger');
       }
     });
   }
 
+  private async showToast(message: string, color: string = 'primary', duration: number = 2000) {
+    const toast = await this.toastController.create({
+      message: message,
+      duration: duration,
+      position: 'top',
+      color: color,
+      buttons: [
+        {
+          text: 'Dismiss',
+          role: 'cancel'
+        }
+      ]
+    });
+    await toast.present();
+  }
 }

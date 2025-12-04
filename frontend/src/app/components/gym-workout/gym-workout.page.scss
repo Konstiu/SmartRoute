@@ -1,0 +1,11 @@
+@media (prefers-color-scheme: dark) {
+  .stats-container {
+    .stats-grid {
+      .stat-item {
+        .stat-value {
+          color: var(--ion-color-dark);
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,64 @@
+.loading-container,
+.error-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.gif-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+}
+
+.exercise-gif {
+  width: 100%;
+  border-radius: 12px;
+}
+
+ion-chip {
+  margin: 4px;
+}
+
+ion-content {
+  display: block;
+}
+
+.exercise-disclaimer {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--ion-color-medium);
+  padding: 16px 0;
+}
+
+.gif-container {
+  display: flex;
+  margin: 16px auto 0 auto;
+  justify-content: center;
+
+  img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 8px;
+    //box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    //transition: transform 0.2s, box-shadow 0.2s;
+  }
+}
+
+.gif-card {
+  margin-top: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .stats-container {
+    .stats-grid {
+      .stat-item {
+        .stat-value {
+          color: var(--ion-color-dark);
+        }
+      }
+    }
+  }
+}

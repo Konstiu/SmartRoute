@@ -361,9 +361,16 @@ class InjuryAwareServiceTest extends BaseTest {
     }
 
     @Test
-    void updateInjuryWithValidInjury_returnsCorrectly() {
-        ApplicationUser user = userRepository.findAll().getFirst();
-        Injuries toUpdate = injuryRepository.getAllByApplicationUser(user).getFirst();
+    void updateInjuryWithValidInjury_returnsCorrectly() throws Exception {
+        CreateInjuryStateDto cdto = new CreateInjuryStateDto();
+        cdto.setInjuryIndex(0.5);
+        cdto.setAffectedArea(BodyPart.KNEE_REGION);
+        cdto.setLastHealthyDate(LocalDate.now().minusDays(10));
+
+        String email = "test@example.com";
+        createAndVerifyUser(email, "password");
+
+        Injuries toUpdate = injuryAwareTrainingService.createInjuries(cdto, email);
 
         double newIdx;
         double oldIdx = toUpdate.getInjuryIndex();
@@ -381,7 +388,7 @@ class InjuryAwareServiceTest extends BaseTest {
         dto.setInjuryId(toUpdate.getId());
         dto.setInjuryIndex(newIdx);
 
-        Injuries in = injuryAwareTrainingService.updateInjuries(dto, user.getEmail());
+        Injuries in = injuryAwareTrainingService.updateInjuries(dto, email);
         assertAll(
                 () -> assertEquals(toUpdate.getAffectedArea(), in.getAffectedArea()),
                 () -> assertNotEquals(oldIdx, in.getInjuryIndex())

@@ -5,6 +5,7 @@ import com.smartroute.smartroute1.endpoint.dto.UpdateInjuryDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Injuries;
 import com.smartroute.smartroute1.entity.enums.BodyPart;
+import com.smartroute.smartroute1.exception.NotFoundException;
 import com.smartroute.smartroute1.repository.InjuryRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
@@ -181,6 +182,15 @@ public class InjuryAwareTrainingServiceImpl implements InjuryAwareTrainingServic
     public List<Injuries> findInjuriesByEmail(String email) {
         ApplicationUser user = userRepository.findUserByEmail(email);
         return injuryRepository.getAllByApplicationUser(user);
+    }
+
+    @Override
+    public void deleteInjuriesByEmailAndId(String email, long id) {
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        if (injuryRepository.findByIdAndApplicationUser(id, user) == null) {
+            throw new NotFoundException("Injuries with id " + id + " not found");
+        }
+        injuryRepository.deleteById(id);
     }
 
     private double clamp01(double value) {
