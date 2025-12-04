@@ -1,5 +1,5 @@
 import {IonicModule} from '@ionic/angular';
-import {Component} from '@angular/core';
+import {Component, inject} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {
   formatDistance,
@@ -11,6 +11,7 @@ import {
   formatWindSpeed,
 } from "../../util/formatters";
 import {RecommendedActivityDto, SessionType} from "../../dtos/recommended-activity";
+import {Router} from "@angular/router";
 import {BodyPart, getBodyPartLabel, getSeverityColor} from "../../dtos/injuries";
 
 @Component({
@@ -21,6 +22,9 @@ import {BodyPart, getBodyPartLabel, getSeverityColor} from "../../dtos/injuries"
   imports: [IonicModule, CommonModule]
 })
 export class TrainingPlanPage {
+
+  private router: Router = inject(Router);
+
   date: string = new Date().toLocaleDateString();
   recommendedActivity: RecommendedActivityDto | undefined = {
     title: "Gym Session",
@@ -53,7 +57,7 @@ export class TrainingPlanPage {
       ]
     },
     gymSession: {
-      id: 0,
+      id: 1,
       exercises: [
         {name: "Exercise 1", exerciseId: "1", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
         {name: "Exercise 2", exerciseId: "2", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
@@ -64,6 +68,10 @@ export class TrainingPlanPage {
       reps: 40,
     }
   };
+
+  goToGymExercise(exerciseId: number) {
+    this.router.navigate(['tabs/gym/' + exerciseId]);
+  }
 
   interpretReadinessScore(readinessScore: number): string {
     if (readinessScore >= 85) {
