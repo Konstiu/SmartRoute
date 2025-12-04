@@ -8,7 +8,6 @@ export interface RecommendedActivityDto {
     distance: number;
     pace: number;
     elevation: number;
-    description?: string;
   },
   gymSession?: GymWorkoutDto;
   weather: {
