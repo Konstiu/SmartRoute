@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.unittest;
 
+import com.smartroute.smartroute1.basetest.BaseTest;
 import com.smartroute.smartroute1.entity.Exercise;
 import com.smartroute.smartroute1.repository.ExerciseRepository;
 import org.junit.jupiter.api.Test;
@@ -13,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest()
 @ActiveProfiles({"test", "generateData"})
-public class ExerciseImportTest {
+public class ExerciseImportTest extends BaseTest {
 
     @Autowired
     private ExerciseRepository repository;
