@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Transactional
 @SpringBootTest
 @ActiveProfiles({"test", "generateData"})
-public class GymWorkoutSelectorTest extends BaseTest {
+public class GymWorkoutSelectorTest {
 
     @Autowired
     private GymWorkoutSelectorService gymWorkoutSelectorService;

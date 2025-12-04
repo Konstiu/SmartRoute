@@ -17,6 +17,8 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Instant;
 import java.util.List;
+import java.time.LocalDate;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -138,5 +140,59 @@ public class ActivityProcessingServiceTest extends BaseTest {
         verify(taskScheduler, times(2))
                 .schedule(any(Runnable.class), any(Instant.class));
     }
-}
 
+    @Test
+    void testGetLastActivityBeforeDate_returnsLatestBefore() {
+        activityRepository.deleteAll();
+        activityRepository.flush();
+
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        Activity older = getStravaActivity();
+        older.setUser(user);
+        older.setStartDate(Instant.now().minusSeconds(5 * 24 * 3600));
+        older.setName("older");
+
+        Activity middle = getStravaActivity();
+        middle.setUser(user);
+        middle.setStartDate(Instant.now().minusSeconds(2 * 24 * 3600));
+        middle.setName("middle");
+
+        Activity future = getStravaActivity();
+        future.setUser(user);
+        future.setStartDate(Instant.now());
+        future.setName("future");
+
+        activityRepository.saveAll(List.of(older, middle, future));
+
+        // Choose a date of yesterday -> activities before that are older and middle, latest should be middle
+        LocalDate date = LocalDate.now().minusDays(1);
+
+        Optional<Activity> result = activityProcessingService.getLastActivityBeforeDate(user.getEmail(), date);
+
+        assertTrue(result.isPresent());
+        assertEquals("middle", result.get().getName());
+    }
+
+    @Test
+    void testGetLastActivityBeforeDate_returnsEmptyWhenNoActivityBeforeDate() {
+        activityRepository.deleteAll();
+        activityRepository.flush();
+
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        Activity act = getStravaActivity();
+        act.setUser(user);
+        act.setStartDate(Instant.now());
+        act.setName("only");
+
+        activityRepository.save(act);
+
+        // Choose a date far in the past so there are no activities before it
+        LocalDate date = LocalDate.now().minusDays(10);
+
+        Optional<Activity> result = activityProcessingService.getLastActivityBeforeDate(user.getEmail(), date);
+
+        assertTrue(result.isEmpty());
+    }
+}
