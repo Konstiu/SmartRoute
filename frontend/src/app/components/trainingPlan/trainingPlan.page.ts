@@ -27,21 +27,25 @@ export class TrainingPlanPage {
       windSpeed: 4,
       windDirection: "N",
       precipitation: 0,
+      relativeHumidity: 50,
     },
     athleteStatus: {
       tsb: -4,
       readinessScore: 65,
-      injuryIndex: 0.0,
+      injuryIndex: 1.0,
+      injuries: [
+        {title: "Leg injury"}
+      ]
     }
   };
 
 
   formatDistance(distance: number): string {
-    return `${(distance/1000).toFixed(2)} km`
+    return `${(distance / 1000).toFixed(2)} km`
   }
 
   formatPace(pace: number) {
-    return `${(pace/60).toFixed(2)}/km`;
+    return `${(pace / 60).toFixed(2)}/km`;
   }
 
   formatElevation(elevation: number) {
