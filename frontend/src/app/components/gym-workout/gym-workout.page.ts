@@ -54,7 +54,6 @@ export class GymWorkoutPage implements OnInit {
   }
 
   async openExercise(exercise: ExerciseDto) {
-    console.log("Exercise: " + exercise.instructions);
     const modal = await this.modalCtrl.create({
       component: ExerciseDetailComponent,
       componentProps: {exercise},
