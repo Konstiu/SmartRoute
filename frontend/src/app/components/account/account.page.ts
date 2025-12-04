@@ -14,7 +14,7 @@ import {Router} from "@angular/router";
   templateUrl: 'account.page.html',
   styleUrls: ['account.page.scss'],
   standalone: true,
-  imports: [ConnectStravaComponent, IonicModule, CommonModule, FormsModule, ExploreContainerComponentModule, ConnectGarminComponent, UserDataDisplayComponent]
+  imports: [IonicModule, CommonModule, FormsModule, ExploreContainerComponentModule, UserDataDisplayComponent]
 })
 export class AccountPage {
 
