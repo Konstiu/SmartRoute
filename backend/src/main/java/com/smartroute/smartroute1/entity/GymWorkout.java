@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -32,7 +33,7 @@ public class GymWorkout {
     @JoinColumn(name = "application_user_id")
     private ApplicationUser user;
 
-    @ManyToMany
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH, CascadeType.DETACH})
     @JoinTable(
             name = "gym_workout_exercise",
             joinColumns = @JoinColumn(name = "gym_workout_id"),
