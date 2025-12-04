@@ -67,6 +67,8 @@ public class Activity {
 
     private Integer sessionLoad;
 
+    private Integer satisfactionScore;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private ApplicationUser user;
