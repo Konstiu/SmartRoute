@@ -51,8 +51,8 @@ public class StravaServiceImpl implements StravaService {
 
     @Override
     @Transactional
-    public List<StravaActivityDto> importStravaActivities(String email) {
-        LOGGER.trace("Import Strava activities for user with mail: {}", email);
+    public List<StravaActivityDto> importStravaActivities(String email, int limit) {
+        LOGGER.trace("Import {} Strava activities for user with mail: {}", limit, email);
 
         ApplicationUser user = userRepository.findUserByEmail(email);
         Optional<StravaAccount> accountOpt = stravaAccountRepository.findByUser(user);
@@ -74,7 +74,7 @@ public class StravaServiceImpl implements StravaService {
             activities = webClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/api/v3/athlete/activities")
-                            .queryParam("per_page", 45)
+                            .queryParam("per_page", limit)
                             .build()
                     )
                     .headers(h -> h.setBearerAuth(token))

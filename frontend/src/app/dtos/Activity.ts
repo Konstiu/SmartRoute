@@ -1,4 +1,4 @@
-export interface DetailedStravaActivity {
+export interface DetailedActivity {
   id: number;
   name: string;
   distance: number;
@@ -18,7 +18,7 @@ export interface DetailedStravaActivity {
   summaryPolyline: string|null;
 }
 
-export interface StravaActivity {
+export interface Activity {
   id: number;
   name: string;
   distance: number;

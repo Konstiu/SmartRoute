@@ -17,10 +17,11 @@ public interface StravaService {
      * Imports a list of Strava activities for the user with the specified email.
      *
      * @param email the email of the user whose Strava activities should be imported
+     * @param limit the maximum number of activities to import
      * @return a list of {@link StravaActivityDto} representing the user's activities
      * @throws RuntimeException if the Strava account is not linked or API call fails
      */
-    List<StravaActivityDto> importStravaActivities(String email);
+    List<StravaActivityDto> importStravaActivities(String email, int limit);
 
     /**
      * Imports the (heart rate) zone data for the user with the specified email from Strava.
