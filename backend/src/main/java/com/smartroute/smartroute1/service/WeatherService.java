@@ -3,8 +3,8 @@ package com.smartroute.smartroute1.service;
 import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
 import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.entity.WeatherResponse;
-import com.smartroute.smartroute1.exception.WeatherException;
 import com.smartroute.smartroute1.exception.ValidationException;
+import com.smartroute.smartroute1.util.Coordinate;
 
 import java.util.List;
 
@@ -13,15 +13,15 @@ public interface WeatherService {
     /**
      * Fetches the hourly weather data of a given location of the next seven days.
      *
-     * @param latitude latitude of the location from which the weather data should be fetched
+     * @param latitude latitude coordinate from where the weather data should be fetched.
      *
-     * @param longitude longitude of the location from which the weather data should be fetched
+     * @param longitude latitude coordinate from where the weather data should be fetched.
      *
-     * @return a list of {@link WeatherDto} objects, each representing one hour of forecast data
+     * @param timeUtc time from which the weather data should be fetched for.
      *
-     * @throws WeatherException if weather data could not be fetched
+     * @throws ValidationException coordinates contain invalid latitude or longitude values, time is in a wrong format or data is not available for that time.
      */
-    List<WeatherDto> getHourlyWeather(double latitude, double longitude) throws ValidationException;
+    WeatherResponse getWeatherAtTime(double latitude, double longitude, String timeUtc) throws ValidationException;
 
     /**
      * Estimates the performance impact of weather conditions on a running event.
@@ -29,7 +29,7 @@ public interface WeatherService {
      *
      * @param weather Weather Data.
      *
-     * @param age Runners age
+     * @param age Runners age.
      *
      * @param distanceMeters The distance of the running event in meters.
      *
@@ -42,6 +42,8 @@ public interface WeatherService {
      *            <li>Classification of precipitation</li>
      *            <li>Classification of wind speed</li>
      *        </ul>
+     *
+     * @throws ValidationException if weather data is abnormal.
      */
     WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters) throws ValidationException;
 }

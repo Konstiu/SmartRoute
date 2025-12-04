@@ -6,7 +6,7 @@ import org.mapstruct.Mapper;
 
 @Mapper
 public interface WeatherMapper {
-    default WeatherResponse toEntity(WeatherDto dto, WeatherResponse entity, Double longitude, Double latitude) {
+    default WeatherResponse toEntity(WeatherDto dto, WeatherResponse entity, Double latitude, Double longitude) {
         if (entity == null) {
             entity = new WeatherResponse();
         }

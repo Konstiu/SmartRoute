@@ -1,7 +1,5 @@
 package com.smartroute.smartroute1.service.validators;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.ValidationException;
 import org.slf4j.Logger;
@@ -9,41 +7,18 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.lang.invoke.MethodHandles;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
 @Component
 public class WeatherValidator {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-
-    public void validateHourlyData(JsonNode root) throws ValidationException {
-        List<String> errors = new ArrayList<>();
-        LOGGER.trace("Validation of hourly data: {}", root);
-
-        if (root == null || root.isMissingNode()) {
-            errors.add("Root hourly not found");
-            throw new ValidationException("Errors while verifying weather data:", errors);
-        }
-
-        JsonNode hourly = root.path("hourly");
-
-        if (!hourly.has("time")
-                || !hourly.has("temperature_2m")
-                || !hourly.has("precipitation")
-                || !hourly.has("wind_speed_10m")
-                || !hourly.has("relative_humidity_2m")
-                || !hourly.has("shortwave_radiation")
-                || !hourly.has("dew_point_2m")
-                || !hourly.has("surface_pressure")
-                || !hourly.has("direct_radiation")
-                || !hourly.has("diffuse_radiation")
-                || !hourly.has("snow_depth")) {
-
-            errors.add("Weather API response is missing required hourly fields");
-            throw new ValidationException("Errors while verifying weather data:", errors);
-        }
-    }
-
 
     public void validateCoordinates(double latitude, double longitude) throws ValidationException {
         List<String> errors = new ArrayList<>();
@@ -67,16 +42,6 @@ public class WeatherValidator {
 
         if (!errors.isEmpty()) {
             throw new ValidationException("Errors while verifying lat. and long.:", errors);
-        }
-    }
-
-    public void validateListSizes(List<?>... lists) throws ValidationException {
-        LOGGER.trace("Validation of the size of weather data lists : {}", lists.length);
-        int size = lists[0].size();
-        for (List<?> list : lists) {
-            if (list.size() != size) {
-                throw new ValidationException("Hourly lists differ in size — invalid API data");
-            }
         }
     }
 
@@ -204,6 +169,46 @@ public class WeatherValidator {
 
         if (!errors.isEmpty()) {
             throw new ValidationException("Age or distance validation failed:", errors);
+        }
+    }
+
+    public void validateForecastTime(String timeUtc) throws ValidationException {
+        List<String> errors = new ArrayList<>();
+        LOGGER.trace("Validating if weather data of given time can be fetched from open-meteo: {}", timeUtc);
+
+        // Parse the requested timestamp
+        LocalDateTime requested = LocalDateTime.parse(timeUtc);
+
+        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate requestedDay = requested.toLocalDate();
+
+        // Past days are not allowed
+        if (requestedDay.isBefore(today)) {
+            errors.add("Cannot request weather for days in the past.");
+        }
+
+        // Only up to 3 days ahead can be fetched
+        long daysAhead = ChronoUnit.DAYS.between(today, requestedDay);
+
+        if (daysAhead > 3) {
+            errors.add("Future weather is only available up to 3 days ahead.");
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Forecast Time failed:", errors);
+        }
+    }
+
+    public void validateTimeFormat(String timeUtc) throws ValidationException {
+        LOGGER.trace("Validating if time has the correct format for open-meteo: {}", timeUtc);
+        final DateTimeFormatter openMeteoFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
+        try {
+            // Reject invalid dates like 2025-13-40T99:99
+            LocalDateTime.parse(timeUtc, openMeteoFormat);
+        } catch (DateTimeParseException ex) {
+            throw new ValidationException(
+                    "Invalid time format. Expected format: yyyy-MM-dd'T'HH:mm (e.g. 2025-12-05T14:00)"
+            );
         }
     }
 }

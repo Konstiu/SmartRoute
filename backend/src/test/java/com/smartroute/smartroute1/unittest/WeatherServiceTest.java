@@ -12,6 +12,7 @@ import com.smartroute.smartroute1.service.WeatherService;
 import com.smartroute.smartroute1.entity.enums.HeatRiskCategory;
 import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.service.impl.WeatherServiceImpl;
+import com.smartroute.smartroute1.util.Coordinate;
 import jakarta.transaction.Transactional;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -32,6 +33,10 @@ import org.springframework.web.server.ResponseStatusException;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
 import java.net.URI;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -59,9 +64,13 @@ class WeatherServiceTest {
         mockWeatherApi.shutdown();
     }
 
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
+    private final static String timeUtc = LocalDate.now(ZoneOffset.UTC).atTime(0, 0).format(TIME_FORMAT);
+    private final static Coordinate coordinate = new Coordinate(20.0, 40.0);
+
     private static WeatherDto getTestWeatherDto() {
         WeatherDto weatherDto = new WeatherDto();
-        weatherDto.setTime("2025-11-28T00:00");
+        weatherDto.setTime(timeUtc);
         weatherDto.setTemperature2m(-21.4);
         weatherDto.setPrecipitation(0.0);
         weatherDto.setRelativeHumidity(87.0);
@@ -111,7 +120,6 @@ class WeatherServiceTest {
         return mapper.writeValueAsString(root);
     }
 
-
     @Test
     void testGetWeather_savesWeather() throws Exception {
         WeatherDto weatherDto = getTestWeatherDto();
@@ -124,11 +132,10 @@ class WeatherServiceTest {
                         .setBody(json)
         );
 
-        List<WeatherDto> result = service.getHourlyWeather(20, 40);
+        WeatherResponse result = service.getWeatherAtTime(coordinate.getLatitude(), coordinate.getLongitude(), timeUtc);
 
         assertAll(
-                () -> assertNotNull(result),
-                () -> assertEquals(1, result.size())
+                () -> assertNotNull(result)
         );
 
         List<WeatherResponse> stored = weatherRepository.findAll();
@@ -136,7 +143,7 @@ class WeatherServiceTest {
         WeatherResponse saved = stored.getFirst();
 
         assertAll(
-                () -> assertEquals("2025-11-28T00:00", saved.getTime()),
+                () -> assertEquals(timeUtc, saved.getTime()),
                 () -> assertEquals(-21.4, saved.getTemperature2m()),
                 () -> assertEquals(0.0, saved.getPrecipitation()),
                 () -> assertEquals(87.0, saved.getRelativeHumidity()),
@@ -149,7 +156,8 @@ class WeatherServiceTest {
     void testGetWeather_multipleWeatherDates_savedCorrectly() throws Exception {
         WeatherDto weather1 = getTestWeatherDto();
         WeatherDto weather2 = getTestWeatherDto();
-        weather2.setTime("2025-11-29T00:00");
+        String timeUtcPlus1 = LocalDateTime.parse(timeUtc, TIME_FORMAT).plusHours(1).format(TIME_FORMAT);
+        weather2.setTime(timeUtcPlus1);
         weather2.setTemperature2m(-20.5);
 
         String json = openMeteoJsonFromDtos(List.of(weather1, weather2));
@@ -161,21 +169,19 @@ class WeatherServiceTest {
                         .setBody(json)
         );
 
-        List<WeatherDto> result = service.getHourlyWeather(20, 40);
+        WeatherResponse result = service.getWeatherAtTime(coordinate.getLatitude(), coordinate.getLongitude(), timeUtc);
 
         assertAll(
-                () -> assertNotNull(result),
-                () -> assertEquals(2, result.size())
+                () -> assertNotNull(result)
         );
 
         List<WeatherResponse> stored = weatherRepository.findAll();
 
         assertAll(
                 () -> assertNotNull(result),
-                () -> assertEquals(2, result.size()),
                 () -> assertEquals(2, stored.size()),
-                () -> assertEquals("2025-11-28T00:00", result.getFirst().getTime()),
-                () -> assertEquals("2025-11-29T00:00", result.get(1).getTime())
+                () -> assertEquals(timeUtc, stored.getFirst().getTime()),
+                () -> assertEquals(timeUtcPlus1, stored.get(1).getTime())
         );
     }
 
@@ -188,7 +194,8 @@ class WeatherServiceTest {
         );
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.getHourlyWeather(20, 40));
+                () -> service.getWeatherAtTime(coordinate.getLatitude(), coordinate.getLongitude(), timeUtc)
+        );
 
         assertAll(
                 () -> assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode()),
@@ -205,7 +212,8 @@ class WeatherServiceTest {
         );
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.getHourlyWeather(20, 40));
+                () -> service.getWeatherAtTime(coordinate.getLatitude(), coordinate.getLongitude(), timeUtc)
+        );
 
         assertAll(
                 () -> assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatusCode()),
@@ -214,38 +222,14 @@ class WeatherServiceTest {
     }
 
     @Test
-    void testGetWeather_missingFields_throwsValidationException() throws Exception {
-        String json = """
-                {
-                    "hourly": {
-                        "time": ["2025-11-28T00:00"]
-                    }
-                }
-                """;
-
-        mockWeatherApi.enqueue(new MockResponse()
-                .setResponseCode(200)
-                .setHeader("Content-Type", "application/json")
-                .setBody(json)
-        );
-
-        ValidationException ex = assertThrows(
-                ValidationException.class,
-                () -> service.getHourlyWeather(20, 40)
-        );
-
-        assertAll(
-                () -> assertTrue(ex.errors().contains("Weather API response is missing required hourly fields"))
-        );
-    }
-
-
-    @Test
     void testGetWeather_tooSmallLongAndLat_throwsValidationException() {
+        Coordinate testCoordinate = new Coordinate(-100.0, -200.0);
+
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.getHourlyWeather(-200, -200)
+                () -> service.getWeatherAtTime(testCoordinate.getLatitude(), testCoordinate.getLongitude(), timeUtc)
         );
+
 
         assertAll(
                 () -> assertTrue(ex.errors().contains("latitude is smaller than -90")),
@@ -255,9 +239,11 @@ class WeatherServiceTest {
 
     @Test
     void testGetWeather_tooLargeLongAndLat_throwsValidationException() {
+        Coordinate testCoordinate = new Coordinate(100.0, 200.0);
+
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.getHourlyWeather(200, 200)
+                () -> service.getWeatherAtTime(testCoordinate.getLatitude(), testCoordinate.getLongitude(), timeUtc)
         );
 
         assertAll(

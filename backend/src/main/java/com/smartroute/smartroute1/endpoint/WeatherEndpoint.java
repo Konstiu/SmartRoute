@@ -2,8 +2,10 @@ package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
 import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
+import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.WeatherService;
+import com.smartroute.smartroute1.util.Coordinate;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.annotation.security.PermitAll;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 
@@ -24,11 +27,11 @@ public class WeatherEndpoint {
     private final WeatherService weatherService;
 
     @GetMapping("/hourly")
-    @Secured("ROLE_USER")
+    //@Secured("ROLE_USER")
     @Operation(summary = "Get hourly weather data",
             description = "Returns hourly weather information including temperature, precipitation, wind and radiation values.")
-    public ResponseEntity<List<WeatherDto>> getWeather(@RequestParam("latitude") double lat, @RequestParam("longitude") double lon) throws ValidationException {
-        List<WeatherDto> weatherResponse = weatherService.getHourlyWeather(lat, lon);
+    public ResponseEntity<WeatherResponse> getWeatherAtTime(@RequestParam("latitude") double latitude, @RequestParam("longitude") double longitude, @RequestParam("timeUtc") String timeUtc) throws ValidationException {
+        WeatherResponse weatherResponse = weatherService.getWeatherAtTime(latitude, longitude, timeUtc);
         return ResponseEntity.ok(weatherResponse);
     }
 }

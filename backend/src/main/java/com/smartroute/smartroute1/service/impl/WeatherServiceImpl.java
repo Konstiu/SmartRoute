@@ -29,9 +29,13 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 
 import java.lang.invoke.MethodHandles;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -42,20 +46,18 @@ public class WeatherServiceImpl implements WeatherService {
     private final WebClient weatherWebClient;
     private final ObjectMapper mapper;
     private final WeatherValidator validator;
-    private final WeatherRepository rep;
     private final WeatherMapper weatherMapper;
     private final WeatherRepository weatherRepository;
 
-    @Override
     @Transactional
-    public List<WeatherDto> getHourlyWeather(double latitude, double longitude) throws ValidationException {
+    // Stores hourly weather data over the next 7 days for a given coordinate from open-meteo.
+    private void importHourlyWeather(double latitude, double longitude) throws ValidationException {
         validator.validateCoordinates(latitude, longitude);
 
         String url = buildUrl(latitude, longitude);
         LOGGER.trace("Calling Open-Meteo API with URL: {}", url);
 
         JsonNode root = fetchWeatherData(url);
-        validator.validateHourlyData(root);
 
         JsonNode hourly = root.path("hourly");
 
@@ -71,14 +73,18 @@ public class WeatherServiceImpl implements WeatherService {
         List<Double> diffuseRadiation = extractDoubleList(hourly, "diffuse_radiation");
         List<Double> snowDepth = extractDoubleList(hourly, "snow_depth");
 
-        validator.validateListSizes(time, temperature, precipitation, windSpeed, humidity, radiation, dewPoint, directRadiation, diffuseRadiation, snowDepth);
-
-        List<WeatherDto> result = new ArrayList<>();
         List<WeatherResponse> entities = new ArrayList<>();
-        List<WeatherResponse> existing = weatherRepository.findAll();
-        WeatherResponse entity;
+
+        LocalDate fetchedAt = LocalDate.now(ZoneOffset.UTC);
+        LocalDate nowUtc = fetchedAt;
+        LocalDate cutoff = nowUtc.plusDays(3); // keep only the next 72 hours
 
         for (int i = 0; i < time.size(); i++) {
+            LocalDate entryTime = LocalDate.parse(time.get(i), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
+            // Skip anything beyond the 3-day window
+            if (entryTime.isAfter(cutoff)) {
+                continue;
+            }
 
             WeatherDto dto = new WeatherDto(
                     time.get(i),
@@ -87,29 +93,28 @@ public class WeatherServiceImpl implements WeatherService {
                     precipitation.get(i),
                     humidity.get(i),
                     radiation.get(i),
-                    dewPoint.get(i),
-                    surfacePressure.get(i),
                     directRadiation.get(i),
                     diffuseRadiation.get(i),
+                    surfacePressure.get(i),
+                    dewPoint.get(i),
                     snowDepth.get(i)
             );
 
-            result.add(dto);
+            // Check if existing entry in DB
+            WeatherResponse entity = weatherRepository.getByTimeAndLatitudeAndLongitude(time.get(i), latitude, longitude);
 
+            // Map the dto into entity (create new if null)
+            entity = weatherMapper.toEntity(dto, entity, latitude, longitude);
 
-            if (i < existing.size()) {
-                entity = weatherRepository.getByTimeAndLongitudeAndLatitude(time.get(i), longitude, latitude);
-                entity = weatherMapper.toEntity(dto, entity, longitude, latitude);
-            } else {
-                entity = weatherMapper.toEntity(dto, null, longitude, latitude);
-            }
+            // assign fetch timestamp
+            entity.setForecastGeneratedAt(fetchedAt);
 
             entities.add(entity);
         }
 
-        rep.saveAll(entities);
-        return result;
+        weatherRepository.saveAll(entities);
     }
+
 
     // Build url for open-meteo.
     private String buildUrl(double latitude, double longitude) {
@@ -168,6 +173,41 @@ public class WeatherServiceImpl implements WeatherService {
         List<String> list = new ArrayList<>();
         hourly.get("time").forEach(node -> list.add(node.asText()));
         return list;
+    }
+
+    @Override
+    public WeatherResponse getWeatherAtTime(double latitude, double longitude, String timeUtc) throws ValidationException {
+        LOGGER.info("Searching cached weather for latitude={}, longitude={} at hour={}", latitude, longitude, timeUtc);
+
+        validator.validateCoordinates(latitude, longitude);
+        validator.validateTimeFormat(timeUtc);
+        validator.validateForecastTime(timeUtc);
+
+        // Try to load from repository
+        Optional<WeatherResponse> cached = Optional.ofNullable(weatherRepository.getByTimeAndLatitudeAndLongitude(timeUtc, latitude, longitude));
+
+        if (cached.isPresent()) {
+            LOGGER.info("Found cached weather in repository");
+            WeatherResponse old = cached.get();
+
+            LocalDate fetchedDay = old.getForecastGeneratedAt();
+            LocalDate today = LocalDate.now(ZoneOffset.UTC);
+
+            if (fetchedDay.equals(today)) {
+                LOGGER.info("Cached weather is still fresh");
+                return old; // cache hit and still fresh
+            }
+
+            LOGGER.info("Stale data found -> deleting stale entries");
+            weatherRepository.deleteAllByCoordinates(latitude, longitude); // if staleness detected for a coordinate, delete all weather data of that entry
+        }
+
+        // Fetch new data
+        LOGGER.info("Weather not cached, calling open-meteo");
+        importHourlyWeather(latitude, longitude);
+
+        // Load from repository
+        return weatherRepository.getByTimeAndLatitudeAndLongitude(timeUtc, latitude, longitude);
     }
 
     // Compute the natural wet-bulb temperature in C°. Source: https://journals.ametsoc.org/view/journals/apme/50/11/jamc-d-11-0143.1.xml
@@ -371,6 +411,7 @@ public class WeatherServiceImpl implements WeatherService {
         return WindIntensity.GALE_AND_BEYOND;
     }
 
+    @Override
     public WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters) throws ValidationException {
         validator.validateWeatherValues(weather);
         validator.validateAgeAndDistance(age, distanceMeters);
