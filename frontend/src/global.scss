@@ -107,14 +107,14 @@ ion-card-content {
 
 
 /* === Generic narrow page container (adapted from .injuries-container) === */
-.sync-container {
+.page-container {
   max-width: 50rem;
   margin: 0 auto;
   padding: 1.5rem 1rem 2rem;
 }
 
 /* === Section cards (Sync Status, Connected Services, Sync Settings) === */
-ion-card.sync-card {
+ion-card.rounded-card {
   margin: 0 0 1rem 0;
   box-shadow: 0 0.125rem 0.75rem rgba(0, 0, 0, 0.12);
   border-radius: 1rem;

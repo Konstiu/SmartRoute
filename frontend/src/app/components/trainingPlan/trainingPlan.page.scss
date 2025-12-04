@@ -46,3 +46,15 @@ li {
   font-weight: bold;
   color: var(--ion-text-color);
 }
+
+
+ion-list {
+  background: transparent !important;
+  --background: transparent !important;
+
+  ion-item {
+    background: transparent !important;
+    --background: transparent !important;
+  }
+}
+
