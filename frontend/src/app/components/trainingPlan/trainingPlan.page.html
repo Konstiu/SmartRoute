@@ -5,15 +5,112 @@
     </ion-title>
   </ion-toolbar>
 </ion-header>
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Training Plan</ion-title>
-    </ion-toolbar>
-  </ion-header>
-  <button class="bg-red-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded" routerLink="/register">
-    Go to Register
-  </button>
 
-  <app-explore-container name="Training Plan Page"></app-explore-container>
+<ion-content [fullscreen]="true">
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>
+        {{ date }}
+      </ion-card-title>
+      <ion-card-title>
+        Recommended Session: {{ recommendedActivity?.title }}
+      </ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      @if (recommendedActivity) {
+        @if (recommendedActivity!.type === SessionType.RUN) {
+          <ion-card color="success" style="height:24rem">
+            <ion-card-header>
+              <ion-card-title>
+                MAP PLACEHOLDER
+              </ion-card-title>
+            </ion-card-header>
+          </ion-card>
+          <ion-card>
+            <ion-card-content>
+              <ion-grid>
+                <ion-row>
+                  <ion-col>
+                    <!--Route-->
+                    <ion-list>
+                      <ion-list-header>
+                        Route Details
+                      </ion-list-header>
+                      <ion-item>
+                        {{ formatDistance(recommendedActivity!.route!.distance) }}
+                      </ion-item>
+                      <ion-item>
+                        {{ formatPace(recommendedActivity!.route!.pace) }}
+                      </ion-item>
+                      <ion-item>
+                        {{ formatElevation(recommendedActivity!.route!.elevation) }}
+                      </ion-item>
+                    </ion-list>
+                  </ion-col>
+                  <ion-col>
+                    <!--Weather-->
+                    <ion-list>
+                      <ion-list-header>
+                        Weather Conditions
+                      </ion-list-header>
+                      <ion-item>
+                        {{ formatTemperature(recommendedActivity!.weather.temperature) }}
+                      </ion-item>
+                      <ion-item>
+                        {{ formatWindSpeed(recommendedActivity!.weather.windSpeed) }}
+                      </ion-item>
+                      <ion-item>
+                        {{ formatWindDirection(recommendedActivity!.weather.windDirection) }}
+                      </ion-item>
+                      @if (recommendedActivity!.weather.precipitation > 0) {
+                        <ion-item>
+                          {{ formatPrecipitation(recommendedActivity!.weather.precipitation) }}
+                        </ion-item>
+                      }
+                    </ion-list>
+                  </ion-col>
+                </ion-row>
+              </ion-grid>
+            </ion-card-content>
+          </ion-card>
+        } @else if (recommendedActivity!.type === SessionType.GYM) {
+          <ion-card color="danger">
+            <ion-card-header>
+              <ion-card-title>
+                GYM PLACEHOLDER
+              </ion-card-title>
+            </ion-card-header>
+          </ion-card>
+        } @else if (recommendedActivity.type === SessionType.REST) {
+
+        }
+
+        <ion-card>
+          <ion-card-header>
+            <ion-card-title>
+              Why this Session?
+            </ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <ion-list>
+              <ion-item>TSB: {{ interpretTSB(recommendedActivity!.athleteStatus.tsb) }}</ion-item>
+              <ion-item>Readiness
+                Score: {{ interpretReadinessScore(recommendedActivity!.athleteStatus.readinessScore) }}
+              </ion-item>
+              @if (recommendedActivity!.athleteStatus.injuryIndex < 1 && recommendedActivity!.athleteStatus.injuries && recommendedActivity!.athleteStatus.injuries!.length > 0) {
+                <ion-item>You are injured:
+                  <ion-list>
+                    @for (injury of recommendedActivity!.athleteStatus!.injuries; track injury.title) {
+                      <ion-item>{{ injury.title }}</ion-item>
+                    }
+                  </ion-list>
+                  {{ recommendedActivity!.athleteStatus.injuryIndex }}
+                </ion-item>
+              }
+            </ion-list>
+          </ion-card-content>
+        </ion-card>
+      }
+    </ion-card-content>
+  </ion-card>
 </ion-content>
