@@ -3,6 +3,7 @@ package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.enums.BodyPart;
 import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import com.smartroute.smartroute1.service.UserService;
@@ -25,6 +26,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 
 @RestController
@@ -67,12 +69,14 @@ public class GymWorkoutEndpoint {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
-        /*Map<BodyPart, Double> injuryMap = injuryAwareTrainingService
+        Map<BodyPart, Double> injuryMap = injuryAwareTrainingService
                 .calculateInjuriesMap(injuryAwareTrainingService
-                        .findInjuriesByEmail(email));*/
+                        .findInjuriesByEmail(email));
         ApplicationUser user = userService.findApplicationUserByEmail(email);
         //TODO ADD ACTUAL READINESS SCORE WHEN AVAILABLE
-        return gymWorkoutSelectorService.getGymWorkout(user, null, 100);
+        Random random = new Random();
+        int readinessScore = random.nextInt(101);
+        return gymWorkoutSelectorService.getGymWorkout(user, injuryMap, readinessScore);
     }
 
     @GetMapping("/get/{id}")
