@@ -5,6 +5,7 @@ import {ActivitiesService} from '../../../services/activities.service';
 import {Activity} from '../../dtos/Activity';
 import {Router} from "@angular/router";
 import {ToastController} from '@ionic/angular';
+import {formatDistance, formatDuration, formatElevation, formatHeartRate, formatPace} from "../../util/formatters";
 
 
 @Component({
@@ -121,32 +122,6 @@ export class RecentRunsPage implements OnInit {
     return `${dateStr} at ${timeString}`;
   }
 
-  formatDuration(seconds: number): string {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-  }
-
-  formatDistance(dist: number): string {
-    dist = dist / 1000; // convert meters to km
-    return dist.toFixed(2)
-  }
-
-  formatPace(averageSpeed: number): string {
-    if (averageSpeed <= 0) return "0:00";
-    const paceInKmh = averageSpeed * 3.6; // Convert m/s to km/h
-    const paceInMinutesPerKm = 60 / paceInKmh;
-    let minutes = Math.floor(paceInMinutesPerKm);
-    let seconds = Math.round((paceInMinutesPerKm - minutes) * 60);
-    // Handle edge case where seconds round up to 60
-    if (seconds === 60) {
-      minutes += 1;
-      seconds = 0;
-    }
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  }
-
   getActivityIcon(sportType: string): string {
     const icons: { [key: string]: string } = {
       'Run': 'footsteps-outline',
@@ -167,4 +142,9 @@ export class RecentRunsPage implements OnInit {
     this.router.navigate(['/import-gpx']);
   }
 
+  protected readonly formatElevation = formatElevation;
+  protected readonly formatHeartRate = formatHeartRate;
+  protected readonly formatDistance = formatDistance;
+  protected readonly formatDuration = formatDuration;
+  protected readonly formatPace = formatPace;
 }

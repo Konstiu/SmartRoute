@@ -19,7 +19,7 @@
     <ion-card-content>
       @if (recommendedActivity) {
         @if (recommendedActivity!.type === SessionType.RUN) {
-          <ion-card color="success" style="height:24rem">
+          <ion-card color="success" style="height:20rem">
             <ion-card-header>
               <ion-card-title>
                 MAP PLACEHOLDER
@@ -32,39 +32,43 @@
                 <ion-row>
                   <ion-col>
                     <!--Route-->
-                    <ion-list>
-                      <ion-list-header>
-                        Route Details
+                    <ion-list lines="none">
+                      <ion-list-header lines="inset">
+                        <ion-label class="info-header">Route Details</ion-label>
                       </ion-list-header>
                       <ion-item>
-                        {{ formatDistance(recommendedActivity!.route!.distance) }}
+                        <span><ion-icon name="navigate-outline"></ion-icon>{{ formatDistance(recommendedActivity!.route!.distance) }}</span></ion-item>
+                      <ion-item>
+                        <span><ion-icon name="time-outline"></ion-icon>{{ formatPace(recommendedActivity!.route!.pace) }}</span>
                       </ion-item>
                       <ion-item>
-                        {{ formatPace(recommendedActivity!.route!.pace) }}
-                      </ion-item>
-                      <ion-item>
-                        {{ formatElevation(recommendedActivity!.route!.elevation) }}
+                        <span><ion-icon name="trending-up-outline"></ion-icon>{{ formatElevation(recommendedActivity!.route!.elevation) }} </span>
                       </ion-item>
                     </ion-list>
                   </ion-col>
                   <ion-col>
                     <!--Weather-->
-                    <ion-list>
-                      <ion-list-header>
-                        Weather Conditions
+                    <ion-list lines="none">
+                      <ion-list-header lines="inset">
+                        <ion-label class="info-header">Weather</ion-label>
                       </ion-list-header>
                       <ion-item>
-                        {{ formatTemperature(recommendedActivity!.weather.temperature) }}
+                        <span><ion-icon name="thermometer-outline"></ion-icon>{{ formatTemperature(recommendedActivity!.weather.temperature) }}</span>
                       </ion-item>
                       <ion-item>
-                        {{ formatWindSpeed(recommendedActivity!.weather.windSpeed) }}
-                      </ion-item>
-                      <ion-item>
-                        {{ formatWindDirection(recommendedActivity!.weather.windDirection) }}
-                      </ion-item>
+                        <ion-label class="wind-info">
+                          <h2>Wind:</h2>
+                          <div class="wind-row">
+                            <ion-icon name="speedometer-outline"></ion-icon>{{ formatWindSpeed(recommendedActivity!.weather.windSpeed) }}
+                          </div>
+                          <div class="wind-row">
+                            <ion-icon name="compass-outline"></ion-icon>{{ formatWindDirection(recommendedActivity!.weather.windDirection) }}
+                          </div>
+                        </ion-label>
+                        </ion-item>
                       @if (recommendedActivity!.weather.precipitation > 0) {
                         <ion-item>
-                          {{ formatPrecipitation(recommendedActivity!.weather.precipitation) }}
+                          <span><ion-icon name="rainy-outline"></ion-icon>{{ formatPrecipitation(recommendedActivity!.weather.precipitation) }}</span>
                         </ion-item>
                       }
                     </ion-list>
@@ -92,11 +96,19 @@
             </ion-card-title>
           </ion-card-header>
           <ion-card-content>
-            <ion-list>
-              <ion-item>TSB: {{ interpretTSB(recommendedActivity!.athleteStatus.tsb) }}</ion-item>
-              <ion-item>Readiness
-                Score: {{ interpretReadinessScore(recommendedActivity!.athleteStatus.readinessScore) }}
+            <ion-list lines="none">
+              <ion-item>
+                <ion-label>
+                  <ion-icon [name]="tsbIcon(recommendedActivity!.athleteStatus.tsb)"></ion-icon>
+                  TSB: {{ interpretTSB(recommendedActivity!.athleteStatus.tsb) }}
+                </ion-label>
               </ion-item>
+              <ion-item>
+                <ion-label>
+                  <ion-icon name="fitness-outline"></ion-icon>
+                  Readiness Score: {{ interpretReadinessScore(recommendedActivity!.athleteStatus.readinessScore) }}
+                </ion-label>
+                </ion-item>
               @if (recommendedActivity!.athleteStatus.injuryIndex < 1 && recommendedActivity!.athleteStatus.injuries && recommendedActivity!.athleteStatus.injuries!.length > 0) {
                 <ion-item>You are injured:
                   <ion-list>

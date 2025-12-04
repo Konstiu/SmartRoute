@@ -1,6 +1,15 @@
 import {IonicModule} from '@ionic/angular';
 import {Component} from '@angular/core';
 import {CommonModule} from '@angular/common';
+import {
+  formatDistance,
+  formatWindDirection,
+  formatElevation,
+  formatPace,
+  formatWindSpeed,
+  formatPrecipitation,
+  formatTemperature,
+} from "../../util/formatters";
 import {RecommendedActivityDto, SessionType} from "../../dtos/recommended-activity";
 
 @Component({
@@ -17,7 +26,7 @@ export class TrainingPlanPage {
     type: SessionType.RUN,
     route: {
       distance: 5421,
-      pace: 360,
+      pace: 2.6,
       description: "",
       elevation: 22,
     },
@@ -38,35 +47,6 @@ export class TrainingPlanPage {
       ]
     }
   };
-
-
-  formatDistance(distance: number): string {
-    return `${(distance / 1000).toFixed(2)} km`
-  }
-
-  formatPace(pace: number) {
-    return `${(pace / 60).toFixed(2)}/km`;
-  }
-
-  formatElevation(elevation: number) {
-    return `${elevation.toFixed(0)} m`;
-  }
-
-  formatTemperature(temperature: number) {
-    return `${temperature.toFixed(0)}°C`;
-  }
-
-  formatWindSpeed(speed: number) {
-    return `${speed.toFixed(0)} km/h`;
-  }
-
-  formatWindDirection(direction: string) {
-    return "Wind direction: " + direction;
-  }
-
-  formatPrecipitation(precipitation: number) {
-    return `${precipitation.toFixed(0)} mm`;
-  }
 
   interpretReadinessScore(readinessScore: number): string {
     if (readinessScore >= 90) {
@@ -106,5 +86,31 @@ export class TrainingPlanPage {
     return `${tsb} - Extremely fatigued - rest required`;
   }
 
+  tsbIcon(tsb: number): string {
+    if (tsb >= 15) {
+      return "battery-charging-outline";
+    }
+    if (tsb >= 5) {
+      return "battery-full-outline";
+    }
+    if (tsb >= -5) {
+      return "battery-half-outline";
+    }
+    if (tsb >= -15) {
+      return "battery-empty-outline";
+    }
+    if (tsb >= -30) {
+      return "battery-empty-outline";
+    }
+    return "battery-empty-outline";
+  }
+
   protected readonly SessionType = SessionType;
+  protected readonly formatDistance = formatDistance;
+  protected readonly formatPace = formatPace;
+  protected readonly formatElevation = formatElevation;
+  protected readonly formatTemperature = formatTemperature;
+  protected readonly formatWindDirection = formatWindDirection;
+  protected readonly formatWindSpeed = formatWindSpeed;
+  protected readonly formatPrecipitation = formatPrecipitation;
 }
