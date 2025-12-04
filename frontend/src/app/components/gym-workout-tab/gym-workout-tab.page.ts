@@ -25,6 +25,7 @@ export class GymWorkoutTabPage implements OnInit {
   }
 
   loadWorkouts(event?: any) {
+    this.clearCache();
     this.isLoading = true;
     this.error = null;
 
@@ -63,5 +64,9 @@ export class GymWorkoutTabPage implements OnInit {
 
   openWorkout(workout: GymWorkoutDto) {
     this.router.navigate(['/tabs/gym', workout.id]);
+  }
+
+  clearCache() {
+    this.gymWorkouts = [];
   }
 }

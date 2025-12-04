@@ -32,14 +32,11 @@
       </ion-label>
     </ion-item>
   </ion-list>
-
   <!-- Empty State -->
   <div *ngIf="!isLoading && gymWorkouts.length === 0 && !error" class="empty-container">
-    <ion-icon color="medium" name="fitness-outline"></ion-icon>
     <h2>No Workouts Yet</h2>
-    <p>Your generated workouts will appear here</p>
+    <p>Your personalized workouts will appear here</p>
   </div>
-
   <!-- Generate Workout Button -->
   <ion-fab horizontal="end" slot="fixed" vertical="bottom">
     <ion-fab-button (click)="generateWorkout()" color="primary">

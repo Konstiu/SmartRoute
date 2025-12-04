@@ -61,4 +61,6 @@ export class GymWorkoutPage implements OnInit {
     });
     await modal.present();
   }
+
+  
 }
