@@ -28,7 +28,6 @@ export class TrainingPlanPage {
     route: {
       distance: 5421,
       pace: 2.6,
-      description: "",
       elevation: 22,
     },
     weather: {
