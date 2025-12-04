@@ -41,7 +41,7 @@ export class TrainingPlanPage {
     athleteStatus: {
       tsb: -4,
       readinessScore: 65,
-      injuryIndex: 1.0,
+      injuryIndex: 0.0,
       injuries: [
         {title: "Leg injury"}
       ]
@@ -49,22 +49,19 @@ export class TrainingPlanPage {
   };
 
   interpretReadinessScore(readinessScore: number): string {
-    if (readinessScore >= 90) {
+    if (readinessScore >= 85) {
       return `${readinessScore} - Excellent - peak readiness`;
     }
-    if (readinessScore >= 75) {
+    if (readinessScore >= 70) {
       return `${readinessScore} - Good - you can train hard`;
     }
-    if (readinessScore >= 60) {
+    if (readinessScore >= 40) {
       return `${readinessScore} - Moderate - normal training OK`;
     }
-    if (readinessScore >= 40) {
+    if (readinessScore >= 15) {
       return `${readinessScore} - Low - consider easier training`;
     }
-    if (readinessScore >= 20) {
-      return `${readinessScore} - Very low - recovery recommended`;
-    }
-    return `${readinessScore} - Extremely low - rest!`;
+    return `${readinessScore} - Very low - recovery recommended`;
   }
 
   interpretTSB(tsb: number): string {
