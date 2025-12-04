@@ -1,9 +1,11 @@
-import {Component, OnInit} from '@angular/core';
+import {Component, inject, OnInit} from '@angular/core';
 import {IonicModule} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../services/activities.service';
-import {StravaActivity} from '../../dtos/StravaActivity';
+import {Activity} from '../../dtos/Activity';
 import {Router} from "@angular/router";
+import {ToastController} from '@ionic/angular';
+
 
 @Component({
   selector: 'app-recent-runs',
@@ -13,12 +15,15 @@ import {Router} from "@angular/router";
   imports: [IonicModule, CommonModule]
 })
 export class RecentRunsPage implements OnInit {
-  activities: StravaActivity[] = [];
+  activities: Activity[] = [];
   isLoading = false;
   error: string | null = null;
 
   constructor(private stravaService: ActivitiesService, private router: Router) {
   }
+
+  private activitiesService: ActivitiesService = inject(ActivitiesService);
+  private toastCtrl: ToastController = inject(ToastController);
 
   ngOnInit() {
     this.loadActivities();
@@ -50,10 +55,46 @@ export class RecentRunsPage implements OnInit {
     });
   }
 
-  doRefresh(event: any) {
-    this.loadActivities(event);
+  async refreshActivities(event: any) {
+    if (!this.activitiesService.canRefresh()) {
+      await this.showToast("Refresh limit reached. Try again in a few minutes.", "warning")
+      event.target.complete();
+      return;
+    }
+
+    this.activitiesService.incrementRefreshCount();
+
+    this.isLoading = true;
+    this.error = null;
+
+    this.activitiesService.refreshActivities(10)
+      .subscribe({
+        next: async () => {
+          this.loadActivities(event);
+          await this.showToast("Activities synchronized successfully.", "success");
+        },
+        error: err => {
+          console.error('Error fetching activities:', err);
+          this.error = 'Failed to load activities. Please try again.';
+          this.isLoading = false;
+          event.target.complete();
+        }
+      })
   }
 
+  private async showToast(message: string, color: "success" | "warning" | "danger") {
+    const toast = await this.toastCtrl.create({
+      message,
+      color,
+      duration: 2500,
+      position: "top"
+    });
+    await toast.present();
+  }
+
+  async doRefresh(event: any) {
+    await this.refreshActivities(event);
+  }
 
   formatDate(dateString: string): string {
     const date = new Date(dateString);
@@ -69,7 +110,7 @@ export class RecentRunsPage implements OnInit {
 
     if (diffDays === 1) return `Today at ${timeString}`;
     if (diffDays === 2) return `Yesterday at ${timeString}`;
-    if (diffDays < 8) return `${diffDays-1} days ago at ${timeString}`;
+    if (diffDays < 8) return `${diffDays - 1} days ago at ${timeString}`;
 
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'short',
@@ -118,7 +159,7 @@ export class RecentRunsPage implements OnInit {
     return icons[sportType] || icons['default'];
   }
 
-  openActivity(activity: StravaActivity) {
+  openActivity(activity: Activity) {
     this.router.navigate(['/activity/', activity.id]);
   }
 
