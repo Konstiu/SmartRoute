@@ -4,12 +4,12 @@
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  margin-top: 40px;
 }
 
 .gif-card {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  justify-content: flex-start;
   align-items: center;
 }
 
@@ -20,6 +20,10 @@
 
 ion-chip {
   margin: 4px;
+}
+
+ion-content {
+  display: block;
 }
 
 .exercise-disclaimer {
@@ -40,5 +44,21 @@ ion-chip {
     border-radius: 8px;
     //box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
     //transition: transform 0.2s, box-shadow 0.2s;
+  }
+}
+
+.gif-card {
+  margin-top: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .stats-container {
+    .stats-grid {
+      .stat-item {
+        .stat-value {
+          color: var(--ion-color-dark);
+        }
+      }
+    }
   }
 }
