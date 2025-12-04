@@ -44,13 +44,6 @@ export class InjuryService {
     }
   }
 
-  /**
-   * Create a single injury
-   * Convenience method that wraps createInjuries
-   */
-  async createInjury(injury: CreateInjuryStateDto): Promise<void> {
-    return this.createInjuries([injury]);
-  }
 
   /**
    * Update injury states
@@ -73,13 +66,6 @@ export class InjuryService {
     }
   }
 
-  /**
-   * Update a single injury
-   * Convenience method that wraps updateInjuries
-   */
-  async updateInjury(injury: UpdateInjuryDto): Promise<void> {
-    return this.updateInjuries([injury]);
-  }
 
   /**
    * Delete an injury by ID
@@ -97,91 +83,4 @@ export class InjuryService {
     }
   }
 
-  /**
-   * Get injury by ID
-   * Note: You may need to add this endpoint to your backend
-   * GET /api/v1/user/injuries/:id
-   */
-  async getInjuryById(injuryId: number): Promise<ViewInjuryDto> {
-    try {
-      return await firstValueFrom(
-        this.http.get<ViewInjuryDto>(`${this.baseUri}/injuries/${injuryId}`)
-      );
-    } catch (error) {
-      console.error('Error fetching injury:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get injuries by body part (affected area)
-   * Filters injuries locally by affectedArea
-   */
-  async getInjuriesByBodyPart(affectedArea: string): Promise<ViewInjuryDto[]> {
-    const injuries = await this.getInjuries();
-    return injuries.filter(injury => injury.affectedArea === affectedArea);
-  }
-
-  /**
-   * Get injuries by severity (based on injury index)
-   * @param severity 'MILD' (0-0.33), 'MODERATE' (0.33-0.67), 'SEVERE' (0.67-1.0)
-   */
-  async getInjuriesBySeverity(severity: 'MILD' | 'MODERATE' | 'SEVERE'): Promise<ViewInjuryDto[]> {
-    const injuries = await this.getInjuries();
-    return injuries.filter(injury => {
-      if (severity === 'MILD') return injury.injuryIndex < 0.33;
-      if (severity === 'MODERATE') return injury.injuryIndex >= 0.33 && injury.injuryIndex < 0.67;
-      if (severity === 'SEVERE') return injury.injuryIndex >= 0.67;
-      return false;
-    });
-  }
-
-  /**
-   * Check if user has any active injuries
-   */
-  async hasActiveInjuries(): Promise<boolean> {
-    const injuries = await this.getInjuries();
-    return injuries.length > 0;
-  }
-
-  /**
-   * Get count of injuries by severity
-   */
-  async getInjuryCountBySeverity(): Promise<{ mild: number; moderate: number; severe: number }> {
-    const injuries = await this.getInjuries();
-    return injuries.reduce((acc, injury) => {
-      if (injury.injuryIndex < 0.33) {
-        acc.mild++;
-      } else if (injury.injuryIndex < 0.67) {
-        acc.moderate++;
-      } else {
-        acc.severe++;
-      }
-      return acc;
-    }, {mild: 0, moderate: 0, severe: 0});
-  }
-
-  /**
-   * Get active (not recovered) injuries
-   * An injury is considered active if lastInjuryDate is null or before lastHealthyDate
-   */
-  async getActiveInjuries(): Promise<ViewInjuryDto[]> {
-    const injuries = await this.getInjuries();
-    return injuries.filter(injury => {
-      if (!injury.lastInjuryDate) return true;
-      return new Date(injury.lastInjuryDate) <= new Date(injury.lastHealthyDate);
-    });
-  }
-
-  /**
-   * Get recovered injuries
-   * An injury is considered recovered if lastInjuryDate is after lastHealthyDate
-   */
-  async getRecoveredInjuries(): Promise<ViewInjuryDto[]> {
-    const injuries = await this.getInjuries();
-    return injuries.filter(injury => {
-      if (!injury.lastInjuryDate) return false;
-      return new Date(injury.lastInjuryDate) > new Date(injury.lastHealthyDate);
-    });
-  }
 }
