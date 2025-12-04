@@ -41,7 +41,7 @@ export function formatWindSpeed(speed: number) {
 }
 
 export function formatWindDirection(direction: string) {
-  return "Wind direction: " + direction;
+  return "" + direction;
 }
 
 export function formatPrecipitation(precipitation: number) {
