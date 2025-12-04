@@ -1,7 +1,7 @@
 import {Injectable, inject} from '@angular/core';
 import {Globals} from '../global/globals';
 import {HttpClient, HttpHeaders} from '@angular/common/http';
-import {StravaActivity} from "../app/dtos/StravaActivity";
+import {Activity} from "../app/dtos/Activity";
 import {StravaAccountConnectionStateDto} from '../app/dtos/strava-account-connection-state'
 import { Observable } from "rxjs";
 
