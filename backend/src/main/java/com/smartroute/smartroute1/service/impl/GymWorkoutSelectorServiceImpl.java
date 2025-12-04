@@ -8,14 +8,18 @@ import com.smartroute.smartroute1.entity.Exercise;
 import com.smartroute.smartroute1.entity.GymWorkout;
 import com.smartroute.smartroute1.entity.enums.BodyPart;
 import com.smartroute.smartroute1.entity.enums.Muscle;
+import com.smartroute.smartroute1.exception.NotFoundException;
 import com.smartroute.smartroute1.repository.ExerciseRepository;
 import com.smartroute.smartroute1.repository.GymWorkoutRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
 import com.smartroute.smartroute1.service.UserService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,7 +53,7 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
             Map.entry(Muscle.triceps, 10),
             Map.entry(Muscle.pectorals, 11)
     );
-
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final ExerciseRepository exerciseRepository;
     private final UserService userService;
     private final GymWorkoutRepository gymWorkoutRepository;
@@ -80,26 +84,27 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public GymWorkoutDto getGymWorkout(ApplicationUser user, Map<BodyPart, Double> injuriesMap, Integer readinessScore) {
         GymWorkout gymWorkout = getGymWorkout(injuriesMap, readinessScore);
 
         gymWorkout.setUser(user);
 
         gymWorkout = gymWorkoutRepository.save(gymWorkout);
+        gymWorkoutRepository.flush();
 
         GymWorkoutDto gymWorkoutDto = new GymWorkoutDto();
         gymWorkoutDto.setExercises(exerciseMapper.entityListToDtoList(gymWorkout.getExercises()));
         gymWorkoutDto.setId(gymWorkout.getId());
         gymWorkoutDto.setReps(gymWorkout.getReps());
         gymWorkoutDto.setSets(gymWorkout.getSets());
-
+        LOGGER.info("GymWorkoutDto: {}", gymWorkoutDto); //this prevents an exception
         return gymWorkoutDto;
 
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public GymWorkout getGymWorkout(Map<BodyPart, Double> injuriesMap, Integer readinessScore) {
         if (readinessScore > 100 || readinessScore < 0) {
             throw new IllegalArgumentException("Readiness Score must be between 0 and 100, but was" + readinessScore);
@@ -162,7 +167,23 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
             gymWorkoutDto.setSets(gymWorkout.getSets());
             gymWorkoutDtos.add(gymWorkoutDto);
         }
+        LOGGER.info("Getting all GymWorkoutDtos for user: {}", gymWorkoutDtos);
         return gymWorkoutDtos;
+    }
+
+    @Override
+    public GymWorkoutDto getGymWorkoutById(Long id) {
+        GymWorkout gymWorkout = gymWorkoutRepository.findGymWorkoutById(id);
+        if (gymWorkout == null) {
+            throw new NotFoundException("Could not find GymWorkout with id " + id);
+        }
+        GymWorkoutDto gymWorkoutDto = new GymWorkoutDto();
+        gymWorkoutDto.setId(gymWorkout.getId());
+        gymWorkoutDto.setExercises(exerciseMapper.entityListToDtoList(gymWorkout.getExercises()));
+        gymWorkoutDto.setReps(gymWorkout.getReps());
+        gymWorkoutDto.setSets(gymWorkout.getSets());
+        LOGGER.info("Getting GymWorkoutDto by id: {}", gymWorkoutDto);
+        return gymWorkoutDto;
     }
 
     /**
@@ -199,6 +220,10 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
     private List<Exercise> findSafeExercises(Muscle target, Set<Muscle> removedMuscles) {
         List<Exercise> all = exerciseRepository.findAll();
 
+        if (all.isEmpty()) {
+            LOGGER.warn("No exercises found in DB. Workouts will be empty!");
+        }
+
         return all.stream()
                 .filter(e -> {
                     Set<Muscle> primary = toMuscleSet(e.getTargetMuscles());
@@ -224,9 +249,19 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
         }
 
         for (String s : raw) {
-            s = s.replace(' ', '_');
-            result.add(Muscle.valueOf(s));
+            if (s == null || s.isBlank()) {
+                continue;
+            }
+
+            s = s.toLowerCase().replace(' ', '_');
+
+            try {
+                result.add(Muscle.valueOf(s));
+            } catch (IllegalArgumentException e) {
+                LOGGER.warn("Warning: Unknown muscle string in DB: '" + s + "'");
+            }
         }
+
         return result;
     }
 
