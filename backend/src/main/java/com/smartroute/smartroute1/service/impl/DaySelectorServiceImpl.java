@@ -117,7 +117,14 @@ public class DaySelectorServiceImpl implements DaySelectorService {
 
     @Override
     public double calculateTrainabilityIndex(int readinessScore, double overloadScore, double injuryConstraint, double consistencyScore) {
-        double trainabilityIndex = (readinessScore / 100.0) * (1 - injuryConstraint) * (1 - overloadScore) * (1 + .5 * consistencyScore);
+        /*
+        T_r = R_t/100 * C_t * (1 - O_t) * (1 + 0.5K_t)
+        R_t...Readiness score
+        O_t...Overload score
+        C_t...Injury constraint
+        K_t...Consistency score
+         */
+        double trainabilityIndex = (readinessScore / 100.0) * injuryConstraint * (1 - overloadScore) * (1 + .5 * consistencyScore);
         return Math.clamp(trainabilityIndex, 0.0, 1.0);
     }
 }
