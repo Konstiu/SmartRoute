@@ -1,3 +1,6 @@
+import {GymWorkoutDto} from "./gymworkout";
+import {ViewInjuryDto} from "./injuries";
+
 export interface RecommendedActivityDto {
   title: string;
   type: SessionType,
@@ -7,9 +10,7 @@ export interface RecommendedActivityDto {
     elevation: number;
     description?: string;
   },
-  gymSession?: {
-    description?: string;
-  }
+  gymSession?: GymWorkoutDto;
   weather: {
     weatherScore: number;
     temperature: number;
@@ -23,12 +24,8 @@ export interface RecommendedActivityDto {
     tsb: number;
     readinessScore: number;
     injuryIndex: number;
-    injuries?: [Injury];
+    injuries?: [ViewInjuryDto];
   }
-}
-
-interface Injury{
-  title: string;
 }
 
 export enum SessionType {
