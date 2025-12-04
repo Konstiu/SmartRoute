@@ -44,4 +44,12 @@ public interface GymWorkoutSelectorService {
      * @return the list of all gym workouts created for that user.
      */
     List<GymWorkoutDto> getAllGymWorkouts(String email);
+
+    /**
+     * Get a gym workout by id.
+     *
+     * @param id the id of the gym workout
+     * @return the gym workout from the id
+     */
+    GymWorkoutDto getGymWorkoutById(Long id);
 }

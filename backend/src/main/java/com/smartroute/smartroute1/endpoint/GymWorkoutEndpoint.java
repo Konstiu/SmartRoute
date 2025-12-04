@@ -3,12 +3,11 @@ package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
-import com.smartroute.smartroute1.entity.GymWorkout;
-import com.smartroute.smartroute1.entity.enums.BodyPart;
 import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import com.smartroute.smartroute1.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,11 +16,13 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.lang.invoke.MethodHandles;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -40,6 +41,7 @@ public class GymWorkoutEndpoint {
     @GetMapping()
     @ResponseStatus(HttpStatus.OK)
     @Secured("ROLE_USER")
+    @Transactional
     @Operation(
             summary = "Get all gym workouts of the authenticated user",
             description = "Returns a list of gym workouts for the currently logged-in user. "
@@ -65,12 +67,24 @@ public class GymWorkoutEndpoint {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String email = authentication.getName();
-        Map<BodyPart, Double> injuryMap = injuryAwareTrainingService
+        /*Map<BodyPart, Double> injuryMap = injuryAwareTrainingService
                 .calculateInjuriesMap(injuryAwareTrainingService
-                        .findInjuriesByEmail(email));
+                        .findInjuriesByEmail(email));*/
         ApplicationUser user = userService.findApplicationUserByEmail(email);
         //TODO ADD ACTUAL READINESS SCORE WHEN AVAILABLE
-        return gymWorkoutSelectorService.getGymWorkout(user, injuryMap, 100);
+        return gymWorkoutSelectorService.getGymWorkout(user, null, 100);
+    }
+
+    @GetMapping("/get/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    @Secured("ROLE_USER")
+    @Transactional
+    @Operation(
+            summary = "Get a gym workout by their id"
+    )
+    public GymWorkoutDto getGymWorkoutById(@PathVariable("id") Long id) {
+        LOGGER.info("GET /api/v1/gym/get/{id}", id);
+        return gymWorkoutSelectorService.getGymWorkoutById(id);
     }
 
 

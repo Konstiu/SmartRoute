@@ -9,4 +9,6 @@ import java.util.List;
 public interface GymWorkoutRepository extends JpaRepository<GymWorkout, Long> {
 
     List<GymWorkout> findAllByUserOrderByIdDesc(ApplicationUser user);
+
+    GymWorkout findGymWorkoutById(Long id);
 }
