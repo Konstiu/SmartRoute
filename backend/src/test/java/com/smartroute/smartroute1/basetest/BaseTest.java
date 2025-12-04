@@ -53,6 +53,9 @@ public class BaseTest {
     @Autowired
     private AthleteZoneRepository athleteZoneRepository;
 
+    @Autowired
+    private GymWorkoutRepository gymWorkoutRepository;
+
     @BeforeEach
     void setUp() {
         try {
@@ -77,6 +80,7 @@ public class BaseTest {
     }
 
     private void clearData() {
+        gymWorkoutRepository.deleteAllInBatch();
         garminAccountRepository.deleteAllInBatch();
         athleteZoneRepository.deleteAllInBatch();
         activityRepository.deleteAllInBatch();
