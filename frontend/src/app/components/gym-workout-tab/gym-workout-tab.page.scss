@@ -1,0 +1,29 @@
+.info-text {
+  margin-bottom: 1rem;
+  color: var(--ion-color-medium);
+  text-align: center;
+  font-size: 0.95rem;
+}
+
+ion-toolbar ion-title {
+  --ion-toolbar-title-text-align: center;
+  width: 100%;
+}
+
+.empty-container {
+  padding-left: 18px;
+  margin-left: 14px;
+  text-align: center;
+}
+
+@media (prefers-color-scheme: dark) {
+  .stats-container {
+    .stats-grid {
+      .stat-item {
+        .stat-value {
+          color: var(--ion-color-dark);
+        }
+      }
+    }
+  }
+}

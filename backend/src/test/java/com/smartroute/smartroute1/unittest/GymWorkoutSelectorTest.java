@@ -2,11 +2,13 @@ package com.smartroute.smartroute1.unittest;
 
 
 import com.smartroute.smartroute1.basetest.BaseTest;
-import com.smartroute.smartroute1.entity.Exercise;
+import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
+import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.GymWorkout;
 
 import com.smartroute.smartroute1.entity.enums.BodyPart;
-import com.smartroute.smartroute1.repository.ExerciseRepository;
+import com.smartroute.smartroute1.entity.enums.Sex;
+import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 
 import java.util.HashMap;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -25,8 +28,24 @@ import static org.junit.jupiter.api.Assertions.*;
 @ActiveProfiles({"test", "generateData"})
 public class GymWorkoutSelectorTest {
 
+    private static final String USEREMAIL = "GymTest@gym.at";
     @Autowired
     private GymWorkoutSelectorService gymWorkoutSelectorService;
+    @Autowired
+    private UserRepository userRepository;
+    private ApplicationUser user;
+
+    @BeforeEach
+    public void setUp() {
+        user = new ApplicationUser();
+        user.setFirstname("GymTest");
+        user.setLastname("Test");
+        user.setPassword("password");
+        user.setSex(Sex.OTHER);
+        user.setEmail(USEREMAIL);
+
+        userRepository.save(user);
+    }
 
     @Test
     public void test_WhenPerfectReadinessScore_ThenRepsAreSmallAndSetsAreHigh() {
@@ -110,6 +129,18 @@ public class GymWorkoutSelectorTest {
         GymWorkout result = gymWorkoutSelectorService.getGymWorkout(injuries, 100);
 
         assertEquals(0, result.getExercises().size());
+    }
+
+    @Test
+    public void test_GivenEmail_WhenGetAllGymWorkouts_ThenFindsAllForUser() {
+
+        gymWorkoutSelectorService.getGymWorkout(user, new HashMap<>(), 100);
+        gymWorkoutSelectorService.getGymWorkout(user, new HashMap<>(), 100);
+
+
+        List<GymWorkoutDto> result = gymWorkoutSelectorService.getAllGymWorkouts(USEREMAIL);
+
+        assertEquals(2, result.size());
     }
 
 
