@@ -1,7 +1,7 @@
 // src/app/components/app-routing.module.ts
-import { NgModule } from '@angular/core';
-import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
-import { AuthGuard } from '../../guards/auth.guard';
+import {NgModule} from '@angular/core';
+import {PreloadAllModules, RouterModule, Routes} from '@angular/router';
+import {AuthGuard} from '../../guards/auth.guard';
 
 const routes: Routes = [
   {
@@ -37,6 +37,16 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: "injuries",
+    loadComponent: () => import('./injuries/injuries.page').then(m => m.InjuriesPage),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: "sync-activities",
+    loadComponent: () => import('./account/sync-activities/sync-activities.page').then(m => m.SyncActivitiesPage),
+    canActivate: [AuthGuard]
+  },
+  {
     path: '**',
     loadComponent: () => import('./register/register.page').then(m => m.RegisterPage),
   }
@@ -44,8 +54,9 @@ const routes: Routes = [
 
 @NgModule({
   imports: [
-    RouterModule.forRoot(routes, { preloadingStrategy: PreloadAllModules })
+    RouterModule.forRoot(routes, {preloadingStrategy: PreloadAllModules})
   ],
   exports: [RouterModule]
 })
-export class AppRoutingModule { }
+export class AppRoutingModule {
+}

@@ -17,7 +17,7 @@ export class StravaService {
   /**
    * Redirects to the Strava OAuth page.
    */
-  connectStravaAccount(origin: "register" | "tabs/account"): void {
+  connectStravaAccount(origin: "register" | "tabs/account" | "sync-activities"): void {
     this.httpClient.get(this.stravaBaseUri + `/connect?origin=${origin}`, {responseType: "text"})
       .subscribe(url => {
         window.location.href = url;
