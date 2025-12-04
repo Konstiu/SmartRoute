@@ -26,7 +26,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @Transactional
 @SpringBootTest
 @ActiveProfiles({"test", "generateData"})
-public class GymWorkoutSelectorTest {
+public class GymWorkoutSelectorTest extends BaseTest {
 
     private static final String USEREMAIL = "GymTest@gym.at";
     @Autowired
