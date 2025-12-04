@@ -59,7 +59,7 @@ public class DaySelectorServiceImpl implements DaySelectorService {
 
         double trainabilityIndex = calculateTrainabilityIndex(readinessScore, overloadScore, injuryConstraint, consistencyScore);
 
-        if (injuryConstraint > .6) {
+        if (injuryConstraint < .4) {
             return false;
         }
 
@@ -85,12 +85,12 @@ public class DaySelectorServiceImpl implements DaySelectorService {
         return (40 - clipped) / 80.0;
     }
 
-    // Returns the highest injury constraint from all active injuries
+    // Returns the lowest injury constraint (= highest injuryIndex) from all active injuries
     private double calculateInjuryConstraint(List<Injuries> injuriesList) {
-        return injuriesList.stream()
+        return (1 - injuriesList.stream()
                 .filter(i -> i.getLastHealthyDate() == null)
                 .map(Injuries::getInjuryIndex)
-                .reduce(0.0, Double::max);
+                .reduce(0.0, Double::max));
     }
 
     // Min weekly sessions by experience (recommendations for beginner, intermediate, advanced from: https://pubmed.ncbi.nlm.nih.gov/19204579/)
