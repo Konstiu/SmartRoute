@@ -91,7 +91,7 @@ public class WorkoutTypeSelectorServiceTest extends BaseTest {
         when(readinessScoreService.calculateReadinessScore(eq(user), any(LocalDate.class))).thenReturn(80); // normalized 0.8
         when(activityProcessingService.getLastRunningActivityBeforeDate(anyString(), any(LocalDate.class)))
                 .thenReturn(Optional.of(dummyActivityOfDistance(5000)));
-        when(activityProcessingService.getLastNActivities(anyString(), anyInt()))
+        when(activityProcessingService.getLastActivities(anyString(), anyInt()))
                 .thenReturn(List.of());
 
         WeatherResponse wr = dummyWeatherResponse();
@@ -115,7 +115,7 @@ public class WorkoutTypeSelectorServiceTest extends BaseTest {
         when(readinessScoreService.calculateReadinessScore(eq(user), any(LocalDate.class))).thenReturn(50);
         when(activityProcessingService.getLastRunningActivityBeforeDate(anyString(), any(LocalDate.class)))
                 .thenReturn(Optional.of(dummyActivityOfDistance(4000)));
-        when(activityProcessingService.getLastNActivities(anyString(), anyInt()))
+        when(activityProcessingService.getLastActivities(anyString(), anyInt()))
                 .thenReturn(List.of());
 
         WeatherResponse wr = dummyWeatherResponse();
@@ -138,7 +138,7 @@ public class WorkoutTypeSelectorServiceTest extends BaseTest {
         when(readinessScoreService.calculateReadinessScore(eq(user), any(LocalDate.class))).thenReturn(85);
         when(activityProcessingService.getLastRunningActivityBeforeDate(anyString(), any(LocalDate.class)))
                 .thenReturn(Optional.of(dummyActivityOfDistance(6000)));
-        when(activityProcessingService.getLastNActivities(anyString(), anyInt()))
+        when(activityProcessingService.getLastActivities(anyString(), anyInt()))
                 .thenReturn(List.of());
 
         WeatherResponse wr = dummyWeatherResponse();
@@ -163,7 +163,7 @@ public class WorkoutTypeSelectorServiceTest extends BaseTest {
                 .thenReturn(Optional.of(dummyActivityOfDistance(5000)));
         // Include EASY_RUN in recent workouts to apply variety penalty
         Activity recentRun = dummyActivityOfWorkoutType();
-        when(activityProcessingService.getLastNActivities(anyString(), anyInt()))
+        when(activityProcessingService.getLastActivities(anyString(), anyInt()))
                 .thenReturn(List.of(recentRun));
 
         WeatherResponse wr = dummyWeatherResponse();
@@ -186,7 +186,7 @@ public class WorkoutTypeSelectorServiceTest extends BaseTest {
         when(readinessScoreService.calculateReadinessScore(eq(user), any(LocalDate.class))).thenReturn(60); // 0.6
         when(activityProcessingService.getLastRunningActivityBeforeDate(anyString(), any(LocalDate.class)))
                 .thenReturn(Optional.empty());
-        when(activityProcessingService.getLastNActivities(anyString(), anyInt()))
+        when(activityProcessingService.getLastActivities(anyString(), anyInt()))
                 .thenReturn(List.of());
 
         WeatherResponse wr = dummyWeatherResponse();
