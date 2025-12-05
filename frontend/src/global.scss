@@ -131,19 +131,35 @@ ion-card.rounded-card {
 }
 
 /* Optional: reuse your loading & empty states as-is */
-.loading-container {
+.loading-container,
+.error-container,
+.empty-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3.75rem 1.25rem;
+  height: 60vh;
+  padding: 20px;
+  text-align: center;
+
+  ion-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+  }
 
   ion-spinner {
-    margin-bottom: 1rem;
+    margin-bottom: 16px;
   }
 
   p {
     color: var(--ion-color-medium);
+    margin: 8px 0;
+  }
+
+  h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 8px 0;
   }
 }
 

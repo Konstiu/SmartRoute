@@ -1,5 +1,5 @@
 import {IonicModule} from '@ionic/angular';
-import {Component, inject} from '@angular/core';
+import {Component, inject, OnInit} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {
   formatDistance,
@@ -13,6 +13,7 @@ import {
 import {RecommendedActivityDto, SessionType} from "../../dtos/recommended-activity";
 import {Router} from "@angular/router";
 import {BodyPart, getBodyPartLabel, getSeverityColor} from "../../dtos/injuries";
+import {TrainingPlanService} from "../../../services/training-plan.service";
 
 @Component({
   selector: 'app-trainingplan',
@@ -21,9 +22,10 @@ import {BodyPart, getBodyPartLabel, getSeverityColor} from "../../dtos/injuries"
   standalone: true,
   imports: [IonicModule, CommonModule]
 })
-export class TrainingPlanPage {
+export class TrainingPlanPage implements OnInit {
 
-  private router: Router = inject(Router);
+  private readonly router: Router = inject(Router);
+  private readonly service: TrainingPlanService = inject(TrainingPlanService);
 
   date: string = new Date().toLocaleDateString();
   recommendedActivity: RecommendedActivityDto | undefined = {
@@ -68,8 +70,32 @@ export class TrainingPlanPage {
       reps: 40,
     }
   };
+  error: string | null = null;
+  isLoading: boolean = true;
 
-  goToGymExercise(exerciseId: number) {
+  ngOnInit(): void {
+    this.loadTrainingPlan();
+  }
+
+  loadTrainingPlan(): void {
+    this.isLoading = true;
+    this.error = null;
+
+    this.service.getTrainingPlan().subscribe({
+      next: res => {
+        this.recommendedActivity = res;
+        this.error = null;
+        this.isLoading = false;
+      },
+      error: err => {
+        console.error(err);
+        this.isLoading = false;
+        this.error = "Failed to load Training Plan.";
+      }
+    });
+  }
+
+  navigateToGymExercise(exerciseId: number) {
     this.router.navigate(['tabs/gym/' + exerciseId]);
   }
 
