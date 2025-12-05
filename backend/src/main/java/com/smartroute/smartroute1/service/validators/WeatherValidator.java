@@ -155,20 +155,16 @@ public class WeatherValidator {
         }
     }
 
-    public void validateAgeAndDistance(int age, int distanceMeters) throws ValidationException {
+    public void validateAge(int age) throws ValidationException {
         List<String> errors = new ArrayList<>();
-        LOGGER.trace("Validating age and distance: {}, {}", age, distanceMeters);
+        LOGGER.trace("Validating age: {}", age);
 
-        if (age <= 0 || age > 150) {
+        if (age <= 0 || age > 200) {
             errors.add("age is invalid");
         }
 
-        if (distanceMeters <= 0) {
-            errors.add("distance is too small");
-        }
-
         if (!errors.isEmpty()) {
-            throw new ValidationException("Age or distance validation failed:", errors);
+            throw new ValidationException("Age validation failed:", errors);
         }
     }
 

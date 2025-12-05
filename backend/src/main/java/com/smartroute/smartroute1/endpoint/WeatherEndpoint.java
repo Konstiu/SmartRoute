@@ -38,8 +38,8 @@ public class WeatherEndpoint {
             summary = "Get weather score.")
     @PostMapping("/score")
     @PermitAll
-    public ResponseEntity<WeatherImpactDto> calculateWeatherScore(@RequestBody WeatherResponse weather, @RequestParam("age") int age, @RequestParam("distance") int distanceMeters) throws ValidationException {
-        WeatherImpactDto weatherImpactDto = weatherService.calculateWeatherScore(weather, age, distanceMeters);
+    public ResponseEntity<WeatherImpactDto> calculateWeatherScore(@RequestBody WeatherResponse weather, @RequestParam("age") int age) throws ValidationException {
+        WeatherImpactDto weatherImpactDto = weatherService.calculateWeatherScore(weather, age);
         return ResponseEntity.ok(weatherImpactDto);
     }
 }

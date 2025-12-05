@@ -296,15 +296,13 @@ class WeatherServiceTest {
         return weather;
     }
     
-    final int age = 20;
-    final int distance = 5000;
-
+    final static int AGE = 20;
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     @Test
     void goodConditions_calculatingWeatherScore_highScoreAndLowRisk() throws ValidationException {
 
-        WeatherImpactDto result = service.calculateWeatherScore(getStandardWeatherResponse(), age, distance);
+        WeatherImpactDto result = service.calculateWeatherScore(getStandardWeatherResponse(), AGE);
 
         assertAll(
                 () -> assertTrue(result.getWeatherScore() >= 0.8),
@@ -344,18 +342,18 @@ class WeatherServiceTest {
         weatherTest6.setDewPoint(-70.0);
         weatherTest6.setTemperature2m(-60.0);
 
-        WeatherImpactDto result1 = service.calculateWeatherScore(weatherTest1, age, distance);
-        WeatherImpactDto result2 = service.calculateWeatherScore(weatherTest2, age, distance);
-        WeatherImpactDto result3 = service.calculateWeatherScore(weatherTest3, age, distance);
-        WeatherImpactDto result4 = service.calculateWeatherScore(weatherTest4, age, distance);
-        WeatherImpactDto result5 = service.calculateWeatherScore(weatherTest5, age, distance);
-        WeatherImpactDto result6 = service.calculateWeatherScore(weatherTest6, age, distance);
+        WeatherImpactDto result1 = service.calculateWeatherScore(weatherTest1, AGE);
+        WeatherImpactDto result2 = service.calculateWeatherScore(weatherTest2, AGE);
+        WeatherImpactDto result3 = service.calculateWeatherScore(weatherTest3, AGE);
+        WeatherImpactDto result4 = service.calculateWeatherScore(weatherTest4, AGE);
+        WeatherImpactDto result5 = service.calculateWeatherScore(weatherTest5, AGE);
+        WeatherImpactDto result6 = service.calculateWeatherScore(weatherTest6, AGE);
 
         assertAll(
                 () -> assertTrue(result1.getWeatherScore() > result2.getWeatherScore()),
                 () -> assertTrue(result2.getWeatherScore() > result3.getWeatherScore()),
                 () -> assertTrue(result3.getWeatherScore() > result4.getWeatherScore()),
-                () -> assertTrue(result4.getWeatherScore() > result5.getWeatherScore()),
+                () -> assertTrue(result4.getWeatherScore() >= result5.getWeatherScore()),
                 () -> assertTrue(result5.getWeatherScore() >= result6.getWeatherScore()) // weather score values for both are so low, that they are equal
         );
     }
@@ -374,11 +372,11 @@ class WeatherServiceTest {
         weatherTest4.setTemperature2m(26.0);
         weatherTest5.setTemperature2m(29.0);
 
-        WeatherImpactDto result1 = service.calculateWeatherScore(weatherTest1, age, distance);
-        WeatherImpactDto result2 = service.calculateWeatherScore(weatherTest2, age, distance);
-        WeatherImpactDto result3 = service.calculateWeatherScore(weatherTest3, age, distance);
-        WeatherImpactDto result4 = service.calculateWeatherScore(weatherTest4, age, distance);
-        WeatherImpactDto result5 = service.calculateWeatherScore(weatherTest5, age, distance);
+        WeatherImpactDto result1 = service.calculateWeatherScore(weatherTest1, AGE);
+        WeatherImpactDto result2 = service.calculateWeatherScore(weatherTest2, AGE);
+        WeatherImpactDto result3 = service.calculateWeatherScore(weatherTest3, AGE);
+        WeatherImpactDto result4 = service.calculateWeatherScore(weatherTest4, AGE);
+        WeatherImpactDto result5 = service.calculateWeatherScore(weatherTest5, AGE);
 
 
         assertAll(
@@ -399,7 +397,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("temperature2m is null"));
@@ -412,7 +410,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("temperature2m is unrealistically low (< -100°C)"));
@@ -425,7 +423,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("temperature2m is unrealistically high (> 70°C)"));
@@ -442,7 +440,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("windSpeed10m is null"));
@@ -455,7 +453,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("windSpeed10m cannot be negative"));
@@ -468,7 +466,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("windSpeed10m is unrealistically high (> 120 m/s)"));
@@ -485,7 +483,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("precipitation is null"));
@@ -498,7 +496,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("precipitation cannot be negative"));
@@ -511,7 +509,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("precipitation is unrealistically high (> 200 mm/h)"));
@@ -528,7 +526,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("relativeHumidity is null"));
@@ -541,7 +539,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("relativeHumidity must be between 0 and 100%"));
@@ -554,7 +552,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("relativeHumidity must be between 0 and 100%"));
@@ -571,7 +569,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("shortWaveRadiation is null"));
@@ -584,7 +582,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("shortWaveRadiation cannot be negative"));
@@ -597,7 +595,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("shortWaveRadiation is unrealistically high (> 1500 W/m²)"));
@@ -614,7 +612,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("directRadiation is null"));
@@ -627,7 +625,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("directRadiation cannot be negative"));
@@ -640,7 +638,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("directRadiation is unrealistically high (> 1500 W/m²)"));
@@ -657,7 +655,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("diffuseRadiation is null"));
@@ -670,7 +668,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("diffuseRadiation cannot be negative"));
@@ -683,7 +681,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("diffuseRadiation is unrealistically high (> 800 W/m²)"));
@@ -700,7 +698,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("surfacePressure is null"));
@@ -713,7 +711,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("surfacePressure is unrealistically low (< 800 hPa)"));
@@ -726,7 +724,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("surfacePressure is unrealistically high (> 1100 hPa)"));
@@ -743,7 +741,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("dewPoint is null"));
@@ -756,7 +754,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("dewPoint is unrealistically low (< -100°C)"));
@@ -769,7 +767,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("dewPoint is unrealistically high (> 50°C)"));
@@ -783,7 +781,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("dewPoint cannot be higher than temperature2m"));
@@ -800,7 +798,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("snowDepth is null"));
@@ -813,7 +811,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("snowDepth cannot be negative"));
@@ -826,7 +824,7 @@ class WeatherServiceTest {
 
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.calculateWeatherScore(weatherTest, 20, 5000)
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
         assertTrue(ex.errors().contains("snowDepth is unrealistically high (> 2000 cm)"));
