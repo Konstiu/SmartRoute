@@ -9,6 +9,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.time.LocalDate;
+
 @Entity
 @Setter
 @Getter
@@ -21,17 +23,29 @@ public class WeatherResponse {
     @Column
     private String time;
     @Column
+    private LocalDate forecastGeneratedAt; // stored in UTC
+    @Column
     private Double longitude;
     @Column
     private Double latitude;
     @Column
-    private Double temperature2m;
+    private Double temperature2m; // °C
     @Column
-    private Double windSpeed10m;
+    private Double windSpeed10m; // km/h
     @Column
-    private Double precipitation;
+    private Double precipitation; // mm/h
     @Column
-    private Double relativeHumidity;
+    private Double relativeHumidity; // %
     @Column
-    private Double shortWaveRadiation;
+    private Double shortWaveRadiation; // W/m^2
+    @Column
+    private Double directRadiation; // W/m^2
+    @Column
+    private Double diffuseRadiation; // W/m^2
+    @Column
+    private Double surfacePressure; // hPa
+    @Column
+    private Double dewPoint; // °C
+    @Column
+    private Double snowDepth; // cm
 }
