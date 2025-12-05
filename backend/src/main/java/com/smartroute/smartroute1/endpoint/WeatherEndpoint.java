@@ -5,7 +5,6 @@ import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.WeatherService;
-import com.smartroute.smartroute1.util.Coordinate;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.annotation.security.PermitAll;
 import lombok.RequiredArgsConstructor;
@@ -18,8 +17,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/weather")
 @RequiredArgsConstructor
@@ -27,29 +24,23 @@ public class WeatherEndpoint {
     private final WeatherService weatherService;
 
     @GetMapping("/hourly")
-    //@Secured("ROLE_USER")
+    @Secured("ROLE_USER")
     @Operation(summary = "Get hourly weather data",
             description = "Returns hourly weather information including temperature, precipitation, wind and radiation values.")
     public ResponseEntity<WeatherResponse> getWeatherAtTime(@RequestParam("latitude") double latitude, @RequestParam("longitude") double longitude, @RequestParam("timeUtc") String timeUtc) throws ValidationException {
         WeatherResponse weatherResponse = weatherService.getWeatherAtTime(latitude, longitude, timeUtc);
         return ResponseEntity.ok(weatherResponse);
     }
-}
 
-//    @Operation(
-//            description = "Get the impact the weather data has on a running route.",
-//            summary = "Get weather impact.")
-//    @PostMapping("/impact")
-//    @PermitAll
-//    public WeatherImpactDto estimateImpact(@RequestParam("distance") int distance,
-//                                           @RequestParam("time") long baseTimeSeconds,
-//                                           @RequestParam("temperature") double temperature,
-//                                           @RequestParam("relativeHumidity") double relativeHumidity,
-//                                           @RequestParam("shortwaveRadiation") double shortwaveRadiation,
-//                                           @RequestParam("windSpeed") double windSpeed,
-//                                           @RequestParam("precipitation") double precipitation,
-//                                           @RequestParam("runnerAge") int age) {
-//        return weatherService.estimateImpact(distance, baseTimeSeconds, temperature,
-//                relativeHumidity, shortwaveRadiation, windSpeed, precipitation, age);
-//    }
+
+    @Operation(
+            description = "Get weather score, penalty percent and risk evaluations.",
+            summary = "Get weather score.")
+    @PostMapping("/score")
+    @PermitAll
+    public ResponseEntity<WeatherImpactDto> calculateWeatherScore(@RequestBody WeatherResponse weather, @RequestParam("age") int age, @RequestParam("distance") int distanceMeters) throws ValidationException {
+        WeatherImpactDto weatherImpactDto = weatherService.calculateWeatherScore(weather, age, distanceMeters);
+        return ResponseEntity.ok(weatherImpactDto);
+    }
+}
 

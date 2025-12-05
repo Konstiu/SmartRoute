@@ -49,7 +49,6 @@ public class WeatherServiceImpl implements WeatherService {
     private final WeatherMapper weatherMapper;
     private final WeatherRepository weatherRepository;
 
-    @Transactional
     // Stores hourly weather data over the next 7 days for a given coordinate from open-meteo.
     private void importHourlyWeather(double latitude, double longitude) throws ValidationException {
         validator.validateCoordinates(latitude, longitude);
@@ -175,6 +174,7 @@ public class WeatherServiceImpl implements WeatherService {
         return list;
     }
 
+    @Transactional
     @Override
     public WeatherResponse getWeatherAtTime(double latitude, double longitude, String timeUtc) throws ValidationException {
         LOGGER.info("Searching cached weather for latitude={}, longitude={} at hour={}", latitude, longitude, timeUtc);
@@ -245,13 +245,13 @@ public class WeatherServiceImpl implements WeatherService {
         final double dewPoint = weather.getDewPoint();
         final double surfacePressure = weather.getSurfacePressure();
 
-        // approximation cannot cope with 0 wind speed or 0 shortwave radiation.
-        if (windSpeed == 0.0) {
-            windSpeed += 1.0;
+        // approximation cannot cope with very small wind speed or shortwave radiation values.
+        if (windSpeed <= 1.0) {
+            windSpeed = 1.0;
         }
 
-        if (solarRadiation == 0.0) {
-            solarRadiation += 1.0;
+        if (solarRadiation <= 1.0) {
+            solarRadiation = 1.0;
         }
 
         final double directRadiation = weather.getDirectRadiation() / solarRadiation;
@@ -368,7 +368,7 @@ public class WeatherServiceImpl implements WeatherService {
         if (windChill >= -9 && windChill <= 0) {
             return HeatRiskCategory.LOW_COLD;
         }
-        return HeatRiskCategory.NEUTRAL;
+        return HeatRiskCategory.LOW_COLD;
     }
 
     // Classifies precipitation (mm/h) into categories of severity. Source: https://rainsimulator.com/guides/intensity-categories
@@ -438,11 +438,11 @@ public class WeatherServiceImpl implements WeatherService {
         if (heat == HeatRiskCategory.LOW_COLD) {
             double windChill = calculateWindChill(weather.getTemperature2m(), weather.getWindSpeed10m());
             temperatureRiskCategory = classifyColdRisk(windChill);
-            temperatureRiskPenalty = 100 - weatherPenalty(windChill, 100.0, 0.18, -25.0, 1.35);
+            temperatureRiskPenalty = 100 - weatherPenalty(windChill, 100.0, 0.18, -5.0, 1.35);
         }
 
         double precipitation = weather.getPrecipitation();
-        double precipitationPenalty = weatherPenalty(precipitation, 100.0, 0.18, 12.0, 1.6);
+        double precipitationPenalty = weatherPenalty(precipitation, 100.0, 0.25, 25.0, 1.2);
 
         double windSpeed = weather.getWindSpeed10m();
         double windPenalty = weatherPenalty(windSpeed, 100.0, 0.12, 40.0, 1.4);
@@ -464,7 +464,7 @@ public class WeatherServiceImpl implements WeatherService {
                         * 1 - slipRisk;
 
         double score = 1.0 - totalPenalty;
-        score = (double) Math.round(score * 100.0) / 100; // round to 2 decimals.
+        score = (double) Math.round(score * 1000.0) / 1000; // round to 3 decimals.
         double weatherScore = clamp(score, 0.0, 1.0);
 
         double performancePenalty = estimatePerformancePenalty(distanceMeters, weather, age) / 100;
