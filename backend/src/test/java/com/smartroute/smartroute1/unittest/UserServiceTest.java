@@ -19,6 +19,7 @@ import com.smartroute.smartroute1.security.JwtTokenizer;
 import com.smartroute.smartroute1.service.UserService;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.transaction.Transactional;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -26,16 +27,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.smartroute.smartroute1.basetest.TestData.ORIGIN;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest()
@@ -62,6 +68,19 @@ class UserServiceTest {
 
     @Autowired
     private JwtTokenizer jwtTokenizer;
+
+    @MockitoBean(name = "mailExecutor")
+    private Executor mailExecutor;
+
+    @BeforeEach
+    void setUp() {
+        // Mock the mail executor to run tasks synchronously for testing
+        doAnswer(invocation -> {
+            Runnable r = invocation.getArgument(0);
+            r.run();
+            return null;
+        }).when(mailExecutor).execute(any(Runnable.class));
+    }
 
 
     // ==================== USER CREATION TESTS ====================
