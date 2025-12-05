@@ -33,6 +33,9 @@
         @if (userDataControl.controls.birthdate.hasError("past")) {
           <ion-text color="danger">Date must not be in the future.</ion-text>
         }
+        @if (userDataControl.controls.birthdate.hasError("unrealisticallyOld")) {
+          <ion-text color="danger">Date indicates an unrealistically old age.</ion-text>
+        }
       }</ion-label>
 
       <ion-input type="date" [formControl]="userDataControl.controls.birthdate" name="birthdate" required [max]="today" past></ion-input>

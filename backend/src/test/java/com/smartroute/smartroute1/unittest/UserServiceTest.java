@@ -403,6 +403,16 @@ class UserServiceTest {
     }
 
     @Test
+    void updatePersonalData_withUnrealisticBirthdate_shouldThrowValidationException() throws Exception {
+        ApplicationUser user = createAndVerifyUser("personal_data_unrealistic_birthdate@email.com", "Password123!");
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        personalDataDto.setBirthdate(LocalDate.of(1800, 1, 1));
+        assertThrows(ValidationException.class, () -> {
+            userService.updatePersonalData(personalDataDto, user.getEmail());
+        });
+    }
+
+    @Test
     void updatePersonalData_withInvalidActiveWeekdays_shouldThrowValidationException() throws Exception {
         ApplicationUser user = createAndVerifyUser("personal_data_weekdays@email.com", "Password123!");
         PersonalDataDto personalDataDto = createTestPersonalDataDto();

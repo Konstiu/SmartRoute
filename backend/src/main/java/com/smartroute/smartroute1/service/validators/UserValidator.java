@@ -107,6 +107,9 @@ public class UserValidator {
         if (personalDataDto.getBirthdate() != null && personalDataDto.getBirthdate().isAfter(LocalDate.now())) {
             errors.add("Birthdate must be in the past");
         }
+        if (personalDataDto.getBirthdate() != null && personalDataDto.getBirthdate().isBefore(LocalDate.now().minusYears(130))) {
+            errors.add("Birthdate is not realistic, user cannot be older than 130 years");
+        }
         if (personalDataDto.getActiveWeekdays() == null) {
             errors.add("Active weekdays cannot be null");
         }
