@@ -17,14 +17,20 @@ public interface WorkoutTypeSelectorService {
      * </p>
      *
      * <p>
+     * If the {@link DaySelectorService} specifies today as non training day, the method returns {@link WorkoutType#REST_DAY}.
+     * This behavior can be overridden by setting {@code ignoreRestDay} to true, in which case
+     * a workout type will be selected regardless of the regular training schedule.
+     * </p>
+     *
+     * <p>
      * The service internally considers the following inputs:
      * </p>
      *
      * <ul>
-     *     <li><b>User readiness</b> (normalized daily readiness value)</li>
-     *     <li><b>Weather score</b> for outdoor running at the user's location, based on the provided latitude and longitude</li>
-     *     <li><b>Current limitation or injury factor</b> affecting training feasibility</li>
-     *     <li><b>Recent training history</b> (e.g., sessions performed in the last days)</li>
+     *     <li><b>User readiness</b> (normalized daily readiness value) by {@link ReadinessScoreService}</li>
+     *     <li><b>Weather score</b> for outdoor running at the user's location, based on the provided latitude and longitude by {@link WeatherService}</li>
+     *     <li><b>Current limitation or injury factor</b> affecting training feasibility by {@link InjuryAwareTrainingService}</li>
+     *     <li><b>Recent training history</b> (e.g., sessions performed in the last 3 days) by {@link ActivityProcessingService}</li>
      * </ul>
      *
      * <p>
@@ -49,9 +55,10 @@ public interface WorkoutTypeSelectorService {
      * @param email the email of the user for whom the workout type should be selected
      * @param latitude the latitude of the user's current or expected training location
      * @param longitude the longitude of the user's current or expected training location
-     * @return the recommended {@link WorkoutType} for today
-     * @throws ValidationException if latitude or longitude are invalid
+     * @param ignoreRestDay if true, the selection ignores scheduled rest days and returns a workout type regardless
+     * @return the recommended {@link WorkoutType} for today, or {@link WorkoutType#REST_DAY} if today is not a training day and ignoreRestDay is false
+     * @throws ValidationException if longitude or latitude are invalid
      */
-    WorkoutType selectWorkoutType(String email, double latitude, double longitude) throws ValidationException;
+    WorkoutType selectWorkoutType(String email, double latitude, double longitude, boolean ignoreRestDay) throws ValidationException;
 
 }

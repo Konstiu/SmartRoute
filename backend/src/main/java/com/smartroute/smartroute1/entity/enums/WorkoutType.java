@@ -6,5 +6,6 @@ public enum WorkoutType {
     INTERVAL_RUN,
     LONG_RUN,
     GYM_PREHAB,
-    MOBILITY
+    MOBILITY,
+    REST_DAY
 }
