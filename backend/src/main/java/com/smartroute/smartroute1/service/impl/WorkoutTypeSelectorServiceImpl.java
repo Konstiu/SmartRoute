@@ -8,6 +8,7 @@ import com.smartroute.smartroute1.entity.enums.TrainingEnvironment;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
+import com.smartroute.smartroute1.service.DaySelectorService;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import com.smartroute.smartroute1.service.ReadinessScoreService;
 import com.smartroute.smartroute1.service.UserService;
@@ -21,7 +22,6 @@ import org.springframework.stereotype.Service;
 import java.lang.invoke.MethodHandles;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -39,6 +39,7 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
     private final WeatherService weatherService;
     private final InjuryAwareTrainingService injuryAwareTrainingService;
     private final ActivityProcessingService activityProcessingService;
+    private final DaySelectorService daySelectorService;
 
     // constants
     private static final int LAST_N_WORKOUTS_FOR_VARIETY = 3;
@@ -57,13 +58,15 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
         ReadinessScoreService readinessScoreService,
         WeatherService weatherService,
         InjuryAwareTrainingService injuryAwareTrainingService,
-        ActivityProcessingService activityProcessingService
+        ActivityProcessingService activityProcessingService,
+        DaySelectorService daySelectorService
     ) {
         this.userService = userService;
         this.readinessScoreService = readinessScoreService;
         this.weatherService = weatherService;
         this.injuryAwareTrainingService = injuryAwareTrainingService;
         this.activityProcessingService = activityProcessingService;
+        this.daySelectorService = daySelectorService;
     }
 
     /**
@@ -80,6 +83,9 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
         double impact
     ) {}
 
+    /**
+     * Mapping of workout types to their session definitions.
+     */
     private static final Map<WorkoutType, SessionDef> sessionDefs = Map.of(
         WorkoutType.EASY_RUN,     new SessionDef(WorkoutType.EASY_RUN,     0.4, TrainingEnvironment.OUTDOOR, 0.6),
         WorkoutType.TEMPO_RUN,    new SessionDef(WorkoutType.TEMPO_RUN,    0.7, TrainingEnvironment.OUTDOOR, 0.8),
@@ -91,17 +97,26 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
     );
 
     @Override
-    public WorkoutType selectWorkoutType(String email, double latitude, double longitude) throws ValidationException {
-        LOGGER.trace("selectWorkoutType({}, {}, {})", email, latitude, longitude);
+    public WorkoutType selectWorkoutType(String email, double latitude, double longitude, boolean ignoreRestDay) throws ValidationException {
+        LOGGER.trace("selectWorkoutType({}, {}, {}, {})", email, latitude, longitude, ignoreRestDay);
 
         // get user
         ApplicationUser user = userService.findApplicationUserByEmail(email);
 
-        // get user age
-        int userAge = calculateAge(user);
-
         // get today's date
         LocalDate today = LocalDate.now();
+
+        // check if today is a training day
+        // if not, return REST_DAY
+        if (!ignoreRestDay) {
+            boolean isTrainingDay = daySelectorService.isTrainingDay(today, user);
+            if (!isTrainingDay) {
+                return WorkoutType.REST_DAY;
+            }
+        }
+
+        // get user age
+        int userAge = calculateAge(user);
 
         // get current time in UTC
         ZonedDateTime utcDateTime = LocalDateTime.now()
@@ -138,6 +153,10 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
 
         // loop through all workout types and score them
         for (WorkoutType workoutType : WorkoutType.values()) {
+            // skip rest day
+            if (workoutType == WorkoutType.REST_DAY) {
+                continue;
+            }
             SessionDef sessionDef = sessionDefs.get(workoutType);
             double score = scoreWorkoutType(sessionDef, normalizedReadiness, weatherScore, injuryConstraint, recentWorkouts);
 
