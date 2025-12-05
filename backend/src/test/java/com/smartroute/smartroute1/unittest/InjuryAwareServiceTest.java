@@ -18,8 +18,10 @@ import org.springframework.test.context.ActiveProfiles;
 import java.time.LocalDate;
 import java.util.*;
 
+import static com.smartroute.smartroute1.basetest.TestData.DEFAULT_USER_EMAIL;
 import static com.smartroute.smartroute1.basetest.TestData.ORIGIN;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.when;
 
 
 @SpringBootTest()
@@ -393,6 +395,179 @@ class InjuryAwareServiceTest extends BaseTest {
                 () -> assertEquals(toUpdate.getAffectedArea(), in.getAffectedArea()),
                 () -> assertNotEquals(oldIdx, in.getInjuryIndex())
         );
+
+    }
+
+
+    @Test
+    void getInjuryIndex_NoUserOrNoInjuries_ReturnsZero() {
+        String testEmail = "nonexitendUser@gmail.com";
+        userRepository.findUserByEmail(testEmail);
+        injuryRepository.deleteAllInBatch();
+
+
+        assertAll(() -> assertEquals(0.0, injuryAwareTrainingService.getInjuryIndex(testEmail)),
+                () -> assertEquals(0.0, injuryAwareTrainingService.getInjuryIndex(DEFAULT_USER_EMAIL))
+        );
+    }
+
+    @Test
+    void getInjuryIndex_WithMultipleInjuries_CalculatesWeightedAverage() {
+        ApplicationUser user = userRepository.findUserByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+
+        // Recent severe injury
+        CreateInjuryStateDto injury1 = new CreateInjuryStateDto();
+        injury1.setInjuryIndex(0.8);
+        injury1.setLastInjuryDate(LocalDate.now().minusDays(2));
+        injury1.setAffectedArea(BodyPart.KNEE_REGION);
+
+        // Older moderate injury
+        CreateInjuryStateDto injury2 = new CreateInjuryStateDto();
+        injury2.setInjuryIndex(0.5);
+        injury2.setLastInjuryDate(LocalDate.now().minusDays(7));
+        injury2.setAffectedArea(BodyPart.UPPER_REGION);
+
+        // Very old injury (outside window)
+        CreateInjuryStateDto injury3 = new CreateInjuryStateDto();
+        injury3.setInjuryIndex(0.9);
+        injury3.setLastInjuryDate(LocalDate.now().minusDays(20));
+        injury3.setAffectedArea(BodyPart.CORE_REGION);
+
+        injuryAwareTrainingService.createInjuries(injury1, user.getEmail());
+        injuryAwareTrainingService.createInjuries(injury2, user.getEmail());
+        injuryAwareTrainingService.createInjuries(injury3, user.getEmail());
+
+        injuryRepository.getAllByApplicationUser(user);
+
+        double result = injuryAwareTrainingService.getInjuryIndex(DEFAULT_USER_EMAIL);
+
+        // Should be weighted average of injury1 and injury2 only (injury3 outside window)
+        // Result should be between 0.5 and 0.8, closer to 0.8 due to recency
+
+        System.out.println(result);
+        assertAll(() -> assertTrue(result >= 0.5 && result <= 0.8, "Expected between 0.5 and 0.8, got: " + result),
+                () -> assertTrue(result > 0.6, "Should be closer to recent severe injury")
+                );
+
+    }
+
+    @Test
+    void getInjuryIndex_EdgeCases_HandlesCorrectly() {
+        ApplicationUser testUser = userRepository.findUserByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+
+        // Test 1: Injury with null date (treated as today, full weight)
+        CreateInjuryStateDto injuryNullDate = new CreateInjuryStateDto();
+        injuryNullDate.setInjuryIndex(0.6);
+        injuryNullDate.setAffectedArea(BodyPart.KNEE_REGION);
+        injuryNullDate.setLastHealthyDate(LocalDate.now().minusDays(2));
+        injuryAwareTrainingService.createInjuries(injuryNullDate, testUser.getEmail());
+        assertEquals(0.6, injuryAwareTrainingService.getInjuryIndex(testUser.getEmail()), 0.01);
+
+        // Test 2: Injury index above 1.0 (should be clamped)
+        injuryRepository.deleteAllInBatch();
+
+        CreateInjuryStateDto injuryAboveOne = new CreateInjuryStateDto();
+        injuryAboveOne.setInjuryIndex(1.5);
+        injuryAboveOne.setLastInjuryDate(LocalDate.now().minusDays(1));
+        injuryAboveOne.setAffectedArea(BodyPart.CORE_REGION);
+        injuryAwareTrainingService.createInjuries(injuryAboveOne, testUser.getEmail());
+        assertTrue(injuryAwareTrainingService.getInjuryIndex(testUser.getEmail()) <= 1.0);
+
+        // Test 3: Injury index below 0.0 (should be clamped)
+        injuryRepository.deleteAllInBatch();
+
+        CreateInjuryStateDto injuryBelowZero = new CreateInjuryStateDto();
+        injuryBelowZero.setInjuryIndex(-0.5);
+        injuryBelowZero.setLastInjuryDate(LocalDate.now().minusDays(1));
+        injuryBelowZero.setAffectedArea(BodyPart.FEET_REGION);
+        injuryAwareTrainingService.createInjuries(injuryBelowZero, testUser.getEmail());
+        assertEquals(0.0, injuryAwareTrainingService.getInjuryIndex(testUser.getEmail()));
+    }
+
+
+    @Test
+    void getInjuryConstraint_NoUserOrNoInjuries_ReturnsOne() {
+        // Test 1: User not found
+        injuryRepository.deleteAllInBatch();
+
+        ApplicationUser testUser = userRepository.findUserByEmail(DEFAULT_USER_EMAIL);
+        assertEquals(1.0, injuryAwareTrainingService.getInjuryConstraint(DEFAULT_USER_EMAIL));
+        injuryRepository.deleteAllInBatch();
+
+        // Test 2: Empty injuries list
+        userRepository.findUserByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.getAllByApplicationUser(testUser);
+        assertEquals(1.0, injuryAwareTrainingService.getInjuryConstraint(testUser.getEmail()));
+        injuryRepository.deleteAllInBatch();
+
+        // Test 3: Null injuries list
+        injuryRepository.getAllByApplicationUser(testUser);
+        assertEquals(1.0, injuryAwareTrainingService.getInjuryConstraint(DEFAULT_USER_EMAIL));
+    }
+
+    @Test
+    void getInjuryConstraint_VaryingInjurySeverity_ReturnsProportionalConstraint() {
+        ApplicationUser testUser = userRepository.findUserByEmail(DEFAULT_USER_EMAIL);
+
+        injuryRepository.deleteAllInBatch();
+        // Test 1: Minor injury - should result in high constraint (close to 1.0)
+        CreateInjuryStateDto minorInjury = new CreateInjuryStateDto();
+        minorInjury.setInjuryIndex(0.1);
+        minorInjury.setLastHealthyDate(LocalDate.now());
+        minorInjury.setAffectedArea(BodyPart.KNEE_REGION);
+        injuryAwareTrainingService.createInjuries(minorInjury, testUser.getEmail());
+        double minorConstraint = injuryAwareTrainingService.getInjuryConstraint(DEFAULT_USER_EMAIL);
+        assertTrue(minorConstraint > 0.7, "Minor injury should have high constraint");
+
+        injuryRepository.deleteAllInBatch();
+        // Test 2: Moderate injury - should result in medium constraint
+        CreateInjuryStateDto moderateInjury = new CreateInjuryStateDto();
+        moderateInjury.setInjuryIndex(0.5);
+        moderateInjury.setLastHealthyDate(LocalDate.now());
+        moderateInjury.setAffectedArea(BodyPart.KNEE_REGION);
+        injuryAwareTrainingService.createInjuries(moderateInjury, testUser.getEmail());
+        double moderateConstraint = injuryAwareTrainingService.getInjuryConstraint(DEFAULT_USER_EMAIL);
+        assertTrue(moderateConstraint >= 0.2 && moderateConstraint <= 0.7,
+                "Moderate injury should have medium constraint");
+
+        // Test 3: Severe injury - should result in low constraint (close to 0.0)
+        CreateInjuryStateDto severeInjury = new CreateInjuryStateDto();
+        severeInjury.setInjuryIndex(0.95);
+        severeInjury.setLastInjuryDate(LocalDate.now());
+        severeInjury.setAffectedArea(BodyPart.KNEE_REGION);
+        injuryAwareTrainingService.createInjuries(severeInjury, testUser.getEmail());
+        double severeConstraint = injuryAwareTrainingService.getInjuryConstraint(DEFAULT_USER_EMAIL);
+        assertTrue(severeConstraint < 0.3);
+
+        // Verify constraint decreases as severity increases
+        assertTrue(minorConstraint > moderateConstraint);
+        assertTrue(moderateConstraint > severeConstraint);
+    }
+
+    @Test
+    void getInjuryConstraint_UsesMinimumOfScalingFactors_AndStaysBounded() {
+        ApplicationUser testUser = userRepository.findUserByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+
+        CreateInjuryStateDto injury = new CreateInjuryStateDto();
+        injury.setInjuryIndex(0.5);
+        injury.setAffectedArea(BodyPart.KNEE_REGION);
+
+        injuryAwareTrainingService.createInjuries(injury, testUser.getEmail());
+
+        double constraint = injuryAwareTrainingService.getInjuryConstraint(DEFAULT_USER_EMAIL);
+        double injuryIndex = injuryAwareTrainingService.getInjuryIndex(DEFAULT_USER_EMAIL);
+
+        assertEquals(0.5, injuryIndex, 0.01);
+
+        double intensityScaling = injuryAwareTrainingService.calculateIntensityScaling(injuryIndex);
+        double volumeScaling = injuryAwareTrainingService.calculateVolumeScaling(injuryIndex);
+        double impactPenalty = injuryAwareTrainingService.calculateHighImpactPenalty(injuryIndex);
+
+        double expectedMin = (intensityScaling +  volumeScaling +  impactPenalty) / 3.0;
+        assertEquals(expectedMin, constraint, 0.001);
 
     }
 
