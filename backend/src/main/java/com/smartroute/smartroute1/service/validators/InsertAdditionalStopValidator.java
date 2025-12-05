@@ -56,4 +56,29 @@ public class InsertAdditionalStopValidator {
             throw new ValidationException("Errors while validating route length:", errors);
         }
     }
+
+    public void validateCoordinates(double latitude, double longitude) throws ValidationException {
+        List<String> errors = new ArrayList<>();
+        LOGGER.trace("Validation of latitude and longitude: {}, {}", latitude, longitude);
+
+        if (latitude < -90) {
+            errors.add("latitude is smaller than -90");
+        }
+
+        if (latitude > 90) {
+            errors.add("latitude is larger than 90");
+        }
+
+        if (longitude < -180) {
+            errors.add("longitude is smaller than -180");
+        }
+
+        if (longitude > 180) {
+            errors.add("longitude is larger than 180");
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Errors while verifying lat. and long.:", errors);
+        }
+    }
 }

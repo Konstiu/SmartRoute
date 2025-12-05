@@ -1,7 +1,7 @@
 package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.exception.ValidationException;
-import com.smartroute.smartroute1.service.InsertAdditionalStop;
+import com.smartroute.smartroute1.service.InsertAdditionalStops;
 import com.smartroute.smartroute1.service.validators.InsertAdditionalStopValidator;
 import com.smartroute.smartroute1.util.Coordinate;
 import io.jenetics.jpx.GPX;
@@ -19,9 +19,8 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class InsertAdditionalStopImpl implements InsertAdditionalStop {
+public class InsertAdditionalStopsImpl implements InsertAdditionalStops {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private static final int ANCHOR_WINDOW_POINTS = 15;
     private static final double EARTH_RADIUS_METERS = 6371000.0;
 
     private final InsertAdditionalStopValidator validator;
@@ -33,7 +32,10 @@ public class InsertAdditionalStopImpl implements InsertAdditionalStop {
     }
 
     @Override
-    public List<Coordinate> routeThroughPoint(Coordinate start, Coordinate via, Coordinate end) {
+    public List<Coordinate> routeThroughPoint(Coordinate start, Coordinate via, Coordinate end) throws ValidationException {
+        validator.validateCoordinates(start.getLatitude(), start.getLongitude());
+        validator.validateCoordinates(via.getLatitude(), via.getLongitude());
+        validator.validateCoordinates(end.getLatitude(), end.getLongitude());
 
         List<Coordinate> result = new ArrayList<>();
         result.add(start);
@@ -45,6 +47,7 @@ public class InsertAdditionalStopImpl implements InsertAdditionalStop {
     @Override
     public List<Coordinate> addWaypoint(List<Coordinate> originalRoute, Coordinate newPoint) throws ValidationException {
         validator.validateRouteLength(originalRoute);
+        validator.validateCoordinates(newPoint.getLatitude(), newPoint.getLongitude());
 
         ClosestPointResult closest = findClosestPoint(originalRoute, newPoint);
         AnchorPoint anchors = chooseAnchorPoints(originalRoute, closest);
@@ -230,7 +233,9 @@ public class InsertAdditionalStopImpl implements InsertAdditionalStop {
         double mag1 = Math.hypot(v1[0], v1[1]);
         double mag2 = Math.hypot(v2[0], v2[1]);
 
-        if (mag1 == 0 || mag2 == 0) return 0;
+        if (mag1 == 0 || mag2 == 0) {
+            return 0;
+        }
 
         double cos = dot / (mag1 * mag2);
         cos = Math.max(-1, Math.min(1, cos)); // clamp
