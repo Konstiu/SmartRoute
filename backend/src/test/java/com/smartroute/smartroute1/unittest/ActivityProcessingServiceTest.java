@@ -271,4 +271,89 @@ public class ActivityProcessingServiceTest extends BaseTest {
         assertThrows(IllegalArgumentException.class, () -> activityProcessingService.getLastNActivities(user.getEmail(), 0));
         assertThrows(IllegalArgumentException.class, () -> activityProcessingService.getLastNActivities(user.getEmail(), -1));
     }
+
+    @Test
+    void testGetLastRunningActivityBeforeDate_returnsLatestRunningBefore() {
+        activityRepository.deleteAll();
+        activityRepository.flush();
+
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        Activity runOld = getStravaActivity();
+        runOld.setUser(user);
+        runOld.setWorkoutType(com.smartroute.smartroute1.entity.enums.WorkoutType.EASY_RUN);
+        runOld.setStartDate(Instant.now().minusSeconds(5 * 24 * 3600));
+        runOld.setName("runOld");
+
+        Activity runRecent = getStravaActivity();
+        runRecent.setUser(user);
+        runRecent.setWorkoutType(com.smartroute.smartroute1.entity.enums.WorkoutType.TEMPO_RUN);
+        runRecent.setStartDate(Instant.now().minusSeconds(2 * 24 * 3600));
+        runRecent.setName("runRecent");
+
+        Activity nonRun = getStravaActivity();
+        nonRun.setUser(user);
+        nonRun.setWorkoutType(com.smartroute.smartroute1.entity.enums.WorkoutType.GYM_PREHAB);
+        nonRun.setStartDate(Instant.now().minusSeconds(24 * 3600));
+        nonRun.setName("gym");
+
+        activityRepository.saveAll(List.of(runOld, runRecent, nonRun));
+
+        LocalDate date = LocalDate.now().minusDays(1);
+
+        Optional<Activity> result = activityProcessingService.getLastRunningActivityBeforeDate(user.getEmail(), date);
+
+        assertTrue(result.isPresent());
+        assertEquals("runRecent", result.get().getName());
+    }
+
+    @Test
+    void testGetLastRunningActivityBeforeDate_returnsEmptyWhenNoRunningBefore() {
+        activityRepository.deleteAll();
+        activityRepository.flush();
+
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        Activity gym1 = getStravaActivity();
+        gym1.setUser(user);
+        gym1.setWorkoutType(com.smartroute.smartroute1.entity.enums.WorkoutType.GYM_PREHAB);
+        gym1.setStartDate(Instant.now().minusSeconds(5 * 24 * 3600));
+        gym1.setName("gym1");
+
+        Activity mobility = getStravaActivity();
+        mobility.setUser(user);
+        mobility.setWorkoutType(com.smartroute.smartroute1.entity.enums.WorkoutType.MOBILITY);
+        mobility.setStartDate(Instant.now().minusSeconds(2 * 24 * 3600));
+        mobility.setName("mob");
+
+        activityRepository.saveAll(List.of(gym1, mobility));
+
+        LocalDate date = LocalDate.now().minusDays(1);
+
+        Optional<Activity> result = activityProcessingService.getLastRunningActivityBeforeDate(user.getEmail(), date);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testGetLastRunningActivityBeforeDate_ignoresRunningAfterDate() {
+        activityRepository.deleteAll();
+        activityRepository.flush();
+
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        Activity runAfter = getStravaActivity();
+        runAfter.setUser(user);
+        runAfter.setWorkoutType(com.smartroute.smartroute1.entity.enums.WorkoutType.EASY_RUN);
+        runAfter.setStartDate(Instant.now().plusSeconds(24 * 3600));
+        runAfter.setName("after");
+
+        activityRepository.save(runAfter);
+
+        LocalDate date = LocalDate.now();
+
+        Optional<Activity> result = activityProcessingService.getLastRunningActivityBeforeDate(user.getEmail(), date);
+
+        assertTrue(result.isEmpty());
+    }
 }
