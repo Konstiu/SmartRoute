@@ -1,10 +1,8 @@
 package com.smartroute.smartroute1.service;
 
-import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
 import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.ValidationException;
-import com.smartroute.smartroute1.util.Coordinate;
 
 import java.util.List;
 
