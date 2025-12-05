@@ -2,7 +2,7 @@ import {GymWorkoutDto} from "./gymworkout";
 import {ViewInjuryDto} from "./injuries";
 
 export interface RecommendedActivityDto {
-  title: string;
+  name: string;
   type: SessionType,
   route?: {
     distance: number;
@@ -28,7 +28,8 @@ export interface RecommendedActivityDto {
 }
 
 export enum SessionType {
-  RUN,
-  GYM,
-  REST,
+  RUN = "RUN",
+  GYM = "GYM",
+  REST = "REST",
 }
+
