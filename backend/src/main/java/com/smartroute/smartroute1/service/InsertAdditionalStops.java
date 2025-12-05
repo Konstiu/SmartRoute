@@ -5,7 +5,7 @@ import com.smartroute.smartroute1.util.Coordinate;
 
 import java.util.List;
 
-public interface InsertAdditionalStop {
+public interface InsertAdditionalStops {
 
     /**
      *  Request a route from start -> via -> end and return polyline as list of Coordinates.
@@ -16,7 +16,7 @@ public interface InsertAdditionalStop {
      * @return an ordered list of {@link Coordinate} representing the computed route from start through via to end
      * @throws IllegalStateException if the routing provider returns an invalid or empty response
      */
-    public List<Coordinate> routeThroughPoint(Coordinate start, Coordinate via, Coordinate end);
+    public List<Coordinate> routeThroughPoint(Coordinate start, Coordinate via, Coordinate end) throws ValidationException;
 
 
     /**
