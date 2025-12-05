@@ -42,6 +42,8 @@ public class Activity {
 
     private Instant startDate;
 
+    private String externalId;
+
     private Instant startDateLocal;
 
     private float averageSpeed;
@@ -58,10 +60,14 @@ public class Activity {
 
     private Integer sufferScore;
 
+    private Double garminActivityTrainingsLoad;
+
     @Column(columnDefinition = "TEXT")
     private String summaryPolyline;
 
     private Integer sessionLoad;
+
+    private Integer satisfactionScore;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")

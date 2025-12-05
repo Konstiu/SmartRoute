@@ -1,7 +1,7 @@
 import {Injectable, inject} from '@angular/core';
 import {Globals} from '../global/globals';
 import {HttpClient, HttpHeaders} from '@angular/common/http';
-import {StravaActivity} from "../app/dtos/StravaActivity";
+import {Activity} from "../app/dtos/Activity";
 import {StravaAccountConnectionStateDto} from '../app/dtos/strava-account-connection-state'
 import { Observable } from "rxjs";
 
@@ -17,7 +17,7 @@ export class StravaService {
   /**
    * Redirects to the Strava OAuth page.
    */
-  connectStravaAccount(origin: "register" | "tabs/account"): void {
+  connectStravaAccount(origin: "register" | "tabs/account" | "sync-activities"): void {
     this.httpClient.get(this.stravaBaseUri + `/connect?origin=${origin}`, {responseType: "text"})
       .subscribe(url => {
         window.location.href = url;
