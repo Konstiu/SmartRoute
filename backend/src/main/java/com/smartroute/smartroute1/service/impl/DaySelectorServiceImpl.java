@@ -46,7 +46,6 @@ public class DaySelectorServiceImpl implements DaySelectorService {
         int minWeeklySessions = getMinWeeklySessions(experienceLevel);
         int maxWeeklySessions = getMaxWeeklySessions(experienceLevel);
 
-        List<Activity> activitiesLast7Days = activityRepository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(user, from, to);
 
         double consistencyScore;
         try {
@@ -79,6 +78,8 @@ public class DaySelectorServiceImpl implements DaySelectorService {
         if (injuryConstraint < .4) {
             return false;
         }
+
+        List<Activity> activitiesLast7Days = activityRepository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(user, from, to);
 
         if (activitiesLast7Days.size() > maxWeeklySessions) {
             return false;
