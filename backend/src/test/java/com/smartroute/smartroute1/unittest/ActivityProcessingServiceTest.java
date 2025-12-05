@@ -221,7 +221,7 @@ public class ActivityProcessingServiceTest extends BaseTest {
 
         activityRepository.saveAll(List.of(a1, a2, a3));
 
-        List<Activity> result = activityProcessingService.getLastNActivities(user.getEmail(), 2);
+        List<Activity> result = activityProcessingService.getLastActivities(user.getEmail(), 2);
 
         assertAll(
                 () -> assertEquals(2, result.size()),
@@ -244,7 +244,7 @@ public class ActivityProcessingServiceTest extends BaseTest {
 
         activityRepository.save(a1);
 
-        List<Activity> result = activityProcessingService.getLastNActivities(user.getEmail(), 5);
+        List<Activity> result = activityProcessingService.getLastActivities(user.getEmail(), 5);
 
         assertAll(
                 () -> assertEquals(1, result.size()),
@@ -259,7 +259,7 @@ public class ActivityProcessingServiceTest extends BaseTest {
 
         ApplicationUser user = userRepository.findAll().getFirst();
 
-        List<Activity> result = activityProcessingService.getLastNActivities(user.getEmail(), 3);
+        List<Activity> result = activityProcessingService.getLastActivities(user.getEmail(), 3);
 
         assertTrue(result.isEmpty());
     }
@@ -268,8 +268,8 @@ public class ActivityProcessingServiceTest extends BaseTest {
     void testGetLastNActivities_throwsOnInvalidN() {
         ApplicationUser user = userRepository.findAll().getFirst();
 
-        assertThrows(IllegalArgumentException.class, () -> activityProcessingService.getLastNActivities(user.getEmail(), 0));
-        assertThrows(IllegalArgumentException.class, () -> activityProcessingService.getLastNActivities(user.getEmail(), -1));
+        assertThrows(IllegalArgumentException.class, () -> activityProcessingService.getLastActivities(user.getEmail(), 0));
+        assertThrows(IllegalArgumentException.class, () -> activityProcessingService.getLastActivities(user.getEmail(), -1));
     }
 
     @Test

@@ -59,7 +59,7 @@ public interface ActivityProcessingService {
      * @return a list of the last N activities associated with the user
      * @throws IllegalArgumentException if n is less than or equal to zero
      */
-    List<Activity> getLastNActivities(String email, int n) throws IllegalArgumentException;
+    List<Activity> getLastActivities(String email, int n) throws IllegalArgumentException;
 
     /**
      * Retrieves the last running activity before the specified date for the user identified by the given email.

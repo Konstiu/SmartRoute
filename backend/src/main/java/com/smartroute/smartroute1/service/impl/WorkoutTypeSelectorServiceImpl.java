@@ -71,6 +71,7 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
 
     /**
      * Definition of a workout session type.
+     *
      * @param type      WorkoutType
      * @param intensity I(a)
      * @param env       E(a)
@@ -143,7 +144,7 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
         double injuryConstraint = injuryAwareTrainingService.getInjuryConstraint(email);
 
         // Workout history
-        List<WorkoutType> recentWorkouts = activityProcessingService.getLastNActivities(email, LAST_N_WORKOUTS_FOR_VARIETY)
+        List<WorkoutType> recentWorkouts = activityProcessingService.getLastActivities(email, LAST_N_WORKOUTS_FOR_VARIETY)
             .stream()
             .map(Activity::getWorkoutType)
             .toList();

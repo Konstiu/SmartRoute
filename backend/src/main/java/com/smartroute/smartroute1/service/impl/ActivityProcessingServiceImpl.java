@@ -209,7 +209,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
     }
 
     @Override
-    public List<Activity> getLastNActivities(String email, int n) throws IllegalArgumentException {
+    public List<Activity> getLastActivities(String email, int n) throws IllegalArgumentException {
         LOGGER.trace("Get last {} Strava activities for user with mail: {}", n, email);
         if (n <= 0) {
             throw new IllegalArgumentException("n must be greater than zero");
