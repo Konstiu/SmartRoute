@@ -65,7 +65,7 @@ public class WeatherDataGenerator {
                     double diffuseRadiation = daylight > 0 ? daylight * 800 : 0;
                     double surfacePressure = 1000;
                     double dewPoint = 4;
-                    double snowDepth = 0;
+                    double snowDepth = temp - 1;
 
                     WeatherDto dto = new WeatherDto(
                             t.toString(),
