@@ -31,13 +31,11 @@ public interface WeatherService {
      *
      * @param age Runners age.
      *
-     * @param distanceMeters The distance of the running event in meters.
-     *
      * @return
      *        A {@link WeatherImpactDto} containing:
      *        <ul>
      *            <li>The estimated percentage performance penalty</li>
-     *            <li>The weather score</li>
+     *            <li>The weather score ranging form 0 to 1, where 1 are optimal conditions and 0 are conditions where outdoor activities should be avoided.</li>
      *            <li>A heat-risk category based on WBGT or windchill</li>
      *            <li>Classification of precipitation</li>
      *            <li>Classification of wind speed</li>
@@ -45,5 +43,5 @@ public interface WeatherService {
      *
      * @throws ValidationException if weather data is abnormal.
      */
-    WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters) throws ValidationException;
+    WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age) throws ValidationException;
 }

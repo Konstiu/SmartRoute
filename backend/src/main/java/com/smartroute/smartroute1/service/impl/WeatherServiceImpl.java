@@ -177,7 +177,7 @@ public class WeatherServiceImpl implements WeatherService {
     @Transactional
     @Override
     public WeatherResponse getWeatherAtTime(double latitude, double longitude, String timeUtc) throws ValidationException {
-        LOGGER.info("Searching cached weather for latitude={}, longitude={} at hour={}", latitude, longitude, timeUtc);
+        LOGGER.trace("Searching cached weather for latitude={}, longitude={} at hour={}", latitude, longitude, timeUtc);
 
         validator.validateCoordinates(latitude, longitude);
         validator.validateTimeFormat(timeUtc);
@@ -187,23 +187,23 @@ public class WeatherServiceImpl implements WeatherService {
         Optional<WeatherResponse> cached = Optional.ofNullable(weatherRepository.getByTimeAndLatitudeAndLongitude(timeUtc, latitude, longitude));
 
         if (cached.isPresent()) {
-            LOGGER.info("Found cached weather in repository");
+            LOGGER.trace("Found cached weather in repository");
             WeatherResponse old = cached.get();
 
             LocalDate fetchedDay = old.getForecastGeneratedAt();
             LocalDate today = LocalDate.now(ZoneOffset.UTC);
 
             if (fetchedDay.equals(today)) {
-                LOGGER.info("Cached weather is still fresh");
+                LOGGER.trace("Cached weather is still fresh");
                 return old; // cache hit and still fresh
             }
 
-            LOGGER.info("Stale data found -> deleting stale entries");
+            LOGGER.trace("Stale data found -> deleting stale entries");
             weatherRepository.deleteAllByCoordinates(latitude, longitude); // if staleness detected for a coordinate, delete all weather data of that entry
         }
 
         // Fetch new data
-        LOGGER.info("Weather not cached, calling open-meteo");
+        LOGGER.trace("Weather not cached, calling open-meteo");
         importHourlyWeather(latitude, longitude);
 
         // Load from repository
@@ -412,23 +412,12 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     @Override
-    public WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age, int distanceMeters) throws ValidationException {
+    public WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age) throws ValidationException {
         validator.validateWeatherValues(weather);
-        validator.validateAgeAndDistance(age, distanceMeters);
+        validator.validateAge(age);
 
-        RunEventType type = mapDistanceToEvent(distanceMeters);
         double wbgt = computeWbgt(weather);
-        double optimal = optimalWbgt(type);
-
-        double delta = wbgt - optimal;
-        double heatSlope = heatSlope(type);
-        double coldSlope = coldSlope(type);
         HeatRiskCategory temperatureRiskCategory;
-
-        double wbgtPenalty = delta > 0 ? delta * heatSlope : -delta * coldSlope;
-        double modifier = complexityModifier(weather);
-        double weightedWbgtPenalty = wbgtPenalty * modifier;
-        weightedWbgtPenalty = clamp(weightedWbgtPenalty, 0, 40);
 
         HeatRiskCategory heat = classifyHeatRisk(wbgt);
         temperatureRiskCategory = heat;
@@ -456,8 +445,7 @@ public class WeatherServiceImpl implements WeatherService {
 
         double totalPenalty =
                 1
-                        - (1 - weightedWbgtPenalty / 100.0)
-                        * (1 - temperatureRiskPenalty / 100.0)
+                        - (1 - temperatureRiskPenalty / 100.0)
                         * (1 - precipitationPenalty / 100.0)
                         * (1 - windPenalty / 100.0)
                         * (1 - snowPenalty / 100.0)
@@ -467,7 +455,7 @@ public class WeatherServiceImpl implements WeatherService {
         score = (double) Math.round(score * 1000.0) / 1000; // round to 3 decimals.
         double weatherScore = clamp(score, 0.0, 1.0);
 
-        double performancePenalty = estimatePerformancePenalty(distanceMeters, weather, age) / 100;
+        double performancePenalty = estimatePerformancePenalty(weather, age) / 100;
         performancePenalty = (double) Math.round(performancePenalty * 1000.0) / 1000;  // round to 3 decimals.
 
         RainIntensity rainCategory = classifyRainSeverity(precipitation);
@@ -485,13 +473,13 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     // Estimates the speed penalty from different weather factors.
-    private double estimatePerformancePenalty(int distance, WeatherResponse weather, int age) {
-        RunEventType eventType = mapDistanceToEvent(distance);
-        double optimalWbgt = optimalWbgt(eventType);
-        double heatSlope = heatSlope(eventType);
-        double coldSlope = coldSlope(eventType);
-        double wbgt = computeWbgt(weather);
-        double delta = wbgt - optimalWbgt;
+    private double estimatePerformancePenalty(WeatherResponse weather, int age) {
+        final double optimalWbgt = 10.0;
+        final double heatSlope = 0.25;
+        final double coldSlope = 0.15;
+
+        final double wbgt = computeWbgt(weather);
+        final double delta = wbgt - optimalWbgt;
         final double precipitation = weather.getPrecipitation();
 
         double penaltyBase;
@@ -501,55 +489,17 @@ public class WeatherServiceImpl implements WeatherService {
             penaltyBase = -delta * coldSlope;
         }
 
-        double modifier = complexityModifier(weather);
-        double penaltyPercent = penaltyBase * modifier;
+        final double modifier = complexityModifier(weather);
+        final double penaltyPercent = penaltyBase * modifier;
 
-        double totalPenalty = precipitationSlowdown(precipitation, age) + snowDepthSlowdown(weather.getSnowDepth()) + penaltyPercent;
+        final double totalPenalty = precipitationSlowdown(precipitation, age) + snowDepthSlowdown(weather.getSnowDepth()) + penaltyPercent;
 
-        LOGGER.trace("Penalty: {}", totalPenalty);
+        LOGGER.trace("Estimated performance penalty: {}", totalPenalty);
         return totalPenalty;
     }
 
     private enum RunEventType {
         FIVE_K_LIKE, TEN_K_LIKE, MARATHON_LIKE
-    }
-
-    // Maps distance of a run to the appropriate EventType.
-    private RunEventType mapDistanceToEvent(int distance) {
-        if (distance <= 7500) {
-            return RunEventType.FIVE_K_LIKE;
-        }
-        if (distance <= 20000) {
-            return RunEventType.TEN_K_LIKE;
-        }
-        return RunEventType.MARATHON_LIKE;
-    }
-
-    // The optimal wbgt values for different disciplines.
-    private double optimalWbgt(RunEventType type) {
-        return switch (type) {
-            case MARATHON_LIKE -> 7.5;
-            case TEN_K_LIKE -> 10.0;
-            case FIVE_K_LIKE -> 15.0;
-        };
-    }
-
-    // Impact of Heat for different disciplines.
-    private double heatSlope(RunEventType type) {
-        return switch (type) {
-            case MARATHON_LIKE -> 0.20;
-            case TEN_K_LIKE -> 0.25;
-            case FIVE_K_LIKE -> 0.30;
-        };
-    }
-
-    // Impact of Cold for different disciplines.
-    private double coldSlope(RunEventType type) {
-        return switch (type) {
-            case MARATHON_LIKE -> 0.10;
-            case TEN_K_LIKE -> 0.15;
-            case FIVE_K_LIKE -> 0.20;
-        };
     }
 
     // Classification of the heat risk: https://www.weather.gov/arx/wbgt
