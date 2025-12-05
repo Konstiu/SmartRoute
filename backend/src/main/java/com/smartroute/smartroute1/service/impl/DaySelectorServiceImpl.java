@@ -59,7 +59,7 @@ public class DaySelectorServiceImpl implements DaySelectorService {
 
         double trainabilityIndex = calculateTrainabilityIndex(readinessScore, overloadScore, injuryConstraint, consistencyScore);
 
-        if (injuryConstraint > .6) {
+        if (injuryConstraint < .4) {
             return false;
         }
 
@@ -85,12 +85,12 @@ public class DaySelectorServiceImpl implements DaySelectorService {
         return (40 - clipped) / 80.0;
     }
 
-    // Returns the highest injury constraint from all active injuries
+    // Returns the lowest injury constraint (= highest injuryIndex) from all active injuries
     private double calculateInjuryConstraint(List<Injuries> injuriesList) {
-        return injuriesList.stream()
+        return (1 - injuriesList.stream()
                 .filter(i -> i.getLastHealthyDate() == null)
                 .map(Injuries::getInjuryIndex)
-                .reduce(0.0, Double::max);
+                .reduce(0.0, Double::max));
     }
 
     // Min weekly sessions by experience (recommendations for beginner, intermediate, advanced from: https://pubmed.ncbi.nlm.nih.gov/19204579/)
@@ -117,7 +117,14 @@ public class DaySelectorServiceImpl implements DaySelectorService {
 
     @Override
     public double calculateTrainabilityIndex(int readinessScore, double overloadScore, double injuryConstraint, double consistencyScore) {
-        double trainabilityIndex = (readinessScore / 100.0) * (1 - injuryConstraint) * (1 - overloadScore) * (1 + .5 * consistencyScore);
+        /*
+        T_r = R_t/100 * C_t * (1 - O_t) * (1 + 0.5K_t)
+        R_t...Readiness score
+        O_t...Overload score
+        C_t...Injury constraint
+        K_t...Consistency score
+         */
+        double trainabilityIndex = (readinessScore / 100.0) * injuryConstraint * (1 - overloadScore) * (1 + .5 * consistencyScore);
         return Math.clamp(trainabilityIndex, 0.0, 1.0);
     }
 }
