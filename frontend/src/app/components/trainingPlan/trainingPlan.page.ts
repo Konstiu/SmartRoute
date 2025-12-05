@@ -29,7 +29,7 @@ export class TrainingPlanPage implements OnInit {
 
   date: string = new Date().toLocaleDateString();
   recommendedActivity: RecommendedActivityDto | undefined = {
-    title: "Gym Session",
+    name: "Gym Session",
     type: SessionType.GYM,
     route: {
       distance: 5421,
@@ -81,9 +81,11 @@ export class TrainingPlanPage implements OnInit {
     this.isLoading = true;
     this.error = null;
 
-    this.service.getTrainingPlan().subscribe({
+    // TODO change position dynamically - current lat, long: ~Vienna
+    this.service.getTrainingPlan(48.21, 16.36,).subscribe({
       next: res => {
         this.recommendedActivity = res;
+        console.log(this.recommendedActivity);
         this.error = null;
         this.isLoading = false;
       },
@@ -132,22 +134,23 @@ export class TrainingPlanPage implements OnInit {
   }
 
   interpretTSB(tsb: number): string {
+    const tsbFixed: string = tsb.toFixed(1);
     if (tsb >= 15) {
-      return `${tsb} - Very Fresh, optimal for competition`;
+      return `${tsbFixed} - Very Fresh, optimal for competition`;
     }
     if (tsb >= 5) {
-      return `${tsb} - Fresh, good training readiness`;
+      return `${tsbFixed} - Fresh, good training readiness`;
     }
     if (tsb >= -5) {
-      return `${tsb} - Neutral, normal training`;
+      return `${tsbFixed} - Neutral, normal training`;
     }
     if (tsb >= -15) {
-      return `${tsb} - Fatigued, reduce intensity`;
+      return `${tsbFixed} - Fatigued, reduce intensity`;
     }
     if (tsb >= -30) {
-      return `${tsb} - Very fatigued - high risk of overtraining`;
+      return `${tsbFixed} - Very fatigued - high risk of overtraining`;
     }
-    return `${tsb} - Extremely fatigued - rest required`;
+    return `${tsbFixed} - Extremely fatigued - rest required`;
   }
 
   getTsbIcon(tsb: number): string {
