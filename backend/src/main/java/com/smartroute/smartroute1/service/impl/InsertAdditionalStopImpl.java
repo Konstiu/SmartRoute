@@ -3,12 +3,16 @@ package com.smartroute.smartroute1.service.impl;
 import com.smartroute.smartroute1.exception.RouteEditingException;
 import com.smartroute.smartroute1.service.InsertAdditionalStop;
 import com.smartroute.smartroute1.util.Coordinate;
+import io.jenetics.jpx.GPX;
+import io.jenetics.jpx.WayPoint;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.lang.invoke.MethodHandles;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,6 +33,9 @@ public class InsertAdditionalStopImpl implements InsertAdditionalStop {
     public List<Coordinate> routeThroughPoint(Coordinate start, Coordinate via, Coordinate end) {
 
         List<Coordinate> result = new ArrayList<>();
+        result.add(start);
+        result.add(via);
+        result.add(end);
         return result;
     }
 
@@ -185,6 +192,22 @@ public class InsertAdditionalStopImpl implements InsertAdditionalStop {
         }
 
         return new ArrayList<>(detour.subList(startIdx, endIdx + 1));
+    }
+
+
+    public List<Coordinate> gpxToPolyline(String pathname) throws IOException {
+        GPX gpx = GPX.read(Path.of(pathname));
+        List<WayPoint> points = gpx.tracks().flatMap(t -> t.segments()).flatMap(s -> s.points()).toList();
+        List<Coordinate> coordinates = points.stream().map(p -> new Coordinate(p.getLatitude().doubleValue(), p.getLongitude().doubleValue())).toList();
+        LOGGER.trace("first coordinate: {}", coordinates.getFirst());
+        return coordinates;
+    }
+
+
+    public void createGpx(List<Coordinate> coordinates, String pathname) throws IOException {
+        GPX gpx = GPX.builder().addTrack(track -> track.addSegment(segment -> coordinates.forEach(c -> segment.addPoint(WayPoint.of(c.getLatitude(), c.getLongitude()))))).build();
+
+        GPX.write(gpx, Path.of(pathname));
     }
 }
 
