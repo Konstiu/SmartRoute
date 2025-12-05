@@ -292,19 +292,19 @@ class DaySelectorServiceTest {
     @ParameterizedTest
     @CsvSource({
             // readiness, overload, injury, consistency, expected
-            "100, 0.0, 0.0, 1.0, 1.0",          // ideal case
-            "0,   0.0, 0.0, 1.0, 0.0",          // no readiness
-            "50,  0.0, 0.0, 1.0, 0.75",         // reduced readiness full consistency
-            "50,  0.0, 0.0, 0.5, 0.625",        // reduced readiness reduced consistency
-            "50,  0.0, 0.0, 0.0, 0.5",          // reduced readiness no consistency
-            "100, 1.0, 0.0, 1.0, 0.0",          // overload max
-            "100, 0.0, 1.0, 1.0, 0.0",          // injured max
-            "100, 0.0, 0.25, 1.0, 1",           // injured low impact full consistency
-            "100, 0.0, 0.25, 0.5, 0.9375",      // injured low impact reduced consistency
-            "100, 0.0, 0.25, 0.0, 0.75",        // injured low impact no consistency
-            "100, 0.0, 0.75, 1.0, 0.375",       // injured high impact full consistency
-            "100, 0.0, 0.75, 0.5, 0.3125",      // injured high impact reduced consistency
-            "100, 0.0, 0.75, 0.0, 0.25",        // injured high impact no consistency
+            "100, 0.0, 1.0, 1.0, 1.0",          // ideal case
+            "0,   0.0, 1.0, 1.0, 0.0",          // no readiness
+            "50,  0.0, 1.0, 1.0, 0.75",         // reduced readiness full consistency
+            "50,  0.0, 1.0, 0.5, 0.625",        // reduced readiness reduced consistency
+            "50,  0.0, 1.0, 0.0, 0.5",          // reduced readiness no consistency
+            "100, 1.0, 1.0, 1.0, 0.0",          // overload max
+            "100, 0.0, 0.0, 1.0, 0.0",          // injured max
+            "100, 0.0, 0.75, 1.0, 1",           // injured low impact full consistency
+            "100, 0.0, 0.75, 0.5, 0.9375",      // injured low impact reduced consistency
+            "100, 0.0, 0.75, 0.0, 0.75",        // injured low impact no consistency
+            "100, 0.0, 0.25, 1.0, 0.375",       // injured high impact full consistency
+            "100, 0.0, 0.25, 0.5, 0.3125",      // injured high impact reduced consistency
+            "100, 0.0, 0.25, 0.0, 0.25",        // injured high impact no consistency
     })
     void testTrainabilityIndex(
             int readiness,
