@@ -10,6 +10,8 @@ import com.smartroute.smartroute1.service.FitnessScoreService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.scheduling.TaskScheduler;
@@ -203,5 +205,15 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         ApplicationUser user = userRepository.findUserByEmail(email);
         Instant instant = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
         return activityRepository.findTopByUserAndStartDateBeforeOrderByStartDateDesc(user, instant);
+    }
+
+    @Override
+    public List<Activity> getLastNActivities(String email, int n) throws IllegalArgumentException {
+        LOGGER.trace("Get last {} Strava activities for user with mail: {}", n, email);
+        if (n <= 0) {
+            throw new IllegalArgumentException("n must be greater than zero");
+        }
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        return activityRepository.findByUserOrderByStartDateDesc(user, PageRequest.of(0, n));
     }
 }
