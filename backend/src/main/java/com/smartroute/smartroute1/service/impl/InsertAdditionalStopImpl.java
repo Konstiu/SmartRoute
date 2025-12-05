@@ -1,7 +1,8 @@
 package com.smartroute.smartroute1.service.impl;
 
-import com.smartroute.smartroute1.exception.RouteEditingException;
+import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.InsertAdditionalStop;
+import com.smartroute.smartroute1.service.validators.InsertAdditionalStopValidator;
 import com.smartroute.smartroute1.util.Coordinate;
 import io.jenetics.jpx.GPX;
 import io.jenetics.jpx.WayPoint;
@@ -23,6 +24,8 @@ public class InsertAdditionalStopImpl implements InsertAdditionalStop {
     private static final int ANCHOR_WINDOW_POINTS = 15;
     private static final double EARTH_RADIUS_METERS = 6371000.0;
 
+    private final InsertAdditionalStopValidator validator;
+
     private record ClosestPointResult(int segmentIndex, Coordinate closestPoint, double distanceMeters) {
     }
 
@@ -40,11 +43,8 @@ public class InsertAdditionalStopImpl implements InsertAdditionalStop {
     }
 
     @Override
-    public List<Coordinate> addWaypoint(List<Coordinate> originalRoute, Coordinate newPoint) {
-
-        if (originalRoute.size() < 2) {
-            throw new IllegalArgumentException("Route must contain at least 2 points");
-        }
+    public List<Coordinate> addWaypoint(List<Coordinate> originalRoute, Coordinate newPoint) throws ValidationException {
+        validator.validateRouteLength(originalRoute);
 
         ClosestPointResult closest = findClosestPoint(originalRoute, newPoint);
         AnchorPoint anchors = chooseAnchorPoints(originalRoute, closest);
@@ -59,6 +59,8 @@ public class InsertAdditionalStopImpl implements InsertAdditionalStop {
 
         // Add original after endIndex
         finalPoints.addAll(originalRoute.subList(anchors.endIndex, originalRoute.size()));
+
+        validator.validateSameEndpoints(originalRoute, finalPoints);
 
         return finalPoints;
     }
@@ -156,10 +158,16 @@ public class InsertAdditionalStopImpl implements InsertAdditionalStop {
      * Choose the indices where the original route should stop (startIndex, endIndex).
      * Very simple heuristic: take a window around the closest segment.
      */
-    private AnchorPoint chooseAnchorPoints(List<Coordinate> polyline, ClosestPointResult closest) {
+    private AnchorPoint chooseAnchorPoints(List<Coordinate> polyline, ClosestPointResult closest) throws ValidationException {
+        validator.validateRouteLength(polyline);
+
         int n = polyline.size();
-        int startIndex = Math.max(0, closest.segmentIndex - ANCHOR_WINDOW_POINTS);
-        int endIndex = Math.min(n - 1, closest.segmentIndex + ANCHOR_WINDOW_POINTS);
+        int closestSegmentIndex = closest.segmentIndex;
+        int startIndex = closestSegmentIndex - ANCHOR_WINDOW_POINTS;
+        int endIndex = closestSegmentIndex + ANCHOR_WINDOW_POINTS;
+
+        startIndex = Math.max(1, startIndex);
+        endIndex = Math.min(n - 2, endIndex);
 
         Coordinate startCoordinate = polyline.get(startIndex);
         Coordinate endCoordinate = polyline.get(endIndex);
@@ -171,10 +179,8 @@ public class InsertAdditionalStopImpl implements InsertAdditionalStop {
      * Removes duplicate endpoints from the detour segment if they coincide with
      * the anchor points (within ~1m).
      */
-    private List<Coordinate> trimDetour(List<Coordinate> detour, Coordinate anchorStart, Coordinate anchorEnd) {
-        if (detour == null || detour.isEmpty()) {
-            throw new RouteEditingException("Empty detour returned from routing service");
-        }
+    private List<Coordinate> trimDetour(List<Coordinate> detour, Coordinate anchorStart, Coordinate anchorEnd) throws ValidationException {
+        validator.validateRouteLength(detour);
 
         int startIdx = 0;
         int endIdx = detour.size() - 1;
