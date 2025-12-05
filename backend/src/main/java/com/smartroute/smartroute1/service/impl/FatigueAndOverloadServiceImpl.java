@@ -229,26 +229,25 @@ public class FatigueAndOverloadServiceImpl implements FatigueAndOverloadService 
      */
     private List<DailyLoad> loadDailyFitnessScores(ApplicationUser user) {
         Activity first = !activityRepository.findAllByUserOrderByStartDateAsc(user).isEmpty() ? activityRepository.findAllByUserOrderByStartDateAsc(user).get(0) : null;
-        Activity last = !activityRepository.findAllByUserOrderByStartDateDesc(user).isEmpty() ? activityRepository.findAllByUserOrderByStartDateDesc(user).get(0) : null;
+        //Activity last = !activityRepository.findAllByUserOrderByStartDateDesc(user).isEmpty() ? activityRepository.findAllByUserOrderByStartDateDesc(user).get(0) : null;
 
-        if (first == null || last == null) {
+        if (first == null) {
             return List.of();
         }
 
         LocalDate firstDay = first.getStartDate().atZone(ZoneOffset.systemDefault()).toLocalDate();
-        LocalDate lastDay = last.getStartDate().atZone(ZoneOffset.systemDefault()).toLocalDate();
-
+        LocalDate today = LocalDate.now();
         List<DailyLoad> result = new ArrayList<>();
 
-        for (LocalDate d = firstDay; !d.isAfter(lastDay); d = d.plusDays(1)) {
+        for (LocalDate d = firstDay; !d.isAfter(today); d = d.plusDays(1)) {
             int score = fitnessScoreService.calculateFitnessScore(
                     d.atStartOfDay(ZoneOffset.systemDefault()).toInstant(),
                     user
             );
 
-            if (score > 0) {
-                result.add(new DailyLoad(d, score));
-            }
+            //if (score > 0) {
+            result.add(new DailyLoad(d, score));
+            //}
         }
         return result;
     }
