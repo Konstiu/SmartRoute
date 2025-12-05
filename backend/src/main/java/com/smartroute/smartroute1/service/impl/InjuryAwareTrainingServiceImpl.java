@@ -193,6 +193,73 @@ public class InjuryAwareTrainingServiceImpl implements InjuryAwareTrainingServic
         injuryRepository.deleteById(id);
     }
 
+    @Override
+    public double getInjuryIndex(String email) {
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        if (user == null) {
+            return 0.0;
+        }
+
+        List<Injuries> injuries = injuryRepository.getAllByApplicationUser(user);
+        if (injuries == null || injuries.isEmpty()) {
+            return 0.0;
+        }
+
+        LocalDate today = LocalDate.now();
+        int windowDays = 14;
+
+        double totalWeightedIndex = 0.0;
+        double totalWeight = 0.0;
+
+        for (Injuries injury : injuries) {
+            LocalDate lastInjuryDate = injury.getLastInjuryDate();
+            long daysAgo;
+
+            if (lastInjuryDate == null) {
+                daysAgo = 0;
+            } else {
+                daysAgo = ChronoUnit.DAYS.between(lastInjuryDate, today);
+            }
+
+            if (daysAgo > windowDays) {
+                continue;
+            }
+
+            double baseIndex = clamp01(injury.getInjuryIndex());
+            double freshnessFactor = (windowDays - daysAgo) / (double) windowDays;
+
+            totalWeightedIndex += baseIndex * freshnessFactor;
+            totalWeight += freshnessFactor;
+        }
+
+        if (totalWeight == 0.0) {
+            return 0.0;
+        }
+
+        // Weighted average of all active injuries
+        return totalWeightedIndex / totalWeight;
+    }
+
+    @Override
+    public double getInjuryConstraint(String email) {
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        if (user == null) {
+            return 1.0;
+        }
+
+        List<Injuries> injuries = injuryRepository.getAllByApplicationUser(user);
+        if (injuries == null || injuries.isEmpty()) {
+            return 1.0;
+        }
+        double injuryIndex = getInjuryIndex(email);
+
+        double intensityScaling = calculateIntensityScaling(injuryIndex);
+        double volumeScaling = calculateVolumeScaling(injuryIndex);
+        double impactPenalty = calculateHighImpactPenalty(injuryIndex);
+
+        return (intensityScaling + volumeScaling + impactPenalty) / 3.0;
+    }
+
     private double clamp01(double value) {
         if (value < 0.0) {
             return 0.0;
