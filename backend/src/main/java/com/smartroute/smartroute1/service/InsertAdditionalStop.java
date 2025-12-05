@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.service;
 
+import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.util.Coordinate;
 
 import java.util.List;
@@ -26,5 +27,5 @@ public interface InsertAdditionalStop {
      * @return a new list of {@link Coordinate} representing the updated route including the waypoint
      * @throws IllegalArgumentException if the input route is null, too short, or contains invalid data
      */
-    public List<Coordinate> addWaypoint(List<Coordinate> originalRoute, Coordinate newPoint);
+    public List<Coordinate> addWaypoint(List<Coordinate> originalRoute, Coordinate newPoint) throws ValidationException;
 }
