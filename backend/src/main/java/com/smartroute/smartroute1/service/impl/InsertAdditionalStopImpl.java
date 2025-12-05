@@ -26,7 +26,7 @@ public class InsertAdditionalStopImpl implements InsertAdditionalStop {
 
     private final InsertAdditionalStopValidator validator;
 
-    private record ClosestPointResult(int segmentIndex, Coordinate closestPoint, double distanceMeters) {
+    private record ClosestPointResult(int segmentIndex, Coordinate closestPoint, double distanceMeters, double totalLengthRoute) {
     }
 
     private record AnchorPoint(int startIndex, int endIndex, Coordinate startCoordinate, Coordinate endCoordinate) {
@@ -128,18 +128,18 @@ public class InsertAdditionalStopImpl implements InsertAdditionalStop {
     /**
      * Find closest segment of the polyline to the new point and derive anchor points where the old route should "exit" and "rejoin".
      */
-    private ClosestPointResult findClosestPoint(List<Coordinate> polyline, Coordinate newPoint) {
-        if (polyline == null || polyline.size() < 2) {
-            throw new IllegalArgumentException("Polyline must contain at least 2 points");
-        }
+    private ClosestPointResult findClosestPoint(List<Coordinate> polyline, Coordinate newPoint) throws ValidationException {
+        validator.validateRouteLength(polyline);
 
         int bestIndex = -1;
         Coordinate bestPoint = null;
         double bestDist = Double.MAX_VALUE;
+        double routeLength = 0.0;
 
         for (int i = 0; i < polyline.size() - 1; i++) {
             Coordinate a = polyline.get(i);
             Coordinate b = polyline.get(i + 1);
+            routeLength += haversine(a, b);
 
             Coordinate proj = projectPointToSegment(newPoint, a, b);
             double dist = haversine(newPoint, proj);
@@ -151,28 +151,100 @@ public class InsertAdditionalStopImpl implements InsertAdditionalStop {
             }
         }
 
-        return new ClosestPointResult(bestIndex, bestPoint, bestDist);
+        return new ClosestPointResult(bestIndex, bestPoint, bestDist, routeLength);
     }
 
     /**
-     * Choose the indices where the original route should stop (startIndex, endIndex).
-     * Very simple heuristic: take a window around the closest segment.
+     * Picks anchor points where the route should leave and rejoin.
+     * Uses curvature + minimum distance to select natural anchor points.
      */
-    private AnchorPoint chooseAnchorPoints(List<Coordinate> polyline, ClosestPointResult closest) throws ValidationException {
-        validator.validateRouteLength(polyline);
+    private AnchorPoint chooseAnchorPoints(List<Coordinate> route, ClosestPointResult closest) {
+        int routeSize = route.size();
+        int index = closest.segmentIndex;
+        double routeLength = closest.totalLengthRoute;
+        double minAnchorDistance = Math.min(closest.distanceMeters, routeLength / 6); // @TODO tweak this value
 
-        int n = polyline.size();
-        int closestSegmentIndex = closest.segmentIndex;
-        int startIndex = closestSegmentIndex - ANCHOR_WINDOW_POINTS;
-        int endIndex = closestSegmentIndex + ANCHOR_WINDOW_POINTS;
+        // 1) Move backward until distance >= min and curvature small
+        int startIndex = walkUntilStable(route, index, - 1, minAnchorDistance);
 
+        // 2) Move forward until distance >= min and curvature small
+        int endIndex = walkUntilStable(route, index + 1, + 1, minAnchorDistance);
+
+        // 3) Clamp so first/last route points are never removed
         startIndex = Math.max(1, startIndex);
-        endIndex = Math.min(n - 2, endIndex);
+        endIndex = Math.min(routeSize - 2, endIndex);
 
-        Coordinate startCoordinate = polyline.get(startIndex);
-        Coordinate endCoordinate = polyline.get(endIndex);
+        Coordinate startCoordinate = route.get(startIndex);
+        Coordinate endCoordinate = route.get(endIndex);
 
         return new AnchorPoint(startIndex, endIndex, startCoordinate, endCoordinate);
+    }
+
+    /**
+     * Walks along the route in the specified direction (step = ±1)
+     * until we have travelled MIN_ANCHOR_DISTANCE_METERS and
+     * the local curvature (angle between segments) is below threshold.
+     */
+    private int walkUntilStable(List<Coordinate> route, int startIndex, int step, double minAnchorDistance) {
+        int index = startIndex;
+        int size = route.size();
+        final double maxTurnAngle = 20.0;
+
+        double totalDist = 0.0;
+
+        // Calculate initial direction
+        Coordinate previous = route.get(Math.max(0, Math.min(size - 1, index)));
+        Coordinate current = route.get(Math.max(0, Math.min(size - 1, index + step)));
+
+        while (index + step >= 0 && index + step < size - 1) {
+            // Move one step
+            Coordinate next = route.get(index + step);
+            totalDist += haversine(current, next);
+
+            // Check curvature
+            double angle = turnAngle(previous, current, next); // in degrees
+
+            if (totalDist >= minAnchorDistance && angle <= maxTurnAngle) {
+                break;
+            }
+
+            // Continue walking
+            previous = current;
+            current = next;
+            index += step;
+        }
+
+        return index;
+    }
+
+    /**
+     * Computes the angle between segments (prev->curr) and (curr->next).
+     * Returns angle in degrees.
+     */
+    private double turnAngle(Coordinate prev, Coordinate curr, Coordinate next) {
+        // Convert to vectors in meters (local projection)
+        double[] v1 = vectorMeters(prev, curr);
+        double[] v2 = vectorMeters(curr, next);
+
+        double dot = v1[0] * v2[0] + v1[1] * v2[1];
+        double mag1 = Math.hypot(v1[0], v1[1]);
+        double mag2 = Math.hypot(v2[0], v2[1]);
+
+        if (mag1 == 0 || mag2 == 0) return 0;
+
+        double cos = dot / (mag1 * mag2);
+        cos = Math.max(-1, Math.min(1, cos)); // clamp
+        return Math.toDegrees(Math.acos(cos));
+    }
+
+    /**
+     * Convert lat/lon delta to local meter coordinates for vector math.
+     */
+    private double[] vectorMeters(Coordinate a, Coordinate b) {
+        double phi = Math.toRadians((a.getLatitude() + b.getLatitude()) / 2.0);
+        double dx = EARTH_RADIUS_METERS * Math.toRadians(b.getLongitude() - a.getLongitude()) * Math.cos(phi);
+        double dy = EARTH_RADIUS_METERS * Math.toRadians(b.getLatitude() - a.getLatitude());
+        return new double[]{dx, dy};
     }
 
     /**
