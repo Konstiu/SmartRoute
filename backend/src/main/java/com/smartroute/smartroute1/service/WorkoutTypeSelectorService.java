@@ -1,6 +1,7 @@
 package com.smartroute.smartroute1.service;
 
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
+import com.smartroute.smartroute1.exception.ValidationException;
 
 public interface WorkoutTypeSelectorService {
 
@@ -21,7 +22,7 @@ public interface WorkoutTypeSelectorService {
      *
      * <ul>
      *     <li><b>User readiness</b> (normalized daily readiness value)</li>
-     *     <li><b>Weather score</b> for outdoor running at the user's location</li>
+     *     <li><b>Weather score</b> for outdoor running at the user's location, based on the provided latitude and longitude</li>
      *     <li><b>Current limitation or injury factor</b> affecting training feasibility</li>
      *     <li><b>Recent training history</b> (e.g., sessions performed in the last days)</li>
      * </ul>
@@ -35,7 +36,7 @@ public interface WorkoutTypeSelectorService {
      * <ul>
      *     <li>Safety and injury feasibility</li>
      *     <li>Match between intended session intensity and current readiness</li>
-     *     <li>Weather suitability for outdoor running</li>
+     *     <li>Weather suitability for outdoor running at the specified coordinates</li>
      *     <li>Priority for running sessions</li>
      *     <li>Session variety to avoid repetitive workloads</li>
      * </ul>
@@ -46,8 +47,11 @@ public interface WorkoutTypeSelectorService {
      * </p>
      *
      * @param email the email of the user for whom the workout type should be selected
+     * @param latitude the latitude of the user's current or expected training location
+     * @param longitude the longitude of the user's current or expected training location
      * @return the recommended {@link WorkoutType} for today
+     * @throws ValidationException if latitude or longitude are invalid
      */
-    WorkoutType selectWorkoutType(String email);
+    WorkoutType selectWorkoutType(String email, double latitude, double longitude) throws ValidationException;
 
 }
