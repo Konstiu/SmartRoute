@@ -261,7 +261,7 @@ public class InsertAdditionalStopsImpl implements InsertAdditionalStops {
         return new ArrayList<>(detour.subList(startIdx, endIdx + 1));
     }
 
-    // Extracts a list of coordinates from a given .gpx file.
+    @Override
     public List<Coordinate> gpxToPolyline(String pathname) throws IOException {
         GPX gpx = GPX.read(Path.of(pathname));
         List<WayPoint> points = gpx.tracks()
@@ -277,7 +277,7 @@ public class InsertAdditionalStopsImpl implements InsertAdditionalStops {
         return coords;
     }
 
-    // Build a .gpx file from a given list of coordinates.
+    @Override
     public void createGpx(List<Coordinate> coordinates, String pathname) throws IOException {
         GPX gpx = GPX.builder()
                 .addTrack(track -> track.addSegment(seg ->
