@@ -2,12 +2,14 @@ package com.smartroute.smartroute1.unittest;
 
 
 import com.smartroute.smartroute1.basetest.BaseTest;
+import com.smartroute.smartroute1.datagenerator.ExerciseDataGenerator;
 import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.GymWorkout;
 
 import com.smartroute.smartroute1.entity.enums.BodyPart;
 import com.smartroute.smartroute1.entity.enums.Sex;
+import com.smartroute.smartroute1.repository.ExerciseRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +37,13 @@ public class GymWorkoutSelectorTest extends BaseTest {
     private UserRepository userRepository;
     private ApplicationUser user;
 
+    @Autowired
+    private ExerciseDataGenerator exerciseDataGenerator;
+
+    @Autowired
+    private ExerciseRepository exerciseRepository;
+
+
     @BeforeEach
     public void setUp() {
         user = new ApplicationUser();
@@ -45,6 +54,9 @@ public class GymWorkoutSelectorTest extends BaseTest {
         user.setEmail(USEREMAIL);
 
         userRepository.save(user);
+        if (exerciseRepository.findAll().isEmpty()) {
+            exerciseDataGenerator.importExercises();
+        }
     }
 
     @Test
