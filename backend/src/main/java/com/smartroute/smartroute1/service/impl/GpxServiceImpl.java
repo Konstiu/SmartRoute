@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -56,9 +57,25 @@ public class GpxServiceImpl implements GpxService {
             // parse gpx file
             GPX gpx = GPX.Reader.DEFAULT.read(gpxStream);
 
-            // set metadata, i.e. name and start date
+            // set metadata, i.e. name, type and start date
             gpx.tracks().findFirst().ifPresent(track -> {
                 activity.setName(track.getName().orElse("Unnamed Activity"));
+
+                String type = track.getType().orElse(null);
+                String normalized = type == null ? "" : type.trim().toLowerCase();
+                Set<String> runningTypes = Set.of(
+                        "run", "running", "jogging", "trail run", "trail running",
+                        "fell running", "track run", "treadmill", "indoor running",
+                        "virtual run"
+                );
+                if (normalized.isEmpty()) {
+                    activity.setSportType("Other");
+                } else if (runningTypes.contains(normalized)) {
+                    activity.setSportType("Run");
+                } else {
+                    // keep original GPX type
+                    activity.setSportType(type);
+                }
             });
             gpx.getMetadata().flatMap(Metadata::getTime).ifPresent(startDate -> {
                 activity.setStartDate(startDate);
@@ -165,14 +182,57 @@ public class GpxServiceImpl implements GpxService {
             // see FitnessScoreServiceImpl.calculateSessionLoad for details
             int sessionLoad;
             if (maxHeartRate > 0) {
-                sessionLoad = fitnessScoreService.calculateSessionLoad(heartRates, timestamps, (float) maxHeartRate, activity);
+                sessionLoad = fitnessScoreService.calculateSessionLoad(heartRates, timestamps, activity);
             } else {
                 sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain());
             }
             activity.setSessionLoad(sessionLoad);
 
 
-            return activityRepository.save(activity);
+            List<Activity> storedActivities = activityRepository.findAllByUserAndStartDate(user, activity.getStartDate());
+            Activity storedActivity = null;
+            if (storedActivities.size() > 1) {
+                float newDistance = activity.getDistance();
+
+                for (Activity stored : storedActivities) {
+                    float storedDistance = stored.getDistance();
+                    float distanceDiff = Math.abs(storedDistance - newDistance);
+
+                    if (distanceDiff <= 1000) {
+                        storedActivity = stored;
+                        break;
+                    }
+                }
+            } else if (storedActivities.size() == 1) {
+                storedActivity = storedActivities.get(0);
+            }
+            if (storedActivity == null) {
+                return activityRepository.save(activity);
+            } else {
+                storedActivity.setTotalElevationGain(activity.getTotalElevationGain());
+                storedActivity.setAverageSpeed(activity.getAverageSpeed());
+                storedActivity.setMaxSpeed(activity.getMaxSpeed());
+                storedActivity.setAverageHeartrate(activity.getAverageHeartrate());
+
+                // only update session load if strava suffer score was not set before
+                if (storedActivity.getSufferScore() == null) {
+                    storedActivity.setSessionLoad(activity.getSessionLoad());
+                }
+                storedActivity.setStartDate(activity.getStartDate());
+                storedActivity.setElapsedTime(activity.getElapsedTime());
+                storedActivity.setMovingTime(activity.getMovingTime());
+                storedActivity.setMaxHeartrate(activity.getMaxHeartrate());
+                storedActivity.setExternalId(activity.getExternalId());
+                storedActivity.setSummaryPolyline(storedActivity.getSummaryPolyline());
+                storedActivity.setAverageWatts(storedActivity.getAverageWatts());
+                storedActivity.setKilojoules(storedActivity.getKilojoules());
+                storedActivity.setStravaId(storedActivity.getStravaId());
+                storedActivity.setSufferScore(storedActivity.getSufferScore());
+                storedActivity.setSportType(storedActivity.getSportType());
+                // always the first name is going to be the new name of the Activity
+                //storedActivity.setName(entity.getName());
+                return activityRepository.save(storedActivity);
+            }
         } catch (IOException | NoSuchElementException e) {
             throw new ValidationException("Failed to read GPX file", List.of("GPX file could not be processed"));
         }
