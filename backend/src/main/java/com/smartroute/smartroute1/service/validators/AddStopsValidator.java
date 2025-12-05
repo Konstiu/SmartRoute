@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Objects;
 
 @Component
-public class InsertAdditionalStopValidator {
+public class AddStopsValidator {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     public void validateRouteLength(List<Coordinate> route) throws ValidationException {

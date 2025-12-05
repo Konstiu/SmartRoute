@@ -1,20 +1,14 @@
 package com.smartroute.smartroute1.unittest;
 
-import com.smartroute.smartroute1.exception.ValidationException;
-import com.smartroute.smartroute1.service.InsertAdditionalStops;
+import com.smartroute.smartroute1.service.AddStopsService;
 import com.smartroute.smartroute1.util.Coordinate;
-import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-
 @SpringBootTest
-public class InsertAdditionalStopsTest {
+public class AddStopsTest {
     @Autowired
-    InsertAdditionalStops service;
+    AddStopsService service;
 
     private final static Coordinate CORD1 = new Coordinate(48.245319, 16.300269);
     private final static Coordinate CORD2 = new Coordinate(48.241755, 16.297835);
