@@ -7,6 +7,7 @@ import {FormsModule} from '@angular/forms';
 import {CommonModule} from '@angular/common';
 import {StravaService} from "../../../../services/strava.service";
 import {GarminService} from "../../../../services/garmin.service";
+import {ActivitySyncNotificationService} from "../../../../services/ActivitySyncNotificationService";
 
 @Component({
   selector: 'app-sync-activities',
@@ -31,7 +32,8 @@ export class SyncActivitiesPage implements OnInit {
     private activitiesService: ActivitiesService,
     private toastController: ToastController,
     private stravaService: StravaService,
-    private garminService: GarminService
+    private garminService: GarminService,
+    private syncNotificationService: ActivitySyncNotificationService
   ) {
   }
 
@@ -64,6 +66,7 @@ export class SyncActivitiesPage implements OnInit {
       next: async () => {
         this.isSyncing = false;
         this.syncComplete = true;
+        this.syncNotificationService.notifySyncCompleted();
 
         await this.showToast(`✓ Successfully synced ${this.activitiesToSync} activities!`, 'success', 3000);
 
