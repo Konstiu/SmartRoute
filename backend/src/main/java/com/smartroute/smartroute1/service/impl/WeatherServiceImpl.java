@@ -49,7 +49,43 @@ public class WeatherServiceImpl implements WeatherService {
     private final WeatherMapper weatherMapper;
     private final WeatherRepository weatherRepository;
 
-    // Stores hourly weather data over the next 7 days for a given coordinate from open-meteo.
+    @Transactional
+    @Override
+    public WeatherResponse getWeatherAtTime(double latitude, double longitude, String timeUtc) throws ValidationException {
+        LOGGER.trace("Searching cached weather for latitude={}, longitude={} at hour={}", latitude, longitude, timeUtc);
+
+        validator.validateCoordinates(latitude, longitude);
+        validator.validateTimeFormat(timeUtc);
+        validator.validateForecastTime(timeUtc);
+
+        // Try to load from repository
+        Optional<WeatherResponse> cached = Optional.ofNullable(weatherRepository.getByTimeAndLatitudeAndLongitude(timeUtc, latitude, longitude));
+
+        if (cached.isPresent()) {
+            LOGGER.trace("Found cached weather in repository");
+            WeatherResponse old = cached.get();
+
+            LocalDate fetchedDay = old.getForecastGeneratedAt();
+            LocalDate today = LocalDate.now(ZoneOffset.UTC);
+
+            if (fetchedDay.equals(today)) {
+                LOGGER.trace("Cached weather is still fresh");
+                return old; // cache hit and still fresh
+            }
+
+            LOGGER.trace("Stale data found -> deleting stale entries");
+            weatherRepository.deleteAllByCoordinates(latitude, longitude); // if staleness detected for a coordinate, delete all weather data of that entry
+        }
+
+        // Fetch new data
+        LOGGER.trace("Weather not cached, calling open-meteo");
+        importHourlyWeather(latitude, longitude);
+
+        // Load from repository
+        return weatherRepository.getByTimeAndLatitudeAndLongitude(timeUtc, latitude, longitude);
+    }
+
+    // Stores hourly weather data over the next 3 days for a given coordinate from open-meteo.
     private void importHourlyWeather(double latitude, double longitude) throws ValidationException {
         validator.validateCoordinates(latitude, longitude);
 
@@ -114,7 +150,6 @@ public class WeatherServiceImpl implements WeatherService {
         weatherRepository.saveAll(entities);
     }
 
-
     // Build url for open-meteo.
     private String buildUrl(double latitude, double longitude) {
         return "https://api.open-meteo.com/v1/forecast?latitude=" + latitude
@@ -174,40 +209,57 @@ public class WeatherServiceImpl implements WeatherService {
         return list;
     }
 
-    @Transactional
     @Override
-    public WeatherResponse getWeatherAtTime(double latitude, double longitude, String timeUtc) throws ValidationException {
-        LOGGER.trace("Searching cached weather for latitude={}, longitude={} at hour={}", latitude, longitude, timeUtc);
+    public WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age) throws ValidationException {
+        validator.validateWeatherValues(weather);
+        validator.validateAge(age);
 
-        validator.validateCoordinates(latitude, longitude);
-        validator.validateTimeFormat(timeUtc);
-        validator.validateForecastTime(timeUtc);
+        double wbgt = computeWbgt(weather);
+        HeatRiskCategory temperatureRiskCategory;
 
-        // Try to load from repository
-        Optional<WeatherResponse> cached = Optional.ofNullable(weatherRepository.getByTimeAndLatitudeAndLongitude(timeUtc, latitude, longitude));
+        HeatRiskCategory heat = classifyHeatRisk(wbgt);
+        temperatureRiskCategory = heat;
+        double temperatureRiskPenalty = weatherPenalty(wbgt, 100.0, 0.35, 25.0, 1.25);
 
-        if (cached.isPresent()) {
-            LOGGER.trace("Found cached weather in repository");
-            WeatherResponse old = cached.get();
-
-            LocalDate fetchedDay = old.getForecastGeneratedAt();
-            LocalDate today = LocalDate.now(ZoneOffset.UTC);
-
-            if (fetchedDay.equals(today)) {
-                LOGGER.trace("Cached weather is still fresh");
-                return old; // cache hit and still fresh
-            }
-
-            LOGGER.trace("Stale data found -> deleting stale entries");
-            weatherRepository.deleteAllByCoordinates(latitude, longitude); // if staleness detected for a coordinate, delete all weather data of that entry
+        // if wbgt indicates lower than optimal temperature, estimate temperature risk using wind chill.
+        if (heat == HeatRiskCategory.LOW_COLD) {
+            double windChill = calculateWindChill(weather.getTemperature2m(), weather.getWindSpeed10m());
+            temperatureRiskCategory = classifyColdRisk(windChill);
+            temperatureRiskPenalty = 100 - weatherPenalty(windChill, 100.0, 0.18, -5.0, 1.35);
         }
 
-        // Fetch new data
-        LOGGER.trace("Weather not cached, calling open-meteo");
-        importHourlyWeather(latitude, longitude);
+        double precipitation = weather.getPrecipitation();
+        double precipitationPenalty = weatherPenalty(precipitation, 100.0, 0.25, 25.0, 1.2);
 
-        // Load from repository
-        return weatherRepository.getByTimeAndLatitudeAndLongitude(timeUtc, latitude, longitude);
+        double windSpeed = weather.getWindSpeed10m();
+        double windPenalty = weatherPenalty(windSpeed, 100.0, 0.12, 40.0, 1.4);
+
+        double snowPenalty = weatherPenalty(weather.getSnowDepth(), 100.0, 2.0, 7.0, 1.0);
+
+        double slipRisk = 0.0;
+        if (weather.getTemperature2m() <= 4.0) {
+            slipRisk = 0.1;
+        }
+
+        double totalPenalty =
+                1
+                        - (1 - temperatureRiskPenalty / 100.0)
+                        * (1 - precipitationPenalty / 100.0)
+                        * (1 - windPenalty / 100.0)
+                        * (1 - snowPenalty / 100.0)
+                        * 1 - slipRisk;
+
+        double score = 1.0 - totalPenalty;
+        score = (double) Math.round(score * 1000.0) / 1000; // round to 3 decimals.
+        double weatherScore = clamp(score, 0.0, 1.0);
+
+        double performancePenalty = estimatePerformancePenalty(weather, age) / 100;
+        performancePenalty = (double) Math.round(performancePenalty * 1000.0) / 1000;  // round to 3 decimals.
+
+        RainIntensity rainCategory = classifyRainSeverity(precipitation);
+        WindIntensity windCategory = classifyWindSeverity(windSpeed);
+
+        return new WeatherImpactDto(performancePenalty, weatherScore, temperatureRiskCategory, rainCategory, windCategory);
     }
 
     // Compute the natural wet-bulb temperature in C°. Source: https://journals.ametsoc.org/view/journals/apme/50/11/jamc-d-11-0143.1.xml
@@ -348,122 +400,7 @@ public class WeatherServiceImpl implements WeatherService {
         return 13.12 + 0.6215 * temperature + (0.3965 * temperature - 11.37) * Math.pow(windSpeed, 0.16);
     }
 
-    // Classification of cold risk: https://www.canada.ca/en/environment-climate-change/services/weather-health/wind-chill-cold-weather/wind-chill-index.html
-    private HeatRiskCategory classifyColdRisk(double windChill) {
-        if (windChill <= -55) {
-            return HeatRiskCategory.EXTREME_COLD;
-        }
-        if (windChill >= -54 && windChill <= -48) {
-            return HeatRiskCategory.SEVERE_COLD;
-        }
-        if (windChill >= -47 && windChill <= -40) {
-            return HeatRiskCategory.VERY_HIGH_COLD_RISK;
-        }
-        if (windChill >= -39 && windChill <= -28) {
-            return HeatRiskCategory.HIGH_COLD_RISK;
-        }
-        if (windChill >= -27 && windChill <= -10) {
-            return HeatRiskCategory.MODERATE_COLD;
-        }
-        if (windChill >= -9 && windChill <= 0) {
-            return HeatRiskCategory.LOW_COLD;
-        }
-        return HeatRiskCategory.LOW_COLD;
-    }
-
-    // Classifies precipitation (mm/h) into categories of severity. Source: https://rainsimulator.com/guides/intensity-categories
-    private RainIntensity classifyRainSeverity(double precipitation) {
-        if (precipitation == 0.0) {
-            return RainIntensity.NONE;
-        }
-        if (precipitation > 0.0 && precipitation < 0.25) {
-            return RainIntensity.TRACE;
-        }
-        if (precipitation >= 0.25 && precipitation < 1.0) {
-            return RainIntensity.VERY_LIGHT;
-        }
-        if (precipitation >= 1 && precipitation < 2.5) {
-            return RainIntensity.LIGHT;
-        }
-        if (precipitation >= 2.5 && precipitation < 10) {
-            return RainIntensity.MODERATE;
-        }
-        if (precipitation >= 10 && precipitation < 50) {
-            return RainIntensity.HEAVY;
-        }
-        return RainIntensity.VIOLENT;
-    }
-
-    // Classifies wind speed (km/h | 10 m above ground) into categories of severity. Source: https://www.rmets.org/metmatters/beaufort-wind-scale
-    private WindIntensity classifyWindSeverity(double windSpeed) {
-        if (windSpeed < 1) {
-            return WindIntensity.CALM;
-        }
-        if (windSpeed >= 1 && windSpeed <= 19) {
-            return WindIntensity.GENTLE_BREEZE;
-        }
-        if (windSpeed >= 20 && windSpeed < 38) {
-            return WindIntensity.MODERATE_BREEZE;
-        }
-        if (windSpeed >= 38 && windSpeed <= 49) {
-            return WindIntensity.STRONG_BREEZE;
-        }
-        return WindIntensity.GALE_AND_BEYOND;
-    }
-
-    @Override
-    public WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age) throws ValidationException {
-        validator.validateWeatherValues(weather);
-        validator.validateAge(age);
-
-        double wbgt = computeWbgt(weather);
-        HeatRiskCategory temperatureRiskCategory;
-
-        HeatRiskCategory heat = classifyHeatRisk(wbgt);
-        temperatureRiskCategory = heat;
-        double temperatureRiskPenalty = weatherPenalty(wbgt, 100.0, 0.35, 25.0, 1.25);
-
-        // if wbgt indicates lower than optimal temperature, estimate temperature risk using wind chill.
-        if (heat == HeatRiskCategory.LOW_COLD) {
-            double windChill = calculateWindChill(weather.getTemperature2m(), weather.getWindSpeed10m());
-            temperatureRiskCategory = classifyColdRisk(windChill);
-            temperatureRiskPenalty = 100 - weatherPenalty(windChill, 100.0, 0.18, -5.0, 1.35);
-        }
-
-        double precipitation = weather.getPrecipitation();
-        double precipitationPenalty = weatherPenalty(precipitation, 100.0, 0.25, 25.0, 1.2);
-
-        double windSpeed = weather.getWindSpeed10m();
-        double windPenalty = weatherPenalty(windSpeed, 100.0, 0.12, 40.0, 1.4);
-
-        double snowPenalty = weatherPenalty(weather.getSnowDepth(), 100.0, 2.0, 7.0, 1.0);
-
-        double slipRisk = 0.0;
-        if (weather.getTemperature2m() <= 4.0) {
-            slipRisk = 0.1;
-        }
-
-        double totalPenalty =
-                1
-                        - (1 - temperatureRiskPenalty / 100.0)
-                        * (1 - precipitationPenalty / 100.0)
-                        * (1 - windPenalty / 100.0)
-                        * (1 - snowPenalty / 100.0)
-                        * 1 - slipRisk;
-
-        double score = 1.0 - totalPenalty;
-        score = (double) Math.round(score * 1000.0) / 1000; // round to 3 decimals.
-        double weatherScore = clamp(score, 0.0, 1.0);
-
-        double performancePenalty = estimatePerformancePenalty(weather, age) / 100;
-        performancePenalty = (double) Math.round(performancePenalty * 1000.0) / 1000;  // round to 3 decimals.
-
-        RainIntensity rainCategory = classifyRainSeverity(precipitation);
-        WindIntensity windCategory = classifyWindSeverity(windSpeed);
-
-        return new WeatherImpactDto(performancePenalty, weatherScore, temperatureRiskCategory, rainCategory, windCategory);
-    }
-
+    // non-linear continuous function to calculate the weather penalties imposed on the weather score.
     private double weatherPenalty(double weatherParameter, double maximumPenalty, double steepness, double midPoint, double shape) {
         // Generalized logistic / Richards curve
         double penalty = maximumPenalty / Math.pow(1.0 + Math.pow(Math.E, -steepness * (weatherParameter - midPoint)), 1.0 / shape);
@@ -472,7 +409,7 @@ public class WeatherServiceImpl implements WeatherService {
         return Math.min(100.0, Math.max(0.0, penalty));
     }
 
-    // Estimates the speed penalty from different weather factors.
+    // Estimates the speed penalty using different weather factors.
     private double estimatePerformancePenalty(WeatherResponse weather, int age) {
         final double optimalWbgt = 10.0;
         final double heatSlope = 0.25;
@@ -496,30 +433,6 @@ public class WeatherServiceImpl implements WeatherService {
 
         LOGGER.trace("Estimated performance penalty: {}", totalPenalty);
         return totalPenalty;
-    }
-
-    private enum RunEventType {
-        FIVE_K_LIKE, TEN_K_LIKE, MARATHON_LIKE
-    }
-
-    // Classification of the heat risk: https://www.weather.gov/arx/wbgt
-    private HeatRiskCategory classifyHeatRisk(double wbgt) {
-        if (wbgt < 10.0) {
-            return HeatRiskCategory.LOW_COLD;
-        }
-        if (wbgt >= 10.0 && wbgt < 18.3) {
-            return HeatRiskCategory.NEUTRAL;
-        }
-        if (wbgt >= 18.3 && wbgt <= 22.2) {
-            return HeatRiskCategory.LOW_HEAT;
-        }
-        if (wbgt > 22.2 && wbgt <= 25.56) {
-            return HeatRiskCategory.MODERATE_HEAT;
-        }
-        if (wbgt > 25.56 && wbgt <= 27.8) {
-            return HeatRiskCategory.HIGH_HEAT;
-        }
-        return HeatRiskCategory.EXTREME_HEAT;
     }
 
     // Estimates the complexity by weighing relevant weather data.
@@ -622,5 +535,88 @@ public class WeatherServiceImpl implements WeatherService {
         }
 
         return snowImpact * 100;
+    }
+
+    // Classification of the heat risk: https://www.weather.gov/arx/wbgt
+    private HeatRiskCategory classifyHeatRisk(double wbgt) {
+        if (wbgt < 10.0) {
+            return HeatRiskCategory.LOW_COLD;
+        }
+        if (wbgt >= 10.0 && wbgt < 18.3) {
+            return HeatRiskCategory.NEUTRAL;
+        }
+        if (wbgt >= 18.3 && wbgt <= 22.2) {
+            return HeatRiskCategory.LOW_HEAT;
+        }
+        if (wbgt > 22.2 && wbgt <= 25.56) {
+            return HeatRiskCategory.MODERATE_HEAT;
+        }
+        if (wbgt > 25.56 && wbgt <= 27.8) {
+            return HeatRiskCategory.HIGH_HEAT;
+        }
+        return HeatRiskCategory.EXTREME_HEAT;
+    }
+
+    // Classification of cold risk: https://www.canada.ca/en/environment-climate-change/services/weather-health/wind-chill-cold-weather/wind-chill-index.html
+    private HeatRiskCategory classifyColdRisk(double windChill) {
+        if (windChill <= -55) {
+            return HeatRiskCategory.EXTREME_COLD;
+        }
+        if (windChill >= -54 && windChill <= -48) {
+            return HeatRiskCategory.SEVERE_COLD;
+        }
+        if (windChill >= -47 && windChill <= -40) {
+            return HeatRiskCategory.VERY_HIGH_COLD_RISK;
+        }
+        if (windChill >= -39 && windChill <= -28) {
+            return HeatRiskCategory.HIGH_COLD_RISK;
+        }
+        if (windChill >= -27 && windChill <= -10) {
+            return HeatRiskCategory.MODERATE_COLD;
+        }
+        if (windChill >= -9 && windChill <= 0) {
+            return HeatRiskCategory.LOW_COLD;
+        }
+        return HeatRiskCategory.LOW_COLD;
+    }
+
+    // Classifies precipitation (mm/h) into categories of severity. Source: https://rainsimulator.com/guides/intensity-categories
+    private RainIntensity classifyRainSeverity(double precipitation) {
+        if (precipitation == 0.0) {
+            return RainIntensity.NONE;
+        }
+        if (precipitation > 0.0 && precipitation < 0.25) {
+            return RainIntensity.TRACE;
+        }
+        if (precipitation >= 0.25 && precipitation < 1.0) {
+            return RainIntensity.VERY_LIGHT;
+        }
+        if (precipitation >= 1 && precipitation < 2.5) {
+            return RainIntensity.LIGHT;
+        }
+        if (precipitation >= 2.5 && precipitation < 10) {
+            return RainIntensity.MODERATE;
+        }
+        if (precipitation >= 10 && precipitation < 50) {
+            return RainIntensity.HEAVY;
+        }
+        return RainIntensity.VIOLENT;
+    }
+
+    // Classifies wind speed (km/h | 10 m above ground) into categories of severity. Source: https://www.rmets.org/metmatters/beaufort-wind-scale
+    private WindIntensity classifyWindSeverity(double windSpeed) {
+        if (windSpeed < 1) {
+            return WindIntensity.CALM;
+        }
+        if (windSpeed >= 1 && windSpeed <= 19) {
+            return WindIntensity.GENTLE_BREEZE;
+        }
+        if (windSpeed >= 20 && windSpeed < 38) {
+            return WindIntensity.MODERATE_BREEZE;
+        }
+        if (windSpeed >= 38 && windSpeed <= 49) {
+            return WindIntensity.STRONG_BREEZE;
+        }
+        return WindIntensity.GALE_AND_BEYOND;
     }
 }
