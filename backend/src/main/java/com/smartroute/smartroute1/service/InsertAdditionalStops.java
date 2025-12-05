@@ -23,9 +23,9 @@ public interface InsertAdditionalStops {
      * Computes optimal endpoints on original route, generates new route segments and stitches them together.
      *
      * @param originalRoute the full list of coordinates representing the existing route; must contain at least two points
-     * @param newPoint the coordinate that should be added to the route
+     * @param newPoints list of {@link Coordinate} that should be added to the rout
      * @return a new list of {@link Coordinate} representing the updated route including the waypoint
      * @throws IllegalArgumentException if the input route is null, too short, or contains invalid data
      */
-    public List<Coordinate> addWaypoint(List<Coordinate> originalRoute, Coordinate newPoint) throws ValidationException;
+    public List<Coordinate> addWaypoints(List<Coordinate> originalRoute, List<Coordinate> newPoints) throws ValidationException;
 }
