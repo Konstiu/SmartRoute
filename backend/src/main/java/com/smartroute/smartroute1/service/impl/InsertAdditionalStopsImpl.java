@@ -25,7 +25,8 @@ public class InsertAdditionalStopsImpl implements InsertAdditionalStops {
 
     private final InsertAdditionalStopValidator validator;
 
-    private record ClosestPointResult(int segmentIndex, Coordinate closestPoint, double distanceMeters, double totalLengthRoute) {
+    private record ClosestPointResult(int segmentIndex, Coordinate closestPoint, double distanceMeters,
+                                      double totalLengthRoute) {
     }
 
     private record AnchorPoint(int startIndex, int endIndex, Coordinate startCoordinate, Coordinate endCoordinate) {
@@ -45,12 +46,39 @@ public class InsertAdditionalStopsImpl implements InsertAdditionalStops {
     }
 
     @Override
-    public List<Coordinate> addWaypoint(List<Coordinate> originalRoute, Coordinate newPoint) throws ValidationException {
+    public List<Coordinate> addWaypoints(List<Coordinate> originalRoute, List<Coordinate> newPoints) throws ValidationException {
         validator.validateRouteLength(originalRoute);
-        validator.validateCoordinates(newPoint.getLatitude(), newPoint.getLongitude());
 
+        if (newPoints == null || newPoints.isEmpty()) {
+            return originalRoute; // no modifications
+        }
+
+        List<Coordinate> protectedPoints = new ArrayList<>();
+        protectedPoints.add(originalRoute.getFirst());
+        protectedPoints.add(originalRoute.getLast());
+
+        List<Coordinate> updatedRoute = new ArrayList<>(originalRoute);
+
+        for (Coordinate newPoint : newPoints) {
+            validator.validateCoordinates(newPoint.getLatitude(), newPoint.getLongitude());
+            updatedRoute = addSingleWaypoint(updatedRoute, newPoint, protectedPoints);
+            protectedPoints.add(newPoint);
+        }
+
+        // Final safety check (start/end must match)
+        validator.validateSameEndpoints(originalRoute, updatedRoute);
+
+        return updatedRoute;
+    }
+
+    private List<Coordinate> addSingleWaypoint(List<Coordinate> originalRoute, Coordinate newPoint, List<Coordinate> protectedPoints) throws ValidationException {
         ClosestPointResult closest = findClosestPoint(originalRoute, newPoint);
-        AnchorPoint anchors = chooseAnchorPoints(originalRoute, closest);
+
+        // Determine the segment where this waypoint belongs
+        int previousProtectedPoint = findPreviousProtectedPoint(originalRoute, closest.segmentIndex, protectedPoints);
+        int nextProtectedPoint = findNextProtectedPoint(originalRoute, closest.segmentIndex, protectedPoints);
+
+        AnchorPoint anchors = chooseAnchorPoints(originalRoute, closest, previousProtectedPoint, nextProtectedPoint);
 
         List<Coordinate> detour = routeThroughPoint(anchors.startCoordinate, newPoint, anchors.endCoordinate);
 
@@ -66,6 +94,24 @@ public class InsertAdditionalStopsImpl implements InsertAdditionalStops {
         validator.validateSameEndpoints(originalRoute, finalPoints);
 
         return finalPoints;
+    }
+
+    private int findPreviousProtectedPoint(List<Coordinate> route, int index, List<Coordinate> protectedPoints) {
+        for (int i = index; i >= 0; i--) {
+            if (protectedPoints.contains(route.get(i))) {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    private int findNextProtectedPoint(List<Coordinate> route, int index, List<Coordinate> protectedPoints) {
+        for (int i = index + 1; i < route.size(); i++) {
+            if (protectedPoints.contains(route.get(i))) {
+                return i;
+            }
+        }
+        return route.size() - 1;
     }
 
 
@@ -161,17 +207,19 @@ public class InsertAdditionalStopsImpl implements InsertAdditionalStops {
      * Picks anchor points where the route should leave and rejoin.
      * Uses curvature + minimum distance to select natural anchor points.
      */
-    private AnchorPoint chooseAnchorPoints(List<Coordinate> route, ClosestPointResult closest) {
-        int routeSize = route.size();
+    private AnchorPoint chooseAnchorPoints(List<Coordinate> route, ClosestPointResult closest, int previousProtectedPoint, int nextProtectedPoint) {
         int index = closest.segmentIndex;
         double routeLength = closest.totalLengthRoute;
-        double minAnchorDistance = Math.min(closest.distanceMeters, routeLength / 6); // @TODO tweak this value
+        double minAnchorDistance = Math.min(closest.distanceMeters / 2, routeLength / 4); // @TODO tweak this value
+        final int routeSize = route.size();
 
         // 1) Move backward until distance >= min and curvature small
-        int startIndex = walkUntilStable(route, index, - 1, minAnchorDistance);
+        int startIndex = walkUntilStable(route, index, -1, minAnchorDistance);
+        startIndex = Math.max(previousProtectedPoint, startIndex);
 
         // 2) Move forward until distance >= min and curvature small
-        int endIndex = walkUntilStable(route, index + 1, + 1, minAnchorDistance);
+        int endIndex = walkUntilStable(route, index + 1, +1, minAnchorDistance);
+        endIndex = Math.min(nextProtectedPoint, endIndex);
 
         // 3) Clamp so first/last route points are never removed
         startIndex = Math.max(1, startIndex);
@@ -184,7 +232,7 @@ public class InsertAdditionalStopsImpl implements InsertAdditionalStops {
     }
 
     /**
-     * Walks along the route in the specified direction (step = ±1)
+     * Walks along the route in the specified direction (step = +/-1)
      * until we have travelled MIN_ANCHOR_DISTANCE_METERS and
      * the local curvature (angle between segments) is below threshold.
      */
