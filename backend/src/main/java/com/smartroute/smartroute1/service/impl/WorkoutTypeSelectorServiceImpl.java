@@ -6,6 +6,7 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.TrainingEnvironment;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
+import com.smartroute.smartroute1.exception.InsufficientTrainingDataException;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.DaySelectorService;
@@ -121,13 +122,19 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
 
         // get current time in UTC
         ZonedDateTime utcDateTime = LocalDateTime.now()
-            .atZone(ZoneId.systemDefault())
-            .withZoneSameInstant(ZoneId.of("UTC"));
-        String utcTimeStr = utcDateTime.format(DateTimeFormatter.ISO_INSTANT);
+                .atZone(ZoneId.systemDefault())
+                .withZoneSameInstant(ZoneId.of("UTC")).withMinute(0).withSecond(0).withNano(0);
+        String utcTimeStr = utcDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
 
         // get today's readiness score
         // it ranges from 0 to 100, therefore normalization is needed
-        int readinessScore = readinessScoreService.calculateReadinessScore(user, today);
+        int readinessScore;
+        try {
+           readinessScore = readinessScoreService.calculateReadinessScore(user, today);
+        } catch (InsufficientTrainingDataException e) {
+            // fall back to default value
+            readinessScore = 50;
+        }
         double normalizedReadiness = readinessScore / 100.0;
 
         // get users last distance run data
