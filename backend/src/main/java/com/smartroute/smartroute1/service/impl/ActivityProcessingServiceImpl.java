@@ -3,6 +3,7 @@ package com.smartroute.smartroute1.service.impl;
 import com.smartroute.smartroute1.endpoint.dto.StravaStreamDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
@@ -215,5 +216,17 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         }
         ApplicationUser user = userRepository.findUserByEmail(email);
         return activityRepository.findByUserOrderByStartDateDesc(user, PageRequest.of(0, n));
+    }
+
+    @Override
+    public Optional<Activity> getLastRunningActivityBeforeDate(String email, LocalDate date) {
+        LOGGER.trace("Get last running Strava activity before date {} for user with mail: {}", date, email);
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        Instant instant = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        return activityRepository.findTopByUserAndWorkoutTypeInAndStartDateBeforeOrderByStartDateDesc(
+            user,
+            List.of(WorkoutType.EASY_RUN, WorkoutType.TEMPO_RUN, WorkoutType.INTERVAL_RUN, WorkoutType.LONG_RUN),
+            instant
+        );
     }
 }
