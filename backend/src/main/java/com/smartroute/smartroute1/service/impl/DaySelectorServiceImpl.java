@@ -5,6 +5,8 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Injuries;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.Weekday;
+import com.smartroute.smartroute1.exception.CannotCalculateConsistencyScoreException;
+import com.smartroute.smartroute1.exception.InsufficientTrainingDataException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import com.smartroute.smartroute1.service.DaySelectorService;
@@ -39,22 +41,37 @@ public class DaySelectorServiceImpl implements DaySelectorService {
         Instant from = date.minusDays(7).atStartOfDay(ZoneId.systemDefault()).toInstant();
         Instant to = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
 
-        List<Activity> activitiesLast7Days = activityRepository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(user, from, to);
-
         Set<Weekday> preferredDays = user.getActiveWeekdays();
         int plannedWeeklySessions = preferredDays.size();
         int minWeeklySessions = getMinWeeklySessions(experienceLevel);
         int maxWeeklySessions = getMaxWeeklySessions(experienceLevel);
 
-        double consistencyScore = consistencyAnalyzerService.computeScore(
-                        user,
-                        from,
-                        to,
-                        Math.clamp(plannedWeeklySessions, minWeeklySessions, maxWeeklySessions))
-                .getFinalScore();
+        List<Activity> activitiesLast7Days = activityRepository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(user, from, to);
 
-        int readinessScore = readinessScoreService.calculateReadinessScore(user, date);
-        double overloadScore = calculateOverload(fatigueAndOverloadService.tsbOn(user, date));
+        double consistencyScore;
+        try {
+            consistencyScore = consistencyAnalyzerService.computeScore(
+                            user,
+                            from,
+                            to,
+                            Math.clamp(plannedWeeklySessions, minWeeklySessions, maxWeeklySessions))
+                    .getFinalScore();
+        } catch (CannotCalculateConsistencyScoreException e) {
+            // fall back to default value
+            consistencyScore = 0.0;
+        }
+
+        int readinessScore;
+        double overloadScore;
+        try {
+            readinessScore = readinessScoreService.calculateReadinessScore(user, date);
+            overloadScore = calculateOverload(fatigueAndOverloadService.tsbOn(user, date));
+        } catch (InsufficientTrainingDataException e) {
+            // fall back to default values
+            readinessScore = 50;
+            overloadScore = 0;
+        }
+
         double injuryConstraint = calculateInjuryConstraint(injuryAwareTrainingService.findInjuriesByEmail(user.getEmail()));
 
         double trainabilityIndex = calculateTrainabilityIndex(readinessScore, overloadScore, injuryConstraint, consistencyScore);
