@@ -21,4 +21,5 @@ public class DetailedActivityDto {
     private Float averageWatts;
     private Float kilojoules;
     private String summaryPolyline;
+    private Integer satisfactionScore;
 }

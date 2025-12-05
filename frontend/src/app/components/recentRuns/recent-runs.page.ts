@@ -1,9 +1,11 @@
-import {Component, OnInit} from '@angular/core';
+import {Component, inject, OnInit} from '@angular/core';
 import {IonicModule} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../services/activities.service';
-import {StravaActivity} from '../../dtos/StravaActivity';
+import {Activity} from '../../dtos/Activity';
 import {Router} from "@angular/router";
+import {ToastController} from '@ionic/angular';
+
 
 @Component({
   selector: 'app-recent-runs',
@@ -13,11 +15,15 @@ import {Router} from "@angular/router";
   imports: [IonicModule, CommonModule]
 })
 export class RecentRunsPage implements OnInit {
-  activities: StravaActivity[] = [];
+  activities: Activity[] = [];
   isLoading = false;
   error: string | null = null;
 
-  constructor(private stravaService: ActivitiesService, private router: Router) {}
+  constructor(private stravaService: ActivitiesService, private router: Router) {
+  }
+
+  private activitiesService: ActivitiesService = inject(ActivitiesService);
+  private toastCtrl: ToastController = inject(ToastController);
 
   ngOnInit() {
     this.loadActivities();
@@ -29,6 +35,9 @@ export class RecentRunsPage implements OnInit {
 
     this.stravaService.getRecentActivities().subscribe({
       next: (data) => {
+        this.activities = data.sort((a, b) =>
+          new Date(b.startDateLocal).getTime() - new Date(a.startDateLocal).getTime()
+        );
         this.activities = data;
         this.isLoading = false;
         if (event) {
@@ -46,10 +55,46 @@ export class RecentRunsPage implements OnInit {
     });
   }
 
-  doRefresh(event: any) {
-    this.loadActivities(event);
+  async refreshActivities(event: any) {
+    if (!this.activitiesService.canRefresh()) {
+      await this.showToast("Refresh limit reached. Try again in a few minutes.", "warning")
+      event.target.complete();
+      return;
+    }
+
+    this.activitiesService.incrementRefreshCount();
+
+    this.isLoading = true;
+    this.error = null;
+
+    this.activitiesService.refreshActivities(10)
+      .subscribe({
+        next: async () => {
+          this.loadActivities(event);
+          await this.showToast("Activities synchronized successfully.", "success");
+        },
+        error: err => {
+          console.error('Error fetching activities:', err);
+          this.error = 'Failed to load activities. Please try again.';
+          this.isLoading = false;
+          event.target.complete();
+        }
+      })
   }
 
+  private async showToast(message: string, color: "success" | "warning" | "danger") {
+    const toast = await this.toastCtrl.create({
+      message,
+      color,
+      duration: 2500,
+      position: "top"
+    });
+    await toast.present();
+  }
+
+  async doRefresh(event: any) {
+    await this.refreshActivities(event);
+  }
 
   formatDate(dateString: string): string {
     const date = new Date(dateString);
@@ -63,9 +108,9 @@ export class RecentRunsPage implements OnInit {
       hour12: false // Use 24-hour format, change to true for 12-hour format
     });
 
-    if (diffDays === 0) return `Today at ${timeString}`;
-    if (diffDays === 1) return `Yesterday at ${timeString}`;
-    if (diffDays < 7) return `${diffDays} days ago at ${timeString}`;
+    if (diffDays === 1) return `Today at ${timeString}`;
+    if (diffDays === 2) return `Yesterday at ${timeString}`;
+    if (diffDays < 8) return `${diffDays - 1} days ago at ${timeString}`;
 
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'short',
@@ -80,10 +125,10 @@ export class RecentRunsPage implements OnInit {
     const h = Math.floor(seconds / 3600);
     const m = Math.floor((seconds % 3600) / 60);
     const s = seconds % 60;
-    return `${h}:${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+    return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
-  formatDistance(dist: number) : string{
+  formatDistance(dist: number): string {
     dist = dist / 1000; // convert meters to km
     return dist.toFixed(2)
   }
@@ -114,7 +159,7 @@ export class RecentRunsPage implements OnInit {
     return icons[sportType] || icons['default'];
   }
 
-  openActivity(activity:StravaActivity){
+  openActivity(activity: Activity) {
     this.router.navigate(['/activity/', activity.id]);
   }
 

@@ -3,7 +3,7 @@ import {ActivatedRoute} from '@angular/router';
 import {IonicModule} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../../services/activities.service';
-import {DetailedStravaActivity} from '../../../dtos/StravaActivity';
+import {DetailedActivity} from '../../../dtos/Activity';
 import * as L from 'leaflet';
 
 @Component({
@@ -16,7 +16,7 @@ import * as L from 'leaflet';
 export class ActivityDetailPage implements OnInit, AfterViewInit {
   @ViewChild('map', {static: false}) mapElement!: ElementRef;
 
-  activity: DetailedStravaActivity | null = null;
+  activity: DetailedActivity | null = null;
   isLoading = true;
   error: string | null = null;
   map: L.Map | null = null;
@@ -211,9 +211,9 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
       hour12: false // Use 24-hour format, change to true for 12-hour format
     });
 
-    if (diffDays === 0) return `Today at ${timeString}`;
-    if (diffDays === 1) return `Yesterday at ${timeString}`;
-    if (diffDays < 7) return `${diffDays} days ago at ${timeString}`;
+    if (diffDays === 1) return `Today at ${timeString}`;
+    if (diffDays === 2) return `Yesterday at ${timeString}`;
+    if (diffDays < 8) return `${diffDays-1} days ago at ${timeString}`;
 
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'short',

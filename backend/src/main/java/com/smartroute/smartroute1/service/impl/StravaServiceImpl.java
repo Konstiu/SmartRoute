@@ -51,8 +51,8 @@ public class StravaServiceImpl implements StravaService {
 
     @Override
     @Transactional
-    public List<StravaActivityDto> importStravaActivities(String email) {
-        LOGGER.trace("Import Strava activities for user with mail: {}", email);
+    public List<StravaActivityDto> importStravaActivities(String email, int limit) {
+        LOGGER.trace("Import {} Strava activities for user with mail: {}", limit, email);
 
         ApplicationUser user = userRepository.findUserByEmail(email);
         Optional<StravaAccount> accountOpt = stravaAccountRepository.findByUser(user);
@@ -74,7 +74,7 @@ public class StravaServiceImpl implements StravaService {
             activities = webClient.get()
                     .uri(uriBuilder -> uriBuilder
                             .path("/api/v3/athlete/activities")
-                            .queryParam("per_page", 45)
+                            .queryParam("per_page", limit)
                             .build()
                     )
                     .headers(h -> h.setBearerAuth(token))
@@ -124,7 +124,48 @@ public class StravaServiceImpl implements StravaService {
                 LOGGER.error("Error mapping entity to activity {}", dto);
                 continue;
             }
-            activityRepository.save(entity);
+
+            List<Activity> storedActivities = activityRepository.findAllByUserAndStartDate(user, entity.getStartDate());
+            Activity storedActivity = null;
+            if (storedActivities.size() > 1) {
+                float newDistance = entity.getDistance();
+
+                for (Activity stored : storedActivities) {
+                    float storedDistance = stored.getDistance();
+                    float distanceDiff = Math.abs(storedDistance - newDistance);
+
+                    if (distanceDiff <= 1000) {
+                        storedActivity = stored;
+                        break;
+                    }
+                }
+            } else if (storedActivities.size() == 1) {
+                storedActivity = storedActivities.get(0);
+            }
+            if (storedActivity == null) {
+                activityRepository.save(entity);
+                activities.add(entity);
+            } else {
+                storedActivity.setExternalId(entity.getExternalId());
+                storedActivity.setStravaId(entity.getStravaId());
+                storedActivity.setSufferScore(entity.getSufferScore());
+                storedActivity.setAverageWatts(entity.getAverageWatts());
+                storedActivity.setKilojoules(entity.getKilojoules());
+                storedActivity.setTotalElevationGain(storedActivity.getTotalElevationGain());
+                storedActivity.setAverageSpeed(storedActivity.getAverageSpeed());
+                storedActivity.setMaxSpeed(storedActivity.getMaxSpeed());
+                storedActivity.setAverageHeartrate(storedActivity.getAverageHeartrate());
+                storedActivity.setSessionLoad(storedActivity.getSessionLoad());
+                storedActivity.setStartDate(storedActivity.getStartDate());
+                storedActivity.setElapsedTime(storedActivity.getElapsedTime());
+                storedActivity.setMovingTime(storedActivity.getMovingTime());
+                storedActivity.setMaxHeartrate(storedActivity.getMaxHeartrate());
+                storedActivity.setSummaryPolyline(storedActivity.getSummaryPolyline());
+                // always the first name is going to be the new name of the Activity
+                //storedActivity.setName(entity.getName());
+                activityRepository.save(storedActivity);
+                activities.add(storedActivity);
+            }
             activities.add(entity);
             LOGGER.debug("Saved Strava activity: {}", entity);
         }
