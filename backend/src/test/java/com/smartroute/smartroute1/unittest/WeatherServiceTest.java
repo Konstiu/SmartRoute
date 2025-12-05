@@ -11,10 +11,14 @@ import com.smartroute.smartroute1.repository.WeatherRepository;
 import com.smartroute.smartroute1.service.WeatherService;
 import com.smartroute.smartroute1.entity.enums.HeatRiskCategory;
 import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
+import com.smartroute.smartroute1.util.Coordinate;
 import jakarta.transaction.Transactional;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -28,6 +32,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.net.URI;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -55,9 +63,13 @@ class WeatherServiceTest {
         mockWeatherApi.shutdown();
     }
 
+    private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm");
+    private final static String timeUtc = LocalDate.now(ZoneOffset.UTC).atTime(0, 0).format(TIME_FORMAT);
+    private final static Coordinate coordinate = new Coordinate(20.0, 40.0);
+
     private static WeatherDto getTestWeatherDto() {
         WeatherDto weatherDto = new WeatherDto();
-        weatherDto.setTime("2025-11-28T00:00");
+        weatherDto.setTime(timeUtc);
         weatherDto.setTemperature2m(-21.4);
         weatherDto.setPrecipitation(0.0);
         weatherDto.setRelativeHumidity(87.0);
@@ -84,6 +96,11 @@ class WeatherServiceTest {
         ArrayNode wind = hourly.putArray("wind_speed_10m");
         ArrayNode hum = hourly.putArray("relative_humidity_2m");
         ArrayNode rad = hourly.putArray("shortwave_radiation");
+        ArrayNode dewPoint = hourly.putArray("dew_point_2m");
+        ArrayNode surfacePressure = hourly.putArray("surface_pressure");
+        ArrayNode directRadiation = hourly.putArray("direct_radiation");
+        ArrayNode diffuseRadiation = hourly.putArray("diffuse_radiation");
+        ArrayNode snowDepth = hourly.putArray("snow_depth");
 
         for (WeatherDto dto : dtos) {
             t.add(dto.getTime());
@@ -92,11 +109,15 @@ class WeatherServiceTest {
             wind.add(dto.getWindSpeed10m());
             hum.add(dto.getRelativeHumidity());
             rad.add(dto.getShortWaveRadiation());
+            dewPoint.add(dto.getDewPoint());
+            surfacePressure.add(dto.getSurfacePressure());
+            directRadiation.add(dto.getDirectRadiation());
+            diffuseRadiation.add(dto.getDiffuseRadiation());
+            snowDepth.add(dto.getSnowDepth());
         }
 
         return mapper.writeValueAsString(root);
     }
-
 
     @Test
     void testGetWeather_savesWeather() throws Exception {
@@ -110,11 +131,10 @@ class WeatherServiceTest {
                         .setBody(json)
         );
 
-        List<WeatherDto> result = service.getHourlyWeather(20, 40);
+        WeatherResponse result = service.getWeatherAtTime(coordinate.getLatitude(), coordinate.getLongitude(), timeUtc);
 
         assertAll(
-                () -> assertNotNull(result),
-                () -> assertEquals(1, result.size())
+                () -> assertNotNull(result)
         );
 
         List<WeatherResponse> stored = weatherRepository.findAll();
@@ -122,7 +142,7 @@ class WeatherServiceTest {
         WeatherResponse saved = stored.getFirst();
 
         assertAll(
-                () -> assertEquals("2025-11-28T00:00", saved.getTime()),
+                () -> assertEquals(timeUtc, saved.getTime()),
                 () -> assertEquals(-21.4, saved.getTemperature2m()),
                 () -> assertEquals(0.0, saved.getPrecipitation()),
                 () -> assertEquals(87.0, saved.getRelativeHumidity()),
@@ -135,7 +155,8 @@ class WeatherServiceTest {
     void testGetWeather_multipleWeatherDates_savedCorrectly() throws Exception {
         WeatherDto weather1 = getTestWeatherDto();
         WeatherDto weather2 = getTestWeatherDto();
-        weather2.setTime("2025-11-29T00:00");
+        String timeUtcPlus1 = LocalDateTime.parse(timeUtc, TIME_FORMAT).plusHours(1).format(TIME_FORMAT);
+        weather2.setTime(timeUtcPlus1);
         weather2.setTemperature2m(-20.5);
 
         String json = openMeteoJsonFromDtos(List.of(weather1, weather2));
@@ -147,21 +168,19 @@ class WeatherServiceTest {
                         .setBody(json)
         );
 
-        List<WeatherDto> result = service.getHourlyWeather(20, 40);
+        WeatherResponse result = service.getWeatherAtTime(coordinate.getLatitude(), coordinate.getLongitude(), timeUtc);
 
         assertAll(
-                () -> assertNotNull(result),
-                () -> assertEquals(2, result.size())
+                () -> assertNotNull(result)
         );
 
         List<WeatherResponse> stored = weatherRepository.findAll();
 
         assertAll(
                 () -> assertNotNull(result),
-                () -> assertEquals(2, result.size()),
                 () -> assertEquals(2, stored.size()),
-                () -> assertEquals("2025-11-28T00:00", result.getFirst().getTime()),
-                () -> assertEquals("2025-11-29T00:00", result.get(1).getTime())
+                () -> assertEquals(timeUtc, stored.getFirst().getTime()),
+                () -> assertEquals(timeUtcPlus1, stored.get(1).getTime())
         );
     }
 
@@ -174,7 +193,8 @@ class WeatherServiceTest {
         );
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.getHourlyWeather(20, 40));
+                () -> service.getWeatherAtTime(coordinate.getLatitude(), coordinate.getLongitude(), timeUtc)
+        );
 
         assertAll(
                 () -> assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode()),
@@ -191,7 +211,8 @@ class WeatherServiceTest {
         );
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.getHourlyWeather(20, 40));
+                () -> service.getWeatherAtTime(coordinate.getLatitude(), coordinate.getLongitude(), timeUtc)
+        );
 
         assertAll(
                 () -> assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatusCode()),
@@ -200,38 +221,14 @@ class WeatherServiceTest {
     }
 
     @Test
-    void testGetWeather_missingFields_throwsValidationException() throws Exception {
-        String json = """
-                {
-                    "hourly": {
-                        "time": ["2025-11-28T00:00"]
-                    }
-                }
-                """;
-
-        mockWeatherApi.enqueue(new MockResponse()
-                .setResponseCode(200)
-                .setHeader("Content-Type", "application/json")
-                .setBody(json)
-        );
-
-        ValidationException ex = assertThrows(
-                ValidationException.class,
-                () -> service.getHourlyWeather(20, 40)
-        );
-
-        assertAll(
-                () -> assertTrue(ex.errors().contains("Weather API response is missing required hourly fields"))
-        );
-    }
-
-
-    @Test
     void testGetWeather_tooSmallLongAndLat_throwsValidationException() {
+        Coordinate testCoordinate = new Coordinate(-100.0, -200.0);
+
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.getHourlyWeather(-200, -200)
+                () -> service.getWeatherAtTime(testCoordinate.getLatitude(), testCoordinate.getLongitude(), timeUtc)
         );
+
 
         assertAll(
                 () -> assertTrue(ex.errors().contains("latitude is smaller than -90")),
@@ -241,9 +238,11 @@ class WeatherServiceTest {
 
     @Test
     void testGetWeather_tooLargeLongAndLat_throwsValidationException() {
+        Coordinate testCoordinate = new Coordinate(100.0, 200.0);
+
         ValidationException ex = assertThrows(
                 ValidationException.class,
-                () -> service.getHourlyWeather(200, 200)
+                () -> service.getWeatherAtTime(testCoordinate.getLatitude(), testCoordinate.getLongitude(), timeUtc)
         );
 
         assertAll(
@@ -276,213 +275,556 @@ class WeatherServiceTest {
         }
     }
 
+
+    private WeatherResponse getStandardWeatherResponse() {
+        WeatherResponse weather = new WeatherResponse();
+        weather.setPrecipitation(0.0);
+        weather.setTemperature2m(3.9);
+        weather.setRelativeHumidity(80.0);
+        weather.setWindSpeed10m(8.4);
+        weather.setShortWaveRadiation(168.0);
+        weather.setDirectRadiation(55.0);
+        weather.setDiffuseRadiation(113.0);
+        weather.setSurfacePressure(1013.0);
+        weather.setDewPoint(0.8);
+        weather.setSnowDepth(0.0);
+        weather.setLatitude(48.0);
+        weather.setLongitude(16.0);
+        weather.setTime(timeUtc);
+
+        return weather;
+    }
+    
+    final static int AGE = 20;
+
     @Test
-    @DisplayName("Neutral WBGT should produce minimal penalty and NEUTRAL heat risk")
-    void givenNeutralWeatherWhenEstimatingImpactThenNeutralRiskAndMinimalPenalty() {
+    void goodConditions_calculatingWeatherScore_highScoreAndLowRisk() throws ValidationException {
 
-        long baseTime = 3600; // 1 hour
+        WeatherImpactDto result = service.calculateWeatherScore(getStandardWeatherResponse(), AGE);
 
-        WeatherImpactDto result = service.estimateImpact(
-                10000,
-                baseTime,
-                15,    // temperature
-                50,    // humidity
-                200,   // solar radiation
-                3,      // wind speed
-                0,
-                20
+        assertAll(
+                () -> assertTrue(result.getWeatherScore() >= 0.8),
+                () -> assertEquals(HeatRiskCategory.LOW_COLD, result.getTemperatureRiskCategory())
         );
+    }
 
-        assertAll("NEUTRAL+TEN_K_LIKE impact calculations",
-                () -> assertEquals(HeatRiskCategory.NEUTRAL, result.getRisk()),
-                () -> assertTrue(result.getAdjustedTimeSeconds() >= 3500),
-                () -> assertTrue(result.getAdjustedTimeSeconds() <= 3700)
+
+    private WeatherResponse getStd() {
+        return getStandardWeatherResponse();
+    }
+
+    @Test
+    void decreasingTemperatureBeyondOptimum_calculatingWeatherScore_decreasingWeatherScore() throws ValidationException {
+        WeatherResponse weatherTest1 = getStd();
+        WeatherResponse weatherTest2 = getStd();
+        WeatherResponse weatherTest3 = getStd();
+        WeatherResponse weatherTest4 = getStd();
+        WeatherResponse weatherTest5 = getStd();
+        WeatherResponse weatherTest6 = getStd();
+
+        weatherTest1.setDewPoint(-70.0);
+        weatherTest1.setTemperature2m(-5.0);
+
+        weatherTest2.setDewPoint(-70.0);
+        weatherTest2.setTemperature2m(-15.0);
+
+        weatherTest3.setDewPoint(-70.0);
+        weatherTest3.setTemperature2m(-30.0);
+
+        weatherTest4.setDewPoint(-70.0);
+        weatherTest4.setTemperature2m(-45.0);
+
+        weatherTest5.setDewPoint(-70.0);
+        weatherTest5.setTemperature2m(-49.0);
+
+        weatherTest6.setDewPoint(-70.0);
+        weatherTest6.setTemperature2m(-60.0);
+
+        WeatherImpactDto result1 = service.calculateWeatherScore(weatherTest1, AGE);
+        WeatherImpactDto result2 = service.calculateWeatherScore(weatherTest2, AGE);
+        WeatherImpactDto result3 = service.calculateWeatherScore(weatherTest3, AGE);
+        WeatherImpactDto result4 = service.calculateWeatherScore(weatherTest4, AGE);
+        WeatherImpactDto result5 = service.calculateWeatherScore(weatherTest5, AGE);
+        WeatherImpactDto result6 = service.calculateWeatherScore(weatherTest6, AGE);
+
+        assertAll(
+                () -> assertTrue(result1.getWeatherScore() > result2.getWeatherScore()),
+                () -> assertTrue(result2.getWeatherScore() > result3.getWeatherScore()),
+                () -> assertTrue(result3.getWeatherScore() > result4.getWeatherScore()),
+                () -> assertTrue(result4.getWeatherScore() >= result5.getWeatherScore()),
+                () -> assertTrue(result5.getWeatherScore() >= result6.getWeatherScore()) // weather score values for both are so low, that they are equal
         );
     }
 
     @Test
-    @DisplayName("Hot weather should increase penalty for marathon-like event")
-    void givenHotWeatherWhenEstimatingImpactThenExtremeHeatRiskAndIncreasedPenalty() {
+    void increasingTemperatureBeyondOptimum_calculatingWeatherScore_decreasingWeatherScore() throws ValidationException {
+        WeatherResponse weatherTest1 = getStd();
+        WeatherResponse weatherTest2 = getStd();
+        WeatherResponse weatherTest3 = getStd();
+        WeatherResponse weatherTest4 = getStd();
+        WeatherResponse weatherTest5 = getStd();
 
-        long baseTime = 7200; // 2 hours
+        weatherTest1.setTemperature2m(15.0);
+        weatherTest2.setTemperature2m(20.0);
+        weatherTest3.setTemperature2m(23.0);
+        weatherTest4.setTemperature2m(26.0);
+        weatherTest5.setTemperature2m(29.0);
 
-        WeatherImpactDto result = service.estimateImpact(
-                40000,
-                baseTime,
-                30,    // hot temperature
-                70,    // humid
-                800,   // strong sun
-                1,      // low wind
-                0,
-                20
-        );
+        WeatherImpactDto result1 = service.calculateWeatherScore(weatherTest1, AGE);
+        WeatherImpactDto result2 = service.calculateWeatherScore(weatherTest2, AGE);
+        WeatherImpactDto result3 = service.calculateWeatherScore(weatherTest3, AGE);
+        WeatherImpactDto result4 = service.calculateWeatherScore(weatherTest4, AGE);
+        WeatherImpactDto result5 = service.calculateWeatherScore(weatherTest5, AGE);
 
-        assertAll("EXTREME_HEAT+MARATHON impact calculations",
-                () -> assertEquals(HeatRiskCategory.EXTREME_HEAT, result.getRisk()),
-                () -> assertTrue(result.getAdjustedTimeSeconds() > baseTime),
-                () -> assertTrue(result.getPenaltyPercent() > 0)
-        );
-    }
 
-    @Test
-    @DisplayName("Cold weather should produce time penalty due to cold slope")
-    void givenColdWeatherWhenEstimatingImpactThenColdCoolRiskAndAdjustedTime() {
-
-        long baseTime = 5000;
-
-        WeatherImpactDto result = service.estimateImpact(
-                5000,
-                baseTime,
-                0,       // freezing temperature
-                30,
-                0,
-                5,
-                0,
-                20
-        );
-
-        assertAll("COLD_COOL+FIVE_K_LIKE impact calculations",
-                () -> assertEquals(HeatRiskCategory.COLD_COOL, result.getRisk()),
-                () -> assertTrue(result.getAdjustedTimeSeconds() > 0),
-                () -> assertNotEquals(baseTime, result.getAdjustedTimeSeconds())
+        assertAll(
+                () -> assertTrue(result1.getWeatherScore() > result2.getWeatherScore()),
+                () -> assertTrue(result2.getWeatherScore() > result3.getWeatherScore()),
+                () -> assertTrue(result3.getWeatherScore() > result4.getWeatherScore()),
+                () -> assertTrue(result4.getWeatherScore() > result5.getWeatherScore())
         );
     }
 
+    //
+    // TEMPERATURE 2m
+    //
     @Test
-    @DisplayName("Extreme heat should classify as EXTREME_HEAT")
-    void givenExtremeHeatConditionsWhenEstimatingImpactThenExtremeHeatRisk() {
+    void temperatureNull_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setTemperature2m(null);
 
-        WeatherImpactDto result = service.estimateImpact(
-                10000,
-                3600,
-                40,
-                90,
-                1000,
-                0,
-                0,
-                20
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
-        assertAll("EXTREME_HEAT+TEN_K_LIKE impact calculations",
-                () -> assertEquals(HeatRiskCategory.EXTREME_HEAT, result.getRisk()),
-                () -> assertTrue(result.getAdjustedTimeSeconds() > 3600)
-        );
+        assertTrue(ex.errors().contains("temperature2m is null"));
     }
 
     @Test
-    @DisplayName("High solar radiation + low wind should trigger extra WBGT sun correction")
-    void givenHighSolarLowWindWhenEstimatingImpactThenAdditionalSunCorrectionApplied() {
+    void temperatureTooLow_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setTemperature2m(-150.0);
 
-        WeatherImpactDto lowWindHighSun = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                700, // > 600 = strong sun
-                1,    // low wind (<2)
-                0,
-                20
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
-        WeatherImpactDto normal = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                100,
-                5,
-                0,
-                20
-        );
-
-        assertAll("High solar test",
-                () -> assertTrue(lowWindHighSun.getAdjustedTimeSeconds() > normal.getAdjustedTimeSeconds())
-        );
+        assertTrue(ex.errors().contains("temperature2m is unrealistically low (< -100°C)"));
     }
 
     @Test
-    @DisplayName("Precipitation Impact Test")
-    void givenDifferentPrecipLevelsWhenEstimatingImpactThenHigherPrecipitationSlowsRunner() {
+    void temperatureTooHigh_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setTemperature2m(80.0);
 
-        WeatherImpactDto noPrecipitation = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                700, // > 600 = strong sun
-                1,    // low wind (<2)
-                0,
-                20
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
-        WeatherImpactDto mildPrecipitation = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                100,
-                5,
-                15,
-                20
+        assertTrue(ex.errors().contains("temperature2m is unrealistically high (> 70°C)"));
+    }
+
+
+    //
+    // WIND SPEED 10m
+    //
+    @Test
+    void windSpeedNull_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setWindSpeed10m(null);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
-        WeatherImpactDto highPrecipitation = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                100,
-                5,
-                40,
-                20
-        );
-
-        assertAll("Slower with higher precipitation",
-                () -> assertTrue(highPrecipitation.getAdjustedTimeSeconds() > mildPrecipitation.getAdjustedTimeSeconds()),
-                () -> assertTrue(mildPrecipitation.getAdjustedTimeSeconds() > noPrecipitation.getAdjustedTimeSeconds())
-        );
+        assertTrue(ex.errors().contains("windSpeed10m is null"));
     }
 
     @Test
-    @DisplayName("Influence of Age on Precipitation Impact Test")
-    void givenDifferentAgesWithPrecipitationWhenEstimatingImpactThenOlderRunnersGetHigherPenalty() {
+    void windSpeedNegative_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setWindSpeed10m(-1.0);
 
-        WeatherImpactDto youngest = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                700, // > 600 = strong sun
-                1,    // low wind (<2)
-                30,
-                20
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
-        WeatherImpactDto secondOldest = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                100,
-                5,
-                30,
-                30
+        assertTrue(ex.errors().contains("windSpeed10m cannot be negative"));
+    }
+
+    @Test
+    void windSpeedTooHigh_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setWindSpeed10m(200.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
-        WeatherImpactDto oldest = service.estimateImpact(
-                40000,
-                3600,
-                25,
-                60,
-                100,
-                5,
-                30,
-                40
+        assertTrue(ex.errors().contains("windSpeed10m is unrealistically high (> 120 m/s)"));
+    }
+
+
+    //
+    // PRECIPITATION
+    //
+    @Test
+    void precipitationNull_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setPrecipitation(null);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
 
-        assertAll("Slower with higher age in precipitation",
-                () -> assertTrue(secondOldest.getAdjustedTimeSeconds() > youngest.getAdjustedTimeSeconds()),
-                () -> assertTrue(oldest.getAdjustedTimeSeconds() > secondOldest.getAdjustedTimeSeconds())
+        assertTrue(ex.errors().contains("precipitation is null"));
+    }
+
+    @Test
+    void precipitationNegative_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setPrecipitation(-5.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
         );
+
+        assertTrue(ex.errors().contains("precipitation cannot be negative"));
+    }
+
+    @Test
+    void precipitationTooHigh_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setPrecipitation(300.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("precipitation is unrealistically high (> 200 mm/h)"));
+    }
+
+
+    //
+    // RELATIVE HUMIDITY
+    //
+    @Test
+    void humidityNull_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setRelativeHumidity(null);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("relativeHumidity is null"));
+    }
+
+    @Test
+    void humidityNegative_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setRelativeHumidity(-1.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("relativeHumidity must be between 0 and 100%"));
+    }
+
+    @Test
+    void humidityTooHigh_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setRelativeHumidity(150.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("relativeHumidity must be between 0 and 100%"));
+    }
+
+
+    //
+    // SHORTWAVE RADIATION
+    //
+    @Test
+    void shortwaveNull_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setShortWaveRadiation(null);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("shortWaveRadiation is null"));
+    }
+
+    @Test
+    void shortwaveNegative_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setShortWaveRadiation(-10.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("shortWaveRadiation cannot be negative"));
+    }
+
+    @Test
+    void shortwaveTooHigh_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setShortWaveRadiation(2000.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("shortWaveRadiation is unrealistically high (> 1500 W/m²)"));
+    }
+
+
+    //
+    // DIRECT RADIATION
+    //
+    @Test
+    void directRadiationNull_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setDirectRadiation(null);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("directRadiation is null"));
+    }
+
+    @Test
+    void directRadiationNegative_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setDirectRadiation(-5.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("directRadiation cannot be negative"));
+    }
+
+    @Test
+    void directRadiationTooHigh_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setDirectRadiation(3000.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("directRadiation is unrealistically high (> 1500 W/m²)"));
+    }
+
+
+    //
+    // DIFFUSE RADIATION
+    //
+    @Test
+    void diffuseRadiationNull_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setDiffuseRadiation(null);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("diffuseRadiation is null"));
+    }
+
+    @Test
+    void diffuseRadiationNegative_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setDiffuseRadiation(-2.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("diffuseRadiation cannot be negative"));
+    }
+
+    @Test
+    void diffuseRadiationTooHigh_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setDiffuseRadiation(2000.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("diffuseRadiation is unrealistically high (> 800 W/m²)"));
+    }
+
+
+    //
+    // SURFACE PRESSURE
+    //
+    @Test
+    void pressureNull_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setSurfacePressure(null);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("surfacePressure is null"));
+    }
+
+    @Test
+    void pressureTooLow_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setSurfacePressure(700.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("surfacePressure is unrealistically low (< 800 hPa)"));
+    }
+
+    @Test
+    void pressureTooHigh_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setSurfacePressure(1200.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("surfacePressure is unrealistically high (> 1100 hPa)"));
+    }
+
+
+    //
+    // DEW POINT
+    //
+    @Test
+    void dewPointNull_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setDewPoint(null);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("dewPoint is null"));
+    }
+
+    @Test
+    void dewPointTooLow_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setDewPoint(-150.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("dewPoint is unrealistically low (< -100°C)"));
+    }
+
+    @Test
+    void dewPointTooHigh_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setDewPoint(80.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("dewPoint is unrealistically high (> 50°C)"));
+    }
+
+    @Test
+    void dewPointHigherThanTemp_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setTemperature2m(10.0);
+        weatherTest.setDewPoint(15.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("dewPoint cannot be higher than temperature2m"));
+    }
+
+
+    //
+    // SNOW DEPTH
+    //
+    @Test
+    void snowDepthNull_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setSnowDepth(null);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("snowDepth is null"));
+    }
+
+    @Test
+    void snowDepthNegative_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setSnowDepth(-1.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("snowDepth cannot be negative"));
+    }
+
+    @Test
+    void snowDepthTooHigh_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setSnowDepth(5000.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest, AGE)
+        );
+
+        assertTrue(ex.errors().contains("snowDepth is unrealistically high (> 2000 cm)"));
     }
 }
