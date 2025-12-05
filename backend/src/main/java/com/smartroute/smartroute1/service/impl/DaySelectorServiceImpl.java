@@ -85,7 +85,7 @@ public class DaySelectorServiceImpl implements DaySelectorService {
             return false;
         }
 
-        double threshold = isPreferredDay(date, preferredDays) ? .45 : .55;
+        double threshold = isPreferredDay(date, preferredDays) ? .25 : .35;
         return trainabilityIndex >= threshold;
     }
 
@@ -142,7 +142,39 @@ public class DaySelectorServiceImpl implements DaySelectorService {
         C_t...Injury constraint
         K_t...Consistency score
          */
-        double trainabilityIndex = (readinessScore / 100.0) * injuryConstraint * (1 - overloadScore) * (1 + .5 * consistencyScore);
+
+        double wrecovery = 0.50;
+        double wconsistency = 0.50;
+
+        double recoveryFactor = 1.0 - overloadScore;
+
+        double baseScore = (wrecovery * recoveryFactor)
+                + (wconsistency * consistencyScore);
+
+        // === PART 2: Critical Gates (Multiplicative) ===
+        // Readiness and injury gate the base score
+
+        double readinessFactor = readinessScore / 100.0;
+
+        // Apply square root to readiness for softer curve
+        // This prevents very low readiness from completely zeroing out
+        double readinessGate = Math.sqrt(readinessFactor);
+
+        // Final score: base modified by gates
+        double trainabilityIndex = baseScore * readinessGate * injuryConstraint;
+
+        System.out.println("=== Trainability Calculation ===");
+        System.out.println("readinessScore: " + readinessScore + " → gate: " + String.format("%.3f", readinessGate));
+        System.out.println("overloadScore: " + String.format("%.3f", overloadScore) + " → recovery: " + String.format("%.3f", recoveryFactor));
+        System.out.println("injuryConstraint: " + injuryConstraint);
+        System.out.println("consistencyScore: " + String.format("%.3f", consistencyScore));
+        System.out.println();
+        System.out.println("Base score (recovery + consistency): " + String.format("%.3f", baseScore));
+        System.out.println("Readiness gate: " + String.format("%.3f", readinessGate));
+        System.out.println("Injury gate: " + String.format("%.3f", injuryConstraint));
+        System.out.println("trainabilityIndex: " + String.format("%.3f", trainabilityIndex));
+        System.out.println();
+
         return Math.clamp(trainabilityIndex, 0.0, 1.0);
     }
 }

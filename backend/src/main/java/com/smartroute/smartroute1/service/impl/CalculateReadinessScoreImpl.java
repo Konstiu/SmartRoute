@@ -85,7 +85,7 @@ public class CalculateReadinessScoreImpl implements ReadinessScoreService {
             // if there are injuries
             for (Injuries injury : injuries) {
                 if (injury.getInjuryIndex() < injuryIndex) {
-                    injuryIndex = injury.getInjuryIndex();
+                    injuryIndex = 1 - injury.getInjuryIndex();
                 }
             }
         } else {
