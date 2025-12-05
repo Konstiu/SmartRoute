@@ -21,7 +21,7 @@ import java.time.LocalDate;
 public class UserDataGenerator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private static final int NUMBER_OF_USERS_TO_GENERATE = 1000;
+    private static final int NUMBER_OF_USERS_TO_GENERATE = 10;
     private static final int BATCH_SIZE = 100;
 
     private final PasswordEncoder passwordEncoder;

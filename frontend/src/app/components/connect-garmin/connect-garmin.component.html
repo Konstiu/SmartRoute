@@ -1,50 +1,50 @@
-<ion-card>
+<ion-card-header *ngIf="connectionState">
+  <ion-card-title class="connected-title">
+    <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
+    Garmin Connected
+  </ion-card-title>
+</ion-card-header>
 
-  <ion-card-header *ngIf="connectionState">
-    <ion-card-title class="connected-title">
-      <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
-      Garmin Connected
-    </ion-card-title>
-  </ion-card-header>
+<ion-card-header *ngIf="!connectionState">
+  <ion-card-title class="not-connected-title">
+    <ion-icon name="link-outline" color="medium"></ion-icon>
+    Connect Your Garmin Account
+  </ion-card-title>
+</ion-card-header>
 
-  <ion-card-header *ngIf="!connectionState">
-    <ion-card-title class="not-connected-title">
-      <ion-icon name="close-circle-outline" color="danger"></ion-icon>
-      Garmin Not Connected
-    </ion-card-title>
-  </ion-card-header>
+<ion-card-content>
 
-  <ion-card-content>
-
-    <form [formGroup]="garminForm" (ngSubmit)="doSync()">
-      <ion-item lines="full" *ngIf="!connectionState">
+  <form [formGroup]="garminForm" (ngSubmit)="doSync()">
+    @if (!connectionState) {
+      <ion-item lines="full">
         <ion-input labelPlacement="floating" type="email" formControlName="email" autocomplete="email">
           <div slot="label">Email</div>
         </ion-input>
       </ion-item>
-
-      <ion-item lines="full" class="password-item" *ngIf="!connectionState">
-        <ion-input labelPlacement="floating" [type]="showPassword ? 'text' : 'password'" formControlName="password" autocomplete="current-password">
+      <ion-item lines="full" class="password-item">
+        <ion-input labelPlacement="floating" [type]="showPassword ? 'text' : 'password'" formControlName="password"
+                   autocomplete="current-password">
           <div slot="label">Password</div>
         </ion-input>
-        <ion-icon slot="end" [name]="showPassword ? 'eye-off-outline' : 'eye-outline'" (click)="togglePasswordVisibility()" class="password-icon"></ion-icon>
+        <ion-icon slot="end" [name]="showPassword ? 'eye-off-outline' : 'eye-outline'"
+                  (click)="togglePasswordVisibility()" class="password-icon"></ion-icon>
       </ion-item>
+    }
 
-      <ion-item lines="full">
-        <ion-input labelPlacement="floating" type="number" formControlName="count">
-          <div slot="label">Count</div>
-        </ion-input>
-      </ion-item>
 
+    @if (!connectionState) {
       <ion-button expand="block" type="button" class="ion-margin-top" [disabled]="!canSync()" (click)="doSync()">
-        <ion-icon slot="start" name="sync-outline"></ion-icon>
-        Do Sync
+        <ion-icon slot="start" name="fitness-outline"></ion-icon>
+        Link Garmin
       </ion-button>
+    }
 
-      <ion-button *ngIf="connectionState" color="danger" expand="block" type="button" class="ion-margin-top" [disabled]="isSyncing" (click)="presentDisconnectGarminDialog()">
+    @if (connectionState) {
+      <ion-button fill="outline" color="danger" expand="block" type="button"
+                  class="ion-margin-top" [disabled]="isSyncing" (click)="presentDisconnectGarminDialog()">
         <ion-icon slot="start" name="close-circle-outline"></ion-icon>
         Disconnect Garmin
       </ion-button>
-    </form>
-  </ion-card-content>
-</ion-card>
+    }
+  </form>
+</ion-card-content>

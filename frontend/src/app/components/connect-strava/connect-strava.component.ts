@@ -1,4 +1,4 @@
-import {Component, inject, Input, OnInit} from '@angular/core';
+import {Component, inject, Input, OnInit, Output, EventEmitter} from '@angular/core';
 import {StravaService} from "../../../services/strava.service";
 import {StravaAccountConnectionStateDto} from "../../dtos/strava-account-connection-state";
 import {IonicModule} from '@ionic/angular';
@@ -13,6 +13,8 @@ import { CommonModule } from '@angular/common';
   imports: [IonicModule, CommonModule]
 })
 export class ConnectStravaComponent implements OnInit{
+  @Output() connectionChanged = new EventEmitter<boolean>();
+
   alertButtons = [
     {
       text: 'Cancel',
@@ -42,7 +44,7 @@ export class ConnectStravaComponent implements OnInit{
   missingScopes: string[] = [];
 
   @Input()
-  public origin: "register" | "tabs/account" = "tabs/account";
+  public origin: "register" | "tabs/account" | "sync-activities" = "sync-activities";
   private stravaService: StravaService = inject(StravaService);
 
   ngOnInit(): void {
@@ -56,9 +58,11 @@ export class ConnectStravaComponent implements OnInit{
         this.missingScopes = this.requiredScopes.filter(
           required => !this.parsedScopes.includes(required)
         );
+        this.connectionChanged.emit(result?.connected || false);
       },
       error: error => {
-        console.error("Failed to load Strava connection state: " + error)
+        console.error("Failed to load Strava connection state: " + error);
+        this.connectionChanged.emit(false);
       }
     })
   }
@@ -71,11 +75,11 @@ export class ConnectStravaComponent implements OnInit{
     this.stravaService.disconnectStravaAccount().subscribe({
       next: res => {
         this.connectionState = res;
+        this.connectionChanged.emit(res?.connected || false);
       },
       error: err => {
         console.error(err);
       }
     });
   }
-
 }
