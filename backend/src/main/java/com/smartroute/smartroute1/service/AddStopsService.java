@@ -6,7 +6,7 @@ import com.smartroute.smartroute1.util.Coordinate;
 import java.io.IOException;
 import java.util.List;
 
-public interface InsertAdditionalStops {
+public interface AddStopsService {
 
     /**
      * Request a route from start -> via -> end and return polyline as list of Coordinates.

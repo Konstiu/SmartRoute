@@ -1,8 +1,8 @@
 package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.exception.ValidationException;
-import com.smartroute.smartroute1.service.InsertAdditionalStops;
-import com.smartroute.smartroute1.service.validators.InsertAdditionalStopValidator;
+import com.smartroute.smartroute1.service.AddStopsService;
+import com.smartroute.smartroute1.service.validators.AddStopsValidator;
 import com.smartroute.smartroute1.util.Coordinate;
 import io.jenetics.jpx.GPX;
 import io.jenetics.jpx.WayPoint;
@@ -21,11 +21,11 @@ import java.util.TreeSet;
 
 @Service
 @RequiredArgsConstructor
-public class InsertAdditionalStopsImpl implements InsertAdditionalStops {
+public class AddStopsServiceImpl implements AddStopsService {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final double EARTH_RADIUS_METERS = 6371000.0;
 
-    private final InsertAdditionalStopValidator validator;
+    private final AddStopsValidator validator;
 
     // Protected waypoint indices for the current operation. Always contains the original endpoints and all inserted points.
     private final NavigableSet<Integer> protectedIndices = new TreeSet<>();
