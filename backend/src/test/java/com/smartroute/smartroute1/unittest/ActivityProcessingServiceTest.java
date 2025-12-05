@@ -11,9 +11,9 @@ import okhttp3.mockwebserver.MockResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.time.Instant;
 import java.util.List;
@@ -28,9 +28,10 @@ import static org.mockito.Mockito.*;
 @ActiveProfiles({"test", "generateData"})
 @Transactional
 public class ActivityProcessingServiceTest extends BaseTest {
-    @MockBean
+    
+    @MockitoBean
     private FitnessScoreService fitnessScoreService;
-    @MockBean
+    @MockitoBean
     private TaskScheduler taskScheduler;
     @Autowired
     private ActivityProcessingService activityProcessingService;
@@ -194,5 +195,80 @@ public class ActivityProcessingServiceTest extends BaseTest {
         Optional<Activity> result = activityProcessingService.getLastActivityBeforeDate(user.getEmail(), date);
 
         assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testGetLastNActivities_returnsLastN() {
+        activityRepository.deleteAll();
+        activityRepository.flush();
+
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        Activity a1 = getStravaActivity();
+        a1.setUser(user);
+        a1.setStartDate(Instant.now().minusSeconds(300));
+        a1.setName("a1");
+
+        Activity a2 = getStravaActivity();
+        a2.setUser(user);
+        a2.setStartDate(Instant.now().minusSeconds(200));
+        a2.setName("a2");
+
+        Activity a3 = getStravaActivity();
+        a3.setUser(user);
+        a3.setStartDate(Instant.now().minusSeconds(100));
+        a3.setName("a3");
+
+        activityRepository.saveAll(List.of(a1, a2, a3));
+
+        List<Activity> result = activityProcessingService.getLastNActivities(user.getEmail(), 2);
+
+        assertAll(
+                () -> assertEquals(2, result.size()),
+                () -> assertEquals("a3", result.get(0).getName()),
+                () -> assertEquals("a2", result.get(1).getName())
+        );
+    }
+
+    @Test
+    void testGetLastNActivities_returnsAllIfLessThanN() {
+        activityRepository.deleteAll();
+        activityRepository.flush();
+
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        Activity a1 = getStravaActivity();
+        a1.setUser(user);
+        a1.setStartDate(Instant.now().minusSeconds(200));
+        a1.setName("only1");
+
+        activityRepository.save(a1);
+
+        List<Activity> result = activityProcessingService.getLastNActivities(user.getEmail(), 5);
+
+        assertAll(
+                () -> assertEquals(1, result.size()),
+                () -> assertEquals("only1", result.get(0).getName())
+        );
+    }
+
+    @Test
+    void testGetLastNActivities_returnsEmptyWhenNoActivities() {
+        activityRepository.deleteAll();
+        activityRepository.flush();
+
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        List<Activity> result = activityProcessingService.getLastNActivities(user.getEmail(), 3);
+
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void testGetLastNActivities_throwsOnInvalidN() {
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        assertThrows(IllegalArgumentException.class, () -> activityProcessingService.getLastNActivities(user.getEmail(), 0));
+        assertThrows(IllegalArgumentException.class, () -> activityProcessingService.getLastNActivities(user.getEmail(), -1));
     }
 }
