@@ -1,9 +1,12 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.TrainingEnvironment;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
+import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import com.smartroute.smartroute1.service.ReadinessScoreService;
@@ -17,8 +20,15 @@ import org.springframework.stereotype.Service;
 
 import java.lang.invoke.MethodHandles;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorService {
@@ -81,23 +91,38 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
     );
 
     @Override
-    public WorkoutType selectWorkoutType(String email) {
-        LOGGER.trace("selectWorkoutType({})", email);
+    public WorkoutType selectWorkoutType(String email, double latitude, double longitude) throws ValidationException {
+        LOGGER.trace("selectWorkoutType({}, {}, {})", email, latitude, longitude);
 
         // get user
         ApplicationUser user = userService.findApplicationUserByEmail(email);
 
+        // get user age
+        int userAge = calculateAge(user);
+
         // get today's date
         LocalDate today = LocalDate.now();
+
+        // get current time in UTC
+        ZonedDateTime utcDateTime = LocalDateTime.now()
+            .atZone(ZoneId.systemDefault())
+            .withZoneSameInstant(ZoneId.of("UTC"));
+        String utcTimeStr = utcDateTime.format(DateTimeFormatter.ISO_INSTANT);
 
         // get today's readiness score
         // it ranges from 0 to 100, therefore normalization is needed
         int readinessScore = readinessScoreService.calculateReadinessScore(user, today);
         double normalizedReadiness = readinessScore / 100.0;
 
+        // get users last distance run data
+        // if no run found, use a default value of 3000m
+        Optional<Activity> lastRun = activityProcessingService.getLastRunningActivityBeforeDate(email, today);
+        int lastDistance = lastRun.map(activity -> (int) activity.getDistance()).orElse(3000);
+
         // get today's weather score
-        // TODO: when weather service is ready
-        double weatherScore = 1.0;
+        WeatherResponse weatherResponse = weatherService.getWeatherAtTime(latitude, longitude, utcTimeStr);
+        WeatherImpactDto weatherImpact = weatherService.calculateWeatherScore(weatherResponse, userAge, lastDistance);
+        double weatherScore = weatherImpact.getWeatherScore();
 
         // Injury constraint (0) severely injured, (1) healthy
         double injuryConstraint = injuryAwareTrainingService.getInjuryConstraint(email);
@@ -125,6 +150,16 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
         return bestType;
     }
 
+    /**
+     * Helper method to score a workout type based on multiple factors.
+     *
+     * @param sessionDef the session definition
+     * @param readiness the user's normalized readiness score
+     * @param weather the weather score for outdoor running
+     * @param injuryConstraint the injury constraint factor
+     * @param recentWorkouts list of recent workout types for variety consideration
+     * @return the computed score for the workout type
+     */
     private double scoreWorkoutType(SessionDef sessionDef, double readiness, double weather, double injuryConstraint, List<WorkoutType> recentWorkouts) {
 
         // Safety / Feasibility
@@ -150,11 +185,35 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
             + WEIGHT_VARIETY * variety;
     }
 
+    /**
+     * Helper method to determine if a workout type is a running session.
+     *
+     * @param workoutType the workout type to check
+     * @return true if it is a running session, false otherwise
+     */
     private boolean isRunningSession(WorkoutType workoutType) {
         return switch (workoutType) {
             case EASY_RUN, TEMPO_RUN, INTERVAL_RUN, LONG_RUN -> true;
             default -> false;
         };
+    }
+
+    /**
+     * Help method to calculate the age of a user.
+     * If the birthdate is not set, a fallback age of 30 is used.
+     *
+     * @param user the user to calculate the age for
+     * @return the age of the user
+     */
+    private int calculateAge(ApplicationUser user) {
+        LocalDate birthDate = user.getBirthdate();
+
+        // fallback, if age is not set
+        if (birthDate == null) {
+            return 30;
+        }
+
+        return Period.between(birthDate, LocalDate.now()).getYears();
     }
 
 }
