@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 public class WeatherImpactDto {
     private double penaltyPercent;
     private double weatherScore;
-    private HeatRiskCategory riskCategory;
+    private HeatRiskCategory temperatureRiskCategory;
     private RainIntensity rainIntensity;
     private WindIntensity windIntensity;
 }
