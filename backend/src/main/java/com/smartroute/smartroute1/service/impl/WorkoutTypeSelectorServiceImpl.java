@@ -1,8 +1,10 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.enums.TrainingEnvironment;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
+import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import com.smartroute.smartroute1.service.ReadinessScoreService;
 import com.smartroute.smartroute1.service.UserService;
@@ -26,6 +28,12 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
     private final ReadinessScoreService readinessScoreService;
     private final WeatherService weatherService;
     private final InjuryAwareTrainingService injuryAwareTrainingService;
+    private final ActivityProcessingService activityProcessingService;
+
+    // constants
+    private static final int LAST_N_WORKOUTS_FOR_VARIETY = 3;
+    private static final double NO_RUN_WORKOUT_PENALTY   = 0.7;
+    private static final double NO_VARIETY_PENALTY       = 0.8;
 
     // weights
     private static final double WEIGHT_FEASIBILITY     = 0.30;
@@ -38,12 +46,14 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
         UserService userService,
         ReadinessScoreService readinessScoreService,
         WeatherService weatherService,
-        InjuryAwareTrainingService injuryAwareTrainingService
+        InjuryAwareTrainingService injuryAwareTrainingService,
+        ActivityProcessingService activityProcessingService
     ) {
         this.userService = userService;
         this.readinessScoreService = readinessScoreService;
         this.weatherService = weatherService;
         this.injuryAwareTrainingService = injuryAwareTrainingService;
+        this.activityProcessingService = activityProcessingService;
     }
 
     /**
@@ -90,12 +100,13 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
         double weatherScore = 1.0;
 
         // Injury constraint (0) severely injured, (1) healthy
-        // TODO: when injury service is ready
-        double injuryConstraint = 1.0;
+        double injuryConstraint = injuryAwareTrainingService.getInjuryConstraint(email);
 
         // Workout history
-        // TODO: when activity service is ready
-        List<WorkoutType> recentWorkouts = List.of();
+        List<WorkoutType> recentWorkouts = activityProcessingService.getLastNActivities(email, LAST_N_WORKOUTS_FOR_VARIETY)
+            .stream()
+            .map(Activity::getWorkoutType)
+            .toList();
 
         WorkoutType bestType = null;
         double bestScore = Double.NEGATIVE_INFINITY;
@@ -126,10 +137,10 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
         double weatherMatch = (sessionDef.env == TrainingEnvironment.OUTDOOR) ? weather : 1.0;
 
         // Run priority
-        double runPriority = isRunningSession(sessionDef.type) ? 1.0 : 0.7;
+        double runPriority = !isRunningSession(sessionDef.type) ? NO_RUN_WORKOUT_PENALTY : 1.0;
 
         // Variety
-        double variety = recentWorkouts.contains(sessionDef.type) ? 0.8 : 1.0;
+        double variety = recentWorkouts.contains(sessionDef.type) ? NO_VARIETY_PENALTY : 1.0;
 
         // Final score as weighted sum
         return WEIGHT_FEASIBILITY * feasibility
