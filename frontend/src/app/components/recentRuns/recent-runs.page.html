@@ -41,16 +41,16 @@
         <h2>{{ activity.name }}</h2>
         <h3>{{ this.formatDate(activity.startDateLocal) }}</h3>
         <p class="activity-stats">
-          <span><ion-icon name="navigate-outline"></ion-icon> {{ formatDistance(activity.distance) }} km</span>
+          <span><ion-icon name="navigate-outline"></ion-icon> {{ formatDistance(activity.distance) }}</span>
           <span><ion-icon name="time-outline"></ion-icon> {{ formatDuration(activity.movingTime) }}</span>
-          <span><ion-icon name="speedometer-outline"></ion-icon> {{ formatPace(activity.averageSpeed) }}/km</span>
+          <span><ion-icon name="speedometer-outline"></ion-icon> {{ formatPace(activity.averageSpeed) }}</span>
         </p>
         <p class="activity-stats-secondary" *ngIf="activity.totalElevationGain || activity.averageHeartrate">
           <span *ngIf="activity.totalElevationGain">
-            <ion-icon name="trending-up-outline"></ion-icon> {{ activity.totalElevationGain.toFixed(2) }}m
+            <ion-icon name="trending-up-outline"></ion-icon> {{ formatElevation(activity.totalElevationGain) }}
           </span>
           <span *ngIf="activity.averageHeartrate">
-            <ion-icon name="heart-outline"></ion-icon> {{ activity.averageHeartrate.toFixed(0) }} bpm
+            <ion-icon name="heart-outline"></ion-icon> {{ formatHeartRate(activity.averageHeartrate) }}
           </span>
 
         </p>
