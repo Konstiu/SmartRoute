@@ -12,6 +12,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Column;
 import lombok.Data;
+import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -27,7 +28,7 @@ public class ApplicationUser {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 100)
+    @Column(nullable = false, length = 100, unique = true)
     private String email;
 
     @Column(nullable = false, length = 100)
@@ -52,6 +53,9 @@ public class ApplicationUser {
     private BigDecimal weight;
 
     @Column
+    private Integer ftp;
+
+    @Column
     private LocalDate birthdate;
 
     @Column
@@ -59,6 +63,7 @@ public class ApplicationUser {
 
     @ElementCollection
     @Enumerated(EnumType.STRING)
+    @ToString.Exclude
     private Set<Weekday> activeWeekdays = new HashSet<>();
 
     public ApplicationUser() {
@@ -71,6 +76,11 @@ public class ApplicationUser {
         this.lastname = lastname;
         this.verified = false;
 
+    }
+
+    @Override
+    public String toString() {
+        return "email=" + email + ", password=" + password + ", firstname=" + firstname + ", lastname=" + lastname;
     }
 }
 

@@ -4,7 +4,6 @@ import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import org.springframework.stereotype.Service;
 
-@Service
 public interface EmailSmtpService {
 
     /**

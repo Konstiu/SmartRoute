@@ -1,0 +1,75 @@
+package com.smartroute.smartroute1.service.validators;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.smartroute.smartroute1.exception.ValidationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+import java.lang.invoke.MethodHandles;
+import java.util.ArrayList;
+import java.util.List;
+
+@Component
+public class WeatherValidator {
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+
+    public void validateHourlyData(JsonNode root) throws ValidationException {
+        List<String> errors = new ArrayList<>();
+        LOGGER.trace("Validation of hourly data: {}", root);
+
+        if (root == null || root.isMissingNode()) {
+            errors.add("Root hourly not found");
+            throw new ValidationException("Errors while verifying weather data:", errors);
+        }
+
+        JsonNode hourly = root.path("hourly");
+
+        if (!hourly.has("time")
+                || !hourly.has("temperature_2m")
+                || !hourly.has("precipitation")
+                || !hourly.has("wind_speed_10m")
+                || !hourly.has("relative_humidity_2m")
+                || !hourly.has("shortwave_radiation")) {
+
+            errors.add("Weather API response is missing required hourly fields");
+            throw new ValidationException("Errors while verifying weather data:", errors);
+        }
+    }
+
+
+    public void validateCoordinates(double latitude, double longitude) throws ValidationException {
+        List<String> errors = new ArrayList<>();
+        LOGGER.trace("Validation of latitude and longitude: {}, {}", latitude, longitude);
+
+        if (latitude < -90) {
+            errors.add("latitude is smaller than -90");
+        }
+
+        if (latitude > 90) {
+            errors.add("latitude is larger than 90");
+        }
+
+        if (longitude < -180) {
+            errors.add("longitude is smaller than -180");
+        }
+
+        if (longitude > 180) {
+            errors.add("longitude is larger than 180");
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Errors while verifying lat. and long.:", errors);
+        }
+    }
+
+    public void validateListSizes(List<?>... lists) throws ValidationException {
+        LOGGER.trace("Validation of the size of weather data lists : {}", lists.length);
+        int size = lists[0].size();
+        for (List<?> list : lists) {
+            if (list.size() != size) {
+                throw new ValidationException("Hourly lists differ in size — invalid API data");
+            }
+        }
+    }
+}

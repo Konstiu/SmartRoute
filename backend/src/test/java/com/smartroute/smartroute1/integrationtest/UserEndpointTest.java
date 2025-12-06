@@ -5,16 +5,15 @@ import com.icegreen.greenmail.configuration.GreenMailConfiguration;
 import com.icegreen.greenmail.junit5.GreenMailExtension;
 import com.icegreen.greenmail.util.ServerSetupTest;
 import com.smartroute.smartroute1.basetest.BaseTest;
-import com.smartroute.smartroute1.endpoint.dto.CreateUserDto;
-import com.smartroute.smartroute1.endpoint.dto.EmailDto;
-import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
-import com.smartroute.smartroute1.endpoint.dto.PersonalDataDto;
-import com.smartroute.smartroute1.endpoint.dto.UserDetailDto;
+import com.smartroute.smartroute1.endpoint.dto.*;
 import com.smartroute.smartroute1.endpoint.mapper.UserMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.Injuries;
+import com.smartroute.smartroute1.entity.enums.BodyPart;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.Sex;
 import com.smartroute.smartroute1.entity.enums.Weekday;
+import com.smartroute.smartroute1.repository.InjuryRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.security.JwtTokenizer;
 import jakarta.mail.internet.MimeMessage;
@@ -28,20 +27,18 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static com.smartroute.smartroute1.basetest.TestData.*;
 import static com.smartroute.smartroute1.basetest.TestData.ORIGIN;
@@ -73,10 +70,14 @@ class UserEndpointTest extends BaseTest {
     @Autowired
     private JwtTokenizer jwtTokenizer;
 
+    @Autowired
+    private InjuryRepository injuryRepository;
+
     @RegisterExtension
     static GreenMailExtension greenMail = new GreenMailExtension(ServerSetupTest.SMTP)
             .withConfiguration(GreenMailConfiguration.aConfig().withUser("test", "test"))
             .withPerMethodLifecycle(false);
+
 
     // ==================== USER CREATION TESTS ====================
 
@@ -498,23 +499,23 @@ class UserEndpointTest extends BaseTest {
 
         // do request
         var response = mockMvc.perform(put("/api/v1/user/personal-data")
-                .header(HttpHeaders.AUTHORIZATION, authToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(personalDataDto)))
-            .andExpect(status().isOk())
-            .andReturn().getResponse();
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(personalDataDto)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse();
 
         UserDetailDto updatedUser = objectMapper.readValue(response.getContentAsString(),
-            UserDetailDto.class);
+                UserDetailDto.class);
 
         assertAll(
-            () -> assertNotNull(updatedUser),
-            () -> assertEquals(updatedUser.getSex(), personalDataDto.getSex()),
-            () -> assertEquals(updatedUser.getHeight(), personalDataDto.getHeight()),
-            () -> assertEquals(updatedUser.getWeight(), personalDataDto.getWeight()),
-            () -> assertEquals(updatedUser.getBirthdate(), personalDataDto.getBirthdate()),
-            () -> assertEquals(updatedUser.getExperienceLevel(), personalDataDto.getExperienceLevel()),
-            () -> assertEquals(updatedUser.getActiveWeekdays(), personalDataDto.getActiveWeekdays())
+                () -> assertNotNull(updatedUser),
+                () -> assertEquals(updatedUser.getSex(), personalDataDto.getSex()),
+                () -> assertEquals(updatedUser.getHeight(), personalDataDto.getHeight()),
+                () -> assertEquals(updatedUser.getWeight(), personalDataDto.getWeight()),
+                () -> assertEquals(updatedUser.getBirthdate(), personalDataDto.getBirthdate()),
+                () -> assertEquals(updatedUser.getExperienceLevel(), personalDataDto.getExperienceLevel()),
+                () -> assertEquals(updatedUser.getActiveWeekdays(), personalDataDto.getActiveWeekdays())
         );
     }
 
@@ -522,9 +523,9 @@ class UserEndpointTest extends BaseTest {
     void updatePersonalUserData_withoutJwtToken_shouldReturn403() throws Exception {
         PersonalDataDto personalDataDto = createTestPersonalDataDto();
         mockMvc.perform(put("/api/v1/user/personal-data")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(personalDataDto)))
-            .andExpect(status().isForbidden());
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(personalDataDto)))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -533,10 +534,10 @@ class UserEndpointTest extends BaseTest {
         PersonalDataDto personalDataDto = createTestPersonalDataDto();
         personalDataDto.setHeight(-10);
         mockMvc.perform(put("/api/v1/user/personal-data")
-                .header(HttpHeaders.AUTHORIZATION, authToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(personalDataDto)))
-            .andExpect(status().isUnprocessableEntity());
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(personalDataDto)))
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test
@@ -545,10 +546,10 @@ class UserEndpointTest extends BaseTest {
         PersonalDataDto personalDataDto = createTestPersonalDataDto();
         personalDataDto.setWeight(new BigDecimal(-10));
         mockMvc.perform(put("/api/v1/user/personal-data")
-                .header(HttpHeaders.AUTHORIZATION, authToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(personalDataDto)))
-            .andExpect(status().isUnprocessableEntity());
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(personalDataDto)))
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test
@@ -557,10 +558,10 @@ class UserEndpointTest extends BaseTest {
         PersonalDataDto personalDataDto = createTestPersonalDataDto();
         personalDataDto.setBirthdate(LocalDate.of(2500, 1, 1));
         mockMvc.perform(put("/api/v1/user/personal-data")
-                .header(HttpHeaders.AUTHORIZATION, authToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(personalDataDto)))
-            .andExpect(status().isUnprocessableEntity());
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(personalDataDto)))
+                .andExpect(status().isUnprocessableEntity());
     }
 
     @Test
@@ -569,12 +570,558 @@ class UserEndpointTest extends BaseTest {
         PersonalDataDto personalDataDto = createTestPersonalDataDto();
         personalDataDto.setActiveWeekdays(null);
         mockMvc.perform(put("/api/v1/user/personal-data")
-                .header(HttpHeaders.AUTHORIZATION, authToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(personalDataDto)))
-            .andExpect(status().isUnprocessableEntity());
+                        .header(HttpHeaders.AUTHORIZATION, authToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(personalDataDto)))
+                .andExpect(status().isUnprocessableEntity());
     }
 
+
+    // ==================== INJURY TEST  ====================
+
+    // ==================== POST /api/v1/user/injuries ====================
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void addInjuries_withValidSingleInjury_returnsCreated() throws Exception {
+        ApplicationUser testUser = userRepository.getByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+
+        CreateInjuryStateDto injury = new CreateInjuryStateDto();
+        injury.setInjuryIndex(0.5);
+        injury.setAffectedArea(BodyPart.KNEE_REGION);
+        injury.setLastHealthyDate(LocalDate.now().minusDays(5));
+
+        List<CreateInjuryStateDto> injuries = List.of(injury);
+
+        mockMvc.perform(post(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(injuries)))
+                .andExpect(status().isCreated());
+
+        // Verify injury was created
+        List<Injuries> savedInjuries = injuryRepository.getAllByApplicationUser(testUser);
+        assertEquals(1, savedInjuries.size());
+        assertEquals(0.5, savedInjuries.get(0).getInjuryIndex());
+        assertEquals(BodyPart.KNEE_REGION, savedInjuries.get(0).getAffectedArea());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void addInjuries_withMultipleInjuries_returnsCreated() throws Exception {
+        ApplicationUser testUser = userRepository.getByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+
+        CreateInjuryStateDto injury1 = new CreateInjuryStateDto();
+        injury1.setInjuryIndex(0.3);
+        injury1.setAffectedArea(BodyPart.KNEE_REGION);
+        injury1.setLastHealthyDate(LocalDate.now().minusDays(3));
+
+        CreateInjuryStateDto injury2 = new CreateInjuryStateDto();
+        injury2.setInjuryIndex(0.6);
+        injury2.setAffectedArea(BodyPart.UPPER_REGION);
+        injury2.setLastHealthyDate(LocalDate.now().minusDays(7));
+
+        CreateInjuryStateDto injury3 = new CreateInjuryStateDto();
+        injury3.setInjuryIndex(0.2);
+        injury3.setAffectedArea(BodyPart.CORE_REGION);
+        injury3.setLastHealthyDate(LocalDate.now().minusDays(2));
+
+        List<CreateInjuryStateDto> injuries = List.of(injury1, injury2, injury3);
+
+        mockMvc.perform(post(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(injuries)))
+                .andExpect(status().isCreated());
+
+        // Verify all injuries were created
+        List<Injuries> savedInjuries = injuryRepository.getAllByApplicationUser(testUser);
+        assertEquals(3, savedInjuries.size());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void addInjuries_withEmptyList_returnsCreated() throws Exception {
+        ApplicationUser testUser = userRepository.getByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+
+        List<CreateInjuryStateDto> injuries = new ArrayList<>();
+
+        mockMvc.perform(post(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(injuries)))
+                .andExpect(status().isCreated());
+
+        // Verify no injuries were created
+        List<Injuries> savedInjuries = injuryRepository.getAllByApplicationUser(testUser);
+        assertEquals(0, savedInjuries.size());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void addInjuries_withCriticalBoneInjury_returnsCreated() throws Exception {
+        ApplicationUser testUser = userRepository.getByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+
+        CreateInjuryStateDto injury = new CreateInjuryStateDto();
+        injury.setInjuryIndex(0.8);
+        injury.setAffectedArea(BodyPart.BONE_FRACTURE);
+        injury.setLastHealthyDate(LocalDate.now().minusDays(1));
+
+        List<CreateInjuryStateDto> injuries = List.of(injury);
+
+        mockMvc.perform(post(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(injuries)))
+                .andExpect(status().isCreated());
+
+        List<Injuries> savedInjuries = injuryRepository.getAllByApplicationUser(testUser);
+        assertEquals(1, savedInjuries.size());
+        assertEquals(BodyPart.BONE_FRACTURE, savedInjuries.get(0).getAffectedArea());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void addInjuries_withCriticalSpinalInjury_returnsCreated() throws Exception {
+        ApplicationUser testUser = userRepository.getByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+
+        CreateInjuryStateDto injury = new CreateInjuryStateDto();
+        injury.setInjuryIndex(0.8);
+        injury.setAffectedArea(BodyPart.SPINAL_INJURY);
+        injury.setLastHealthyDate(LocalDate.now().minusDays(1));
+
+        List<CreateInjuryStateDto> injuries = List.of(injury);
+
+        mockMvc.perform(post(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(injuries)))
+                .andExpect(status().isCreated());
+
+        List<Injuries> savedInjuries = injuryRepository.getAllByApplicationUser(testUser);
+        assertEquals(1, savedInjuries.size());
+        assertEquals(BodyPart.SPINAL_INJURY, savedInjuries.get(0).getAffectedArea());
+    }
+
+    @Test
+    void addInjuries_withoutAuthentication_returnsUnauthorized() throws Exception {
+        CreateInjuryStateDto injury = new CreateInjuryStateDto();
+        injury.setInjuryIndex(0.5);
+        injury.setAffectedArea(BodyPart.KNEE_REGION);
+
+        List<CreateInjuryStateDto> injuries = List.of(injury);
+
+        mockMvc.perform(post(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(injuries)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "ADMIN")
+    void addInjuries_withWrongRole_returnsForbidden() throws Exception {
+        CreateInjuryStateDto injury = new CreateInjuryStateDto();
+        injury.setInjuryIndex(0.5);
+        injury.setAffectedArea(BodyPart.KNEE_REGION);
+
+        List<CreateInjuryStateDto> injuries = List.of(injury);
+
+        mockMvc.perform(post(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(injuries)))
+                .andExpect(status().isForbidden());
+    }
+
+    // ==================== PUT /api/v1/user/injuries ====================
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void updateInjuries_withValidSingleInjury_returnsOk() throws Exception {
+        ApplicationUser testUser = userRepository.getByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+        // First create an injury
+        Injuries existingInjury = new Injuries();
+        existingInjury.setInjuryIndex(0.3);
+        existingInjury.setAffectedArea(BodyPart.KNEE_REGION);
+        existingInjury.setLastHealthyDate(LocalDate.now().minusDays(10));
+        existingInjury.setLastInjuryDate(LocalDate.now().minusDays(5));
+        existingInjury.setApplicationUser(testUser);
+        existingInjury = injuryRepository.save(existingInjury);
+
+        // Update the injury
+        UpdateInjuryDto updateDto = new UpdateInjuryDto();
+        updateDto.setInjuryId(existingInjury.getId());
+        updateDto.setInjuryIndex(0.7);
+        updateDto.setAffectedArea(BodyPart.UPPER_REGION);
+        updateDto.setLastHealthyDate(LocalDate.now().minusDays(8));
+        updateDto.setLastInjuryDate(LocalDate.now().minusDays(2));
+
+        List<UpdateInjuryDto> updates = List.of(updateDto);
+
+        mockMvc.perform(put(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updates)))
+                .andExpect(status().isOk());
+
+        // Verify the update
+        Injuries updatedInjury = injuryRepository.findById(existingInjury.getId()).orElse(null);
+        assertNotNull(updatedInjury);
+        assertEquals(0.7, updatedInjury.getInjuryIndex());
+        assertEquals(BodyPart.UPPER_REGION, updatedInjury.getAffectedArea());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void updateInjuries_withMultipleInjuries_returnsOk() throws Exception {
+        ApplicationUser testUser = userRepository.getByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+
+        // Create multiple injuries
+        Injuries injury1 = new Injuries();
+        injury1.setInjuryIndex(0.3);
+        injury1.setAffectedArea(BodyPart.KNEE_REGION);
+        injury1.setLastHealthyDate(LocalDate.now().minusDays(10));
+        injury1.setApplicationUser(testUser);
+        injury1 = injuryRepository.save(injury1);
+
+        Injuries injury2 = new Injuries();
+        injury2.setInjuryIndex(0.5);
+        injury2.setAffectedArea(BodyPart.UPPER_REGION);
+        injury2.setLastHealthyDate(LocalDate.now().minusDays(7));
+        injury2.setApplicationUser(testUser);
+        injury2 = injuryRepository.save(injury2);
+
+        // Update both
+        UpdateInjuryDto update1 = new UpdateInjuryDto();
+        update1.setInjuryId(injury1.getId());
+        update1.setInjuryIndex(0.4);
+        update1.setAffectedArea(BodyPart.KNEE_REGION);
+        update1.setLastInjuryDate(LocalDate.now().minusDays(1));
+
+        UpdateInjuryDto update2 = new UpdateInjuryDto();
+        update2.setInjuryId(injury2.getId());
+        update2.setInjuryIndex(0.6);
+        update2.setAffectedArea(BodyPart.UPPER_REGION);
+        update2.setLastInjuryDate(LocalDate.now().minusDays(2));
+
+        List<UpdateInjuryDto> updates = List.of(update1, update2);
+
+        mockMvc.perform(put(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updates)))
+                .andExpect(status().isOk());
+
+        // Verify both updates
+        Injuries updated1 = injuryRepository.findById(injury1.getId()).orElse(null);
+        Injuries updated2 = injuryRepository.findById(injury2.getId()).orElse(null);
+
+        assertNotNull(updated1);
+        assertNotNull(updated2);
+        assertEquals(0.4, updated1.getInjuryIndex());
+        assertEquals(0.6, updated2.getInjuryIndex());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void updateInjuries_withEmptyList_returnsOk() throws Exception {
+        List<UpdateInjuryDto> updates = new ArrayList<>();
+
+        mockMvc.perform(put(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updates)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void updateInjuries_withNonExistentInjuryId_returnsOk() throws Exception {
+        // Service returns null for non-existent injury, but endpoint still returns OK
+        UpdateInjuryDto updateDto = new UpdateInjuryDto();
+        updateDto.setInjuryId(999999L); // Non-existent ID
+        updateDto.setInjuryIndex(0.5);
+        updateDto.setAffectedArea(BodyPart.KNEE_REGION);
+
+        List<UpdateInjuryDto> updates = List.of(updateDto);
+
+        mockMvc.perform(put(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updates)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void updateInjuries_withoutAuthentication_returnsUnauthorized() throws Exception {
+        UpdateInjuryDto updateDto = new UpdateInjuryDto();
+        updateDto.setInjuryId(1L);
+        updateDto.setInjuryIndex(0.5);
+
+        List<UpdateInjuryDto> updates = List.of(updateDto);
+
+        mockMvc.perform(put(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updates)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "ADMIN")
+    void updateInjuries_withWrongRole_returnsForbidden() throws Exception {
+        UpdateInjuryDto updateDto = new UpdateInjuryDto();
+        updateDto.setInjuryId(1L);
+        updateDto.setInjuryIndex(0.5);
+
+        List<UpdateInjuryDto> updates = List.of(updateDto);
+
+        mockMvc.perform(put(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updates)))
+                .andExpect(status().isForbidden());
+    }
+
+    // ==================== GET /api/v1/user/injuries ====================
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void getInjuries_withNoInjuries_returnsEmptyList() throws Exception {
+        injuryRepository.deleteAllInBatch();
+
+        MvcResult result = mockMvc.perform(get(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(0))
+                .andReturn();
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void getInjuries_withSingleInjury_returnsInjuryList() throws Exception {
+        ApplicationUser testUser = userRepository.getByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+        // Create an injury
+        Injuries injury = new Injuries();
+        injury.setInjuryIndex(0.5);
+        injury.setAffectedArea(BodyPart.KNEE_REGION);
+        injury.setLastHealthyDate(LocalDate.now().minusDays(5));
+        injury.setLastInjuryDate(LocalDate.now().minusDays(2));
+        injury.setApplicationUser(testUser);
+        injuryRepository.save(injury);
+
+        mockMvc.perform(get(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].injuryIndex").value(0.5))
+                .andExpect(jsonPath("$[0].affectedArea").value("KNEE_REGION"));
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void getInjuries_withMultipleInjuries_returnsAllInjuries() throws Exception {
+        ApplicationUser testUser = userRepository.getByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+        // Create multiple injuries
+        Injuries injury1 = new Injuries();
+        injury1.setInjuryIndex(0.3);
+        injury1.setAffectedArea(BodyPart.KNEE_REGION);
+        injury1.setLastHealthyDate(LocalDate.now().minusDays(10));
+        injury1.setApplicationUser(testUser);
+        injuryRepository.save(injury1);
+
+        Injuries injury2 = new Injuries();
+        injury2.setInjuryIndex(0.6);
+        injury2.setAffectedArea(BodyPart.UPPER_REGION);
+        injury2.setLastHealthyDate(LocalDate.now().minusDays(7));
+        injury2.setApplicationUser(testUser);
+        injuryRepository.save(injury2);
+
+        Injuries injury3 = new Injuries();
+        injury3.setInjuryIndex(0.2);
+        injury3.setAffectedArea(BodyPart.CORE_REGION);
+        injury3.setLastHealthyDate(LocalDate.now().minusDays(3));
+        injury3.setApplicationUser(testUser);
+        injuryRepository.save(injury3);
+
+        mockMvc.perform(get(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(3));
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void getInjuries_withCriticalInjury_returnsInjury() throws Exception {
+        ApplicationUser testUser = userRepository.getByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+
+        Injuries injury = new Injuries();
+        injury.setInjuryIndex(0.9);
+        injury.setAffectedArea(BodyPart.BONE_FRACTURE);
+        injury.setLastHealthyDate(LocalDate.now().minusDays(1));
+        injury.setLastInjuryDate(LocalDate.now());
+        injury.setApplicationUser(testUser);
+        injuryRepository.save(injury);
+
+        mockMvc.perform(get(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].affectedArea").value("BONE_FRACTURE"));
+    }
+
+
+    @Test
+    void getInjuries_withoutAuthentication_returnsUnauthorized() throws Exception {
+        mockMvc.perform(get(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "ADMIN")
+    void getInjuries_withWrongRole_returnsForbidden() throws Exception {
+        mockMvc.perform(get(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "other.user@example.com", roles = "USER")
+    void getInjuries_differentUser_returnsOnlyTheirInjuries() throws Exception {
+        ApplicationUser testUser = userRepository.getByEmail(DEFAULT_USER_EMAIL);
+        injuryRepository.deleteAllInBatch();
+        // Create injury for test user
+        Injuries testUserInjury = new Injuries();
+        testUserInjury.setInjuryIndex(0.5);
+        testUserInjury.setAffectedArea(BodyPart.KNEE_REGION);
+        testUserInjury.setApplicationUser(testUser);
+        injuryRepository.save(testUserInjury);
+
+        // Request as different user should return empty list
+        mockMvc.perform(get(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isArray())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    // ==================== Integration Tests ====================
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = "USER")
+    void fullWorkflow_createUpdateAndGet_worksCorrectly() throws Exception {
+        injuryRepository.deleteAllInBatch();
+
+        // 1. Create an injury
+        CreateInjuryStateDto createDto = new CreateInjuryStateDto();
+        createDto.setInjuryIndex(0.3);
+        createDto.setAffectedArea(BodyPart.KNEE_REGION);
+        createDto.setLastHealthyDate(LocalDate.now().minusDays(5));
+
+        mockMvc.perform(post(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(List.of(createDto))))
+                .andExpect(status().isCreated());
+
+        // 2. Get injuries and verify creation
+        MvcResult getResult = mockMvc.perform(get(USER_INJURY_BASE_URI))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andReturn();
+
+        ViewInjuryDto[] injuries = objectMapper.readValue(
+                getResult.getResponse().getContentAsString(),
+                ViewInjuryDto[].class
+        );
+        Long injuryId = injuries[0].getInjuryId();
+
+        // 3. Update the injury
+        UpdateInjuryDto updateDto = new UpdateInjuryDto();
+        updateDto.setInjuryId(injuryId);
+        updateDto.setInjuryIndex(0.7);
+        updateDto.setAffectedArea(BodyPart.UPPER_REGION);
+        updateDto.setLastInjuryDate(LocalDate.now().minusDays(1));
+
+        mockMvc.perform(put(USER_INJURY_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(List.of(updateDto))))
+                .andExpect(status().isOk());
+
+        // 4. Get injuries again and verify update
+        mockMvc.perform(get(USER_INJURY_BASE_URI))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].injuryIndex").value(0.7))
+                .andExpect(jsonPath("$[0].affectedArea").value("UPPER_REGION"));
+    }
+
+    @Test
+    void getPersonalData_authenticatedUser_shouldReturnPersonalData() throws Exception {
+        // Given - create and populate a test user
+        String email = "personal_test@example.com";
+        String password = "Password123!";
+        ApplicationUser user = createTestUser(email, password, true);
+
+        // set personal data directly on the entity
+        user.setSex(Sex.MALE);
+        user.setHeight(180);
+        user.setWeight(new BigDecimal("75.5"));
+        user.setBirthdate(LocalDate.of(1990, 1, 1));
+        user.setExperienceLevel(ExperienceLevel.BEGINNER);
+        user.setActiveWeekdays(new HashSet<>(Set.of(Weekday.MONDAY, Weekday.WEDNESDAY, Weekday.FRIDAY)));
+        userRepository.save(user);
+
+        // When - login to get JWT
+        String loginData = objectMapper.writeValueAsString(Map.of("email", email, "password", password));
+        MvcResult loginResult = this.mockMvc.perform(post(LOGIN_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginData))
+                .andReturn();
+        String loginBody = loginResult.getResponse().getContentAsString();
+        String token = loginBody.replace("Bearer ", "");
+
+        // Then - request personal data with Authorization header
+        this.mockMvc.perform(get(USER_BASE_URI + "/personal-data")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$.sex").value("MALE"))
+                .andExpect(jsonPath("$.height").value(180))
+                .andExpect(jsonPath("$.activeWeekdays.length()").value(3));
+    }
+
+    @Test
+    void getPersonalData_unauthenticated_shouldReturnUnauthorized() throws Exception {
+        this.mockMvc.perform(get(USER_BASE_URI + "/personal-data"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void getPersonalData_authenticatedUserWithoutPersonalData_shouldReturnEmptyWeekdays() throws Exception {
+        // Given - create a user without personal data (defaults should be empty)
+        String email = "nopersonal@example.com";
+        String password = "Password123!";
+        createTestUser(email, password, true);
+
+        // login
+        String loginData = objectMapper.writeValueAsString(Map.of("email", email, "password", password));
+        MvcResult loginResult = this.mockMvc.perform(post(LOGIN_BASE_URI)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginData))
+                .andReturn();
+        String loginBody = loginResult.getResponse().getContentAsString();
+        String token = loginBody.replace("Bearer ", "");
+
+        // When & Then
+        this.mockMvc.perform(get(USER_BASE_URI + "/personal-data")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.email").value(email))
+                .andExpect(jsonPath("$.activeWeekdays.length()").value(0));
+    }
 
     // ==================== HELPER METHODS ====================
 
@@ -597,12 +1144,13 @@ class UserEndpointTest extends BaseTest {
      */
     private PersonalDataDto createTestPersonalDataDto() {
         return PersonalDataDto.builder()
-            .sex(Sex.MALE)
-            .height(175)
-            .weight(new BigDecimal("78.5"))
-            .birthdate(LocalDate.of(2003, 5, 24))
-            .experienceLevel(ExperienceLevel.BEGINNER)
-            .activeWeekdays(new HashSet<>(Set.of(Weekday.MONDAY, Weekday.TUESDAY, Weekday.WEDNESDAY)))
-            .build();
+                .sex(Sex.MALE)
+                .height(175)
+                .weight(new BigDecimal("78.5"))
+                .birthdate(LocalDate.of(2003, 5, 24))
+                .experienceLevel(ExperienceLevel.BEGINNER)
+                .activeWeekdays(new HashSet<>(Set.of(Weekday.MONDAY, Weekday.TUESDAY, Weekday.WEDNESDAY)))
+                .build();
     }
 }
+

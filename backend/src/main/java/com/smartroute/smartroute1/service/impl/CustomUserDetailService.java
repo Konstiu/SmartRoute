@@ -13,6 +13,7 @@ import com.smartroute.smartroute1.service.EmailSmtpService;
 import com.smartroute.smartroute1.service.RateLimitCheck;
 import com.smartroute.smartroute1.service.UserService;
 import com.smartroute.smartroute1.service.validators.UserValidator;
+import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,6 +51,7 @@ public class CustomUserDetailService implements UserService {
     }
 
     @Override
+    @Transactional
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         LOGGER.debug("Load all user by email");
         try {
@@ -69,13 +71,32 @@ public class CustomUserDetailService implements UserService {
         LOGGER.debug("Find application user by email");
         ApplicationUser applicationUser = userRepository.findUserByEmail(email);
         if (applicationUser != null) {
+            // initialize lazy collections while the persistence context is still open
+            //applicationUser.getActiveWeekdays().size();
             return applicationUser;
         }
         throw new NotFoundException(String.format("Could not find the user with the email address %s", email));
     }
 
     @Override
+    @Transactional
+    public ApplicationUser findApplicationUserByEmailWithWeekdays(String email) {
+        LOGGER.debug("Find application user by email with weekdays");
+        ApplicationUser applicationUser = findApplicationUserByEmail(email);
+        // initialize lazy collections while the persistence context is still open
+        // noinspection ResultOfMethodCallIgnored
+        applicationUser.getActiveWeekdays().size();
+        return applicationUser;
+    }
+
+    @Override
+    @Transactional
     public String login(UserLoginDto userLoginDto) {
+        LOGGER.trace("Login user by UserLoginDto: {}", userLoginDto);
+        if (userLoginDto.getEmail() == null || userLoginDto.getPassword() == null) {
+            throw new BadCredentialsException("Username or password is incorrect");
+        }
+        userLoginDto.setEmail(userLoginDto.getEmail().trim().toLowerCase());
         UserDetails userDetails = loadUserByUsername(userLoginDto.getEmail());
         if (userDetails != null
                 && userDetails.isAccountNonExpired()
@@ -96,8 +117,9 @@ public class CustomUserDetailService implements UserService {
 
         LOGGER.trace("Create user by CreateUserDto: {}", toCreate);
         validator.validateForCreate(toCreate);
+        toCreate.email = toCreate.email.trim().toLowerCase();
         if (userRepository.findUserByEmail(toCreate.email) != null) {
-            throw new ValidationException("Email already exits please try an other one");
+            throw new ValidationException("Email already exists please try an other one");
         }
 
         CreateUserDto userDto = new CreateUserDto();
@@ -137,6 +159,7 @@ public class CustomUserDetailService implements UserService {
     }
 
     @Override
+    @Transactional
     public boolean verifyEmail(String token) {
         LOGGER.trace("Verify Email with token:{}", token);
         String tokenEmail = jwtTokenizer.extractUsernameFromVerificationToken(token);
@@ -160,6 +183,7 @@ public class CustomUserDetailService implements UserService {
     }
 
     @Override
+    @Transactional
     public void resendVerificationEmail(String email, String origin) {
         LOGGER.trace("Resend verification email :{}", email);
         try {
@@ -185,6 +209,7 @@ public class CustomUserDetailService implements UserService {
     }
 
     @Override
+    @Transactional
     public void requestPasswordReset(String email, String origin) {
         LOGGER.trace("Send Password Reset Email to :{}", email);
         try {
@@ -204,6 +229,7 @@ public class CustomUserDetailService implements UserService {
     }
 
     @Override
+    @Transactional
     public boolean changePasswordWithToken(String token, PasswordResetDto resetDto) throws ValidationException {
         LOGGER.trace("Change Password using token :{}", token);
         String tokenEmail = jwtTokenizer.extractUsernameFromVerificationToken(token);
