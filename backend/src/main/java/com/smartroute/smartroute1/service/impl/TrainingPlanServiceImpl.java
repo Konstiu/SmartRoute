@@ -102,8 +102,6 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
             // select workout type
             WorkoutType selectedWorkout = typeSelectorService.selectWorkoutType(email, latitude, longitude, false);
 
-            Set<WorkoutType> runWorkouts = Set.of(WorkoutType.EASY_RUN, WorkoutType.TEMPO_RUN, WorkoutType.INTERVAL_RUN, WorkoutType.LONG_RUN);
-            Set<WorkoutType> gymWorkouts = Set.of(WorkoutType.GYM_PREHAB, WorkoutType.MOBILITY);
 
             RecommendedActivityDto dto = new RecommendedActivityDto();
 
@@ -126,7 +124,13 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
                     injuryIndex,
                     injuries
             ));
-
+            Set<WorkoutType> runWorkouts = Set.of(WorkoutType.EASY_RUN, WorkoutType.TEMPO_RUN, WorkoutType.INTERVAL_RUN, WorkoutType.LONG_RUN);
+            Set<WorkoutType> gymWorkouts = Set.of(WorkoutType.GYM_PREHAB, WorkoutType.MOBILITY);
+            if (runWorkouts.contains(selectedWorkout)) {
+                if (tsb < -15) {
+                    selectedWorkout = WorkoutType.GYM_PREHAB;
+                }
+            }
             // set workout type
             if (selectedWorkout == WorkoutType.REST_DAY) {
                 dto.setType(RecommendedActivityDto.SessionType.REST);
