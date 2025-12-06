@@ -5,6 +5,7 @@ import {ActivitiesService} from '../../../services/activities.service';
 import {Activity} from '../../dtos/Activity';
 import {Router} from "@angular/router";
 import {ToastController} from '@ionic/angular';
+import {formatDistance, formatDuration, formatElevation, formatHeartRate, formatPace} from "../../util/formatters";
 import {ActivitySyncNotificationService} from "../../../services/ActivitySyncNotificationService";
 
 
@@ -175,6 +176,8 @@ export class RecentRunsPage implements OnInit {
     this.router.navigate(['/import-gpx']);
   }
 
+  protected readonly formatElevation = formatElevation;
+  protected readonly formatHeartRate = formatHeartRate;
   ngOnDestroy() {
     if (this.syncSubscription) {
       this.syncSubscription.unsubscribe();
