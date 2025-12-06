@@ -17,6 +17,7 @@ import com.smartroute.smartroute1.repository.InjuryRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.security.JwtTokenizer;
 import jakarta.mail.internet.MimeMessage;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -30,15 +31,20 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.concurrent.Executor;
 
 import static com.smartroute.smartroute1.basetest.TestData.*;
 import static com.smartroute.smartroute1.basetest.TestData.ORIGIN;
@@ -77,6 +83,19 @@ class UserEndpointTest extends BaseTest {
     static GreenMailExtension greenMail = new GreenMailExtension(ServerSetupTest.SMTP)
             .withConfiguration(GreenMailConfiguration.aConfig().withUser("test", "test"))
             .withPerMethodLifecycle(false);
+
+    @MockitoBean(name = "mailExecutor")
+    private Executor mailExecutor;
+
+    @BeforeEach
+    void setUp() {
+        // Mock the mail executor to run tasks synchronously for testing
+        doAnswer(invocation -> {
+            Runnable r = invocation.getArgument(0);
+            r.run();
+            return null;
+        }).when(mailExecutor).execute(any(Runnable.class));
+    }
 
 
     // ==================== USER CREATION TESTS ====================
