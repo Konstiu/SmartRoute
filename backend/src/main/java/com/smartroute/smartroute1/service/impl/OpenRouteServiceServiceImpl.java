@@ -66,7 +66,7 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
 
             String response = webClient.post()
                     .uri("https://api.openrouteservice.org/v2/directions/foot-walking/geojson")
-                    .header("Authorization", ORSAccessToken)
+                    .header("Authorization", orsAccessToken)
                     .header("Content-Type", "application/json")
                     .bodyValue("{\"coordinates\":" + coords + "\"language\":\"en\",\"units\":\"km\",\"options\":{\"round_trip\":{\"length\":" + length + ",\"points\":" + points + ",\"seed\":" + seed + "}}" + "}")
                     .retrieve()
