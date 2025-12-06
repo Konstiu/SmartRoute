@@ -1,0 +1,74 @@
+package com.smartroute.smartroute1.endpoint;
+
+import com.smartroute.smartroute1.endpoint.dto.FriendRequestDto;
+import com.smartroute.smartroute1.endpoint.dto.FriendshipDetailDto;
+import com.smartroute.smartroute1.endpoint.mapper.FriendshipMapper;
+import com.smartroute.smartroute1.entity.Friendship;
+import com.smartroute.smartroute1.exception.ConflictException;
+import com.smartroute.smartroute1.service.FriendshipService;
+import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.access.annotation.Secured;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.lang.invoke.MethodHandles;
+
+@RestController
+@RequestMapping("/api/v1/friendship")
+@RequiredArgsConstructor
+public class FriendshipEndpoint {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+    private final FriendshipService friendshipService;
+    private final FriendshipMapper mapper;
+
+    @PostMapping("/send-request")
+    @Secured("ROLE_USER")
+    public FriendshipDetailDto sendFriendRequest(@RequestBody FriendRequestDto friendRequestDto) throws ConflictException {
+        LOGGER.info("POST /api/v1/friendship/send-request");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Friendship friendship = friendshipService.sendFriendRequest(authentication.getName(), friendRequestDto.getReceiverEmail());
+        return mapper.entityToDto(friendship);
+    }
+
+    @DeleteMapping("/{friendshipId}/cancel")
+    @Secured("ROLE_USER")
+    public void cancelFriendRequest(@PathVariable Long friendshipId) throws ConflictException {
+        LOGGER.info("DELETE /api/v1/friendship/{friendshipId}/cancel");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        friendshipService.cancelFriendRequest(authentication.getName(), friendshipId);
+    }
+
+    @PostMapping("/{friendshipId}/accept}")
+    @Secured("ROLE_USER")
+    public FriendshipDetailDto acceptFriendRequest(@PathVariable Long friendshipId) throws ConflictException {
+        LOGGER.info("POST /api/v1/friendship/{friendshipId}/accept");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Friendship friendship = friendshipService.acceptFriendRequest(authentication.getName(), friendshipId);
+        return mapper.entityToDto(friendship);
+    }
+
+    @DeleteMapping("/{friendshipId}/reject")
+    @Secured("ROLE_USER")
+    public void rejectFriendRequest(@PathVariable Long friendshipId) throws ConflictException {
+        LOGGER.info("DELETE /api/v1/friendship/{friendshipId}");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        friendshipService.rejectFriendRequest(authentication.getName(), friendshipId);
+    }
+
+    @DeleteMapping("/{friendshipId}/unfriend")
+    @Secured("ROLE_USER")
+    public void unfriend(@PathVariable Long friendshipId) throws ConflictException {
+        LOGGER.info("DELETE /api/v1/friendship/{friendshipId}/unfriend");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        friendshipService.removeFriend(authentication.getName(), friendshipId);
+    }
+}
