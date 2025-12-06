@@ -9,7 +9,6 @@ public class CompactWeatherDto {
     Double weatherScore;
     Double temperature;
     Double windSpeed;
-    String windDirection;
     Double precipitation;
     Double relativeHumidity;
     String description;

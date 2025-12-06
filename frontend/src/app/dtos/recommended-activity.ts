@@ -14,9 +14,13 @@ export interface RecommendedActivityDto {
     weatherScore: number;
     temperature: number;
     windSpeed: number;
-    windDirection: string;
     precipitation: number;
     relativeHumidity: number;
+     // Placeholder fields until backend generator is merged
+     temperatureDescription?: string;
+     windDescription?: string;
+     precipitationDescription?: string;
+
     description?: string;
   },
   athleteStatus: {
