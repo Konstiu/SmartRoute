@@ -41,7 +41,7 @@ public class FriendshipEndpoint {
 
     @DeleteMapping("/{friendshipId}/cancel")
     @Secured("ROLE_USER")
-    public void cancelFriendRequest(@PathVariable Long friendshipId) throws ConflictException {
+    public void cancelFriendRequest(@PathVariable("friendshipId") Long friendshipId) throws ConflictException {
         LOGGER.info("DELETE /api/v1/friendship/{friendshipId}/cancel");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         friendshipService.cancelFriendRequest(authentication.getName(), friendshipId);
@@ -49,7 +49,7 @@ public class FriendshipEndpoint {
 
     @PostMapping("/{friendshipId}/accept")
     @Secured("ROLE_USER")
-    public FriendshipDetailDto acceptFriendRequest(@PathVariable Long friendshipId) throws ConflictException {
+    public FriendshipDetailDto acceptFriendRequest(@PathVariable("friendshipId") Long friendshipId) throws ConflictException {
         LOGGER.info("POST /api/v1/friendship/{friendshipId}/accept");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         Friendship friendship = friendshipService.acceptFriendRequest(authentication.getName(), friendshipId);
@@ -58,7 +58,7 @@ public class FriendshipEndpoint {
 
     @DeleteMapping("/{friendshipId}/reject")
     @Secured("ROLE_USER")
-    public void rejectFriendRequest(@PathVariable Long friendshipId) throws ConflictException {
+    public void rejectFriendRequest(@PathVariable("friendshipId") Long friendshipId) throws ConflictException {
         LOGGER.info("DELETE /api/v1/friendship/{friendshipId}");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         friendshipService.rejectFriendRequest(authentication.getName(), friendshipId);
@@ -66,7 +66,7 @@ public class FriendshipEndpoint {
 
     @DeleteMapping("/{friendshipId}/unfriend")
     @Secured("ROLE_USER")
-    public void unfriend(@PathVariable Long friendshipId) throws ConflictException {
+    public void unfriend(@PathVariable("friendshipId") Long friendshipId) throws ConflictException {
         LOGGER.info("DELETE /api/v1/friendship/{friendshipId}/unfriend");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         friendshipService.removeFriend(authentication.getName(), friendshipId);
