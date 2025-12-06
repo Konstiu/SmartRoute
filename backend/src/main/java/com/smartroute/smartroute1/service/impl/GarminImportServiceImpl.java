@@ -608,7 +608,6 @@ public class GarminImportServiceImpl implements GarminImportService {
             sessionLoad = fitnessScoreService.calculateSessionLoad(
                     heartRates,
                     timestamps,
-                    maxHr,
                     activity
             );
 
@@ -661,7 +660,12 @@ public class GarminImportServiceImpl implements GarminImportService {
             storedActivity.setAverageSpeed(activity.getAverageSpeed());
             storedActivity.setMaxSpeed(activity.getMaxSpeed());
             storedActivity.setAverageHeartrate(activity.getAverageHeartrate());
-            storedActivity.setSessionLoad(activity.getSessionLoad());
+
+            // only update session load if strava suffer score was not set before
+            if (storedActivity.getSufferScore() == null) {
+                storedActivity.setSessionLoad(activity.getSessionLoad());
+            }
+
             storedActivity.setStartDate(activity.getStartDate());
             storedActivity.setElapsedTime(activity.getElapsedTime());
             storedActivity.setMovingTime(activity.getMovingTime());
