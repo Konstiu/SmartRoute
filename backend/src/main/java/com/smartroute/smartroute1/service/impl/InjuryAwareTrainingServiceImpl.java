@@ -205,11 +205,14 @@ public class InjuryAwareTrainingServiceImpl implements InjuryAwareTrainingServic
             return 0.0;
         }
 
+        if (this.hasFullStopInjury(injuries)) {
+            return 1.0;
+        }
+
         LocalDate today = LocalDate.now();
         int windowDays = 14;
 
         double totalWeightedIndex = 0.0;
-        double totalWeight = 0.0;
 
         for (Injuries injury : injuries) {
             LocalDate lastInjuryDate = injury.getLastInjuryDate();
@@ -228,16 +231,12 @@ public class InjuryAwareTrainingServiceImpl implements InjuryAwareTrainingServic
             double baseIndex = clamp01(injury.getInjuryIndex());
             double freshnessFactor = (windowDays - daysAgo) / (double) windowDays;
 
-            totalWeightedIndex += baseIndex * freshnessFactor;
-            totalWeight += freshnessFactor;
+            totalWeightedIndex = Math.max(totalWeightedIndex, baseIndex * freshnessFactor);
         }
 
-        if (totalWeight == 0.0) {
-            return 0.0;
-        }
 
         // Weighted average of all active injuries
-        return totalWeightedIndex / totalWeight;
+        return totalWeightedIndex;
     }
 
     @Override
