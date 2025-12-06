@@ -20,6 +20,15 @@ const routes: Routes = [
         loadChildren: () => import('../account/account.module').then(m => m.AccountPageModule)
       },
       {
+        path: 'recentRuns',
+        loadComponent: () => import('../recentRuns/recent-runs.page').then(m => m.RecentRunsPage)
+      },
+
+      {
+        path: 'activ',
+        loadComponent: () => import('../recentRuns/recent-runs.page').then(m => m.RecentRunsPage)
+      },
+      {
         path: '',
         redirectTo: '/tabs/trainingPlan',
         pathMatch: 'full'
@@ -30,6 +39,10 @@ const routes: Routes = [
     path: '',
     redirectTo: '/tabs/trainingPlan',
     pathMatch: 'full'
+  },
+  {
+    path: 'activity/:id',
+    loadComponent: () => import('../../components/recentRuns/activity-details/activity-details.page').then(m => m.ActivityDetailPage)
   }
 ];
 

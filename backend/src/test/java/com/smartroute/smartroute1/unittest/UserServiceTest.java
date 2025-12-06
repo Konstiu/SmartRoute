@@ -101,7 +101,24 @@ class UserServiceTest {
 
         ValidationException exception = assertThrows(ValidationException.class,
                 () -> userService.create(duplicateUser, ORIGIN));
-        assertTrue(exception.getMessage().contains("Email already exits"));
+        assertTrue(exception.getMessage().contains("Email already exists"));
+    }
+
+    @Test
+    void createUser_withExistingCaseInsensitiveEmail_shouldThrowValidationException() throws Exception {
+        ApplicationUser user = new ApplicationUser("test@email.com", "Password123!", "John", "Doe");
+        CreateUserDto firstUser = userMapper.applicationUserToDto(user);
+        userService.create(firstUser, ORIGIN);
+
+        CreateUserDto duplicateUser = new CreateUserDto();
+        duplicateUser.setEmail("TEST@EMAIL.com");
+        duplicateUser.setPassword("AnotherPassword123!");
+        duplicateUser.setFirstname("Jane");
+        duplicateUser.setLastname("Smith");
+
+        ValidationException exception = assertThrows(ValidationException.class,
+            () -> userService.create(duplicateUser, ORIGIN));
+        assertTrue(exception.getMessage().contains("Email already exists"));
     }
 
     @Test
@@ -297,6 +314,28 @@ class UserServiceTest {
                 () -> userService.findApplicationUserByEmail("nonexistent@email.com"));
     }
 
+    @Test
+    void findApplicationUserByEmailWithWeekdays_withExistingUser_shouldReturnUserWithWeekdays() throws Exception {
+        ApplicationUser created = createAndVerifyUser("weekdays_user@email.com", "Password123!");
+        PersonalDataDto personalDataDto = createTestPersonalDataDto();
+        // update user to set weekdays
+        userService.updatePersonalData(personalDataDto, created.getEmail());
+
+        ApplicationUser found = userService.findApplicationUserByEmailWithWeekdays(created.getEmail());
+
+        assertNotNull(found);
+        assertAll(
+            () -> assertEquals(created.getEmail(), found.getEmail()),
+            () -> assertEquals(personalDataDto.getActiveWeekdays(), found.getActiveWeekdays())
+        );
+    }
+
+    @Test
+    void findApplicationUserByEmailWithWeekdays_withNonExistentUser_shouldThrowNotFoundException() {
+        assertThrows(NotFoundException.class,
+                () -> userService.findApplicationUserByEmailWithWeekdays("nonexistent_weekdays@email.com"));
+    }
+
     // ==================== RATE LIMIT TEST ====================
 
     @Test
@@ -407,3 +446,4 @@ class UserServiceTest {
             .build();
     }
 }
+

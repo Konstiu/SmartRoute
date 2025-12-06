@@ -43,7 +43,12 @@ public class SecurityConfig {
         @Override
         public void addCorsMappings(CorsRegistry registry) {
             registry.addMapping("/**")
-                    .allowedOriginPatterns("http://localhost:4200", "https://*.apps.student.inso-w.at", "http://localhost:8100")
+                    .allowedOriginPatterns(
+                            "https://*.apps.student.inso-w.at",     // deployed fronend
+                            "http://localhost:8100",    // ionic frontend
+                            "http://localhost",         // Android
+                            "capacitor://localhost"     // IOS
+                    )
                     .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD");
         }
     }
