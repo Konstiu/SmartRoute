@@ -14,6 +14,8 @@ import {RecommendedActivityDto, SessionType} from "../../dtos/recommended-activi
 import {Router} from "@angular/router";
 import {BodyPart, getBodyPartLabel, getSeverityColor} from "../../dtos/injuries";
 import {TrainingPlanService} from "../../../services/training-plan.service";
+import { ModalController } from '@ionic/angular';
+import { WeatherInfoComponent } from '../weather/weather.component';
 
 @Component({
   selector: 'app-trainingplan',
@@ -40,9 +42,12 @@ export class TrainingPlanPage implements OnInit {
       weatherScore: .9,
       temperature: 16,
       windSpeed: 4,
-      windDirection: "N",
       precipitation: 0,
       relativeHumidity: 50,
+
+       temperatureDescription: "Mild temperatures, comfortable for most training.",
+       windDescription: "Light winds with little impact on performance.",
+       precipitationDescription: "No precipitation expected.",
     },
     athleteStatus: {
       tsb: 22,
@@ -189,6 +194,54 @@ export class TrainingPlanPage implements OnInit {
       return "danger";
     }
     return "danger";
+  }
+
+  // ------- Weather -------
+  getWeatherScoreColor(score: number): string {
+    if (score >= 0.7) return "success";
+    if (score >= 0.4) return "warning";
+    return "danger";
+  }
+
+  getPrecipitationIcon(value: number): string {
+    if (value === 0) {
+      return "cloud-outline"; // no rain
+    }
+    if (value > 1 && value < 10) {
+      return "rainy-outline"; // rain
+    }
+    return "rainy-heavy"; // heavy rain
+  }
+
+  getWeatherScoreDescription(score: number): string {
+    score = score * 100;
+    const scoreFixed: string = score.toFixed(0);
+    if (score >= 0.85) {
+      return `${scoreFixed} - Great conditions for training`;
+    }
+    if (score >= 0.65) {
+      return `${scoreFixed} - Decent weather — you can train normally`;
+    }
+    if (score >= 0.40) {
+      return `${scoreFixed} - Challenging weather — adjust effort`;
+    }
+    return `${scoreFixed} - Poor conditions — caution advised`;
+  }
+
+  private modalCtrl = inject(ModalController);
+
+  async openWeatherExplanation() {
+    const modal = await this.modalCtrl.create({
+      component: WeatherInfoComponent,
+      componentProps: {
+        temperatureDescription: this.recommendedActivity?.weather.temperatureDescription,
+        windDescription: this.recommendedActivity?.weather.windDescription,
+        precipitationDescription: this.recommendedActivity?.weather.precipitationDescription,
+        score: this.recommendedActivity?.weather.weatherScore
+      }
+    });
+
+    await modal.present();
   }
 
   protected readonly SessionType = SessionType;

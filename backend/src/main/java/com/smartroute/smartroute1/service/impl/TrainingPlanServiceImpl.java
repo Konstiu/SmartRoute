@@ -111,7 +111,6 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
                     weatherImpactDto.getWeatherScore(),
                     weatherResponse.getTemperature2m(),
                     weatherResponse.getWindSpeed10m(),
-                    "N",
                     weatherResponse.getPrecipitation(),
                     weatherResponse.getRelativeHumidity(),
                     null
