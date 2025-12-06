@@ -7,10 +7,10 @@
   </ion-toolbar>
 </ion-header>
 <ion-content [fullscreen]="true">
-  <div class="sync-container">
+  <div class="page-container">
     <!-- Sync Activities Card -->
     @if (hasAnyServiceConnected) {
-      <ion-card class="sync-card">
+      <ion-card class="rounded-card">
         <ion-card-header>
           <ion-card-title>Sync Activities</ion-card-title>
           <ion-card-subtitle>Import recent activities from connected services</ion-card-subtitle>
@@ -36,7 +36,7 @@
       </ion-card>
     }
     <!-- Connected Services -->
-    <ion-card class="sync-card">
+    <ion-card class="rounded-card">
       <ion-card-header>
         <ion-card-title>Connected Services</ion-card-title>
         <ion-card-subtitle>Connect your fitness platforms</ion-card-subtitle>
