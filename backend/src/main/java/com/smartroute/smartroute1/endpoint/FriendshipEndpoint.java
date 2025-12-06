@@ -13,6 +13,7 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.lang.invoke.MethodHandles;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/friendship")
@@ -70,5 +72,32 @@ public class FriendshipEndpoint {
         LOGGER.info("DELETE /api/v1/friendship/{friendshipId}/unfriend");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         friendshipService.removeFriend(authentication.getName(), friendshipId);
+    }
+
+    @GetMapping("/friends")
+    @Secured("ROLE_USER")
+    public List<FriendshipDetailDto> getFriends() {
+        LOGGER.trace("GET /api/v1/friendship");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        List<Friendship> friendships = friendshipService.getFriends(authentication.getName());
+        return friendships.stream().map(mapper::entityToDto).toList();
+    }
+
+    @GetMapping("/incoming-requests")
+    @Secured("ROLE_USER")
+    public List<FriendshipDetailDto> getIncomingFriendRequests() {
+        LOGGER.trace("GET /api/v1/friendship/incoming-requests");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        List<Friendship> friendships = friendshipService.getIncomingFriendRequests(authentication.getName());
+        return friendships.stream().map(mapper::entityToDto).toList();
+    }
+
+    @GetMapping("/outgoing-requests")
+    @Secured("ROLE_USER")
+    public List<FriendshipDetailDto> getOutgoingFriendRequests() {
+        LOGGER.trace("GET /api/v1/friendship/outgoing-requests");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        List<Friendship> friendships = friendshipService.getOutgoingFriendRequests(authentication.getName());
+        return friendships.stream().map(mapper::entityToDto).toList();
     }
 }

@@ -5,6 +5,8 @@ import com.smartroute.smartroute1.exception.ConflictException;
 import com.smartroute.smartroute1.exception.NotFoundException;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.util.List;
+
 public interface FriendshipService {
 
     /**
@@ -16,7 +18,7 @@ public interface FriendshipService {
      * @param receiverEmail the email of the user receiving the request
      * @return the created Friendship entity
      * @throws NotFoundException if either user does not exist
-     * @throws ConflictException if an accepted friendship already exists between these users
+     * @throws ConflictException if an accepted friendship already exists between these users or if the sender tries to send a request to themselves
      */
     Friendship sendFriendRequest(String senderEmail, String receiverEmail) throws NotFoundException, ConflictException;
 
@@ -68,4 +70,28 @@ public interface FriendshipService {
      * @throws ConflictException if the friendship is not in ACCEPTED status
      */
     void removeFriend(String email, Long friendshipId) throws NotFoundException, AccessDeniedException, ConflictException;
+
+    /**
+     * Retrieves the list of friends for a given user.
+     *
+     * @param email the email of the user whose friends are to be retrieved
+     * @return a list of Friendship entities representing the user's friends
+     */
+    List<Friendship> getFriends(String email);
+
+    /**
+     * Retrieves the list of incoming friend requests for a given user.
+     *
+     * @param email the email of the user whose incoming friend requests are to be retrieved
+     * @return a list of Friendship entities representing the incoming friend requests
+     */
+    List<Friendship> getIncomingFriendRequests(String email);
+
+    /**
+     * Retrieves the list of outgoing friend requests for a given user.
+     *
+     * @param email the email of the user whose outgoing friend requests are to be retrieved
+     * @return a list of Friendship entities representing the outgoing friend requests
+     */
+    List<Friendship> getOutgoingFriendRequests(String email);
 }
