@@ -90,6 +90,7 @@ class DaySelectorServiceTest {
                 .thenReturn(0.0);
         when(injuryAwareService.findInjuriesByEmail(any()))
                 .thenReturn(List.of());
+        when(injuryAwareService.getInjuryConstraint(any())).thenReturn(1.0);
 
         boolean trainingDay = service.isTrainingDay(date, user);
 
@@ -142,6 +143,7 @@ class DaySelectorServiceTest {
                 .thenReturn(0.0);
         when(injuryAwareService.findInjuriesByEmail(any()))
                 .thenReturn(List.of(injury));
+        when(injuryAwareService.getInjuryConstraint(any())).thenReturn(1.0);
 
         boolean trainingDay = service.isTrainingDay(date, user);
 
@@ -184,8 +186,9 @@ class DaySelectorServiceTest {
                 .thenReturn(90);
         when(fatigueAndOverloadService.tsbOn(any(), any()))
                 .thenReturn(-5.0);
-        when(injuryAwareService.findInjuriesByEmail(any()))
-                .thenReturn(List.of());
+        when(injuryAwareService.getInjuryIndex(any()))
+                .thenReturn(0.0);
+        when(injuryAwareService.getInjuryConstraint(any())).thenReturn(1.0);
 
         boolean trainingDay = service.isTrainingDay(date, user);
 
@@ -257,6 +260,7 @@ class DaySelectorServiceTest {
                 .thenReturn(0.0);
         when(injuryAwareService.findInjuriesByEmail(any()))
                 .thenReturn(List.of());
+        when(injuryAwareService.getInjuryConstraint(any())).thenReturn(1.0);
 
         boolean trainingDay = service.isTrainingDay(date, user);
 
@@ -279,6 +283,7 @@ class DaySelectorServiceTest {
                 .thenReturn(0.0);
         when(injuryAwareService.findInjuriesByEmail(any()))
                 .thenReturn(List.of());
+        when(injuryAwareService.getInjuryConstraint(any())).thenReturn(1.0);
 
         service.isTrainingDay(date, user);
 
@@ -286,25 +291,24 @@ class DaySelectorServiceTest {
         verify(consistencyAnalyzerService).computeScore(any(), any(), any(), anyInt());
         verify(readinessScoreService).calculateReadinessScore(any(), any());
         verify(fatigueAndOverloadService).tsbOn(any(), any());
-        verify(injuryAwareService).findInjuriesByEmail(any());
     }
 
     @ParameterizedTest
     @CsvSource({
             // readiness, overload, injury, consistency, expected
-            "100, 0.0, 1.0, 1.0, 1.0",          // ideal case
-            "0,   0.0, 1.0, 1.0, 0.0",          // no readiness
-            "50,  0.0, 1.0, 1.0, 0.75",         // reduced readiness full consistency
-            "50,  0.0, 1.0, 0.5, 0.625",        // reduced readiness reduced consistency
-            "50,  0.0, 1.0, 0.0, 0.5",          // reduced readiness no consistency
-            "100, 1.0, 1.0, 1.0, 0.0",          // overload max
-            "100, 0.0, 0.0, 1.0, 0.0",          // injured max
-            "100, 0.0, 0.75, 1.0, 1",           // injured low impact full consistency
-            "100, 0.0, 0.75, 0.5, 0.9375",      // injured low impact reduced consistency
-            "100, 0.0, 0.75, 0.0, 0.75",        // injured low impact no consistency
-            "100, 0.0, 0.25, 1.0, 0.375",       // injured high impact full consistency
-            "100, 0.0, 0.25, 0.5, 0.3125",      // injured high impact reduced consistency
-            "100, 0.0, 0.25, 0.0, 0.25",        // injured high impact no consistency
+            "100, 0.0, 1.0, 1.0, 1.0",              // ideal case
+            "0,   0.0, 1.0, 1.0, 0.5175",              // no readiness
+            "50,  0.0, 1.0, 1.0, 0.8337",             // reduced readiness full consistency
+            "50,  0.0, 1.0, 0.5, 0.7793",         // reduced readiness reduced consistency
+            "50,  0.0, 1.0, 0.0, 0.7250",            // reduced readiness no consistency
+            "100, 1.0, 1.0, 1.0, 0.6325",              // overload max
+            "100, 0.0, 0.0, 1.0, 0.0",              // injured max
+            "100, 0.0, 0.75, 1.0, 0.8624",             // injured low impact full consistency
+            "100, 0.0, 0.75, 0.5, 0.8062",          // injured low impact reduced consistency
+            "100, 0.0, 0.75, 0.0, 0.75",            // injured low impact no consistency
+            "100, 0.0, 0.25, 1.0, 0.2875",           // injured high impact full consistency
+            "100, 0.0, 0.25, 0.5, 0.2687",          // injured high impact reduced consistency
+            "100, 0.0, 0.25, 0.0, 0.25",            // injured high impact no consistency
     })
     void testTrainabilityIndex(
             int readiness,

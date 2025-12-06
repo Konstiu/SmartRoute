@@ -79,19 +79,7 @@ public class CalculateReadinessScoreImpl implements ReadinessScoreService {
         // InjuryIndex = 0 (healthy) to 1 (severely injured)
         // if there are multiple injuries, we take the smallest index
         // if no injuries, redistribute weight
-        double injuryIndex = Double.POSITIVE_INFINITY;
-        List<Injuries> injuries = injuryAwareTrainingService.findInjuriesByEmail(user.getEmail());
-        if (!injuries.isEmpty()) {
-            // if there are injuries
-            for (Injuries injury : injuries) {
-                if (injury.getInjuryIndex() < injuryIndex) {
-                    injuryIndex = injury.getInjuryIndex();
-                }
-            }
-        } else {
-            redistribute(weights, INDEX_INJURY);
-            injuryIndex = 0.0;
-        }
+        double injuryIndex = injuryAwareTrainingService.getInjuryIndex(user.getEmail());
 
         // Satisfaction score from last activity before date
         // if no activity found, redistribute weight
@@ -126,6 +114,8 @@ public class CalculateReadinessScoreImpl implements ReadinessScoreService {
             + weights[INDEX_SATISFACTION] * normalizedSatisfaction;
 
         // return as value between 0 and 100
+        System.out.println(fitnessReward + " " + weights[INDEX_FITNESS]);
+
         return (int) Math.round(readiness * 100.0);
     }
 

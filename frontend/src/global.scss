@@ -107,14 +107,14 @@ ion-card-content {
 
 
 /* === Generic narrow page container (adapted from .injuries-container) === */
-.sync-container {
+.page-container {
   max-width: 50rem;
   margin: 0 auto;
   padding: 1.5rem 1rem 2rem;
 }
 
 /* === Section cards (Sync Status, Connected Services, Sync Settings) === */
-ion-card.sync-card {
+ion-card.rounded-card {
   margin: 0 0 1rem 0;
   box-shadow: 0 0.125rem 0.75rem rgba(0, 0, 0, 0.12);
   border-radius: 1rem;
@@ -131,19 +131,35 @@ ion-card.sync-card {
 }
 
 /* Optional: reuse your loading & empty states as-is */
-.loading-container {
+.loading-container,
+.error-container,
+.empty-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 3.75rem 1.25rem;
+  height: 60vh;
+  padding: 20px;
+  text-align: center;
+
+  ion-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+  }
 
   ion-spinner {
-    margin-bottom: 1rem;
+    margin-bottom: 16px;
   }
 
   p {
     color: var(--ion-color-medium);
+    margin: 8px 0;
+  }
+
+  h2 {
+    font-size: 24px;
+    font-weight: 600;
+    margin: 8px 0;
   }
 }
 
