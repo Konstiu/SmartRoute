@@ -47,3 +47,7 @@ export function formatWindDirection(direction: string) {
 export function formatPrecipitation(precipitation: number) {
   return `${precipitation.toFixed(0)} mm`;
 }
+
+export function formatInjuryIndex(injuryIndex: number) {
+  return `${(injuryIndex * 100).toFixed(0)}%`;
+}

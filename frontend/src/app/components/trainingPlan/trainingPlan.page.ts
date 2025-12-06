@@ -3,7 +3,7 @@ import {Component, inject, OnInit} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {
   formatDistance,
-  formatElevation,
+  formatElevation, formatInjuryIndex,
   formatPace,
   formatPrecipitation,
   formatTemperature,
@@ -164,12 +164,12 @@ export class TrainingPlanPage implements OnInit {
       return "battery-half-outline";
     }
     if (tsb >= -15) {
-      return "battery-empty-outline";
+      return "battery-dead-outline";
     }
     if (tsb >= -30) {
-      return "battery-empty-outline";
+      return "battery-dead-outline";
     }
-    return "battery-empty-outline";
+    return "battery-dead-outline";
   }
 
   getTsbColor(tsb: number):string {
@@ -201,4 +201,5 @@ export class TrainingPlanPage implements OnInit {
   protected readonly formatPrecipitation = formatPrecipitation;
   protected readonly getBodyPartLabel = getBodyPartLabel;
   protected readonly getSeverityColor = getSeverityColor;
+  protected readonly formatInjuryIndex = formatInjuryIndex;
 }
