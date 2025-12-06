@@ -221,4 +221,13 @@ public class UserEndpoint {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         injuryAwareTrainingService.deleteInjuriesByEmailAndId(authentication.getName(), id);
     }
+
+    @DeleteMapping(value = "/account")
+    @ResponseStatus(HttpStatus.OK)
+    @Secured("ROLE_USER")
+    public void deleteUserAccount() {
+        LOGGER.info("DELETE /api/v1/user/account");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        this.userService.deleteAccount(authentication.getName());
+    }
 }
