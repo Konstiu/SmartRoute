@@ -6,6 +6,7 @@ import com.smartroute.smartroute1.endpoint.mapper.FriendshipMapper;
 import com.smartroute.smartroute1.entity.Friendship;
 import com.smartroute.smartroute1.exception.ConflictException;
 import com.smartroute.smartroute1.service.FriendshipService;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,7 @@ public class FriendshipEndpoint {
 
     @PostMapping("/send-request")
     @Secured("ROLE_USER")
+    @Operation(summary = "Send friend request", description = "Send a friend request from the authenticated user to the specified receiver email.")
     public FriendshipDetailDto sendFriendRequest(@RequestBody FriendRequestDto friendRequestDto) throws ConflictException {
         LOGGER.info("POST /api/v1/friendship/send-request");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -43,6 +45,7 @@ public class FriendshipEndpoint {
 
     @DeleteMapping("/{friendshipId}/cancel")
     @Secured("ROLE_USER")
+    @Operation(summary = "Cancel friend request", description = "Cancel an outgoing pending friend request belonging to the authenticated user.")
     public void cancelFriendRequest(@PathVariable("friendshipId") Long friendshipId) throws ConflictException {
         LOGGER.info("DELETE /api/v1/friendship/{friendshipId}/cancel");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -51,6 +54,7 @@ public class FriendshipEndpoint {
 
     @PostMapping("/{friendshipId}/accept")
     @Secured("ROLE_USER")
+    @Operation(summary = "Accept friend request", description = "Accept an incoming pending friend request for the authenticated user and return the updated friendship.")
     public FriendshipDetailDto acceptFriendRequest(@PathVariable("friendshipId") Long friendshipId) throws ConflictException {
         LOGGER.info("POST /api/v1/friendship/{friendshipId}/accept");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -60,6 +64,7 @@ public class FriendshipEndpoint {
 
     @DeleteMapping("/{friendshipId}/reject")
     @Secured("ROLE_USER")
+    @Operation(summary = "Reject friend request", description = "Reject an incoming pending friend request for the authenticated user.")
     public void rejectFriendRequest(@PathVariable("friendshipId") Long friendshipId) throws ConflictException {
         LOGGER.info("DELETE /api/v1/friendship/{friendshipId}");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -68,6 +73,7 @@ public class FriendshipEndpoint {
 
     @DeleteMapping("/{friendshipId}/unfriend")
     @Secured("ROLE_USER")
+    @Operation(summary = "Remove friend", description = "Remove an existing accepted friendship for the authenticated user.")
     public void unfriend(@PathVariable("friendshipId") Long friendshipId) throws ConflictException {
         LOGGER.info("DELETE /api/v1/friendship/{friendshipId}/unfriend");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -76,6 +82,7 @@ public class FriendshipEndpoint {
 
     @GetMapping("/friends")
     @Secured("ROLE_USER")
+    @Operation(summary = "Get friends", description = "Return all accepted friendships of the authenticated user.")
     public List<FriendshipDetailDto> getFriends() {
         LOGGER.trace("GET /api/v1/friendship");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -85,6 +92,7 @@ public class FriendshipEndpoint {
 
     @GetMapping("/incoming-requests")
     @Secured("ROLE_USER")
+    @Operation(summary = "Get incoming friend requests", description = "Return pending incoming friend requests for the authenticated user.")
     public List<FriendshipDetailDto> getIncomingFriendRequests() {
         LOGGER.trace("GET /api/v1/friendship/incoming-requests");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -94,6 +102,7 @@ public class FriendshipEndpoint {
 
     @GetMapping("/outgoing-requests")
     @Secured("ROLE_USER")
+    @Operation(summary = "Get outgoing friend requests", description = "Return pending outgoing friend requests sent by the authenticated user.")
     public List<FriendshipDetailDto> getOutgoingFriendRequests() {
         LOGGER.trace("GET /api/v1/friendship/outgoing-requests");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
