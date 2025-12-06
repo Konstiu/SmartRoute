@@ -6,7 +6,6 @@ import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.endpoint.dto.RecommendedActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.RouteDto;
 import com.smartroute.smartroute1.endpoint.dto.ViewInjuryDto;
-import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.endpoint.mapper.InjuryMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Injuries;
@@ -73,7 +72,7 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
             if (weatherResponse == null) {
                 throw new WeatherException("Failed to get weather at " + utcTimeStr);
             }
-            WeatherImpactDto weatherImpactDto = weatherService.calculateWeatherScore(weatherResponse, age);
+            double weatherScore = weatherService.calculateWeatherScore(weatherResponse);
 
             // get TSB and readiness
             double tsb;
@@ -108,7 +107,7 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
             // TODO implement more detailed weather info
             // set weather info
             dto.setWeather(new CompactWeatherDto(
-                    weatherImpactDto.getWeatherScore(),
+                    weatherScore,
                     weatherResponse.getTemperature2m(),
                     weatherResponse.getWindSpeed10m(),
                     "N",

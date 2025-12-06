@@ -51,4 +51,14 @@ public interface WeatherService {
      * @throws ValidationException if weather data is abnormal.
      */
     String buildWeatherDescription(WeatherResponse weather) throws ValidationException;
+
+
+    /**
+     * Maps the weather score to a very brief description.
+     *
+     * @param weatherScore a metric between 0 and 1 that quantifies the outdoor conditions.
+     *
+     * @return a brief description.
+     */
+    String evaluateWeatherScore(double weatherScore);
 }
