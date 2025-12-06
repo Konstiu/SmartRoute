@@ -1,6 +1,5 @@
 package com.smartroute.smartroute1.endpoint;
 
-import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.WeatherService;
@@ -31,15 +30,24 @@ public class WeatherEndpoint {
         return ResponseEntity.ok(weatherResponse);
     }
 
-
     @Operation(
-            description = "Get weather score, penalty percent and risk evaluations.",
+            description = "Returns the weather score ranging from 0 to 1, where 1 are best conditions for outdoor activities.",
             summary = "Get weather score.")
     @PostMapping("/score")
     @PermitAll
-    public ResponseEntity<WeatherImpactDto> calculateWeatherScore(@RequestBody WeatherResponse weather, @RequestParam("age") int age) throws ValidationException {
-        WeatherImpactDto weatherImpactDto = weatherService.calculateWeatherScore(weather, age);
-        return ResponseEntity.ok(weatherImpactDto);
+    public double calculateWeatherScore(@RequestBody WeatherResponse weather) throws ValidationException {
+        double weatherScore = weatherService.calculateWeatherScore(weather);
+        return weatherScore;
+    }
+
+    @Operation(
+            description = "Estimates the penalty, the weather imposes on running speed in percent.",
+            summary = "Get performance penalty")
+    @PostMapping("/penalty")
+    @PermitAll
+    public double estimatePerformancePenalty(@RequestBody WeatherResponse weather) throws ValidationException {
+        double performancePenalty = weatherService.estimatePerformancePenalty(weather);
+        return performancePenalty;
     }
 }
 

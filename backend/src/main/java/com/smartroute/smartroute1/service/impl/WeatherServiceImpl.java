@@ -210,9 +210,8 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     @Override
-    public WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age) throws ValidationException {
+    public double calculateWeatherScore(WeatherResponse weather) throws ValidationException {
         validator.validateWeatherValues(weather);
-        validator.validateAge(age);
 
         double wbgt = computeWbgt(weather);
         HeatRiskCategory temperatureRiskCategory;
@@ -253,13 +252,7 @@ public class WeatherServiceImpl implements WeatherService {
         score = (double) Math.round(score * 1000.0) / 1000; // round to 3 decimals.
         double weatherScore = clamp(score, 0.0, 1.0);
 
-        double performancePenalty = estimatePerformancePenalty(weather, age) / 100;
-        performancePenalty = (double) Math.round(performancePenalty * 1000.0) / 1000;  // round to 3 decimals.
-
-        RainIntensity rainCategory = classifyRainSeverity(precipitation);
-        WindIntensity windCategory = classifyWindSeverity(windSpeed);
-
-        return new WeatherImpactDto(performancePenalty, weatherScore, temperatureRiskCategory, rainCategory, windCategory);
+        return weatherScore;
     }
 
     // Compute the natural wet-bulb temperature in C°. Source: https://journals.ametsoc.org/view/journals/apme/50/11/jamc-d-11-0143.1.xml
@@ -410,7 +403,9 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     // Estimates the speed penalty using different weather factors.
-    private double estimatePerformancePenalty(WeatherResponse weather, int age) {
+    @Override
+    public double estimatePerformancePenalty(WeatherResponse weather) throws ValidationException {
+        validator.validateWeatherValues(weather);
         final double optimalWbgt = 10.0;
         final double heatSlope = 0.25;
         final double coldSlope = 0.15;
@@ -429,7 +424,9 @@ public class WeatherServiceImpl implements WeatherService {
         final double modifier = complexityModifier(weather);
         final double penaltyPercent = penaltyBase * modifier;
 
-        final double totalPenalty = precipitationSlowdown(precipitation, age) + snowDepthSlowdown(weather.getSnowDepth()) + penaltyPercent;
+        final double totalPenalty = precipitationSlowdown(precipitation)
+                + snowDepthSlowdown(weather.getSnowDepth())
+                + penaltyPercent;
 
         LOGGER.trace("Estimated performance penalty: {}", totalPenalty);
         return totalPenalty;
@@ -465,7 +462,7 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     // Calculates the impact of precipitation in percent.
-    private double precipitationSlowdown(double precipMm, int runnerAge) {
+    private double precipitationSlowdown(double precipMm) {
         if (precipMm <= 0.0) {
             return 0.0;
         }
@@ -483,18 +480,7 @@ public class WeatherServiceImpl implements WeatherService {
         }
 
         double impact = precipMm * baseSlope * intensityFactor;
-
-        // higher age = higher impact
-        double ageFactor;
-        if (runnerAge < 30) {
-            ageFactor = 0.5;
-        } else if (runnerAge < 40) {
-            ageFactor = 0.8;
-        } else {
-            ageFactor = 1.0;
-        }
-
-        return impact *= ageFactor;
+        return impact;
     }
 
     // Returns the impact of snow depth in percent.

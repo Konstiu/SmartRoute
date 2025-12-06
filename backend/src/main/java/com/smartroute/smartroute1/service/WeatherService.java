@@ -22,24 +22,24 @@ public interface WeatherService {
     WeatherResponse getWeatherAtTime(double latitude, double longitude, String timeUtc) throws ValidationException;
 
     /**
-     * Estimates the performance impact of weather conditions on a running event.
-     *
+     * Calculates the weather score, a metric that quantifies the outdoor conditions.
      *
      * @param weather Weather Data.
      *
-     * @param age Runners age.
-     *
-     * @return
-     *        A {@link WeatherImpactDto} containing:
-     *        <ul>
-     *            <li>The estimated percentage performance penalty</li>
-     *            <li>The weather score ranging form 0 to 1, where 1 are optimal conditions and 0 are conditions where outdoor activities should be avoided.</li>
-     *            <li>A heat-risk category based on WBGT or windchill</li>
-     *            <li>Classification of precipitation</li>
-     *            <li>Classification of wind speed</li>
-     *        </ul>
+     * @return weatherScore between 0 and 1.
      *
      * @throws ValidationException if weather data is abnormal.
      */
-    WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age) throws ValidationException;
+    double calculateWeatherScore(WeatherResponse weather) throws ValidationException;
+
+    /**
+     * Estimates the negative impact the weather has on performance, in comparison to optimal conditions.
+     *
+     * @param weather Weather Data.
+     *
+     * @return estimated performance penalty in %.
+     *
+     * @throws ValidationException if weather data is abnormal.
+     */
+    double estimatePerformancePenalty(WeatherResponse weather) throws ValidationException;
 }
