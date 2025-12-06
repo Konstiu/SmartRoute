@@ -112,8 +112,11 @@ def main():
     # Same CLI contract as the real script, just no real Garmin usage.
     if len(sys.argv) < 2:
         print(json.dumps({
-            "error": "Usage: script.py <email> <password> <activity_count> OR --token-json '<json>' <activity_count>"
-        }), file=sys.stderr)
+            "error": "Invalid arguments. Usage:\n\n" +
+                     "  python script.py user@example.com password123 10\n" +
+                     "  python script.py --token-json '{\"token\":\"...\"}' 10\n" +
+                     "  python script.py --token-base64 'base64string' 10"
+        }),              file=sys.stderr)
         sys.exit(1)
 
     target_count = None
@@ -133,6 +136,27 @@ def main():
         except Exception:
             print(json.dumps({"error": "activity_count must be integer"}), file=sys.stderr)
             sys.exit(1)
+
+    elif sys.argv[1] == "--token-base64":
+        if len(sys.argv) < 3:
+            print(json.dumps({"error": "Missing token JSON"}), file=sys.stderr)
+            sys.exit(1)
+        if len(sys.argv) < 4:
+            print(json.dumps({"error": "Missing activity_count"}), file=sys.stderr)
+            sys.exit(1)
+        inline = sys.argv[2]
+        try:
+            inline = base64.b64decode(inline).decode('utf-8')
+            obj = json.loads(inline)
+        except Exception as e:
+            print(json.dumps({"error": f"Invalid token JSON: {e}"}), file=sys.stderr)
+            sys.exit(1)
+        try:
+            target_count = int(sys.argv[3])
+        except Exception:
+            print(json.dumps({"error": "activity_count must be integer"}), file=sys.stderr)
+            sys.exit(1)
+
     elif len(sys.argv) == 4 and '@' in sys.argv[1]:
         # legacy email/password invocation
         try:
@@ -142,6 +166,25 @@ def main():
             sys.exit(1)
     else:
         print(json.dumps({"error": "Unrecognized invocation pattern"}), file=sys.stderr)
+        sys.exit(1)
+
+
+    if sys.argv[1] == "auth-error@example.com":
+        print(json.dumps({
+            "error": "Login failed: Invalid credentials"
+        }), file=sys.stderr)
+        sys.exit(1)
+
+    if sys.argv[1] == "no-runs@example.com":
+        print(json.dumps({
+            "error": "No runs found"
+        }), file=sys.stderr)
+        sys.exit(1)
+
+    if sys.argv[1] == "script-error@example.com":
+        print(json.dumps({
+            "error": "Something unexpected happened in the mock script"
+       }), file=sys.stderr)
         sys.exit(1)
 
     try:

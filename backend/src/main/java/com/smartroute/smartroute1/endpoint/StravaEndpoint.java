@@ -94,7 +94,7 @@ import java.util.List;
 )
 public class StravaEndpoint {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private final StravaOauthServiceImpl authService;
+    private final StravaOauthService authService;
     private final StravaService stravaService;
     @Value("${strava.client.id}")
     private String clientId;
@@ -155,7 +155,7 @@ public class StravaEndpoint {
         authService.exchangeCodeForToken(code, scope, email);
 
         if (scope.contains("activity:read_all")) {
-            stravaService.importStravaActivities(email);
+            stravaService.importStravaActivities(email, 50);
         }
         if (scope.contains("profile:read_all")) {
             stravaService.importStravaZoneData(email);
@@ -224,7 +224,7 @@ public class StravaEndpoint {
     public List<StravaActivityDto> getActivities() {
         LOGGER.info("GET /api/v1/strava/activities");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return stravaService.importStravaActivities(authentication.getName());
+        return stravaService.importStravaActivities(authentication.getName(), 50);
     }
 
     @Operation(

@@ -242,6 +242,14 @@
                             <jvmFlag>-Xmx128m</jvmFlag>
                         </jvmFlags>
                     </container>
+                    <extraDirectories>
+                        <paths>
+                            <path>
+                                <from>python</from>
+                                <into>/app/python</into>
+                            </path>
+                        </paths>
+                    </extraDirectories>
                 </configuration>
             </plugin>
             <plugin>

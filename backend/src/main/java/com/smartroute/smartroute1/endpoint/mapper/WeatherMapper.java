@@ -6,7 +6,7 @@ import org.mapstruct.Mapper;
 
 @Mapper
 public interface WeatherMapper {
-    default WeatherResponse toEntity(WeatherDto dto, WeatherResponse entity, Double longitude, Double latitude) {
+    default WeatherResponse toEntity(WeatherDto dto, WeatherResponse entity, Double latitude, Double longitude) {
         if (entity == null) {
             entity = new WeatherResponse();
         }
@@ -20,6 +20,11 @@ public interface WeatherMapper {
             entity.setRelativeHumidity(dto.getRelativeHumidity());
             entity.setWindSpeed10m(dto.getWindSpeed10m());
             entity.setShortWaveRadiation(dto.getShortWaveRadiation());
+            entity.setDirectRadiation(dto.getDirectRadiation());
+            entity.setDiffuseRadiation(dto.getDiffuseRadiation());
+            entity.setSurfacePressure(dto.getSurfacePressure());
+            entity.setDewPoint(dto.getDewPoint());
+            entity.setSnowDepth(dto.getSnowDepth());
         }
 
         return entity;
