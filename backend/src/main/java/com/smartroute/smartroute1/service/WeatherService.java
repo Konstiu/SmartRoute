@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.service;
 
+import com.smartroute.smartroute1.endpoint.dto.WeatherSummaryDto;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.ValidationException;
 
@@ -46,11 +47,11 @@ public interface WeatherService {
      *
      * @param weather Weather Data.
      *
-     * @return a String containing the description.
+     * @return a WeatherSummaryDto containing the description of the weather events.
      *
      * @throws ValidationException if weather data is abnormal.
      */
-    String buildWeatherDescription(WeatherResponse weather) throws ValidationException;
+    WeatherSummaryDto buildWeatherDescription(WeatherResponse weather) throws ValidationException;
 
 
     /**
