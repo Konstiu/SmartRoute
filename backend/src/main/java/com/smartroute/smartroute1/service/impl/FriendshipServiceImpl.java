@@ -15,6 +15,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.lang.invoke.MethodHandles;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -41,6 +42,12 @@ public class FriendshipServiceImpl implements FriendshipService {
         if (receiver == null) {
             throw new NotFoundException("Receiver with email " + receiverEmail + " not found");
         }
+
+        // check if receiver is not the same as sender
+        if (sender.equals(receiver)) {
+            throw new ConflictException("Cannot send friend request to oneself");
+        }
+
         // check if there is already some friendship relation between sender and receiver
         Optional<Friendship> friendship = friendshipRepository.findByUsers(sender, receiver);
         
@@ -173,5 +180,29 @@ public class FriendshipServiceImpl implements FriendshipService {
 
         // remove the friend
         friendshipRepository.delete(existingFriendship);
+    }
+
+    @Override
+    @Transactional
+    public List<Friendship> getFriends(String email) {
+        LOGGER.trace("getFriends({})", email);
+        ApplicationUser user = userService.findApplicationUserByEmail(email);
+        return friendshipRepository.findByUserAndStatus(user, FriendshipStatus.ACCEPTED);
+    }
+
+    @Override
+    @Transactional
+    public List<Friendship> getIncomingFriendRequests(String email) {
+        LOGGER.trace("getIncomingFriendRequests({})", email);
+        ApplicationUser user = userService.findApplicationUserByEmail(email);
+        return friendshipRepository.findByReceiverAndStatus(user, FriendshipStatus.PENDING);
+    }
+
+    @Override
+    @Transactional
+    public List<Friendship> getOutgoingFriendRequests(String email) {
+        LOGGER.trace("getOutgoingFriendRequests({})", email);
+        ApplicationUser user = userService.findApplicationUserByEmail(email);
+        return friendshipRepository.findBySenderAndStatus(user, FriendshipStatus.PENDING);
     }
 }
