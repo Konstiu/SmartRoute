@@ -56,6 +56,9 @@ public class BaseTest {
     @Autowired
     private GymWorkoutRepository gymWorkoutRepository;
 
+    @Autowired
+    private FriendshipRepository friendshipRepository;
+
     @BeforeEach
     void setUp() {
         try {
@@ -86,6 +89,7 @@ public class BaseTest {
         activityRepository.deleteAllInBatch();
         stravaAccountRepository.deleteAllInBatch();
         injuryRepository.deleteAllInBatch();
+        friendshipRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
         stravaAccountRepository.deleteAll();
         userRepository.deleteAll();
