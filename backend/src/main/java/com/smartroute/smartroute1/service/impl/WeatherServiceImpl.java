@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
+import com.smartroute.smartroute1.endpoint.dto.WeatherSummaryDto;
 import com.smartroute.smartroute1.endpoint.mapper.WeatherMapper;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.WeatherException;
@@ -621,7 +622,7 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     @Override
-    public String buildWeatherDescription(WeatherResponse weather) throws ValidationException {
+    public WeatherSummaryDto buildWeatherDescription(WeatherResponse weather) throws ValidationException {
         validator.validateWeatherValues(weather);
         double wbgt = computeWbgt(weather);
         double windChill;
@@ -638,12 +639,11 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     // Build the extended weather summary.
-    private String build(HeatRiskCategory heatRisk, WindIntensity windIntensity, PrecipitationIntensity precipitationIntensity) {
-        return String.join(" ",
+    private WeatherSummaryDto build(HeatRiskCategory heatRisk, WindIntensity windIntensity, PrecipitationIntensity precipitationIntensity) {
+        return new WeatherSummaryDto(
                 temperatureToText(heatRisk),
                 windToText(windIntensity),
-                precipitationToText(precipitationIntensity)
-        ).trim();
+                precipitationToText(precipitationIntensity));
     }
 
     // Provides a description to temperature.
@@ -657,7 +657,7 @@ public class WeatherServiceImpl implements WeatherService {
                     
                     Severe risk of frostbite: Check face and extremities frequently for numbness or whiteness.\
                     
-                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run""";
+                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run.""";
             case VERY_HIGH_COLD_RISK -> """
                     Very cold conditions. \
                     
@@ -665,7 +665,7 @@ public class WeatherServiceImpl implements WeatherService {
                     
                     Very high risk of hypothermia if outside for long periods without adequate clothing or shelter from wind and cold.\
                     
-                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run""";
+                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run.""";
             case HIGH_COLD_RISK -> """
                     Beyond uncomfortable cold conditions.
                     
@@ -673,19 +673,19 @@ public class WeatherServiceImpl implements WeatherService {
                     
                     High risk of hypothermia if outside for long periods without adequate clothing or shelter from wind and cold.\
                     
-                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run""";
+                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run.""";
             case MODERATE_COLD -> """
                     Uncomfortably cold conditions.\
                     
                     Risk of hypothermia and frostbite if outside for long periods without adequate protection.\
                     
-                    Dress in layers of warm clothing, keep active and stay dry""";
+                    Dress in layers of warm clothing, keep active and stay dry.""";
             case LOW_COLD -> """
                     Very cool conditions.\
                     
                     Slight increase in discomfort.\
                     
-                    Dress warmly and stay dry""";
+                    Dress warmly and stay dry.""";
             case NEUTRAL_COLD -> "Cool conditions, generally favorable for running.";
             case BELOW_WBGT_RANGE ->
                     "Slightly cool conditions, favorable for running."; // this case should never happen
@@ -714,7 +714,7 @@ public class WeatherServiceImpl implements WeatherService {
     // Provides a description to wind speed.
     private static String windToText(WindIntensity windIntensity) {
         return switch (windIntensity) {
-            case CALM -> "Barely any wind, expect no difficulties";
+            case CALM -> "Barely any wind, expect no difficulties.";
             case GENTLE_BREEZE -> "Light breeze that may slightly affect your pacing.";
             case MODERATE_BREEZE -> "Noticeable wind, expect some resistance.";
             case STRONG_BREEZE -> "These strong winds will cause a significant impact on your run.";

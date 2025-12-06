@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.endpoint;
 
+import com.smartroute.smartroute1.endpoint.dto.WeatherSummaryDto;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.WeatherService;
@@ -53,8 +54,9 @@ public class WeatherEndpoint {
             summary = "Get weather description")
     @PostMapping("/description")
     @PermitAll
-    public String buildWeatherDescription(@RequestBody WeatherResponse weather) throws ValidationException {
-        return weatherService.buildWeatherDescription(weather);
+    public ResponseEntity<WeatherSummaryDto> buildWeatherDescription(@RequestBody WeatherResponse weather) throws ValidationException {
+        WeatherSummaryDto weatherSummaryDto = weatherService.buildWeatherDescription(weather);
+        return ResponseEntity.ok(weatherSummaryDto);
     }
 
     @Operation(
