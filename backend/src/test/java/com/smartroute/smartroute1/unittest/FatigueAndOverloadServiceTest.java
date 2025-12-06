@@ -694,7 +694,7 @@ class FatigueAndOverloadServiceTest extends BaseTest {
     }
 
     @Test
-    void zeroSessionLoad_excludedFromCalculation() {
+    void zeroSessionLoad_NotExcludedFromCalculation() {
         testUser = userRepository.findUserByEmail(DEFAULT_USER_EMAIL);
         activityRepository.deleteAll();
         // Arrange
@@ -712,8 +712,7 @@ class FatigueAndOverloadServiceTest extends BaseTest {
         // Act
         List<Double> history = service.getCtlHistory(testUser);
 
-        // Assert - zero load activities are excluded
-        assertThat(history).isEmpty();
+        assertThat(history.size()).isEqualTo(1);
     }
 
     // ==================== Helper Methods ====================
