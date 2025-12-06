@@ -161,7 +161,7 @@
                       <ion-label>
                         <ion-icon [color]="getSeverityColor(recommendedActivity!.athleteStatus.injuryIndex)"
                                   name="bandage-outline"></ion-icon>
-                        You are injured (severity:  {{ (recommendedActivity!.athleteStatus.injuryIndex) }}):
+                        You are injured (severity:  {{ formatInjuryIndex(recommendedActivity!.athleteStatus.injuryIndex) }}):
                         <ul>
                           @for (injury of recommendedActivity!.athleteStatus!.injuries; track injury.affectedArea) {
                             <li>
