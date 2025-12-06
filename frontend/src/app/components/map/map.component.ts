@@ -77,7 +77,10 @@ export class MapComponent implements OnInit {
 
   async getLocation(): Promise<(LatLng | null)> {
     try {
-      const location = await Geolocation.getCurrentPosition();
+      const location = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        maximumAge: 0
+      });
       return latLng(location.coords.latitude, location.coords.longitude);
     } catch (e) {
       console.error("ERROR: unable to determine position:", e);
