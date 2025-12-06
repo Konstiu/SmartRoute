@@ -136,7 +136,7 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
                 dto.setName(selectedWorkout.toString());
 
                 //TODO implement route generation and set route dto
-                dto.setRoute(new RouteDto(1000.0, 2.5, 30.0));
+                dto.setRoute(new RouteDto(5000.0, 2.5, 30.0));
 
             } else if (gymWorkouts.contains(selectedWorkout)) {
                 dto.setType(RecommendedActivityDto.SessionType.GYM);
