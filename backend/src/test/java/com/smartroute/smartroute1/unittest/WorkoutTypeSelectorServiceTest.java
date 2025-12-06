@@ -1,7 +1,6 @@
 package com.smartroute.smartroute1.unittest;
 
 import com.smartroute.smartroute1.basetest.BaseTest;
-import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.WeatherResponse;
@@ -50,12 +49,6 @@ public class WorkoutTypeSelectorServiceTest extends BaseTest {
 
     private WeatherResponse dummyWeatherResponse() {
         return new WeatherResponse();
-    }
-
-    private WeatherImpactDto weatherImpact(double weatherScore) {
-        WeatherImpactDto dto = new WeatherImpactDto();
-        dto.setWeatherScore(weatherScore);
-        return dto;
     }
 
     private Activity dummyActivityOfDistance(int distanceMeters) {
