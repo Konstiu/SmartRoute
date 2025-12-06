@@ -16,6 +16,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.context.ActiveProfiles;
 
 import jakarta.transaction.Transactional;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -35,6 +36,7 @@ class FriendshipServiceTest {
 
     private ApplicationUser alice;
     private ApplicationUser bob;
+    private ApplicationUser charlie;
 
     @BeforeEach
     void setUp() {
@@ -47,8 +49,9 @@ class FriendshipServiceTest {
         if (bob == null) {
             bob = userRepository.save(new ApplicationUser("bob@example.com", "pw", "Bob", "B"));
         }
-        if (userRepository.findUserByEmail("charlie@example.com") == null) {
-            userRepository.save(new ApplicationUser("charlie@example.com", "pw", "C", "C"));
+        charlie = userRepository.findUserByEmail("charlie@example.com");
+        if (charlie == null) {
+            charlie = userRepository.save(new ApplicationUser("charlie@example.com", "pw", "C", "C"));
         }
     }
 
@@ -69,6 +72,11 @@ class FriendshipServiceTest {
     @Test
     void sendFriendRequest_receiverNotFound_throwsNotFound() {
         assertThrows(NotFoundException.class, () -> friendshipService.sendFriendRequest("alice@example.com", "unknown@example.com"));
+    }
+
+    @Test
+    void sendFriendRequest_toSelf_throwsConflict() {
+        assertThrows(ConflictException.class, () -> friendshipService.sendFriendRequest("alice@example.com", "alice@example.com"));
     }
 
     @Test
@@ -271,5 +279,84 @@ class FriendshipServiceTest {
 
         assertFalse(friendshipRepository.findById(f.getId()).isPresent());
     }
-}
 
+    @Test
+    void getFriends_returnsAcceptedFriends() {
+        // accepted friend where alice is sender
+        Friendship f1 = new Friendship();
+        f1.setSender(alice);
+        f1.setReceiver(bob);
+        f1.setStatus(FriendshipStatus.ACCEPTED);
+        friendshipRepository.save(f1);
+
+        // accepted friend where alice is receiver
+        Friendship f2 = new Friendship();
+        f2.setSender(charlie);
+        f2.setReceiver(alice);
+        f2.setStatus(FriendshipStatus.ACCEPTED);
+        friendshipRepository.save(f2);
+
+        List<Friendship> friends = friendshipService.getFriends("alice@example.com");
+
+        assertAll(
+            () -> assertEquals(2, friends.size()),
+            () -> assertTrue(friends.stream().allMatch(f -> f.getStatus() == FriendshipStatus.ACCEPTED)),
+            () -> assertTrue(friends.stream().anyMatch(f ->
+                (f.getSender().getEmail().equals("bob@example.com") || f.getReceiver().getEmail().equals("bob@example.com"))
+            )),
+            () -> assertTrue(friends.stream().anyMatch(f ->
+                (f.getSender().getEmail().equals("charlie@example.com") || f.getReceiver().getEmail().equals("charlie@example.com"))
+            ))
+        );
+    }
+
+    @Test
+    void getIncomingFriendRequests_returnsPendingIncoming() {
+        // pending incoming (bob -> alice)
+        Friendship incoming = new Friendship();
+        incoming.setSender(bob);
+        incoming.setReceiver(alice);
+        incoming.setStatus(FriendshipStatus.PENDING);
+        friendshipRepository.save(incoming);
+
+        // other pending (alice -> charlie) should not appear as incoming for alice
+        Friendship other = new Friendship();
+        other.setSender(alice);
+        other.setReceiver(charlie);
+        other.setStatus(FriendshipStatus.PENDING);
+        friendshipRepository.save(other);
+
+        List<Friendship> incomingList = friendshipService.getIncomingFriendRequests("alice@example.com");
+
+        assertAll(
+            () -> assertEquals(1, incomingList.size()),
+            () -> assertTrue(incomingList.stream().allMatch(f -> f.getStatus() == FriendshipStatus.PENDING)),
+            () -> assertTrue(incomingList.stream().anyMatch(f -> f.getSender().getEmail().equals("bob@example.com")))
+        );
+    }
+
+    @Test
+    void getOutgoingFriendRequests_returnsPendingOutgoing() {
+        // pending outgoing (alice -> bob)
+        Friendship outgoing = new Friendship();
+        outgoing.setSender(alice);
+        outgoing.setReceiver(bob);
+        outgoing.setStatus(FriendshipStatus.PENDING);
+        friendshipRepository.save(outgoing);
+
+        // other pending (charlie -> alice) should not appear as outgoing for alice
+        Friendship other = new Friendship();
+        other.setSender(charlie);
+        other.setReceiver(alice);
+        other.setStatus(FriendshipStatus.PENDING);
+        friendshipRepository.save(other);
+
+        List<Friendship> outgoingList = friendshipService.getOutgoingFriendRequests("alice@example.com");
+
+        assertAll(
+            () -> assertEquals(1, outgoingList.size()),
+            () -> assertTrue(outgoingList.stream().allMatch(f -> f.getStatus() == FriendshipStatus.PENDING)),
+            () -> assertTrue(outgoingList.stream().anyMatch(f -> f.getReceiver().getEmail().equals("bob@example.com")))
+        );
+    }
+}

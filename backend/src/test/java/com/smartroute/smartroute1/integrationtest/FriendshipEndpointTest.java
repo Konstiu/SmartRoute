@@ -223,4 +223,82 @@ class FriendshipEndpointTest extends BaseTest implements TestData {
 
         assertTrue(friendshipRepository.findById(f.getId()).isPresent());
     }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL)
+    void getFriends_returnsAcceptedFriends_whenAuthenticated() throws Exception {
+        ApplicationUser u1 = userRepository.findUserByEmail(DEFAULT_USER_EMAIL);
+        ApplicationUser u2 = userRepository.findUserByEmail("email1@smartroute.com");
+
+        Friendship f = new Friendship();
+        f.setSender(u1);
+        f.setReceiver(u2);
+        f.setStatus(FriendshipStatus.ACCEPTED);
+        friendshipRepository.save(f);
+
+        mockMvc.perform(get(BASE + "/friends"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$[0].status").value("ACCEPTED"))
+                .andExpect(jsonPath("$[0].sender.email").value(DEFAULT_USER_EMAIL))
+                .andExpect(jsonPath("$[0].receiver.email").value("email1@smartroute.com"));
+    }
+
+    @Test
+    void getFriends_forbidden_whenNotAuthenticated() throws Exception {
+        mockMvc.perform(get(BASE + "/friends"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL)
+    void getIncomingFriendRequests_returnsPending_whenAuthenticated() throws Exception {
+        ApplicationUser sender = userRepository.findUserByEmail("email1@smartroute.com");
+        ApplicationUser receiver = userRepository.findUserByEmail(DEFAULT_USER_EMAIL);
+
+        Friendship incoming = new Friendship();
+        incoming.setSender(sender);
+        incoming.setReceiver(receiver);
+        incoming.setStatus(FriendshipStatus.PENDING);
+        friendshipRepository.save(incoming);
+
+        mockMvc.perform(get(BASE + "/incoming-requests"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$[0].status").value("PENDING"))
+                .andExpect(jsonPath("$[0].sender.email").value("email1@smartroute.com"))
+                .andExpect(jsonPath("$[0].receiver.email").value(DEFAULT_USER_EMAIL));
+    }
+
+    @Test
+    void getIncomingFriendRequests_forbidden_whenNotAuthenticated() throws Exception {
+        mockMvc.perform(get(BASE + "/incoming-requests"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL)
+    void getOutgoingFriendRequests_returnsPending_whenAuthenticated() throws Exception {
+        ApplicationUser sender = userRepository.findUserByEmail(DEFAULT_USER_EMAIL);
+        ApplicationUser receiver = userRepository.findUserByEmail("email1@smartroute.com");
+
+        Friendship outgoing = new Friendship();
+        outgoing.setSender(sender);
+        outgoing.setReceiver(receiver);
+        outgoing.setStatus(FriendshipStatus.PENDING);
+        friendshipRepository.save(outgoing);
+
+        mockMvc.perform(get(BASE + "/outgoing-requests"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$[0].status").value("PENDING"))
+                .andExpect(jsonPath("$[0].sender.email").value(DEFAULT_USER_EMAIL))
+                .andExpect(jsonPath("$[0].receiver.email").value("email1@smartroute.com"));
+    }
+
+    @Test
+    void getOutgoingFriendRequests_forbidden_whenNotAuthenticated() throws Exception {
+        mockMvc.perform(get(BASE + "/outgoing-requests"))
+                .andExpect(status().isForbidden());
+    }
 }
