@@ -22,7 +22,9 @@ export class UserDataFormComponent implements OnInit {
       let date = new Date(control.value);
       if (date == null) return null;
       const currentDate = new Date();
-      if (date >= currentDate) return { past: true };
+      const maxDate = new Date(currentDate);
+      maxDate.setFullYear(maxDate.getFullYear() - 6);
+      if (date >= maxDate) return { past: true };
       const minDate = new Date(currentDate);
       minDate.setFullYear(minDate.getFullYear() - 120);
       if (date <= minDate) return { unrealisticallyOld: true };
