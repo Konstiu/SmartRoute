@@ -39,4 +39,16 @@ public interface WeatherService {
      * @throws ValidationException if weather data is abnormal.
      */
     double estimatePerformancePenalty(WeatherResponse weather) throws ValidationException;
+
+
+    /**
+     * Generates a description fitting of the given weather data.
+     *
+     * @param weather Weather Data.
+     *
+     * @return a String containing the description.
+     *
+     * @throws ValidationException if weather data is abnormal.
+     */
+    String buildWeatherDescription(WeatherResponse weather) throws ValidationException;
 }
