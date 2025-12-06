@@ -25,6 +25,12 @@ import java.util.Set;
 @Service
 @AllArgsConstructor
 public class DaySelectorServiceImpl implements DaySelectorService {
+    public static final double PREFERRED_DAY_THRESHOLD = .25;
+    public static final double REGULAR_DAY_THRESHOLD = .35;
+    private static final double INJURY_CONSTRAINT_THRESHOLD = .5;
+    public static final double WEEKLY_SESSION_BALANCE_WEIGHT = .1;
+    public static final double MAX_WEEKLY_SESSIONS_EXCEEDED_PENALTY = 3;
+
     private ActivityRepository activityRepository;
     private ReadinessScoreService readinessScoreService;
     private ConsistencyAnalyzerService consistencyAnalyzerService;
@@ -65,34 +71,55 @@ public class DaySelectorServiceImpl implements DaySelectorService {
         try {
             readinessScore = readinessScoreService.calculateReadinessScore(user, date);
             overloadScore = calculateOverload(fatigueAndOverloadService.tsbOn(user, date));
+
         } catch (InsufficientTrainingDataException e) {
             // fall back to default values
             readinessScore = 50;
             overloadScore = 0;
         }
+        double injuryConstraint = injuryAwareTrainingService.getInjuryConstraint(user.getEmail());
 
-        double injuryConstraint = calculateInjuryConstraint(injuryAwareTrainingService.findInjuriesByEmail(user.getEmail()));
-
-        double trainabilityIndex = calculateTrainabilityIndex(readinessScore, overloadScore, injuryConstraint, consistencyScore);
-
-        if (injuryConstraint < .4) {
+        if (injuryConstraint < INJURY_CONSTRAINT_THRESHOLD) {
             return false;
         }
 
         List<Activity> activitiesLast7Days = activityRepository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(user, from, to);
 
-        if (activitiesLast7Days.size() > maxWeeklySessions) {
-            return false;
-        }
+        double weeklySessionBalance = calculateWeeklySessionBalance(minWeeklySessions, maxWeeklySessions, activitiesLast7Days);
+        double trainabilityIndex = calculateTrainabilityIndex(readinessScore, overloadScore, injuryConstraint, consistencyScore);
 
-        double threshold = isPreferredDay(date, preferredDays) ? .25 : .35;
-        return trainabilityIndex >= threshold;
+        double weightedWeeklySessionBalance = weeklySessionBalance * WEEKLY_SESSION_BALANCE_WEIGHT;
+
+        double threshold = isPreferredDay(date, preferredDays) ? PREFERRED_DAY_THRESHOLD : REGULAR_DAY_THRESHOLD;
+        return (trainabilityIndex + weightedWeeklySessionBalance) >= threshold;
     }
 
     // Checks if the selected training date is a preferred training day
     private boolean isPreferredDay(LocalDate date, Set<Weekday> preferredDays) {
         Weekday weekday = Weekday.valueOf(date.getDayOfWeek().name());
         return preferredDays.contains(weekday);
+    }
+
+    // Returns a value [-1, MAX_WEEKLY_SESSIONS_EXCEEDED_PENALTY].
+    // -1: far above max (scaled based on distance)
+    //  0: within optimal range [min, max] (inclusive)
+    //  MAX_WEEKLY_SESSIONS_EXCEEDED_PENALTY: far below min (scaled based on distance)
+    private double calculateWeeklySessionBalance(int minWeeklySessions, int maxWeeklySessions, List<Activity> activitiesLast7Days) {
+        int countLast7Days = activitiesLast7Days.size();
+
+        if (countLast7Days >= minWeeklySessions && countLast7Days <= maxWeeklySessions) {
+            return 0.0;
+        }
+
+        if (countLast7Days < minWeeklySessions) {
+            // Distance from min (closer to min = smaller distance)
+            double distance = minWeeklySessions - countLast7Days;
+            return Math.min(1.0, distance / minWeeklySessions);
+        } else {
+            // Distance from max
+            double distance = countLast7Days - maxWeeklySessions;
+            return -Math.min(1.0, (distance / maxWeeklySessions)) * MAX_WEEKLY_SESSIONS_EXCEEDED_PENALTY;
+        }
     }
 
     // Calculates the normalized overload score from the TSB
@@ -105,10 +132,10 @@ public class DaySelectorServiceImpl implements DaySelectorService {
 
     // Returns the lowest injury constraint (= highest injuryIndex) from all active injuries
     private double calculateInjuryConstraint(List<Injuries> injuriesList) {
-        return (1 - injuriesList.stream()
-                .filter(i -> i.getLastHealthyDate() == null)
+        return 1 - injuriesList.stream()
+                .filter(i -> i.getLastInjuryDate() == null || i.getLastInjuryDate().isAfter(LocalDate.now().minusDays(14)))
                 .map(Injuries::getInjuryIndex)
-                .reduce(0.0, Double::max));
+                .reduce(0.0, Double::max);
     }
 
     // Min weekly sessions by experience (recommendations for beginner, intermediate, advanced from: https://pubmed.ncbi.nlm.nih.gov/19204579/)
@@ -135,45 +162,11 @@ public class DaySelectorServiceImpl implements DaySelectorService {
 
     @Override
     public double calculateTrainabilityIndex(int readinessScore, double overloadScore, double injuryConstraint, double consistencyScore) {
-        /*
-        T_r = R_t/100 * C_t * (1 - O_t) * (1 + 0.5K_t)
-        R_t...Readiness score
-        O_t...Overload score
-        C_t...Injury constraint
-        K_t...Consistency score
-         */
-
-        double wrecovery = 0.50;
-        double wconsistency = 0.50;
-
-        double recoveryFactor = 1.0 - overloadScore;
-
-        double baseScore = (wrecovery * recoveryFactor)
-                + (wconsistency * consistencyScore);
-
-        // === PART 2: Critical Gates (Multiplicative) ===
-        // Readiness and injury gate the base score
-
-        double readinessFactor = readinessScore / 100.0;
-
-        // Apply square root to readiness for softer curve
-        // This prevents very low readiness from completely zeroing out
-        double readinessGate = Math.sqrt(readinessFactor);
-
-        // Final score: base modified by gates
-        double trainabilityIndex = baseScore * readinessGate * injuryConstraint;
-
-        System.out.println("=== Trainability Calculation ===");
-        System.out.println("readinessScore: " + readinessScore + " → gate: " + String.format("%.3f", readinessGate));
-        System.out.println("overloadScore: " + String.format("%.3f", overloadScore) + " → recovery: " + String.format("%.3f", recoveryFactor));
-        System.out.println("injuryConstraint: " + injuryConstraint);
-        System.out.println("consistencyScore: " + String.format("%.3f", consistencyScore));
-        System.out.println();
-        System.out.println("Base score (recovery + consistency): " + String.format("%.3f", baseScore));
-        System.out.println("Readiness gate: " + String.format("%.3f", readinessGate));
-        System.out.println("Injury gate: " + String.format("%.3f", injuryConstraint));
-        System.out.println("trainabilityIndex: " + String.format("%.3f", trainabilityIndex));
-        System.out.println();
+        double normalizedReadiness = readinessScore / 100.0;
+        double recoveryFactor = (1 - overloadScore);
+        double baseTrainability = (.55 * normalizedReadiness) + (.45 * recoveryFactor);
+        double injuryAdjusted = baseTrainability * injuryConstraint;
+        double trainabilityIndex = injuryAdjusted * (1 + .15 *  consistencyScore);
 
         return Math.clamp(trainabilityIndex, 0.0, 1.0);
     }
