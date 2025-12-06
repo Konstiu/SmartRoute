@@ -49,12 +49,21 @@ public class WeatherEndpoint {
     }
 
     @Operation(
-            description = " Generates a description fitting of the given weather data.",
+            description = "Generates a description fitting of the given weather data.",
             summary = "Get weather description")
     @PostMapping("/description")
     @PermitAll
     public String buildWeatherDescription(@RequestBody WeatherResponse weather) throws ValidationException {
         return weatherService.buildWeatherDescription(weather);
+    }
+
+    @Operation(
+            description = "Maps the weather score (0.0 - 1.0) to a very brief description.",
+            summary = "Get weather score description")
+    @PostMapping("/evaluate")
+    @PermitAll
+    String evaluateWeatherScore(@RequestParam("weatherScore") double weatherScore) {
+        return weatherService.evaluateWeatherScore(weatherScore);
     }
 }
 

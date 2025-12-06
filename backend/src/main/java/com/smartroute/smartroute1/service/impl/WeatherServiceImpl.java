@@ -592,6 +592,35 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     @Override
+    public String evaluateWeatherScore(double weatherScore) {
+        if (weatherScore < 0.0 || weatherScore > 1.0) {
+            return "Invalid weather score.";
+        }
+
+        if (weatherScore <= 0.1) {
+            return "Extremely unfavorable conditions";
+        } else if (weatherScore <= 0.2) {
+            return "Very challenging conditions";
+        } else if (weatherScore <= 0.3) {
+            return "Unfavorable weather";
+        } else if (weatherScore <= 0.4) {
+            return "Challenging conditions";
+        } else if (weatherScore <= 0.5) {
+            return "Some impairments present";
+        } else if (weatherScore <= 0.6) {
+            return "Acceptable conditions";
+        } else if (weatherScore <= 0.7) {
+            return "Good running conditions";
+        } else if (weatherScore <= 0.8) {
+            return "Very favorable conditions";
+        } else if (weatherScore <= 0.9) {
+            return "Excellent weather";
+        } else {
+            return "Near-perfect conditions.";
+        }
+    }
+
+    @Override
     public String buildWeatherDescription(WeatherResponse weather) throws ValidationException {
         validator.validateWeatherValues(weather);
         double wbgt = computeWbgt(weather);
