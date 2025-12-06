@@ -139,7 +139,7 @@ def main():
         # only write temporary token files as a fallback if injection fails.
         inline_obj = obj
 
-    if sys.argv[1] == "--token-base64":
+    elif sys.argv[1] == "--token-base64":
         if len(sys.argv) < 3:
             print(json.dumps({"error": "Missing token JSON"}), file=sys.stderr)
             sys.exit(1)
