@@ -1,10 +1,7 @@
 package com.smartroute.smartroute1.service;
 
-import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.ValidationException;
-
-import java.util.List;
 
 /** Provides methods to retrieve hourly weather forecast data from an external API. */
 public interface WeatherService {

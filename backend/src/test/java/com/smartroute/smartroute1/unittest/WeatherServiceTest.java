@@ -9,8 +9,6 @@ import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.WeatherRepository;
 import com.smartroute.smartroute1.service.WeatherService;
-import com.smartroute.smartroute1.entity.enums.HeatRiskCategory;
-import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.util.Coordinate;
 import jakarta.transaction.Transactional;
 import okhttp3.mockwebserver.MockResponse;

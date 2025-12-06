@@ -4,12 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
-import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.endpoint.mapper.WeatherMapper;
 import com.smartroute.smartroute1.entity.WeatherResponse;
-import com.smartroute.smartroute1.entity.enums.HeatRiskCategory;
-import com.smartroute.smartroute1.entity.enums.RainIntensity;
-import com.smartroute.smartroute1.entity.enums.WindIntensity;
 import com.smartroute.smartroute1.exception.WeatherException;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.WeatherRepository;
@@ -214,16 +210,13 @@ public class WeatherServiceImpl implements WeatherService {
         validator.validateWeatherValues(weather);
 
         double wbgt = computeWbgt(weather);
-        HeatRiskCategory temperatureRiskCategory;
 
         HeatRiskCategory heat = classifyHeatRisk(wbgt);
-        temperatureRiskCategory = heat;
         double temperatureRiskPenalty = weatherPenalty(wbgt, 100.0, 0.35, 25.0, 1.25);
 
         // if wbgt indicates lower than optimal temperature, estimate temperature risk using wind chill.
-        if (heat == HeatRiskCategory.LOW_COLD) {
+        if (heat == HeatRiskCategory.BELOW_WBGT_RANGE) {
             double windChill = calculateWindChill(weather.getTemperature2m(), weather.getWindSpeed10m());
-            temperatureRiskCategory = classifyColdRisk(windChill);
             temperatureRiskPenalty = 100 - weatherPenalty(windChill, 100.0, 0.18, -5.0, 1.35);
         }
 
@@ -523,13 +516,50 @@ public class WeatherServiceImpl implements WeatherService {
         return snowImpact * 100;
     }
 
+    private enum WindIntensity {
+        CALM,
+        GENTLE_BREEZE,
+        MODERATE_BREEZE,
+        STRONG_BREEZE,
+        GALE_AND_BEYOND
+    }
+
+    private enum HeatRiskCategory {
+        BELOW_WBGT_RANGE,
+        OPTIMAL,
+        LOW_HEAT,
+        MODERATE_HEAT,
+        HIGH_HEAT,
+        EXTREME_HEAT
+    }
+
+    private enum ColdRiskCategory {
+        EXTREME_COLD,
+        SEVERE_COLD,
+        VERY_HIGH_COLD_RISK,
+        HIGH_COLD_RISK,
+        MODERATE_COLD,
+        LOW_COLD,
+        NEUTRAL,
+    }
+
+    public enum RainIntensity {
+        NONE,
+        TRACE,
+        VERY_LIGHT,
+        LIGHT,
+        MODERATE,
+        HEAVY,
+        VIOLENT
+    }
+
     // Classification of the heat risk: https://www.weather.gov/arx/wbgt
     private HeatRiskCategory classifyHeatRisk(double wbgt) {
         if (wbgt < 10.0) {
-            return HeatRiskCategory.LOW_COLD;
+            return HeatRiskCategory.BELOW_WBGT_RANGE;
         }
         if (wbgt >= 10.0 && wbgt < 18.3) {
-            return HeatRiskCategory.NEUTRAL;
+            return HeatRiskCategory.OPTIMAL;
         }
         if (wbgt >= 18.3 && wbgt <= 22.2) {
             return HeatRiskCategory.LOW_HEAT;
@@ -544,26 +574,26 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     // Classification of cold risk: https://www.canada.ca/en/environment-climate-change/services/weather-health/wind-chill-cold-weather/wind-chill-index.html
-    private HeatRiskCategory classifyColdRisk(double windChill) {
+    private ColdRiskCategory classifyColdRisk(double windChill) {
         if (windChill <= -55) {
-            return HeatRiskCategory.EXTREME_COLD;
+            return ColdRiskCategory.EXTREME_COLD;
         }
         if (windChill >= -54 && windChill <= -48) {
-            return HeatRiskCategory.SEVERE_COLD;
+            return ColdRiskCategory.SEVERE_COLD;
         }
         if (windChill >= -47 && windChill <= -40) {
-            return HeatRiskCategory.VERY_HIGH_COLD_RISK;
+            return ColdRiskCategory.VERY_HIGH_COLD_RISK;
         }
         if (windChill >= -39 && windChill <= -28) {
-            return HeatRiskCategory.HIGH_COLD_RISK;
+            return ColdRiskCategory.HIGH_COLD_RISK;
         }
         if (windChill >= -27 && windChill <= -10) {
-            return HeatRiskCategory.MODERATE_COLD;
+            return ColdRiskCategory.MODERATE_COLD;
         }
         if (windChill >= -9 && windChill <= 0) {
-            return HeatRiskCategory.LOW_COLD;
+            return ColdRiskCategory.LOW_COLD;
         }
-        return HeatRiskCategory.LOW_COLD;
+        return ColdRiskCategory.NEUTRAL;
     }
 
     // Classifies precipitation (mm/h) into categories of severity. Source: https://rainsimulator.com/guides/intensity-categories

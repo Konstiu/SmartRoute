@@ -1,6 +1,5 @@
 package com.smartroute.smartroute1.service.impl;
 
-import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.WeatherResponse;
