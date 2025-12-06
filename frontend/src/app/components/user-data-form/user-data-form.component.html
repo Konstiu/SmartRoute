@@ -31,7 +31,7 @@
       <ion-label position="floating">Birthdate
       @if (userDataControl.controls.birthdate.invalid && (userDataControl.controls.birthdate.touched)) {
         @if (userDataControl.controls.birthdate.hasError("past")) {
-          <ion-text color="danger">Date must not be in the future.</ion-text>
+          <ion-text color="danger">User must be at least 6 years old.</ion-text>
         }
         @if (userDataControl.controls.birthdate.hasError("unrealisticallyOld")) {
           <ion-text color="danger">Date indicates an unrealistically old age.</ion-text>
