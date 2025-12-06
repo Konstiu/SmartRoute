@@ -209,6 +209,7 @@ public class WeatherServiceImpl implements WeatherService {
     @Override
     public double calculateWeatherScore(WeatherResponse weather) throws ValidationException {
         validator.validateWeatherValues(weather);
+        validator.validateTimeFormat(weather.getTime());
 
         double wbgt = computeWbgt(weather);
 
@@ -400,6 +401,7 @@ public class WeatherServiceImpl implements WeatherService {
     @Override
     public double estimatePerformancePenalty(WeatherResponse weather) throws ValidationException {
         validator.validateWeatherValues(weather);
+        validator.validateTimeFormat(weather.getTime());
         final double optimalWbgt = 10.0;
         final double heatSlope = 0.25;
         final double coldSlope = 0.15;
@@ -624,6 +626,7 @@ public class WeatherServiceImpl implements WeatherService {
     @Override
     public WeatherSummaryDto buildWeatherDescription(WeatherResponse weather) throws ValidationException {
         validator.validateWeatherValues(weather);
+        validator.validateTimeFormat(weather.getTime());
         double wbgt = computeWbgt(weather);
         double windChill;
         HeatRiskCategory heatRisk = classifyHeatRisk(wbgt);
