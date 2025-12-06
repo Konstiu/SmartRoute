@@ -82,3 +82,54 @@ ion-input {
 		--background: transparent;
 	}
 }
+.checkbox-item {
+  margin-top: 16px;
+  margin-bottom: 8px;
+
+  ion-label {
+    margin-left: 8px;
+    font-size: 14px;
+  }
+}
+
+.policy-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+
+  .policy-link {
+    color: var(--ion-color-primary);
+    text-decoration: underline;
+    cursor: pointer;
+
+    &:hover {
+      opacity: 0.8;
+    }
+  }
+
+  .separator {
+    color: var(--ion-color-medium);
+  }
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  cursor: pointer;
+  user-select: none;
+
+  .checkbox-text {
+    font-size: 14px;
+    flex: 1;
+  }
+
+  &:active {
+    opacity: 0.7;
+  }
+}
