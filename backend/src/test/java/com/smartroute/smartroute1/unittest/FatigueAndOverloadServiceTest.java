@@ -8,6 +8,7 @@ import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.FatigueAndOverloadService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
+import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -16,6 +17,7 @@ import org.springframework.test.context.ActiveProfiles;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -80,7 +82,7 @@ class FatigueAndOverloadServiceTest extends BaseTest {
 
         Activity firstActivity = activities.get(0);
         activityRepository.deleteAll();
-        createActivity(firstActivity.getStartDate(),firstActivity.getDistance(),firstActivity.getMovingTime(),firstActivity.getTotalElevationGain());
+        createActivity(firstActivity.getStartDate(), firstActivity.getDistance(), firstActivity.getMovingTime(), firstActivity.getTotalElevationGain());
 
         LocalDate activityLocalDate = firstActivity.getStartDate()
                 .atZone(ZoneId.systemDefault())
@@ -96,9 +98,9 @@ class FatigueAndOverloadServiceTest extends BaseTest {
                 testUser
         );
 
-        double tsb = service.currentTsb(testUser);
-        double ctl = service.currentCtl(testUser);
-        double atl = service.currentAtl(testUser);
+        double tsb = service.tsbOn(testUser, activityLocalDate);
+        double ctl = service.ctlOn(testUser, activityLocalDate);
+        double atl = service.atlOn(testUser, activityLocalDate);
 
         assertAll(
                 () -> assertThat(ctl).isEqualTo(expectedScore),
@@ -221,13 +223,13 @@ class FatigueAndOverloadServiceTest extends BaseTest {
         Instant day3 = Instant.now();
 
         createActivity(day1, 10000f, 3600, 100f);
-        double tsb1 = service.currentTsb(testUser);
+        double tsb1 = service.tsbOn(testUser, day1.atZone(ZoneOffset.systemDefault()).toLocalDate());
 
         createActivity(day2, 15000f, 5400, 150f);
-        double tsb2 = service.currentTsb(testUser);
+        double tsb2 = service.tsbOn(testUser, day2.atZone(ZoneOffset.systemDefault()).toLocalDate());
 
         createActivity(day3, 20000f, 7200, 200f);
-        double tsb3 = service.currentTsb(testUser);
+        double tsb3 = service.tsbOn(testUser, day3.atZone(ZoneOffset.systemDefault()).toLocalDate());
 
         assertAll(
                 () -> assertThat(tsb1).isEqualTo(0.0),
@@ -688,11 +690,11 @@ class FatigueAndOverloadServiceTest extends BaseTest {
         List<Double> history = service.getCtlHistory(testUser);
 
         // Assert - should only have 3 entries (gaps not included as zero-load days)
-        assertThat(history).hasSize(3);
+        assertThat(history).hasSize(7);
     }
 
     @Test
-    void zeroSessionLoad_excludedFromCalculation() {
+    void zeroSessionLoad_NotExcludedFromCalculation() {
         testUser = userRepository.findUserByEmail(DEFAULT_USER_EMAIL);
         activityRepository.deleteAll();
         // Arrange
@@ -710,8 +712,7 @@ class FatigueAndOverloadServiceTest extends BaseTest {
         // Act
         List<Double> history = service.getCtlHistory(testUser);
 
-        // Assert - zero load activities are excluded
-        assertThat(history).isEmpty();
+        assertThat(history.size()).isEqualTo(1);
     }
 
     // ==================== Helper Methods ====================
