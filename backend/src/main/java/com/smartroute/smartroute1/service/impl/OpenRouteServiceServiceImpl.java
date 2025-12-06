@@ -21,7 +21,7 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
 
     private final WebClient webClient;
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private final String ORSAccessToken = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImQ2MDAyNmVjYmY4NTRhOWZiNThlMTI3YjY5NzAxODVlIiwiaCI6Im11cm11cjY0In0=";
+    private final String orsAccessToken = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImQ2MDAyNmVjYmY4NTRhOWZiNThlMTI3YjY5NzAxODVlIiwiaCI6Im11cm11cjY0In0=";
 
     // First Name: No
     // Last Name: Answer
@@ -39,7 +39,7 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
 
             String response = webClient.post()
                     .uri("https://api.openrouteservice.org/v2/directions/foot-walking/geojson")
-                    .header("Authorization", ORSAccessToken)
+                    .header("Authorization", orsAccessToken)
                     .header("Content-Type", "application/json")
                     .bodyValue("{\"coordinates\":" + coords + "}")
                     .retrieve()
