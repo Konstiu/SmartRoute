@@ -597,7 +597,7 @@ public class WeatherServiceImpl implements WeatherService {
     @Override
     public String evaluateWeatherScore(double weatherScore) {
         if (weatherScore < 0.0 || weatherScore > 1.0) {
-            return "Invalid weather score.";
+            return "Invalid weather score";
         }
 
         if (weatherScore <= 0.1) {
@@ -619,7 +619,7 @@ public class WeatherServiceImpl implements WeatherService {
         } else if (weatherScore <= 0.9) {
             return "Excellent weather";
         } else {
-            return "Near-perfect conditions.";
+            return "Near-perfect conditions";
         }
     }
 
