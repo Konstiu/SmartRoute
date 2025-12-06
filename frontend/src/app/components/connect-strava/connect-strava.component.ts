@@ -1,7 +1,7 @@
 import {Component, inject, Input, OnInit, Output, EventEmitter} from '@angular/core';
 import {StravaService} from "../../../services/strava.service";
 import {StravaAccountConnectionStateDto} from "../../dtos/strava-account-connection-state";
-import {IonicModule} from '@ionic/angular';
+import {IonicModule, ToastController} from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 
 
@@ -46,6 +46,7 @@ export class ConnectStravaComponent implements OnInit{
   @Input()
   public origin: "register" | "tabs/account" | "sync-activities" = "sync-activities";
   private stravaService: StravaService = inject(StravaService);
+  private toastCtrl: ToastController = inject(ToastController);
 
   ngOnInit(): void {
     this.stravaService.getConnectionState().subscribe({
@@ -62,6 +63,7 @@ export class ConnectStravaComponent implements OnInit{
       },
       error: error => {
         console.error("Failed to load Strava connection state: " + error);
+        const message = error?.error?.message || 'Failed to load Strava connection state.';
         this.connectionChanged.emit(false);
       }
     })
@@ -79,6 +81,8 @@ export class ConnectStravaComponent implements OnInit{
       },
       error: err => {
         console.error(err);
+        const message = 'Failed to disconnect Strava account.';
+        this.toastCtrl.create({ message, color: 'danger', duration: 4000, position: 'top' }).then(t => t.present());
       }
     });
   }

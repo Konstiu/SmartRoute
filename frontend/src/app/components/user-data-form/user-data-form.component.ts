@@ -21,7 +21,13 @@ export class UserDataFormComponent implements OnInit {
     birthdate: new FormControl(new Date(), (control) => {
       let date = new Date(control.value);
       if (date == null) return null;
-      if (date >= new Date()) return { past: true };
+      const currentDate = new Date();
+      const maxDate = new Date(currentDate);
+      maxDate.setFullYear(maxDate.getFullYear() - 6);
+      if (date >= maxDate) return { past: true };
+      const minDate = new Date(currentDate);
+      minDate.setFullYear(minDate.getFullYear() - 120);
+      if (date <= minDate) return { unrealisticallyOld: true };
       return null;
     }),
     experienceLevel: new FormControl(""),
