@@ -76,6 +76,9 @@ public class InjuryDataGenerator {
                     // User 3 (Pro): 5 past injuries, all recovered
                     generateProInjuries(users.get(j), today, batch);
                 }
+                case 4 -> {
+
+                }
                 default -> {
                     int injuryCount = random.nextInt(20);
                     if (injuryCount == 0) {
