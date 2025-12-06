@@ -47,7 +47,7 @@ public class FriendshipEndpoint {
         friendshipService.cancelFriendRequest(authentication.getName(), friendshipId);
     }
 
-    @PostMapping("/{friendshipId}/accept}")
+    @PostMapping("/{friendshipId}/accept")
     @Secured("ROLE_USER")
     public FriendshipDetailDto acceptFriendRequest(@PathVariable Long friendshipId) throws ConflictException {
         LOGGER.info("POST /api/v1/friendship/{friendshipId}/accept");
