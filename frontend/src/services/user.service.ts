@@ -83,4 +83,8 @@ export class UserService {
       }
     );
   }
+
+  deleteAccount(): Observable<any> {
+    return this.httpClient.delete(`${this.userUri}/account`);
+  }
 }

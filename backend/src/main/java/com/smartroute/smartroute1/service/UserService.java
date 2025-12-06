@@ -105,6 +105,6 @@ public interface UserService extends UserDetailsService {
      */
     boolean changePasswordWithToken(String token, PasswordResetDto resetDto) throws ValidationException;
 
-
+    void deleteAccount(String email);
 
 }
