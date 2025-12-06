@@ -1,6 +1,9 @@
 package com.smartroute.smartroute1.datagenerator;
 
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
+import com.smartroute.smartroute1.entity.enums.Sex;
+import com.smartroute.smartroute1.entity.enums.Weekday;
 import com.smartroute.smartroute1.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,16 +15,19 @@ import org.springframework.transaction.annotation.Transactional;
 import jakarta.annotation.PostConstruct;
 
 import java.lang.invoke.MethodHandles;
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.time.LocalDate;
+import java.util.Set;
 
 @Profile("generateData")
 @Component
 public class UserDataGenerator {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private static final int NUMBER_OF_USERS_TO_GENERATE = 1000;
+    private static final int NUMBER_OF_USERS_TO_GENERATE = 10;
     private static final int BATCH_SIZE = 100;
 
     private final PasswordEncoder passwordEncoder;
@@ -49,6 +55,59 @@ public class UserDataGenerator {
             user.setLastname("Mustermann" + i);
             user.setPassword(encodedPassword);
             user.setBirthdate(LocalDate.of(1980, 1, 1));
+
+            switch (i) {
+                case 1 -> {
+                    Set<Weekday> weekdays = new HashSet<>();
+                    weekdays.add(Weekday.MONDAY);
+                    weekdays.add(Weekday.FRIDAY);
+                    user.setActiveWeekdays(weekdays);
+                    user.setExperienceLevel(ExperienceLevel.BEGINNER);
+                    user.setWeight(BigDecimal.valueOf(90L));
+                    user.setHeight(184);
+                    user.setSex(Sex.MALE);
+                }
+                case 2 -> {
+                    Set<Weekday> weekdays = new HashSet<>();
+                    weekdays.add(Weekday.MONDAY);
+                    weekdays.add(Weekday.WEDNESDAY);
+                    weekdays.add(Weekday.FRIDAY);
+                    weekdays.add(Weekday.SATURDAY);
+                    user.setActiveWeekdays(weekdays);
+                    user.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
+                    user.setWeight(BigDecimal.valueOf(80L));
+                    user.setHeight(173);
+                    user.setSex(Sex.OTHER);
+                }
+                case 3 -> {
+                    Set<Weekday> weekdays = new HashSet<>();
+                    weekdays.add(Weekday.MONDAY);
+                    weekdays.add(Weekday.TUESDAY);
+                    weekdays.add(Weekday.WEDNESDAY);
+                    weekdays.add(Weekday.THURSDAY);
+                    weekdays.add(Weekday.FRIDAY);
+                    weekdays.add(Weekday.SATURDAY);
+                    weekdays.add(Weekday.SUNDAY);
+                    user.setActiveWeekdays(weekdays);
+                    user.setExperienceLevel(ExperienceLevel.COMPETITIVE_ATHLETE);
+                    user.setWeight(BigDecimal.valueOf(70L));
+                    user.setHeight(175);
+                    user.setSex(Sex.FEMALE);
+                }
+                default -> {
+                    Set<Weekday> weekdays = new HashSet<>();
+                    weekdays.add(Weekday.MONDAY);
+                    weekdays.add(Weekday.TUESDAY);
+                    weekdays.add(Weekday.THURSDAY);
+                    weekdays.add(Weekday.SATURDAY);
+                    user.setActiveWeekdays(weekdays);
+                    user.setExperienceLevel(ExperienceLevel.CASUAL);
+                    user.setWeight(BigDecimal.valueOf(80L));
+                    user.setHeight(180);
+                    user.setSex(Sex.MALE);
+                }
+            }
+
             batch.add(user);
             if (batch.size() >= BATCH_SIZE) {
                 userRepository.saveAll(batch);

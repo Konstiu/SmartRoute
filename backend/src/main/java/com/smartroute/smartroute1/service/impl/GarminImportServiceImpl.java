@@ -19,6 +19,7 @@ import com.smartroute.smartroute1.service.GpxService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.FatalBeanException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -29,15 +30,15 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
+import java.util.Base64;
 
 @Slf4j
 @Service
@@ -48,7 +49,9 @@ public class GarminImportServiceImpl implements GarminImportService {
     @Value("${garmin.python.script.path:${user.dir}/python/python_garmin_connect.py}")
     private String pythonScriptPath;
 
-    @Value("${garmin.python.executable:${user.dir}/python/.venv/bin/python3.12}")
+    @Value("#{T(java.lang.System).getProperty('os.name').toLowerCase().contains('win') ? "
+            + "'${garmin.python.executable.windows:${user.dir}/python/.venv/Scripts/python.exe}' :"
+            + "'${garmin.python.executable:${user.dir}/python/.venv/bin/python3.12}'}")
     private String pythonExecutable;
 
     private final ObjectMapper objectMapper;
@@ -57,6 +60,41 @@ public class GarminImportServiceImpl implements GarminImportService {
     private final ActivityRepository activityRepository;
     private final GpxService gpxService;
     private final FitnessScoreService fitnessScoreService;
+
+    @Override
+    @Transactional
+    public boolean isGarminConnected(String email) {
+        log.trace("isGarminConnected({}) called", email);
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        if (user == null) {
+            throw new FatalBeanException("User not found: " + email);
+        }
+
+        GarminAccount garminAccount = garminAccountRepository.findByUser(user);
+        if (garminAccount == null || garminAccount.getTokenJson() == null || garminAccount.getTokenJson().isBlank()) {
+            log.info("No Garmin account or tokens found for user: {}", email);
+            return false;
+        }
+
+        boolean valid = hasValidRefreshToken(garminAccount.getTokenJson());
+        log.info("Garmin account connection status for user {}: {}", email, valid ? "connected" : "not connected");
+        return valid;
+    }
+
+    @Override
+    @Transactional
+    public void disconnectGarminAccount(String email) {
+        log.trace("disconnectGarminAccount({}) called", email);
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        if (user == null) {
+            throw new FatalBeanException("User not found: " + email);
+        }
+        GarminAccount garminAccount = garminAccountRepository.findByUser(user);
+        if (garminAccount != null) {
+            garminAccountRepository.delete(garminAccount);
+            log.info("Garmin account disconnected for user: {}", email);
+        }
+    }
 
     /**
      * Sync activities for the given user.
@@ -96,8 +134,11 @@ public class GarminImportServiceImpl implements GarminImportService {
                 result = executePythonScript(email, password, activityCount);
             } else {
                 // for token-based login
-                // Usage: script.py  --token-json '<json>' <activity_count>
-                result = executePythonScript("--token-json", garminAccount.getTokenJson(), activityCount);
+                // Usage: script.py  --token-base64 '<base64>' <activity_count>
+                String base64Token = Base64.getEncoder().encodeToString(
+                        garminAccount.getTokenJson().getBytes(StandardCharsets.UTF_8)
+                );
+                result = executePythonScript("--token-base64", base64Token, activityCount);
             }
 
             // Update tokens in DB (tokens may be refreshed on every run)
@@ -339,7 +380,7 @@ public class GarminImportServiceImpl implements GarminImportService {
         JsonNode summary = activity.get("summary");
         JsonNode details = activity.get("details");
 
-        long activityId = summary.path("activityId").asLong(-1L);
+        String activityId = summary.path("activityId").asText(null);
         String activityName = summary.path("activityName").asText("Unnamed");
 
         boolean hasPolyline = summary.path("hasPolyline").asBoolean(false);
@@ -376,7 +417,7 @@ public class GarminImportServiceImpl implements GarminImportService {
         gpx.append("xmlns:gpxtpx=\"http://www.garmin.com/xmlschemas/TrackPointExtension/v1\">\n");
         gpx.append("  <metadata>\n");
 
-        long startTimestamp = summary.path("beginTimestamp").asLong();
+        long startTimestamp = summary.path("startTimeLocal").asLong();
         Instant startInstant = Instant.ofEpochMilli(startTimestamp);
         gpx.append("    <time>").append(startInstant.toString()).append("</time>\n");
         gpx.append("  </metadata>\n");
@@ -435,7 +476,8 @@ public class GarminImportServiceImpl implements GarminImportService {
         gpx.append("  </trk>\n");
         gpx.append("</gpx>\n");
 
-        activityId = summary.path("activityId").asLong();
+        // since the id is not the same as the one strava provides
+        //activityId = "garmin_ping_" + summary.path("activityId").asText(null);
 
         log.debug("Generated GPX for Garmin activity {} ({} points)", activityId, pointCount);
 
@@ -449,26 +491,50 @@ public class GarminImportServiceImpl implements GarminImportService {
                 gpx.toString().getBytes(StandardCharsets.UTF_8)
         );
 
-        try {
-            Optional<Activity> existingOpt = activityRepository.getActivitiesByUserAndStartDateAndExternalId(user, startInstant, activityId);
 
+        DateTimeFormatter garminFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+        try {
+            List<Activity> storedActivities = activityRepository.findAllByUserAndStartDate(user, LocalDateTime.parse(summary.path("startTimeGMT").asText(), garminFormatter).atZone(ZoneId.of("UTC")).toInstant());
+            Activity storedActivity = null;
+            if (storedActivities.size() > 1) {
+                float newDistance = (float) summary.path("distance").asDouble(0.0);
+
+                for (Activity stored : storedActivities) {
+                    float storedDistance = stored.getDistance();
+                    float distanceDiff = Math.abs(storedDistance - newDistance);
+
+                    if (distanceDiff <= 1000) {
+                        storedActivity = stored;
+                        break;
+                    }
+                }
+            } else if (storedActivities.size() == 1) {
+                storedActivity = storedActivities.get(0);
+            }
             Activity toSave;
 
-            if (existingOpt.isPresent()) {
+            if (storedActivity != null) {
                 importActivityFromSummary(user, summary);
                 return;
 
             } else {
                 Activity imported = gpxService.importStravaGpxFile(gpxStream, user.getEmail());
+                imported.setType("Run");
+                imported.setSportType("Run");
 
-                String activityType = summary.path("activityType").path("typeKey").asText("");
-                imported.setType(mapGarminTypeToActivityType(activityType));
+                String startTimeGmt = summary.path("startTimeGMT").asText();
+                imported.setStartDate(LocalDateTime.parse(startTimeGmt, garminFormatter).atZone(ZoneId.of("UTC")).toInstant());
+
+                String startTimeLocal = summary.path("startTimeLocal").asText();
+                imported.setStartDateLocal(LocalDateTime.parse(startTimeLocal, garminFormatter).atZone(ZoneId.of("UTC")).toInstant());
+                imported.setExternalId(imported.getExternalId());
 
                 // No existing activity → just save the imported one
                 toSave = imported;
             }
 
-            toSave.setExternalId(activityId);
+            //toSave.setExternalId(activityId);
             toSave.setGarminActivityTrainingsLoad(summary.path("activityTrainingLoad").asDouble(0.0));
 
             activityRepository.save(toSave);
@@ -489,28 +555,16 @@ public class GarminImportServiceImpl implements GarminImportService {
 
         // Basic info
         activity.setName(summary.path("activityName").asText("Unnamed Activity"));
+        activity.setType("Run");
+        activity.setSportType("Run");
 
-        String activityType = summary.path("activityType").path("typeKey").asText("");
-        activity.setType(mapGarminTypeToActivityType(activityType));
 
-        // Timestamps
-        long startTimestamp = summary.path("beginTimestamp").asLong();
-        activity.setStartDate(Instant.ofEpochMilli(startTimestamp));
+        DateTimeFormatter garminFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        String startTimeGmt = summary.path("startTimeGMT").asText();
+        activity.setStartDate(LocalDateTime.parse(startTimeGmt, garminFormatter).atZone(ZoneId.of("UTC")).toInstant());
+        String startTimeLocal = summary.path("startTimeLocal").asText();
+        activity.setStartDateLocal(LocalDateTime.parse(startTimeLocal, garminFormatter).atZone(ZoneId.of("UTC")).toInstant());
 
-        String startTimeLocal = summary.path("startTimeLocal").asText("");
-        if (!startTimeLocal.isEmpty()) {
-            try {
-                // Garmin format: "yyyy-MM-dd HH:mm:ss"
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-                LocalDateTime localDateTime = LocalDateTime.parse(startTimeLocal, formatter);
-                activity.setStartDateLocal(localDateTime.atZone(ZoneId.systemDefault()).toInstant());
-            } catch (Exception e) {
-                log.warn("Failed to parse startTimeLocal '{}', using GMT time instead", startTimeLocal);
-                activity.setStartDateLocal(Instant.ofEpochMilli(startTimestamp));
-            }
-        } else {
-            activity.setStartDateLocal(Instant.ofEpochMilli(startTimestamp));
-        }
 
         float distance = (float) summary.path("distance").asDouble(0.0);
         int elapsedTime = (int) summary.path("elapsedDuration").asDouble(0.0);
@@ -537,6 +591,7 @@ public class GarminImportServiceImpl implements GarminImportService {
 
         int sessionLoad;
         int actualMovingTime = movingTime > 0 ? movingTime : elapsedTime;
+        long startTimestamp = summary.path("startTimeLocal").asLong();
 
         if (maxHr > 0 && avgHr > 0 && actualMovingTime > 0) {
             List<Float> heartRates = new ArrayList<>();
@@ -553,7 +608,6 @@ public class GarminImportServiceImpl implements GarminImportService {
             sessionLoad = fitnessScoreService.calculateSessionLoad(
                     heartRates,
                     timestamps,
-                    maxHr,
                     activity
             );
 
@@ -573,29 +627,59 @@ public class GarminImportServiceImpl implements GarminImportService {
 
         activity.setSessionLoad(sessionLoad);
         activity.setGarminActivityTrainingsLoad(summary.path("activityTrainingLoad").asDouble());
-        activity.setExternalId(summary.get("activityId").asLong());
+        // since it is not the same as the id strava provieds
+        //activity.setExternalId("garmin_ping_" + summary.get("activityId").asText());
 
-        // Save activity
+        log.info(String.valueOf(activity.getStartDate()));
+        log.info(String.valueOf(activity.getStartDateLocal()));
         Activity saved;
+        List<Activity> storedActivities = activityRepository.findAllByUserAndStartDate(user, activity.getStartDate());
+        Activity storedActivity = null;
+        if (storedActivities.size() > 1) {
+            float newDistance = activity.getDistance();
 
-        Optional<Activity> storedActivities = activityRepository.getActivitiesByUserAndStartDate(user, activity.getStartDate());
+            for (Activity stored : storedActivities) {
+                float storedDistance = stored.getDistance();
+                float distanceDiff = Math.abs(storedDistance - newDistance);
 
-        if (storedActivities.isEmpty()) {
+                if (distanceDiff <= 1000) {
+                    storedActivity = stored;
+                    break;
+                }
+            }
+        } else if (storedActivities.size() == 1) {
+            storedActivity = storedActivities.get(0);
+        }
+
+
+        if (storedActivity == null) {
             saved = activityRepository.save(activity);
         } else {
-            Activity storedActivity = storedActivities.get();
             storedActivity.setGarminActivityTrainingsLoad(summary.path("activityTrainingLoad").asDouble());
             storedActivity.setTotalElevationGain(activity.getTotalElevationGain());
             storedActivity.setAverageSpeed(activity.getAverageSpeed());
             storedActivity.setMaxSpeed(activity.getMaxSpeed());
             storedActivity.setAverageHeartrate(activity.getAverageHeartrate());
-            storedActivity.setSessionLoad(activity.getSessionLoad());
+
+            // only update session load if strava suffer score was not set before
+            if (storedActivity.getSufferScore() == null) {
+                storedActivity.setSessionLoad(activity.getSessionLoad());
+            }
+
             storedActivity.setStartDate(activity.getStartDate());
             storedActivity.setElapsedTime(activity.getElapsedTime());
             storedActivity.setMovingTime(activity.getMovingTime());
             storedActivity.setMaxHeartrate(activity.getMaxHeartrate());
+            storedActivity.setExternalId(storedActivity.getExternalId());
             storedActivity.setSummaryPolyline(storedActivity.getSummaryPolyline());
-            storedActivity.setExternalId(activity.getExternalId());
+            storedActivity.setAverageWatts(storedActivity.getAverageWatts());
+            storedActivity.setKilojoules(storedActivity.getKilojoules());
+            storedActivity.setStravaId(storedActivity.getStravaId());
+            storedActivity.setSufferScore(storedActivity.getSufferScore());
+            storedActivity.setSportType(storedActivity.getSportType());
+
+
+
             saved = activityRepository.save(storedActivity);
         }
 
@@ -620,19 +704,6 @@ public class GarminImportServiceImpl implements GarminImportService {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&apos;");
-    }
-
-
-    //Maps Garmin activity type to Activity type enum/string
-    private String mapGarminTypeToActivityType(String garminType) {
-        // Map common Garmin types to our system
-        return switch (garminType.toLowerCase()) {
-            case "running", "trail_running", "treadmill_running" -> "Run";
-            case "cycling", "road_cycling", "mountain_biking", "virtual_ride" -> "Ride";
-            case "walking", "hiking" -> "Walk";
-            case "swimming", "lap_swimming", "open_water_swimming" -> "Swim";
-            default -> null; // Default to null for unknown types
-        };
     }
 
 

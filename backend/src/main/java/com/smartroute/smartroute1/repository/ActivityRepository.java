@@ -2,6 +2,8 @@ package com.smartroute.smartroute1.repository;
 
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.enums.WorkoutType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -40,7 +42,19 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
 
     Optional<Activity> getActivitiesByUserAndStartDate(ApplicationUser user, Instant startDate);
 
-    Optional<Activity> getActivitiesByUserAndStartDateAndExternalId(ApplicationUser user, Instant startDate, Long externalId);
+    Optional<Activity> getActivitiesByUserAndStartDateAndExternalId(ApplicationUser user, Instant startDate, String externalId);
 
     List<Activity> getActivitiesByUser(ApplicationUser user);
+
+    List<Activity> findAllByUserAndStartDate(ApplicationUser user, Instant startDateLocal);
+
+    Optional<Activity> findTopByUserAndStartDateBeforeOrderByStartDateDesc(ApplicationUser user, Instant date);
+
+    List<Activity> findByUserOrderByStartDateDesc(ApplicationUser user, Pageable pageable);
+
+    Optional<Activity> findTopByUserAndWorkoutTypeInAndStartDateBeforeOrderByStartDateDesc(
+        ApplicationUser user,
+        List<WorkoutType> workoutTypes,
+        Instant startDate
+    );
 }
