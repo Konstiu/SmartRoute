@@ -61,7 +61,7 @@ class ReadinessScoreServiceTest {
 
         Injuries inj = new Injuries();
         inj.setInjuryIndex(0.2);
-        when(injurySvc.findInjuriesByEmail(u.getEmail())).thenReturn(List.of(inj));
+        when(injurySvc.getInjuryIndex(u.getEmail())).thenReturn(0.2);
 
         when(activitySvc.getLastActivityBeforeDate(u.getEmail(), d))
                 .thenReturn(Optional.of(activityWithSatisfaction(4)));
@@ -78,12 +78,12 @@ class ReadinessScoreServiceTest {
 
         when(fatigueSvc.ctlOn(u, d)).thenReturn(80.0);
         when(fatigueSvc.tsbOn(u, d)).thenReturn(0.0);
-        when(injurySvc.findInjuriesByEmail(u.getEmail())).thenReturn(List.of());
+        when(injurySvc.getInjuryIndex(u.getEmail())).thenReturn(0.0);
         when(activitySvc.getLastActivityBeforeDate(u.getEmail(), d))
                 .thenReturn(Optional.of(activityWithSatisfaction(3)));
 
         int score = service.calculateReadinessScore(u, d);
-        assertEquals(50, score);
+        assertEquals(57, score);
     }
 
     @Test
@@ -123,12 +123,12 @@ class ReadinessScoreServiceTest {
 
         when(fatigueSvc.ctlOn(u, d)).thenReturn(20.0); // low CTL
         when(fatigueSvc.tsbOn(u, d)).thenReturn(30.0); // high fatigue
-        when(injurySvc.findInjuriesByEmail(u.getEmail())).thenReturn(List.of());
+        when(injurySvc.getInjuryIndex(u.getEmail())).thenReturn(0.0);
         when(activitySvc.getLastActivityBeforeDate(u.getEmail(), d))
                 .thenReturn(Optional.of(activityWithSatisfaction(2)));
 
         int score = service.calculateReadinessScore(u, d);
-        assertEquals(50, score);
+        assertEquals(59, score);
     }
 
     @Test
@@ -146,10 +146,10 @@ class ReadinessScoreServiceTest {
         when(activitySvc.getLastActivityBeforeDate(u.getEmail(), d))
                 .thenReturn(Optional.of(activityWithSatisfaction(3)));
 
-        when(injurySvc.findInjuriesByEmail(u.getEmail())).thenReturn(List.of(healthy));
+        when(injurySvc.getInjuryIndex(u.getEmail())).thenReturn(0.0);
         int scoreHealthy = service.calculateReadinessScore(u, d);
 
-        when(injurySvc.findInjuriesByEmail(u.getEmail())).thenReturn(List.of(severe));
+        when(injurySvc.getInjuryIndex(u.getEmail())).thenReturn(1.0);
         int scoreSevere = service.calculateReadinessScore(u, d);
 
         assertAll(
@@ -174,10 +174,10 @@ class ReadinessScoreServiceTest {
         when(activitySvc.getLastActivityBeforeDate(u.getEmail(), d))
                 .thenReturn(Optional.of(activityWithSatisfaction(4)));
 
-        when(injurySvc.findInjuriesByEmail(u.getEmail())).thenReturn(List.of(inj1));
+        when(injurySvc.getInjuryIndex(u.getEmail())).thenReturn(0.6);
         int scoreHigh = service.calculateReadinessScore(u, d);
 
-        when(injurySvc.findInjuriesByEmail(u.getEmail())).thenReturn(List.of(inj1, inj2, inj3));
+        when(injurySvc.getInjuryIndex(u.getEmail())).thenReturn(0.3);
         int scoreSmallest = service.calculateReadinessScore(u, d);
 
         assertAll(

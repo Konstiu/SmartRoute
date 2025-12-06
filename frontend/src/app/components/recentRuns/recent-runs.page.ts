@@ -178,9 +178,6 @@ export class RecentRunsPage implements OnInit {
 
   protected readonly formatElevation = formatElevation;
   protected readonly formatHeartRate = formatHeartRate;
-  protected readonly formatDistance = formatDistance;
-  protected readonly formatDuration = formatDuration;
-  protected readonly formatPace = formatPace;
   ngOnDestroy() {
     if (this.syncSubscription) {
       this.syncSubscription.unsubscribe();
