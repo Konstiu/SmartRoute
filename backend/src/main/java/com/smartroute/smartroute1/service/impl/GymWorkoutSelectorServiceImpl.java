@@ -94,8 +94,7 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
             GymWorkoutDto gymWorkoutDto = getGymWorkoutById(existing.get().getId(), user.getEmail());
 
             return gymWorkoutDto;
-        }
-        else {
+        } else {
             return getGymWorkout(user, injuriesMap, readinessScore);
         }
     }

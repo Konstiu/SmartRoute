@@ -18,8 +18,8 @@ public interface GymWorkoutRepository extends JpaRepository<GymWorkout, Long> {
 
     GymWorkout findGymWorkoutById(Long id);
 
-    @Query("SELECT DISTINCT gw FROM GymWorkout gw " +
-            "LEFT JOIN FETCH gw.exercises " +
-            "WHERE gw.user = :user AND gw.creationDate = :creationDate")
+    @Query("SELECT DISTINCT gw FROM GymWorkout gw "
+            + "LEFT JOIN FETCH gw.exercises "
+            + "WHERE gw.user = :user AND gw.creationDate = :creationDate")
     Optional<GymWorkout> findFirstByUserAndCreationDate(@Param("user") ApplicationUser user, @Param("creationDate") LocalDate creationDate);
 }
