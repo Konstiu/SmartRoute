@@ -29,6 +29,7 @@ export class RegisterPage {
   isSubmitting = false;
   errorMessage: string | null = null;
   successMessage: string | null = null;
+  termsAccepted = false;
 
   createUser: CreateUserDto = {
     firstname: "",
@@ -75,6 +76,16 @@ export class RegisterPage {
         this.errorMessage = msg;
       }
     });
+  }
+
+  openAgb(event: Event) {
+    event.preventDefault();
+    this.router.navigate(['/TandC']);
+  }
+
+  openPrivacyPolicy(event: Event) {
+    event.preventDefault();
+    this.router.navigate(['/privacy']);
   }
 
   goToLogin() {
