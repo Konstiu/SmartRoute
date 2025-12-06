@@ -9,6 +9,9 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.AthleteZone;
 import com.smartroute.smartroute1.entity.GarminAccount;
 import com.smartroute.smartroute1.exception.garmin.GarminAuthenticationException;
+import com.smartroute.smartroute1.exception.garmin.GarminException;
+import com.smartroute.smartroute1.exception.garmin.GarminScriptException;
+import com.smartroute.smartroute1.exception.garmin.GarminNoDataException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.AthleteZoneRepository;
 import com.smartroute.smartroute1.repository.GarminAccountRepository;
@@ -20,6 +23,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.beans.FatalBeanException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.test.context.support.WithMockUser;
@@ -177,5 +181,148 @@ public class GarminConnectPythonScriptMockedServiceTest extends BaseTest {
         // Still not connected
         assertFalse(garminImportService.isGarminConnected(user.getEmail()));
     }
+
+
+    @Test
+    void isGarminConnected_withUnknownEmail_throwsFatalBeanException() {
+        String unknownEmail = "does-not-exist@example.com";
+
+        assertThrows(
+                FatalBeanException.class,
+                () -> garminImportService.isGarminConnected(unknownEmail)
+        );
+    }
+
+    @Test
+    void disconnectGarminAccount_withUnknownEmail_throwsFatalBeanException() {
+        String unknownEmail = "does-not-exist@example.com";
+
+        assertThrows(
+                FatalBeanException.class,
+                () -> garminImportService.disconnectGarminAccount(unknownEmail)
+        );
+    }
+
+    @Test
+    void isGarminConnected_withBlankToken_returnsFalse() {
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        GarminAccount account = garminAccountRepository.findByUser(user);
+        if (account == null) {
+            account = new GarminAccount();
+            account.setUser(user);
+        }
+        account.setTokenJson("    "); // blank but not null
+        garminAccountRepository.save(account);
+
+        boolean connected = garminImportService.isGarminConnected(user.getEmail());
+        assertFalse(connected, "Blank token JSON should be treated as not connected");
+    }
+
+    @Test
+    void isGarminConnected_withTokenWithoutRefreshExpiry_returnsFalse() {
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        GarminAccount account = garminAccountRepository.findByUser(user);
+        if (account == null) {
+            account = new GarminAccount();
+            account.setUser(user);
+        }
+
+        // Minimal JSON: refresh_token_expires_at is 0 -> invalid token
+        String tokenJson = """
+        {
+          "refresh_token_expires_at": 0
+        }
+        """;
+        account.setTokenJson(tokenJson);
+        garminAccountRepository.save(account);
+
+        boolean connected = garminImportService.isGarminConnected(user.getEmail());
+        assertFalse(connected, "Token without refresh expiry must be treated as invalid");
+    }
+
+    @Test
+    void isGarminConnected_withMalformedTokenJson_returnsFalse() {
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        GarminAccount account = garminAccountRepository.findByUser(user);
+        if (account == null) {
+            account = new GarminAccount();
+            account.setUser(user);
+        }
+
+        account.setTokenJson("this is not valid json {"); // will cause parse error
+        garminAccountRepository.save(account);
+
+        boolean connected = garminImportService.isGarminConnected(user.getEmail());
+        assertFalse(connected, "Malformed token JSON should be treated as invalid");
+    }
+
+    @Test
+    void syncActivities_withValidTokenAndNoCredentials_usesTokenBasedFlow() throws Exception {
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        // First login with credentials -> creates GarminAccount + tokens
+        garminImportService.syncActivities(user, 1, "test@email.com", "myGarminPassword");
+
+        GarminAccount afterFirstSync = garminAccountRepository.findByUser(user);
+        assertNotNull(afterFirstSync, "GarminAccount should exist after first sync");
+        assertNotNull(afterFirstSync.getTokenJson(), "Token JSON should be stored after first sync");
+
+        // Second sync: no email/password -> should use token-based flow
+        garminImportService.syncActivities(user, 1, null, null);
+
+        GarminAccount afterSecondSync = garminAccountRepository.findByUser(user);
+        assertNotNull(afterSecondSync, "GarminAccount must still exist after token-based sync");
+        assertNotNull(afterSecondSync.getTokenJson(), "Token JSON must still be present after token-based sync");
+        // We don't assert that the token changed – script may or may not refresh it.
+    }
+
+    @Test
+    void syncActivities_withMockAuthError_throwsGarminAuthenticationException() {
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        assertThrows(
+                GarminAuthenticationException.class,
+                () -> garminImportService.syncActivities(
+                        user,
+                        1,
+                        "auth-error@example.com",   // magic email the mock script checks
+                        "whatever"
+                )
+        );
+    }
+    @Test
+    void syncActivities_withMockNoRuns_throwsGarminNoDataException() {
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        assertThrows(
+                GarminNoDataException.class,
+                () -> garminImportService.syncActivities(
+                        user,
+                        1,
+                        "no-runs@example.com",       // magic email
+                        "whatever"
+                )
+        );
+    }
+    @Test
+    void syncActivities_withMockScriptFailure_throwsGarminScriptException() {
+        ApplicationUser user = userRepository.findAll().getFirst();
+
+        assertThrows(
+                GarminScriptException.class,
+                () -> garminImportService.syncActivities(
+                        user,
+                        1,
+                        "script-error@example.com",  // magic email
+                        "whatever"
+                )
+        );
+    }
+
+
+
 
 }

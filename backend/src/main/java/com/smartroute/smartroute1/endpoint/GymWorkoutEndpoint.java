@@ -87,8 +87,9 @@ public class GymWorkoutEndpoint {
             summary = "Get a gym workout by their id"
     )
     public GymWorkoutDto getGymWorkoutById(@PathVariable("id") Long id) {
-        LOGGER.info("GET /api/v1/gym/get/{id}", id);
-        return gymWorkoutSelectorService.getGymWorkoutById(id);
+        LOGGER.info("GET /api/v1/gym/get/{}", id);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return gymWorkoutSelectorService.getGymWorkoutById(id, authentication.getName());
     }
 
 

@@ -16,8 +16,10 @@ import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
 import com.smartroute.smartroute1.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
@@ -172,10 +174,17 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
     }
 
     @Override
-    public GymWorkoutDto getGymWorkoutById(Long id) {
+    public GymWorkoutDto getGymWorkoutById(Long id, String email) {
+        ApplicationUser user = userService.findApplicationUserByEmail(email);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
         GymWorkout gymWorkout = gymWorkoutRepository.findGymWorkoutById(id);
         if (gymWorkout == null) {
             throw new NotFoundException("Could not find GymWorkout with id " + id);
+        }
+        if (!gymWorkout.getUser().getId().equals(user.getId())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "GymWorkout does not belong to user");
         }
         GymWorkoutDto gymWorkoutDto = new GymWorkoutDto();
         gymWorkoutDto.setId(gymWorkout.getId());
