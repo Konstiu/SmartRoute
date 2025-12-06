@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.lang.invoke.MethodHandles;
@@ -46,6 +47,7 @@ public class EmailSmtpServiceImpl implements EmailSmtpService {
     }
 
     @Override
+    @Async("mailExecutor")
     public void sendVerificationEmail(CreateUserDto userDto, String origin) {
         LOG.trace("Send verification email {}", userDto);
         try {
@@ -77,6 +79,7 @@ public class EmailSmtpServiceImpl implements EmailSmtpService {
     }
 
     @Override
+    @Async("mailExecutor")
     public void sendPasswordResetEmail(ApplicationUser userDto, String origin) {
         LOG.trace("Send password reset email {}", userDto);
         try {

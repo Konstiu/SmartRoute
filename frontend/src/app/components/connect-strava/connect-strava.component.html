@@ -1,79 +1,78 @@
-<ion-card>
-  @if (connectionState?.connected) {
-    <ion-card-header>
-      <ion-card-title class="connected-title">
-        <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
-        Strava Connected
-      </ion-card-title>
-    </ion-card-header>
+@if (connectionState?.connected) {
+  <ion-card-header>
+    <ion-card-title class="connected-title">
+      <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
+      Strava Connected
+    </ion-card-title>
+  </ion-card-header>
 
-    <ion-card-content>
-      <div class="scope-list">
-        <h3>Granted permissions:</h3>
+  <ion-card-content>
+    <div class="scope-list">
+      <h3>Granted permissions:</h3>
 
-        <ion-chip *ngFor="let scope of parsedScopes" color="primary" outline="true">
-          <ion-icon name="key-outline"></ion-icon>
-          <ion-label>{{ scope }}</ion-label>
-        </ion-chip>
+      <ion-chip *ngFor="let scope of parsedScopes" color="primary" outline="true">
+        <ion-icon name="key-outline"></ion-icon>
+        <ion-label>{{ scope }}</ion-label>
+      </ion-chip>
+    </div>
+
+    @if (missingScopes.length > 0) {
+      <div class="warning-box">
+        <ion-icon name="warning-outline"></ion-icon>
+        <p>
+          Some important permissions are missing.
+          SmartRoute may not function correctly.
+
+          <ion-chip *ngFor="let scope of missingScopes" color="danger" outline="true">
+            <ion-icon name="key-outline"></ion-icon>
+            <ion-label>{{ scope }}</ion-label>
+          </ion-chip>
+
+        </p>
+        <ion-button expand="block" color="warning" (click)="connectStravaAccount()">
+          <ion-icon slot="start" name="refresh-outline"></ion-icon>
+          Grant missing permissions
+        </ion-button>
       </div>
+    } @else {
+      <div class="ok-box">
+        <ion-icon name="checkmark-done-outline"></ion-icon>
+        All necessary permissions granted
+      </div>
+    }
 
-      @if (missingScopes.length > 0) {
-        <div class="warning-box">
-          <ion-icon name="warning-outline"></ion-icon>
-          <p>
-            Some important permissions are missing.
-            SmartRoute may not function correctly.
+    <ion-button fill="outline" id="disconnect" expand="block" color="danger">
+      <ion-icon slot="start" name="close-circle-outline" (click)="disconnectStravaAccount()"></ion-icon>
+      Disconnect Strava
+    </ion-button>
+    <ion-alert
+      trigger="disconnect"
+      header="Disconnect Strava?"
+      message="SmartRoute will no longer be synchronized with your Strava account."
+      [buttons]="alertButtons"
+    >
+    </ion-alert>
 
-            <ion-chip *ngFor="let scope of missingScopes" color="danger" outline="true">
-              <ion-icon name="key-outline"></ion-icon>
-              <ion-label>{{ scope }}</ion-label>
-            </ion-chip>
+  </ion-card-content>
+} @else {
+  <ion-card-header>
+    <ion-card-title class="not-connected-title">
+      <ion-icon name="link-outline" color="medium"></ion-icon>
+      Connect Your Strava Account
+    </ion-card-title>
+  </ion-card-header>
 
-          </p>
-          <ion-button expand="block" color="warning" (click)="connectStravaAccount()">
-            <ion-icon slot="start" name="refresh-outline"></ion-icon>
-            Grant missing permissions
-          </ion-button>
-        </div>
-      } @else {
-        <div class="ok-box">
-          <ion-icon name="checkmark-done-outline"></ion-icon>
-          All necessary permissions granted
-        </div>
-      }
+  <ion-card-content>
+    <p class="info-text">
+      Connect to Strava and sync your activities and athlete data with SmartRoute.
+    </p>
 
-      <ion-button id="disconnect" expand="block" color="danger">
-        <ion-icon slot="start" name="close-circle-outline" (click)="disconnectStravaAccount()"></ion-icon>
-        Disconnect Strava
-      </ion-button>
-      <ion-alert
-        trigger="disconnect"
-        header="Disconnect Strava?"
-        message="SmartRoute will no longer be synchronized with your Strava account."
-        [buttons]="alertButtons"
-      >
-      </ion-alert>
+    <ion-button expand="block" color="primary" (click)="connectStravaAccount()">
+      <ion-icon slot="start" name="bicycle-outline"></ion-icon>
+      Link Strava
+    </ion-button>
+  </ion-card-content>
+}
 
-    </ion-card-content>
-  } @else {
-    <ion-card-header>
-      <ion-card-title class="not-connected-title">
-        <ion-icon name="link-outline" color="medium"></ion-icon>
-        Connect Your Strava Account
-      </ion-card-title>
-    </ion-card-header>
-
-    <ion-card-content>
-      <p class="info-text">
-        Connect to Strava and sync your activities and athlete data with SmartRoute.
-      </p>
-
-      <ion-button expand="block" color="primary" (click)="connectStravaAccount()">
-        <ion-icon slot="start" name="bicycle-outline"></ion-icon>
-        Link Strava
-      </ion-button>
-    </ion-card-content>
-  }
-</ion-card>
 
 

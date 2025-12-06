@@ -23,6 +23,13 @@ const routes: Routes = [
         path: 'recentRuns',
         loadComponent: () => import('../recentRuns/recent-runs.page').then(m => m.RecentRunsPage)
       },
+      {
+        path: 'gym',
+        loadChildren: () =>
+          import('../gym-workout-tab/gym-workout-tab.module').then(
+            m => m.GymWorkoutTabPageModule,
+          ),
+      },
 
       {
         path: 'activ',
@@ -49,4 +56,5 @@ const routes: Routes = [
 @NgModule({
   imports: [RouterModule.forChild(routes)],
 })
-export class TabsPageRoutingModule { }
+export class TabsPageRoutingModule {
+}

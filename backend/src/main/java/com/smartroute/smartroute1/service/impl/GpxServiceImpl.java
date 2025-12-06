@@ -28,10 +28,13 @@ import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -56,13 +59,31 @@ public class GpxServiceImpl implements GpxService {
             // parse gpx file
             GPX gpx = GPX.Reader.DEFAULT.read(gpxStream);
 
-            // set metadata, i.e. name and start date
+            // set metadata, i.e. name, type and start date
             gpx.tracks().findFirst().ifPresent(track -> {
                 activity.setName(track.getName().orElse("Unnamed Activity"));
+
+                String type = track.getType().orElse(null);
+                String normalized = type == null ? "" : type.trim().toLowerCase();
+                Set<String> runningTypes = Set.of(
+                        "run", "running", "jogging", "trail run", "trail running",
+                        "fell running", "track run", "treadmill", "indoor running",
+                        "virtual run"
+                );
+                if (normalized.isEmpty()) {
+                    activity.setSportType("Other");
+                } else if (runningTypes.contains(normalized)) {
+                    activity.setSportType("Run");
+                } else {
+                    // keep original GPX type
+                    activity.setSportType(type);
+                }
             });
             gpx.getMetadata().flatMap(Metadata::getTime).ifPresent(startDate -> {
+                ZoneId sys = ZoneId.systemDefault();
+                ZoneOffset offset = sys.getRules().getOffset(startDate);
+                activity.setStartDateLocal(startDate.plusSeconds(offset.getTotalSeconds()));
                 activity.setStartDate(startDate);
-                activity.setStartDateLocal(startDate);
             });
 
             // extract all waypoints from all segments of all tracks
@@ -165,7 +186,7 @@ public class GpxServiceImpl implements GpxService {
             // see FitnessScoreServiceImpl.calculateSessionLoad for details
             int sessionLoad;
             if (maxHeartRate > 0) {
-                sessionLoad = fitnessScoreService.calculateSessionLoad(heartRates, timestamps, (float) maxHeartRate, activity);
+                sessionLoad = fitnessScoreService.calculateSessionLoad(heartRates, timestamps, activity);
             } else {
                 sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain());
             }
@@ -196,7 +217,11 @@ public class GpxServiceImpl implements GpxService {
                 storedActivity.setAverageSpeed(activity.getAverageSpeed());
                 storedActivity.setMaxSpeed(activity.getMaxSpeed());
                 storedActivity.setAverageHeartrate(activity.getAverageHeartrate());
-                storedActivity.setSessionLoad(activity.getSessionLoad());
+
+                // only update session load if strava suffer score was not set before
+                if (storedActivity.getSufferScore() == null) {
+                    storedActivity.setSessionLoad(activity.getSessionLoad());
+                }
                 storedActivity.setStartDate(activity.getStartDate());
                 storedActivity.setElapsedTime(activity.getElapsedTime());
                 storedActivity.setMovingTime(activity.getMovingTime());

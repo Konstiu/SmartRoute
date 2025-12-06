@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.endpoint.dto;
 
+import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import lombok.Data;
 
 @Data
@@ -21,4 +22,6 @@ public class DetailedActivityDto {
     private Float averageWatts;
     private Float kilojoules;
     private String summaryPolyline;
+    private Integer satisfactionScore;
+    private WorkoutType workoutType;
 }

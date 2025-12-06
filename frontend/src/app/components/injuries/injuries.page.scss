@@ -1,0 +1,158 @@
+.injuries-container {
+  max-width: 50rem;
+  margin: 0 auto;
+}
+
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3.75rem 1.25rem;
+
+  ion-spinner {
+    margin-bottom: 1rem;
+  }
+
+  p {
+    color: var(--ion-color-medium);
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3.75rem 1.25rem;
+  text-align: center;
+
+  .empty-icon {
+    font-size: 5rem;
+    color: var(--ion-color-medium);
+    margin-bottom: 1.25rem;
+    opacity: 0.5;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--ion-color-dark);
+  }
+
+  p {
+    color: var(--ion-color-medium);
+    font-size: 1rem;
+  }
+}
+
+.injuries-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.injury-card {
+  margin: 0 0 1rem 0;
+  box-shadow: 0 0.125rem 0.75rem rgba(0, 0, 0, 0.08);
+  border-radius: 1rem;
+  overflow: hidden;
+  transition: all 0.3s ease;
+
+  &.recovered {
+    border-left: 0.25rem solid var(--ion-color-success);
+    background: linear-gradient(to right, rgba(16, 220, 96, 0.05), transparent);
+  }
+
+  ion-card-content {
+    padding: 1.25rem;
+  }
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--ion-color-light-shade);
+}
+
+.title-section {
+  flex: 1;
+
+  h2 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--ion-color-dark);
+    line-height: 1.2;
+  }
+}
+
+.severity-badge {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.75rem;
+  letter-spacing: 0.03125rem;
+}
+
+.delete-btn {
+  margin: -0.5rem -0.5rem 0 0;
+  --padding-start: 0.5rem;
+  --padding-end: 0.5rem;
+}
+
+.card-body {
+  margin-bottom: 1rem;
+}
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.info-icon {
+  font-size: 1.25rem;
+  color: var(--ion-color-primary);
+  margin-top: 0.125rem;
+  flex-shrink: 0;
+
+  &.recovered-icon {
+    color: var(--ion-color-success);
+  }
+}
+
+.info-text {
+  color: var(--ion-color-dark);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.days-ago {
+  color: var(--ion-color-medium);
+  font-size: 0.8125rem;
+  margin-left: 0.25rem;
+}
+
+.recovered-text {
+  color: var(--ion-color-success);
+  font-weight: 600;
+  margin-left: 0.5rem;
+}
+
+.edit-btn {
+  margin-top: 0.75rem;
+  font-weight: 600;
+  height: 2.75rem;
+}

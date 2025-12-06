@@ -218,11 +218,6 @@ public class FatigueAndOverloadServiceImpl implements FatigueAndOverloadService 
 
     /**
      * Loads all daily FitnessScore values for the given user.
-     * <p>
-     * This is the place where you integrate with your existing persistence
-     * layer (e.g. query activities, aggregate by day, compute FitnessScore).
-     * The method must return one {@link DailyLoad} per day with known load.
-     * </p>
      *
      * @param user the athlete
      * @return list of daily loads (maybe unsorted; will be sorted upstream)
