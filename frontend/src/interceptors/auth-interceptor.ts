@@ -12,8 +12,6 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const verifyUri = globals.backendUri + '/user/verify';
   const resetUri = globals.backendUri + '/user/reset_password';
 
-  console.log("req intercepted: ", req);
-
   if (req.url === authUri ||
     (req.url === registerUri && req.method === "POST") ||
     req.url.startsWith(verifyUri) ||
@@ -27,8 +25,6 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       Authorization: 'Bearer ' + authService.getToken()
     }
   });
-
-  console.log("req cloned with token:", authService.getToken());
 
   return next(authReq);
 };
