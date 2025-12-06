@@ -417,9 +417,7 @@ public class WeatherServiceImpl implements WeatherService {
         final double modifier = complexityModifier(weather);
         final double penaltyPercent = penaltyBase * modifier;
 
-        final double totalPenalty = precipitationSlowdown(precipitation)
-                + snowDepthSlowdown(weather.getSnowDepth())
-                + penaltyPercent;
+        final double totalPenalty = precipitationSlowdown(precipitation) + penaltyPercent;
 
         LOGGER.trace("Estimated performance penalty: {}", totalPenalty);
         return totalPenalty;
@@ -476,46 +474,6 @@ public class WeatherServiceImpl implements WeatherService {
         return impact;
     }
 
-    // Returns the impact of snow depth in percent.
-    private double snowDepthSlowdown(double snowDepth) {
-        double snowImpact = 0.0;
-
-        if (snowDepth <= 0) {
-            snowImpact = 0.0; // No snow, no penalty
-        }
-
-        // <1 cm: small traction effect
-        if (snowDepth < 1.0) {
-            snowImpact = 0.01; // ~1%
-        }
-
-        // 1–5 cm: packed trail snow (5–10% slowdown)
-        if (snowDepth <= 5.0) {
-            // Linear interpolation from 5% to 10%
-            double t = (snowDepth - 1.0) / (5.0 - 1.0);
-            snowImpact = 0.05 + t * 0.05;
-        }
-
-        // 5–10 cm: soft snow (10–20% slowdown)
-        if (snowDepth <= 10.0) {
-            double t = (snowDepth - 5.0) / (10.0 - 5.0);
-            snowImpact = 0.10 + t * 0.10;
-        }
-
-        // 10–20 cm: deep snow (20–40% slowdown)
-        if (snowDepth <= 20.0) {
-            double t = (snowDepth - 10.0) / (20.0 - 10.0);
-            snowImpact = 0.20 + t * 0.20;
-        }
-
-        // >20 cm: extreme, running becomes power-hiking
-        if (snowDepth > 20.0) {
-            snowImpact = 0.40;
-        }
-
-        return snowImpact * 100;
-    }
-
     private enum WindIntensity {
         CALM,
         GENTLE_BREEZE,
@@ -525,6 +483,13 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     private enum HeatRiskCategory {
+        EXTREME_COLD,
+        SEVERE_COLD,
+        VERY_HIGH_COLD_RISK,
+        HIGH_COLD_RISK,
+        MODERATE_COLD,
+        LOW_COLD,
+        NEUTRAL_COLD,
         BELOW_WBGT_RANGE,
         OPTIMAL,
         LOW_HEAT,
@@ -533,17 +498,7 @@ public class WeatherServiceImpl implements WeatherService {
         EXTREME_HEAT
     }
 
-    private enum ColdRiskCategory {
-        EXTREME_COLD,
-        SEVERE_COLD,
-        VERY_HIGH_COLD_RISK,
-        HIGH_COLD_RISK,
-        MODERATE_COLD,
-        LOW_COLD,
-        NEUTRAL,
-    }
-
-    public enum RainIntensity {
+    public enum PrecipitationIntensity {
         NONE,
         TRACE,
         VERY_LIGHT,
@@ -574,49 +529,49 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     // Classification of cold risk: https://www.canada.ca/en/environment-climate-change/services/weather-health/wind-chill-cold-weather/wind-chill-index.html
-    private ColdRiskCategory classifyColdRisk(double windChill) {
+    private HeatRiskCategory classifyColdRisk(double windChill) {
         if (windChill <= -55) {
-            return ColdRiskCategory.EXTREME_COLD;
+            return HeatRiskCategory.EXTREME_COLD;
         }
         if (windChill >= -54 && windChill <= -48) {
-            return ColdRiskCategory.SEVERE_COLD;
+            return HeatRiskCategory.SEVERE_COLD;
         }
         if (windChill >= -47 && windChill <= -40) {
-            return ColdRiskCategory.VERY_HIGH_COLD_RISK;
+            return HeatRiskCategory.VERY_HIGH_COLD_RISK;
         }
         if (windChill >= -39 && windChill <= -28) {
-            return ColdRiskCategory.HIGH_COLD_RISK;
+            return HeatRiskCategory.HIGH_COLD_RISK;
         }
         if (windChill >= -27 && windChill <= -10) {
-            return ColdRiskCategory.MODERATE_COLD;
+            return HeatRiskCategory.MODERATE_COLD;
         }
         if (windChill >= -9 && windChill <= 0) {
-            return ColdRiskCategory.LOW_COLD;
+            return HeatRiskCategory.LOW_COLD;
         }
-        return ColdRiskCategory.NEUTRAL;
+        return HeatRiskCategory.NEUTRAL_COLD;
     }
 
     // Classifies precipitation (mm/h) into categories of severity. Source: https://rainsimulator.com/guides/intensity-categories
-    private RainIntensity classifyRainSeverity(double precipitation) {
+    private PrecipitationIntensity classifyPrecipitationSeverity(double precipitation) {
         if (precipitation == 0.0) {
-            return RainIntensity.NONE;
+            return PrecipitationIntensity.NONE;
         }
         if (precipitation > 0.0 && precipitation < 0.25) {
-            return RainIntensity.TRACE;
+            return PrecipitationIntensity.TRACE;
         }
         if (precipitation >= 0.25 && precipitation < 1.0) {
-            return RainIntensity.VERY_LIGHT;
+            return PrecipitationIntensity.VERY_LIGHT;
         }
         if (precipitation >= 1 && precipitation < 2.5) {
-            return RainIntensity.LIGHT;
+            return PrecipitationIntensity.LIGHT;
         }
         if (precipitation >= 2.5 && precipitation < 10) {
-            return RainIntensity.MODERATE;
+            return PrecipitationIntensity.MODERATE;
         }
         if (precipitation >= 10 && precipitation < 50) {
-            return RainIntensity.HEAVY;
+            return PrecipitationIntensity.HEAVY;
         }
-        return RainIntensity.VIOLENT;
+        return PrecipitationIntensity.VIOLENT;
     }
 
     // Classifies wind speed (km/h | 10 m above ground) into categories of severity. Source: https://www.rmets.org/metmatters/beaufort-wind-scale
@@ -634,5 +589,120 @@ public class WeatherServiceImpl implements WeatherService {
             return WindIntensity.STRONG_BREEZE;
         }
         return WindIntensity.GALE_AND_BEYOND;
+    }
+
+    @Override
+    public String buildWeatherDescription(WeatherResponse weather) throws ValidationException {
+        validator.validateWeatherValues(weather);
+        double wbgt = computeWbgt(weather);
+        double windChill;
+        HeatRiskCategory heatRisk = classifyHeatRisk(wbgt);
+        if (heatRisk == HeatRiskCategory.BELOW_WBGT_RANGE) {
+            windChill = calculateWindChill(weather.getTemperature2m(), weather.getWindSpeed10m());
+            heatRisk = classifyColdRisk(windChill);
+        }
+
+        WindIntensity windIntensity = classifyWindSeverity(weather.getWindSpeed10m());
+        PrecipitationIntensity precipitationIntensity = classifyPrecipitationSeverity(weather.getPrecipitation());
+
+        return build(heatRisk, windIntensity, precipitationIntensity);
+    }
+
+    // Build the extended weather summary.
+    private String build(HeatRiskCategory heatRisk, WindIntensity windIntensity, PrecipitationIntensity precipitationIntensity) {
+        return String.join(" ",
+                temperatureToText(heatRisk),
+                windToText(windIntensity),
+                precipitationToText(precipitationIntensity)
+        ).trim();
+    }
+
+    // Provides a description to temperature.
+    private static String temperatureToText(HeatRiskCategory heatRisk) {
+        return switch (heatRisk) {
+            case EXTREME_COLD -> "Extreme cold. DANGER! Outdoor conditions are hazardous. Stay indoors.";
+            case SEVERE_COLD -> """
+                    Severe cold. \
+                    
+                    Severe risk of hypothermia if outside for long periods without adequate clothing or shelter from wind and cold.\
+                    
+                    Severe risk of frostbite: Check face and extremities frequently for numbness or whiteness.\
+                    
+                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run""";
+            case VERY_HIGH_COLD_RISK -> """
+                    Very cold conditions. \
+                    
+                    Very high risk of frostbite: Check face and extremities for numbness or whiteness.\
+                    
+                    Very high risk of hypothermia if outside for long periods without adequate clothing or shelter from wind and cold.\
+                    
+                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run""";
+            case HIGH_COLD_RISK -> """
+                    Beyond uncomfortable cold conditions.
+                    
+                    High risk of frostnip or frostbite: Check face and extremities for numbness or whiteness.\
+                    
+                    High risk of hypothermia if outside for long periods without adequate clothing or shelter from wind and cold.\
+                    
+                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run""";
+            case MODERATE_COLD -> """
+                    Uncomfortably cold conditions.\
+                    
+                    Risk of hypothermia and frostbite if outside for long periods without adequate protection.\
+                    
+                    Dress in layers of warm clothing, keep active and stay dry""";
+            case LOW_COLD -> """
+                    Very cool conditions.\
+                    
+                    Slight increase in discomfort.\
+                    
+                    Dress warmly and stay dry""";
+            case NEUTRAL_COLD -> "Cool conditions, generally favorable for running.";
+            case BELOW_WBGT_RANGE ->
+                    "Slightly cool conditions, favorable for running."; // this case should never happen
+            case OPTIMAL -> "Optimal temperature for running.";
+            case LOW_HEAT -> """
+                    Warm conditions.\
+                    
+                    Heat stress and other heat illnesses are possible.\
+                    
+                    If you are a high risk individual, monitor yourself.""";
+            case MODERATE_HEAT -> """
+                    Hot conditions.\
+                    
+                    Risk of heat illnesses for everyboy are increased.""";
+            case HIGH_HEAT -> """
+                    Very hot conditions.\
+                    
+                    If you are unfit or not acclimatized, running becomes dangerous.""";
+            case EXTREME_HEAT -> """
+                    Extremely hot conditions.\
+                    
+                    Cancel your run.""";
+        };
+    }
+
+    // Provides a description to wind speed.
+    private static String windToText(WindIntensity windIntensity) {
+        return switch (windIntensity) {
+            case CALM -> "Barely any wind, expect no difficulties";
+            case GENTLE_BREEZE -> "Light breeze that may slightly affect your pacing.";
+            case MODERATE_BREEZE -> "Noticeable wind, expect some resistance.";
+            case STRONG_BREEZE -> "These strong winds will cause a significant impact on your run.";
+            case GALE_AND_BEYOND -> "Dangerous wind conditions, seek shelter and avoid the outside.";
+        };
+    }
+
+    // Provides a description to precipitation.
+    private static String precipitationToText(PrecipitationIntensity precipitationIntensity) {
+        return switch (precipitationIntensity) {
+            case NONE -> "Dry conditions with optimal traction.";
+            case TRACE -> "Light drizzle, slightly slick surfaces possible.";
+            case VERY_LIGHT -> "Very light precipitation causes a mild cooling effect and reduced traction.";
+            case LIGHT -> "Light precipitation causes a moderate cooling effect and reduced traction.";
+            case MODERATE -> "In this moderate precipitation expect wet clothing and a noticeable impact on your pace.";
+            case HEAVY -> "In this heavy precipitation you will be completely drenched. Expect reduced visibility and significant traction loss.";
+            case VIOLENT -> "Very violent precipitation, consider staying at home.";
+        };
     }
 }

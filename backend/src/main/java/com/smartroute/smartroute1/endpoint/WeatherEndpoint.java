@@ -36,8 +36,7 @@ public class WeatherEndpoint {
     @PostMapping("/score")
     @PermitAll
     public double calculateWeatherScore(@RequestBody WeatherResponse weather) throws ValidationException {
-        double weatherScore = weatherService.calculateWeatherScore(weather);
-        return weatherScore;
+        return weatherService.calculateWeatherScore(weather);
     }
 
     @Operation(
@@ -46,8 +45,16 @@ public class WeatherEndpoint {
     @PostMapping("/penalty")
     @PermitAll
     public double estimatePerformancePenalty(@RequestBody WeatherResponse weather) throws ValidationException {
-        double performancePenalty = weatherService.estimatePerformancePenalty(weather);
-        return performancePenalty;
+        return weatherService.estimatePerformancePenalty(weather);
+    }
+
+    @Operation(
+            description = " Generates a description fitting of the given weather data.",
+            summary = "Get weather description")
+    @PostMapping("/description")
+    @PermitAll
+    public String buildWeatherDescription(@RequestBody WeatherResponse weather) throws ValidationException {
+        return weatherService.buildWeatherDescription(weather);
     }
 }
 
