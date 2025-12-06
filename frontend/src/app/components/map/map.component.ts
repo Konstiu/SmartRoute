@@ -17,6 +17,7 @@ export class MapComponent implements OnInit {
 
   @Output() onGeolocationError = new EventEmitter();
   @Output() onNewLocationRegisterd = new EventEmitter();
+  @Output() geoLocation = new EventEmitter();
 
   constructor() { }
 
@@ -66,15 +67,12 @@ export class MapComponent implements OnInit {
     if (this.showLocation) {
       const location = await this.getLocation();
       if (location) {
-        this.layers.push(marker(location, this.markerOptions));
-        this.center = location;
-        if (this.zoom < 12) this.zoom = 12;
+        this.geoLocation.next(location);
       }
     }
     if (this.route) {
       this.layers.push(this.route)
     }
-    // this.onNewLocationRegisterd.subscribe((x) => this.addSelectionMarker(x));
   }
 
   async getLocation(): Promise<(LatLng | null)> {
