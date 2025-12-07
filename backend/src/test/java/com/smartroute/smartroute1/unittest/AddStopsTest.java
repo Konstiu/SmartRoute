@@ -34,7 +34,6 @@ public class AddStopsTest {
     private final static GeoJsonPosition C2 = new GeoJsonPosition( 48.225932, 16.332497, 0.0);
     private final static GeoJsonPosition C3 = new GeoJsonPosition( 48.216481, 16.330088, 0.0);
     private final static GeoJsonPosition C4 = new GeoJsonPosition( 48.229492, 16.361286, 0.0);
-
     private final static GeoJsonPosition C5 = new GeoJsonPosition( 48.223973, 16.343729, 0.0);
 
 //    @Test
@@ -44,18 +43,31 @@ public class AddStopsTest {
 //        //coords.add(CORD2);
 //        //coords.add(CORD3);
 //        //coords.add(CORD4);
-//        coords.add(CORD5);
+//        //coords.add(CORD5);
 //        List<GeoJsonPosition> originalRoute = service.gpxToPolyline("/home/sprotte/Documents/gpxFiles/in/testGpx1.gpx");
 //        List<GeoJsonPosition> newRoute = service.addWaypoints(originalRoute, coords);
 //        service.createGpx(newRoute, "/home/sprotte/Documents/gpxFiles/out/create1.gpx");
 //    }
 //
 //    @Test
+//    void testKeepLength() throws ValidationException, IOException {
+//        List<GeoJsonPosition> coords = new ArrayList<>();
+//        //coords.add(C1);
+//        //coords.add(C2);
+//        //coords.add(C3);
+//        coords.add(C4);
+//        coords.add(C5);
+//        List<GeoJsonPosition> originalRoute = service.gpxToPolyline("/home/sprotte/Documents/gpxFiles/in/testGpx2.gpx");
+//        List<GeoJsonPosition> newRoute = impl.reshape(originalRoute, coords, 0.1);
+//        service.createGpx(newRoute, "/home/sprotte/Documents/gpxFiles/out/create4.gpx");
+//    }
+//
+//    @Test
 //    void addPoint2() throws IOException, ValidationException {
 //        List<GeoJsonPosition> coords = new ArrayList<>();
-//        coords.add(C1);
-//        coords.add(C2);
-//        coords.add(C3);
+//        //coords.add(C1);
+//        //coords.add(C2);
+//        //coords.add(C3);
 //        coords.add(C4);
 //        coords.add(C5);
 //        List<GeoJsonPosition> originalRoute = service.gpxToPolyline("/home/sprotte/Documents/gpxFiles/in/testGpx2.gpx");
@@ -79,18 +91,5 @@ public class AddStopsTest {
 //        List<GeoJsonPosition> originalRoute = service.gpxToPolyline("/home/sprotte/Documents/gpxFiles/in/testGpx1.gpx");
 //        List<GeoJsonPosition> newRoute = service.addWaypoints(originalRoute, coords);
 //        service.createGpx(newRoute, "/home/sprotte/Documents/gpxFiles/out/create3.gpx");
-//    }
-//
-//    @Test
-//    void testKeepLength() throws ValidationException, IOException {
-//        List<GeoJsonPosition> coords = new ArrayList<>();
-//        coords.add(C1);
-//        coords.add(C2);
-//        coords.add(C3);
-//        //coords.add(C4);
-//        //coords.add(C5);
-//        List<GeoJsonPosition> originalRoute = service.gpxToPolyline("/home/sprotte/Documents/gpxFiles/in/testGpx2.gpx");
-//        List<GeoJsonPosition> newRoute = impl.reshape(originalRoute, coords);
-//        service.createGpx(newRoute, "/home/sprotte/Documents/gpxFiles/out/create4.gpx");
 //    }
 }
