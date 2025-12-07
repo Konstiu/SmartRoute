@@ -30,23 +30,74 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
     // email: col600aom@ia.wrg89
 
     @Override
-    public GeoJsonDto generateRoute(List<GeoJsonPosition> positions) {
-        if (positions == null || positions.size() < 2) {
+    public GeoJsonDto generateRoute(List<GeoJsonPosition> coordinates) {
+        if (coordinates == null || coordinates.size() < 2) {
             throw new IllegalArgumentException("'coordinates' must contain at least two coordinates.");
         }
 
-        // Convert to ORS-required format: [[lon,lat], [lon,lat], ...]
-        List<List<Double>> orsCoords = positions.stream()
-                .map(p -> List.of(p.getLongitude(), p.getLatitude()))
-                .toList();
-
         try {
+            // ORS expects [lon, lat]
+            List<List<Double>> orsCoords = coordinates.stream()
+                    .map(p -> List.of(p.getLongitude(), p.getLatitude()))
+                    .toList();
+
+            Map<String, Object> body = Map.of(
+                    "coordinates", orsCoords,
+                    "language", "en",
+                    "units", "m"
+            );
+
             String response = webClient.post()
                     .uri("https://api.openrouteservice.org/v2/directions/foot-walking/geojson")
                     .header("Authorization", orsAccessToken)
-                    .bodyValue(
-                            Map.of("coordinates", orsCoords)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            ObjectMapper objectMapper = new ObjectMapper();
+            return objectMapper.readValue(response, GeoJsonDto.class);
+
+        } catch (WebClientResponseException e) {
+            LOGGER.error("ORS returned error {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw e;
+        } catch (Exception e) {
+            LOGGER.error("Error generating ORS route", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+
+
+    @Override
+    public GeoJsonDto generateRoundTrip(List<GeoJsonPosition> coordinates, int length, int points, int seed) {
+        if (coordinates == null || coordinates.isEmpty()) {
+            throw new IllegalArgumentException("'coordinates' must contain at least one coordinate for a round trip.");
+        }
+
+        try {
+            // ORS expects coordinates as [lon, lat]
+            List<List<Double>> orsCoords = coordinates.stream()
+                    .map(pos -> List.of(pos.getLongitude(), pos.getLatitude()))
+                    .toList();
+
+            Map<String, Object> body = Map.of(
+                    "coordinates", orsCoords,
+                    "language", "en",
+                    "units", "m", // IMPORTANT: ORS expects meters, not km
+                    "options", Map.of(
+                            "round_trip", Map.of(
+                                    "length", length,   // meters
+                                    "points", points,
+                                    "seed", seed
+                            )
                     )
+            );
+
+            String response = webClient.post()
+                    .uri("https://api.openrouteservice.org/v2/directions/foot-walking/geojson")
+                    .header("Authorization", orsAccessToken)
+                    .bodyValue(body)
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
@@ -55,39 +106,12 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
             return mapper.readValue(response, GeoJsonDto.class);
 
         } catch (WebClientResponseException e) {
-            LOGGER.error("ORS error {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
-            throw e; // DO NOT swallow
+            LOGGER.error("ORS returned error {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw e;
         } catch (Exception e) {
-            LOGGER.error("Error contacting ORS", e);
-            throw new RuntimeException("Could not call ORS", e);
+            LOGGER.error("Error generating round trip", e);
+            throw new RuntimeException("Failed generating ORS round trip", e);
         }
     }
 
-
-    @Override
-    public GeoJsonDto generateRoundTrip(List<GeoJsonPosition> coordinates, int length, int points, int seed) {
-        if (coordinates == null || coordinates.isEmpty()) {
-            throw new IllegalArgumentException("'coordinates' must contain at least one coordinate for a round trip.");
-        }
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            String coords = objectMapper.writeValueAsString(coordinates);
-
-            String response = webClient.post()
-                    .uri("https://api.openrouteservice.org/v2/directions/foot-walking/geojson")
-                    .header("Authorization", orsAccessToken)
-                    .header("Content-Type", "application/json")
-                    .bodyValue("{\"coordinates\":" + coords + "\"language\":\"en\",\"units\":\"km\",\"options\":{\"round_trip\":{\"length\":" + length + ",\"points\":" + points + ",\"seed\":" + seed + "}}" + "}")
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-
-            return objectMapper.readValue(response, GeoJsonDto.class);
-        } catch (JsonProcessingException e) {
-            LOGGER.error("Error processing json: ", e);
-        } catch (WebClientResponseException e) {
-            LOGGER.error("Failed generating route. Response from server: ", e);
-        }
-        return null;
-    }
 }

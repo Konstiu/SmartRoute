@@ -191,7 +191,8 @@ public class AddStopsServiceImpl implements AddStopsService {
         double routeLength = closest.totalLengthRoute;
 
         // Reasonable bound: allow larger detours only for long routes
-        double minAnchorDistance = Math.min(closest.distanceMeters / 2, routeLength / 4);
+        double minAnchorDistance = Math.min(closest.distanceMeters, routeLength / 4); // limit to half the original route
+        //double minAnchorDistance = routeLength / 4;
 
         // Walk outward respecting curvature
         int startIndex = walkUntilStable(route, index, -1, minAnchorDistance);
@@ -377,4 +378,82 @@ public class AddStopsServiceImpl implements AddStopsService {
 
         return new GeoJsonPosition(Math.toDegrees(latProj), Math.toDegrees(lonProj), 0.0); // altitude is not important here
     }
+
+    public List<GeoJsonPosition> reshape(List<GeoJsonPosition> originalRoute, List<GeoJsonPosition> newPoints
+    ) throws ValidationException {
+
+        if (originalRoute == null || originalRoute.size() < 2) {
+            throw new ValidationException("Original route must have at least 2 points.");
+        }
+
+        List<GeoJsonPosition> required = new ArrayList<>();
+        required.add(originalRoute.getFirst());
+        required.addAll(newPoints);
+        required.add(originalRoute.getLast());
+
+        GeoJsonDto baselineDto = orsService.generateRoute(required);
+        List<GeoJsonPosition> baseline = extractPolyline(baselineDto);
+
+        double baselineLength = computeLength(baseline);
+        double originalLength = computeLength(originalRoute);
+
+        double toleranceFactor = 0.10;
+        double minAllowed = originalLength * (1 - toleranceFactor);
+        double maxAllowed = originalLength * (1 + toleranceFactor);
+
+        if (baselineLength > maxAllowed) {
+            throw new ValidationException(
+                    "Via points are too far apart or too far from the original route. " +
+                            "The shortest route through them already exceeds allowed length (" +
+                            baselineLength + "m > " + maxAllowed + "m)."
+            );
+        }
+
+        final double minLoop = 400;                   // needed for ORS stability
+        double loopLength = Math.max(minLoop, originalLength);
+
+        GeoJsonPosition loopCenter = baseline.get(baseline.size() / 2);
+
+        GeoJsonDto loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) loopLength, 3, 1);
+
+        List<GeoJsonPosition> loopRoute = extractPolyline(loopDto);
+
+        return addWaypoints(loopRoute, required);
+    }
+
+    private GeoJsonPosition midpointOfRoute(List<GeoJsonPosition> route) {
+        int midIndex = route.size() / 2;
+        return route.get(midIndex);
+    }
+
+
+    private GeoJsonPosition computeCentroid(List<GeoJsonPosition> points) {
+        if (points == null || points.isEmpty()) {
+            throw new IllegalArgumentException("Point list must not be empty");
+        }
+
+        double sumLat = 0.0;
+        double sumLon = 0.0;
+
+        for (GeoJsonPosition c : points) {
+            sumLat += c.getLatitude();
+            sumLon += c.getLongitude();
+        }
+
+        double latMid = sumLat / points.size();
+        double lonMid = sumLon / points.size();
+
+        return new GeoJsonPosition(latMid, lonMid, 0.0);
+    }
+
+    private double computeLength(List<GeoJsonPosition> route) {
+        if (route == null || route.size() < 2) return 0.0;
+
+        double sum = 0.0;
+        for (int i = 0; i < route.size() - 1; i++) {
+            sum += haversine(route.get(i), route.get(i + 1));
+        }
+        return sum;
+    }
+
 }
