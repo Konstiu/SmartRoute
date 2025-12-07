@@ -12,4 +12,6 @@ public interface InjuryRepository extends JpaRepository<Injuries, Long> {
     Injuries findByIdAndApplicationUser(Long id, ApplicationUser applicationUser);
 
     List<Injuries> getAllByApplicationUser(ApplicationUser user);
+
+    void deleteAllByApplicationUser(ApplicationUser applicationUser);
 }

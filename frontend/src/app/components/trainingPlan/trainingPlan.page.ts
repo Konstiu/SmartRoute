@@ -1,6 +1,6 @@
-import { IonicModule } from '@ionic/angular';
-import { Component, inject, OnInit } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {IonicModule} from '@ionic/angular';
+import {Component, inject, OnInit} from '@angular/core';
+import {CommonModule} from '@angular/common';
 import {
   formatDistance,
   formatElevation, formatInjuryIndex,
@@ -10,10 +10,12 @@ import {
   formatWindDirection,
   formatWindSpeed,
 } from "../../util/formatters";
-import { RecommendedActivityDto, SessionType } from "../../dtos/recommended-activity";
-import { Router } from "@angular/router";
-import { BodyPart, getBodyPartLabel, getSeverityColor } from "../../dtos/injuries";
-import { TrainingPlanService } from "../../../services/training-plan.service";
+import {RecommendedActivityDto, SessionType} from "../../dtos/recommended-activity";
+import {Router} from "@angular/router";
+import {BodyPart, getBodyPartLabel, getSeverityColor} from "../../dtos/injuries";
+import {TrainingPlanService} from "../../../services/training-plan.service";
+import { ModalController } from '@ionic/angular';
+import { WeatherInfoComponent } from '../weather/weather.component';
 
 @Component({
   selector: 'app-trainingplan',
@@ -40,10 +42,16 @@ export class TrainingPlanPage implements OnInit {
       weatherScore: .9,
       temperature: 16,
       windSpeed: 4,
-      windDirection: "N",
       precipitation: 0,
       relativeHumidity: 50,
-    },
+      weatherPerformancePenalty: 1.0,
+      weatherScoreDescription: "Excellent weather",
+      weatherSummary: {
+        temperatureText: "Mild temperatures, comfortable for most training.",
+        windText: "Light winds with little impact.",
+        precipitationText: "No precipitation expected.",
+        }
+      },
     athleteStatus: {
       tsb: 22,
       readinessScore: 75,
@@ -61,10 +69,10 @@ export class TrainingPlanPage implements OnInit {
     gymSession: {
       id: 1,
       exercises: [
-        { name: "Exercise 1", exerciseId: "1", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
-        { name: "Exercise 2", exerciseId: "2", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
-        { name: "Exercise 3", exerciseId: "3", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
-        { name: "Exercise 4", exerciseId: "4", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
+        {name: "Exercise 1", exerciseId: "1", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
+        {name: "Exercise 2", exerciseId: "2", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
+        {name: "Exercise 3", exerciseId: "3", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
+        {name: "Exercise 4", exerciseId: "4", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
       ],
       sets: 4,
       reps: 40,
@@ -172,7 +180,7 @@ export class TrainingPlanPage implements OnInit {
     return "battery-dead-outline";
   }
 
-  getTsbColor(tsb: number): string {
+  getTsbColor(tsb: number):string {
     if (tsb >= 15) {
       return "success";
     }
@@ -189,6 +197,38 @@ export class TrainingPlanPage implements OnInit {
       return "danger";
     }
     return "danger";
+  }
+
+  // ------- Weather -------
+  getWeatherScoreColor(score: number): string {
+    if (score >= 0.7) return "success";
+    if (score >= 0.4) return "warning";
+    return "danger";
+  }
+
+  getPrecipitationIcon(value: number): string {
+    if (value === 0) {
+      return "cloud-outline"; // no rain
+    }
+
+    return "rainy-outline"; // rain
+  }
+
+  private modalCtrl = inject(ModalController);
+
+  async openWeatherExplanation() {
+    const summary = this.recommendedActivity!.weather.weatherSummary;
+    const modal = await this.modalCtrl.create({
+      component: WeatherInfoComponent,
+      componentProps: {
+        temperatureText: summary.temperatureText,
+        windText: summary.windText,
+        precipitationText: summary.precipitationText,
+        weatherScore: this.recommendedActivity!.weather.weatherScore
+      }
+    });
+
+    await modal.present();
   }
 
   protected readonly SessionType = SessionType;

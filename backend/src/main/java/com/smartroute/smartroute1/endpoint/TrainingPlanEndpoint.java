@@ -19,7 +19,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/training-plan")
 @Tag(
         name = "Training Plan",
-        description = ""
+        description = """
+                Provides personalized training recommendations based on the athlete's current training history, injuries,
+                and local weather conditions.
+                """
 )
 public class TrainingPlanEndpoint {
 
@@ -28,8 +31,12 @@ public class TrainingPlanEndpoint {
     @GetMapping()
     @Secured("ROLE_USER")
     @Operation(
-            summary = "",
-            description = ""
+            summary = "Get a recommended activity for the logged-in user",
+            description = """
+                    Generates a personalized training recommendation for the authenticated user.
+                    The recommendation considers the user's current fitness and health, preferred training days and
+                    the current weather conditions at the provided location.
+                    """
     )
     public RecommendedActivityDto getTrainingPlan(@RequestParam("lat") double latitude, @RequestParam("long") double longitude) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
