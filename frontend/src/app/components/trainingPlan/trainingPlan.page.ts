@@ -210,10 +210,8 @@ export class TrainingPlanPage implements OnInit {
     if (value === 0) {
       return "cloud-outline"; // no rain
     }
-    if (value > 1 && value < 10) {
-      return "rainy-outline"; // rain
-    }
-    return "rainy-heavy"; // heavy rain
+
+    return "rainy-outline"; // rain
   }
 
   private modalCtrl = inject(ModalController);
