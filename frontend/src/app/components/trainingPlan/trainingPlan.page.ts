@@ -1,5 +1,5 @@
-import { IonicModule } from '@ionic/angular';
-import { Component, inject, OnInit } from '@angular/core';
+import { AlertController, IonicModule } from '@ionic/angular';
+import { Component, EventEmitter, inject, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   formatDistance,
@@ -14,13 +14,17 @@ import { RecommendedActivityDto, SessionType } from "../../dtos/recommended-acti
 import { Router } from "@angular/router";
 import { BodyPart, getBodyPartLabel, getSeverityColor } from "../../dtos/injuries";
 import { TrainingPlanService } from "../../../services/training-plan.service";
+import { MapComponent } from '../map/map.component';
+import { Icon, icon, latLng, LatLng, Layer, marker, polyline } from 'leaflet';
+import { RouteService } from 'src/services/route.service';
+import { convertPolylineToCoordinateList } from 'src/services/utils';
 
 @Component({
   selector: 'app-trainingplan',
   templateUrl: 'trainingPlan.page.html',
   styleUrls: ['trainingPlan.page.scss'],
   standalone: true,
-  imports: [IonicModule, CommonModule]
+  imports: [IonicModule, CommonModule, MapComponent]
 })
 export class TrainingPlanPage implements OnInit {
 
@@ -189,6 +193,50 @@ export class TrainingPlanPage implements OnInit {
       return "danger";
     }
     return "danger";
+  }
+
+  layers: Layer[] = [];
+  routeService = inject(RouteService);
+
+  alertController = inject(AlertController);
+  markerOptions = {
+    icon: icon({
+      ...Icon.Default.prototype.options,
+      iconUrl: 'assets/marker-icon.png',
+      iconRetinaUrl: 'assets/marker-icon-2x.png',
+      shadowUrl: 'assets/marker-shadow.png'
+    })
+  };
+
+  async onGeolocationError(_error: GeolocationPositionError) {
+
+    let alert = await this.alertController.create({
+      header: "Unable to determine location.",
+      message: "Please add a marker to the map to select the starting point of the route.",
+      buttons: ["Okay"]
+    });
+
+    await alert.present();
+  }
+
+  hasLocation = false;
+
+  handleNewLocation(location: LatLng) {
+    this.layers.push(marker(location, this.markerOptions));
+    this.routeService.getGeneratedRoute(location.lat, location.lng, 1000).subscribe({
+      next: (e) => this.layers.push(polyline(convertPolylineToCoordinateList(e.polyline).map(x => latLng(x[0], x[1]))))
+    });
+  }
+
+  onNewLocationRegisterd(location: LatLng) {
+    if (this.hasLocation) return;
+    this.handleNewLocation(location);
+    this.hasLocation = true;
+  }
+
+  geoLocation(location: LatLng) {
+    this.handleNewLocation(location);
+    this.hasLocation = true;
   }
 
   protected readonly SessionType = SessionType;

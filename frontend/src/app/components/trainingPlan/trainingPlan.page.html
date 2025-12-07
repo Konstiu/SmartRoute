@@ -33,11 +33,9 @@
           @if (recommendedActivity) {
             @if (recommendedActivity!.type === SessionType.RUN) {
               <ion-card class="rounded-card" color="success" style="height:20rem">
-                <ion-card-header>
-                  <ion-card-title>
-                    MAP PLACEHOLDER
-                  </ion-card-title>
-                </ion-card-header>
+                <app-map [showLocation]="true" (onGeolocationError)="onGeolocationError($event)"
+                  (onNewLocationRegisterd)="onNewLocationRegisterd($event)" (geoLocation)="geoLocation($event)"
+                  [layers]="layers"></app-map>
               </ion-card>
               <ion-card class="rounded-card" color="light">
                 <ion-card-content>
