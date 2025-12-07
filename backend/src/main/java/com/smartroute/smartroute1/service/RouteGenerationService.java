@@ -6,5 +6,5 @@ import com.smartroute.smartroute1.entity.enums.WorkoutType;
 
 public interface RouteGenerationService {
 
-    RouteDto generateRoute(ApplicationUser user, WorkoutType workoutType, double readinessScore);
+    RouteDto generateRouteDetails(ApplicationUser user, WorkoutType workoutType, double readinessScore);
 }

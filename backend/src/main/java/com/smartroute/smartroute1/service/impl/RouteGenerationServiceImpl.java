@@ -8,9 +8,12 @@ import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.service.RouteGenerationService;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
+import java.lang.invoke.MethodHandles;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -21,6 +24,8 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
 
     private final ActivityRepository activityRepository;
     private static final int historySize = 10;
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     private static final double easyDistanceFactor = 0.8f; // 0.7 - 1.0
     private static final double tempoDistanceFactor = 0.9f; // 0.8 - 1.1
@@ -47,13 +52,13 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
     };
 
     @Override
-    public RouteDto generateRoute(ApplicationUser user, WorkoutType workoutType, double readinessScore) {
-        List<Activity> activities = activityRepository.findTopByUserOrderByStartDateDesc(
-                user, PageRequest.of(0, historySize));
+    public RouteDto generateRouteDetails(ApplicationUser user, WorkoutType workoutType, double readinessScore) {
+        List<Activity> activities = activityRepository.findTop10ByUserAndTypeIsOrderByStartDateDesc(
+                user, "Run", PageRequest.of(0, historySize));
 
         if (activities.isEmpty()) {
             double distanceEstimate = estimateFirstDistance(user);
-            return new RouteDto(distanceEstimate, (30.0 * 60) / distanceEstimate, getElevationCeiling(workoutType));
+            return new RouteDto(distanceEstimate * 1.5, distanceEstimate / 30.0, getElevationCeiling(workoutType));
         }
 
         double targetDistance = calculateTargetDistance(activities, workoutType, readinessScore);
@@ -89,7 +94,7 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
     }
 
     private double calculateTargetDistance(List<Activity> activities, WorkoutType workoutType, double readinessScore) {
-        double[] distances = activities.stream().map(Activity::getDistance).mapToDouble(Float::doubleValue).toArray();
+        double[] distances = activities.stream().map(Activity::getDistance).mapToDouble(Float::doubleValue).sorted().toArray();
 
         double maxDistance = distances[distances.length - 1];
         double medianDistance = distances[distances.length / 2];
@@ -101,7 +106,7 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
 
         if (workoutType == WorkoutType.EASY_RUN) {
             return medianDistance * easyDistanceFactor * readinessModifier;
-        } else if (workoutType == WorkoutType.TEMPO_RUN) {
+        } else if (workoutType == WorkoutType.TEMPO_RUN || workoutType == WorkoutType.INTERVAL_RUN) {
             return medianDistance * tempoDistanceFactor * readinessModifier;
         } else {
             return Math.min(maxDistance * longDistanceFactor * readinessModifier, maxDistance + maxDistanceProgress);
@@ -110,31 +115,32 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
 
     private double calculateTargetPace(List<Activity> activities, WorkoutType workoutType, double readinessScore) {
         double[] averagePaces = activities.stream()
-                .map(a -> a.getMovingTime() / a.getDistance())
+                .map(a -> (a.getMovingTime() / 60) / (a.getDistance() / 1000))
+                .sorted()
                 .mapToDouble(Float::doubleValue).toArray();
+        LOGGER.info("paces {}", averagePaces);
 
         double medianPace = averagePaces[averagePaces.length / 2];
         if (averagePaces.length % 2 == 0) {
-            medianPace = (medianPace + averagePaces[averagePaces.length / 2 + 1]) / 2;
+            medianPace = (medianPace + averagePaces[averagePaces.length / 2 - 1]) / 2;
         }
 
         double readinessModifier = (1 + readinessPacePenalty * (1 - readinessScore / 100));
 
-
         if (workoutType == WorkoutType.EASY_RUN) {
-            return medianPace * easyPaceFactor * readinessModifier;
-        } else if (workoutType == WorkoutType.TEMPO_RUN) {
-            return medianPace * tempoPaceFactor * readinessModifier;
+            return 1000 / (medianPace * (1 + easyPaceFactor) * readinessModifier) / 60;
+        } else if (workoutType == WorkoutType.TEMPO_RUN || workoutType == WorkoutType.INTERVAL_RUN) {
+            return 1000 / (medianPace * (1 - tempoPaceFactor) * readinessModifier) / 60;
         } else {
             assert workoutType == WorkoutType.LONG_RUN;
-            return medianPace * longPaceFactor * readinessModifier;
+            return 1000 / (medianPace * (1 + longPaceFactor) * readinessModifier) / 60;
         }
     }
 
     private double getElevationCeiling(WorkoutType workoutType) {
         if (workoutType == WorkoutType.EASY_RUN) {
             return 80;
-        } else if (workoutType == WorkoutType.TEMPO_RUN) {
+        } else if (workoutType == WorkoutType.TEMPO_RUN || workoutType == WorkoutType.INTERVAL_RUN) {
             return 150;
         } else {
             assert workoutType == WorkoutType.LONG_RUN;
