@@ -1,6 +1,6 @@
-import {IonicModule} from '@ionic/angular';
-import {Component, inject, OnInit} from '@angular/core';
-import {CommonModule} from '@angular/common';
+import { IonicModule } from '@ionic/angular';
+import { Component, inject, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import {
   formatDistance,
   formatElevation, formatInjuryIndex,
@@ -10,10 +10,10 @@ import {
   formatWindDirection,
   formatWindSpeed,
 } from "../../util/formatters";
-import {RecommendedActivityDto, SessionType} from "../../dtos/recommended-activity";
-import {Router} from "@angular/router";
-import {BodyPart, getBodyPartLabel, getSeverityColor} from "../../dtos/injuries";
-import {TrainingPlanService} from "../../../services/training-plan.service";
+import { RecommendedActivityDto, SessionType } from "../../dtos/recommended-activity";
+import { Router } from "@angular/router";
+import { BodyPart, getBodyPartLabel, getSeverityColor } from "../../dtos/injuries";
+import { TrainingPlanService } from "../../../services/training-plan.service";
 
 @Component({
   selector: 'app-trainingplan',
@@ -61,10 +61,10 @@ export class TrainingPlanPage implements OnInit {
     gymSession: {
       id: 1,
       exercises: [
-        {name: "Exercise 1", exerciseId: "1", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
-        {name: "Exercise 2", exerciseId: "2", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
-        {name: "Exercise 3", exerciseId: "3", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
-        {name: "Exercise 4", exerciseId: "4", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
+        { name: "Exercise 1", exerciseId: "1", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
+        { name: "Exercise 2", exerciseId: "2", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
+        { name: "Exercise 3", exerciseId: "3", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
+        { name: "Exercise 4", exerciseId: "4", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
       ],
       sets: 4,
       reps: 40,
@@ -172,7 +172,7 @@ export class TrainingPlanPage implements OnInit {
     return "battery-dead-outline";
   }
 
-  getTsbColor(tsb: number):string {
+  getTsbColor(tsb: number): string {
     if (tsb >= 15) {
       return "success";
     }

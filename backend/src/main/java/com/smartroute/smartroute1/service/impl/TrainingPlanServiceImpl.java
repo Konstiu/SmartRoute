@@ -78,7 +78,7 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
             if (weatherResponse == null) {
                 throw new WeatherException("Failed to get weather at " + utcTimeStr);
             }
-            WeatherImpactDto weatherImpactDto = weatherService.calculateWeatherScore(weatherResponse, age);
+            double weatherScore = weatherService.calculateWeatherScore(weatherResponse);
 
             // get TSB and readiness
             double tsb;
@@ -113,7 +113,7 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
             // TODO implement more detailed weather info
             // set weather info
             dto.setWeather(new CompactWeatherDto(
-                    weatherImpactDto.getWeatherScore(),
+                    weatherScore,
                     weatherResponse.getTemperature2m(),
                     weatherResponse.getWindSpeed10m(),
                     "N",
