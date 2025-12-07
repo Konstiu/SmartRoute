@@ -3,6 +3,7 @@ package com.smartroute.smartroute1.service.impl;
 import com.smartroute.smartroute1.endpoint.dto.StravaStreamDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
@@ -10,6 +11,8 @@ import com.smartroute.smartroute1.service.FitnessScoreService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.scheduling.TaskScheduler;
@@ -203,5 +206,27 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         ApplicationUser user = userRepository.findUserByEmail(email);
         Instant instant = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
         return activityRepository.findTopByUserAndStartDateBeforeOrderByStartDateDesc(user, instant);
+    }
+
+    @Override
+    public List<Activity> getLastActivities(String email, int n) throws IllegalArgumentException {
+        LOGGER.trace("Get last {} Strava activities for user with mail: {}", n, email);
+        if (n <= 0) {
+            throw new IllegalArgumentException("n must be greater than zero");
+        }
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        return activityRepository.findByUserOrderByStartDateDesc(user, PageRequest.of(0, n));
+    }
+
+    @Override
+    public Optional<Activity> getLastRunningActivityBeforeDate(String email, LocalDate date) {
+        LOGGER.trace("Get last running Strava activity before date {} for user with mail: {}", date, email);
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        Instant instant = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        return activityRepository.findTopByUserAndWorkoutTypeInAndStartDateBeforeOrderByStartDateDesc(
+            user,
+            List.of(WorkoutType.EASY_RUN, WorkoutType.TEMPO_RUN, WorkoutType.INTERVAL_RUN, WorkoutType.LONG_RUN),
+            instant
+        );
     }
 }

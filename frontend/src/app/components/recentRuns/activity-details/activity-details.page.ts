@@ -200,7 +200,8 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
 
 
   formatDate(dateString: string): string {
-    const date = new Date(dateString);
+    const cleanString = dateString.replace('Z', '');
+    const date = new Date(cleanString);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));

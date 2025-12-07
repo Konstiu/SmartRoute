@@ -146,7 +146,7 @@ def main():
             sys.exit(1)
         inline = sys.argv[2]
         try:
-            inline_obj = base64.b64decode(inline_obj).decode('utf-8')
+            inline = base64.b64decode(inline).decode('utf-8')
             obj = json.loads(inline)
         except Exception as e:
             print(json.dumps({"error": f"Invalid token JSON: {e}"}), file=sys.stderr)
@@ -166,6 +166,25 @@ def main():
             sys.exit(1)
     else:
         print(json.dumps({"error": "Unrecognized invocation pattern"}), file=sys.stderr)
+        sys.exit(1)
+
+
+    if sys.argv[1] == "auth-error@example.com":
+        print(json.dumps({
+            "error": "Login failed: Invalid credentials"
+        }), file=sys.stderr)
+        sys.exit(1)
+
+    if sys.argv[1] == "no-runs@example.com":
+        print(json.dumps({
+            "error": "No runs found"
+        }), file=sys.stderr)
+        sys.exit(1)
+
+    if sys.argv[1] == "script-error@example.com":
+        print(json.dumps({
+            "error": "Something unexpected happened in the mock script"
+       }), file=sys.stderr)
         sys.exit(1)
 
     try:

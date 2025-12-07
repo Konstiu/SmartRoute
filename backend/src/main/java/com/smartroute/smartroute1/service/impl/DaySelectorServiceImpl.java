@@ -5,6 +5,8 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Injuries;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.Weekday;
+import com.smartroute.smartroute1.exception.CannotCalculateConsistencyScoreException;
+import com.smartroute.smartroute1.exception.InsufficientTrainingDataException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import com.smartroute.smartroute1.service.DaySelectorService;
@@ -23,6 +25,12 @@ import java.util.Set;
 @Service
 @AllArgsConstructor
 public class DaySelectorServiceImpl implements DaySelectorService {
+    public static final double PREFERRED_DAY_THRESHOLD = .25;
+    public static final double REGULAR_DAY_THRESHOLD = .35;
+    private static final double INJURY_CONSTRAINT_THRESHOLD = .5;
+    public static final double WEEKLY_SESSION_BALANCE_WEIGHT = .1;
+    public static final double MAX_WEEKLY_SESSIONS_EXCEEDED_PENALTY = 3;
+
     private ActivityRepository activityRepository;
     private ReadinessScoreService readinessScoreService;
     private ConsistencyAnalyzerService consistencyAnalyzerService;
@@ -39,42 +47,79 @@ public class DaySelectorServiceImpl implements DaySelectorService {
         Instant from = date.minusDays(7).atStartOfDay(ZoneId.systemDefault()).toInstant();
         Instant to = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
 
-        List<Activity> activitiesLast7Days = activityRepository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(user, from, to);
-
         Set<Weekday> preferredDays = user.getActiveWeekdays();
         int plannedWeeklySessions = preferredDays.size();
         int minWeeklySessions = getMinWeeklySessions(experienceLevel);
         int maxWeeklySessions = getMaxWeeklySessions(experienceLevel);
 
-        double consistencyScore = consistencyAnalyzerService.computeScore(
-                        user,
-                        from,
-                        to,
-                        Math.clamp(plannedWeeklySessions, minWeeklySessions, maxWeeklySessions))
-                .getFinalScore();
 
-        int readinessScore = readinessScoreService.calculateReadinessScore(user, date);
-        double overloadScore = calculateOverload(fatigueAndOverloadService.tsbOn(user, date));
-        double injuryConstraint = calculateInjuryConstraint(injuryAwareTrainingService.findInjuriesByEmail(user.getEmail()));
+        double consistencyScore;
+        try {
+            consistencyScore = consistencyAnalyzerService.computeScore(
+                            user,
+                            from,
+                            to,
+                            Math.clamp(plannedWeeklySessions, minWeeklySessions, maxWeeklySessions))
+                    .getFinalScore();
+        } catch (CannotCalculateConsistencyScoreException e) {
+            // fall back to default value
+            consistencyScore = 0.0;
+        }
 
+        int readinessScore;
+        double overloadScore;
+        try {
+            readinessScore = readinessScoreService.calculateReadinessScore(user, date);
+            overloadScore = calculateOverload(fatigueAndOverloadService.tsbOn(user, date));
+
+        } catch (InsufficientTrainingDataException e) {
+            // fall back to default values
+            readinessScore = 50;
+            overloadScore = 0;
+        }
+        double injuryConstraint = injuryAwareTrainingService.getInjuryConstraint(user.getEmail());
+
+        if (injuryConstraint < INJURY_CONSTRAINT_THRESHOLD) {
+            return false;
+        }
+
+        List<Activity> activitiesLast7Days = activityRepository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(user, from, to);
+
+        double weeklySessionBalance = calculateWeeklySessionBalance(minWeeklySessions, maxWeeklySessions, activitiesLast7Days);
         double trainabilityIndex = calculateTrainabilityIndex(readinessScore, overloadScore, injuryConstraint, consistencyScore);
 
-        if (injuryConstraint < .4) {
-            return false;
-        }
+        double weightedWeeklySessionBalance = weeklySessionBalance * WEEKLY_SESSION_BALANCE_WEIGHT;
 
-        if (activitiesLast7Days.size() > maxWeeklySessions) {
-            return false;
-        }
-
-        double threshold = isPreferredDay(date, preferredDays) ? .45 : .55;
-        return trainabilityIndex >= threshold;
+        double threshold = isPreferredDay(date, preferredDays) ? PREFERRED_DAY_THRESHOLD : REGULAR_DAY_THRESHOLD;
+        return (trainabilityIndex + weightedWeeklySessionBalance) >= threshold;
     }
 
     // Checks if the selected training date is a preferred training day
     private boolean isPreferredDay(LocalDate date, Set<Weekday> preferredDays) {
         Weekday weekday = Weekday.valueOf(date.getDayOfWeek().name());
         return preferredDays.contains(weekday);
+    }
+
+    // Returns a value [-1, MAX_WEEKLY_SESSIONS_EXCEEDED_PENALTY].
+    // -1: far above max (scaled based on distance)
+    //  0: within optimal range [min, max] (inclusive)
+    //  MAX_WEEKLY_SESSIONS_EXCEEDED_PENALTY: far below min (scaled based on distance)
+    private double calculateWeeklySessionBalance(int minWeeklySessions, int maxWeeklySessions, List<Activity> activitiesLast7Days) {
+        int countLast7Days = activitiesLast7Days.size();
+
+        if (countLast7Days >= minWeeklySessions && countLast7Days <= maxWeeklySessions) {
+            return 0.0;
+        }
+
+        if (countLast7Days < minWeeklySessions) {
+            // Distance from min (closer to min = smaller distance)
+            double distance = minWeeklySessions - countLast7Days;
+            return Math.min(1.0, distance / minWeeklySessions);
+        } else {
+            // Distance from max
+            double distance = countLast7Days - maxWeeklySessions;
+            return -Math.min(1.0, (distance / maxWeeklySessions)) * MAX_WEEKLY_SESSIONS_EXCEEDED_PENALTY;
+        }
     }
 
     // Calculates the normalized overload score from the TSB
@@ -87,10 +132,10 @@ public class DaySelectorServiceImpl implements DaySelectorService {
 
     // Returns the lowest injury constraint (= highest injuryIndex) from all active injuries
     private double calculateInjuryConstraint(List<Injuries> injuriesList) {
-        return (1 - injuriesList.stream()
-                .filter(i -> i.getLastHealthyDate() == null)
+        return 1 - injuriesList.stream()
+                .filter(i -> i.getLastInjuryDate() == null || i.getLastInjuryDate().isAfter(LocalDate.now().minusDays(14)))
                 .map(Injuries::getInjuryIndex)
-                .reduce(0.0, Double::max));
+                .reduce(0.0, Double::max);
     }
 
     // Min weekly sessions by experience (recommendations for beginner, intermediate, advanced from: https://pubmed.ncbi.nlm.nih.gov/19204579/)
@@ -117,14 +162,12 @@ public class DaySelectorServiceImpl implements DaySelectorService {
 
     @Override
     public double calculateTrainabilityIndex(int readinessScore, double overloadScore, double injuryConstraint, double consistencyScore) {
-        /*
-        T_r = R_t/100 * C_t * (1 - O_t) * (1 + 0.5K_t)
-        R_t...Readiness score
-        O_t...Overload score
-        C_t...Injury constraint
-        K_t...Consistency score
-         */
-        double trainabilityIndex = (readinessScore / 100.0) * injuryConstraint * (1 - overloadScore) * (1 + .5 * consistencyScore);
+        double normalizedReadiness = readinessScore / 100.0;
+        double recoveryFactor = (1 - overloadScore);
+        double baseTrainability = (.55 * normalizedReadiness) + (.45 * recoveryFactor);
+        double injuryAdjusted = baseTrainability * injuryConstraint;
+        double trainabilityIndex = injuryAdjusted * (1 + .15 *  consistencyScore);
+
         return Math.clamp(trainabilityIndex, 0.0, 1.0);
     }
 }

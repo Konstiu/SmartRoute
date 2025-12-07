@@ -34,6 +34,7 @@ export class GymWorkoutPage implements OnInit {
 
     this.workoutService.getGymWorkoutById(id).subscribe({
       next: (data) => {
+        console.log(data);
         this.workout = data;
         this.isLoading = false;
         if (this.workout.exercises.length > 6) {
@@ -62,5 +63,5 @@ export class GymWorkoutPage implements OnInit {
     await modal.present();
   }
 
-  
+
 }
