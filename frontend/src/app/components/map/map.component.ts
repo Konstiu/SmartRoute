@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
 import { LeafletDirective, LeafletLayersDirective } from '@bluehalo/ngx-leaflet';
-import { Icon, icon, LatLng, latLng, Layer, MapOptions, marker, tileLayer, Map, Polyline, LeafletMouseEvent, Marker, Point } from 'leaflet';
+import { Icon, icon, LatLng, latLng, Layer, MapOptions, marker, tileLayer, Map, Polyline, LeafletMouseEvent, Marker, Point, latLngBounds } from 'leaflet';
 import { Geolocation } from "@capacitor/geolocation"
 
 @Component({
@@ -46,7 +46,7 @@ export class MapComponent implements OnInit {
   touched = false;
 
   onMapReady(map: Map) {
-    setTimeout(() => map.invalidateSize(), 0); // See https://github.com/bluehalo/ngx-leaflet/issues/104
+    setTimeout(() => map.invalidateSize(), 100); // See https://github.com/bluehalo/ngx-leaflet/issues/104
 
     // register events to detect new markers
     map.getContainer().addEventListener("touchstart", (e) => {
