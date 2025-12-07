@@ -222,10 +222,12 @@ export class TrainingPlanPage implements OnInit {
   hasLocation = false;
 
   handleNewLocation(location: LatLng) {
-    this.layers.push(marker(location, this.markerOptions));
-    this.routeService.getGeneratedRoute(location.lat, location.lng, 1000).subscribe({
-      next: (e) => this.layers.push(polyline(convertPolylineToCoordinateList(e.polyline).map(x => latLng(x[0], x[1]))))
-    });
+    if (this.recommendedActivity?.route?.distance) {
+      this.layers.push(marker(location, this.markerOptions));
+      this.routeService.getGeneratedRoute(location.lat, location.lng, this.recommendedActivity?.route?.distance).subscribe({
+        next: (e) => this.layers.push(polyline(convertPolylineToCoordinateList(e.polyline).map(x => latLng(x[0], x[1]))))
+      });
+    }
   }
 
   onNewLocationRegisterd(location: LatLng) {
