@@ -39,30 +39,183 @@ public class AddStopsServiceImpl implements AddStopsService {
                                       double totalLengthRoute) {
     }
 
-    private record AnchorPoint(int startIndex, int endIndex, GeoJsonPosition startCoordinate, GeoJsonPosition endCoordinate) {
+    private record AnchorPoint(int startIndex, int endIndex, GeoJsonPosition startCoordinate,
+                               GeoJsonPosition endCoordinate) {
     }
 
     @Override
     public List<GeoJsonPosition> routeThroughPoint(GeoJsonPosition start, GeoJsonPosition via, GeoJsonPosition end) throws ValidationException {
+
         validator.validateCoordinates(start.getLatitude(), start.getLongitude());
         validator.validateCoordinates(via.getLatitude(), via.getLongitude());
         validator.validateCoordinates(end.getLatitude(), end.getLongitude());
 
-        List<GeoJsonPosition> result = new ArrayList<>();
+        // Compute the forward path start to via
+        GeoJsonDto forwardDto = orsService.generateRoute(List.of(start, via));
+        List<GeoJsonPosition> forwardPath = extractPolyline(forwardDto);
 
-        result.add(start);
-        result.add(via);
-        result.add(end);
+        if (forwardPath.isEmpty()) {
+            throw new ValidationException("ORS failed to generate forward path for detour.");
+        }
 
-        GeoJsonDto dto = orsService.generateRoute(result);
+        // Build a narrow avoid polygon around the forward path
+        List<List<Double>> avoidPolygon = buildAvoidPolygon(forwardPath, 12.0); // 12m buffer
 
-        return extractPolyline(dto);
+        // Compute the return path via to end, avoiding the forward corridor
+        GeoJsonDto returnDto = orsService.generateRouteAvoidingPolygon(List.of(via, end), avoidPolygon);
+        List<GeoJsonPosition> returnPath = extractPolyline(returnDto);
+
+        // fallback: allow ORS to route without avoidance
+        if (returnPath.isEmpty()) {
+            returnPath = extractPolyline(orsService.generateRoute(List.of(via, end)));
+        }
+
+        // Combine: forwardPath + returnPath (trim duplicate via point)
+        List<GeoJsonPosition> result = new ArrayList<>(forwardPath);
+        result.addAll(returnPath.subList(1, returnPath.size()));
+
+        return result;
+    }
+
+    private List<List<Double>> buildAvoidPolygon(List<GeoJsonPosition> path, double bufferMeters) {
+        List<List<Double>> poly = new ArrayList<>();
+
+        for (GeoJsonPosition p : path) {
+            double lat = p.getLatitude();
+            double lon = p.getLongitude();
+
+            double dlat = bufferMeters / 111_320.0;
+            double dlon = bufferMeters / (111_320.0 * Math.cos(Math.toRadians(lat)));
+
+            // Upper offset
+            poly.add(List.of(lon + dlon, lat + dlat));
+            // Lower offset
+            poly.add(List.of(lon - dlon, lat - dlat));
+        }
+
+        // Close polygon
+        poly.add(poly.getFirst());
+        return poly;
+    }
+
+    private List<GeoJsonPosition> cleanRoute(List<GeoJsonPosition> route) {
+        List<GeoJsonPosition> cleaned = removeStubs(route);
+        cleaned = removeUturns(cleaned);
+        cleaned = removeMicroLoops(cleaned);
+        cleaned = removeZigZags(cleaned);
+
+        return cleaned;
+    }
+
+    private List<GeoJsonPosition> removeStubs(List<GeoJsonPosition> route) {
+        if (route.size() < 3) {
+            return route;
+        }
+
+        List<GeoJsonPosition> cleaned = new ArrayList<>();
+        cleaned.add(route.getFirst());
+
+        for (int i = 1; i < route.size() - 1; i++) {
+            GeoJsonPosition prev = cleaned.getLast();
+            GeoJsonPosition curr = route.get(i);
+            GeoJsonPosition next = route.get(i + 1);
+
+            double straight = haversine(prev, next);
+            double detour = haversine(prev, curr);
+
+            // stub = far from prev but ends up at same place
+            if (straight < 12 && detour > 20) {
+                continue; // remove the stub midpoint
+            }
+
+            cleaned.add(curr);
+        }
+
+        cleaned.add(route.getLast());
+        return cleaned;
+    }
+
+    private List<GeoJsonPosition> removeMicroLoops(List<GeoJsonPosition> route) {
+        if (route.size() < 4) {
+            return route;
+        }
+
+        List<GeoJsonPosition> cleaned = new ArrayList<>();
+        cleaned.add(route.getFirst());
+
+        for (int i = 1; i < route.size() - 2; i++) {
+            GeoJsonPosition a = cleaned.getLast();
+            GeoJsonPosition b = route.get(i);
+            GeoJsonPosition c = route.get(i + 1);
+
+            // If c nearly equals a, then b is a pointless micro-loop
+            if (haversine(a, c) < 15 && haversine(a, b) > 10) {
+                continue; // remove b
+            }
+
+            cleaned.add(b);
+        }
+
+        cleaned.add(route.getLast());
+        return cleaned;
+    }
+
+    private List<GeoJsonPosition> removeUturns(List<GeoJsonPosition> route) {
+        if (route.size() < 3) {
+            return route;
+        }
+
+        List<GeoJsonPosition> cleaned = new ArrayList<>();
+        cleaned.add(route.getFirst());
+
+        for (int i = 1; i < route.size() - 1; i++) {
+            GeoJsonPosition prev = cleaned.getLast();
+            GeoJsonPosition curr = route.get(i);
+            GeoJsonPosition next = route.get(i + 1);
+
+            double angle = turnAngle(prev, curr, next);
+
+            if (angle > 150) {
+                // sharp U-turn -> remove curr
+                continue;
+            }
+
+            cleaned.add(curr);
+        }
+
+        cleaned.add(route.getLast());
+        return cleaned;
+    }
+
+    private List<GeoJsonPosition> removeZigZags(List<GeoJsonPosition> route) {
+        if (route.size() < 3) {
+            return route;
+        }
+
+        List<GeoJsonPosition> cleaned = new ArrayList<>();
+        cleaned.add(route.getFirst());
+
+        for (int i = 1; i < route.size() - 1; i++) {
+            GeoJsonPosition prev = cleaned.getLast();
+            GeoJsonPosition curr = route.get(i);
+            GeoJsonPosition next = route.get(i + 1);
+
+            double angle = turnAngle(prev, curr, next);
+
+            if (angle < 15) {
+                // very sharp turns -> remove curr
+                continue;
+            }
+
+            cleaned.add(curr);
+        }
+
+        cleaned.add(route.getLast());
+        return cleaned;
     }
 
     private List<GeoJsonPosition> extractPolyline(GeoJsonDto dto) {
-        if (dto == null
-                || dto.getFeatures() == null
-                || dto.getFeatures().isEmpty()) {
+        if (dto == null || dto.getFeatures() == null || dto.getFeatures().isEmpty()) {
             return List.of();
         }
 
@@ -121,11 +274,7 @@ public class AddStopsServiceImpl implements AddStopsService {
 
         AnchorPoint anchors = chooseAnchorPoints(route, closest, prevProtected, nextProtected);
 
-        List<GeoJsonPosition> detour = routeThroughPoint(
-                anchors.startCoordinate,
-                newPoint,
-                anchors.endCoordinate
-        );
+        List<GeoJsonPosition> detour = routeThroughPoint(anchors.startCoordinate, newPoint, anchors.endCoordinate);
 
         // Before start anchor
         List<GeoJsonPosition> result = new ArrayList<>(route.subList(0, anchors.startIndex + 1));
@@ -205,12 +354,7 @@ public class AddStopsServiceImpl implements AddStopsService {
         startIndex = Math.max(1, startIndex);
         endIndex = Math.min(route.size() - 2, endIndex);
 
-        return new AnchorPoint(
-                startIndex,
-                endIndex,
-                route.get(startIndex),
-                route.get(endIndex)
-        );
+        return new AnchorPoint(startIndex, endIndex, route.get(startIndex), route.get(endIndex));
     }
 
     // Walks along the route in the specified direction (step = +/-1) * until we have travelled a minium distance and the local curvature (angle between segments) is below threshold.
@@ -380,10 +524,12 @@ public class AddStopsServiceImpl implements AddStopsService {
     }
 
     public List<GeoJsonPosition> reshape(List<GeoJsonPosition> originalRoute, List<GeoJsonPosition> newPoints, double toleranceFactor) throws ValidationException {
-
         if (originalRoute == null || originalRoute.size() < 2) {
             throw new ValidationException("Original route must have at least 2 points.");
         }
+
+        final int roundness = 10;
+        final int seed = 1;
 
         List<GeoJsonPosition> required = new ArrayList<>();
         required.add(originalRoute.getFirst());
@@ -403,9 +549,9 @@ public class AddStopsServiceImpl implements AddStopsService {
 
         if (baselineLength > maxAllowed) {
             throw new ValidationException(
-                    "Via points are too far apart or too far from the original route. " +
-                            "The shortest route through them already exceeds allowed length (" +
-                            baselineLength + "m > " + maxAllowed + "m)."
+                    "Via points are too far apart or too far from the original route. "
+                            + "The shortest route through them already exceeds allowed length ("
+                            + baselineLength + "m > " + maxAllowed + "m)."
             );
         }
 
@@ -414,9 +560,11 @@ public class AddStopsServiceImpl implements AddStopsService {
 
         GeoJsonPosition loopCenter = computeCentroid(required);
 
-        GeoJsonDto loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) (loopLength-diff), 10, 1);
+        GeoJsonDto loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) (loopLength - diff), roundness, seed);
 
         List<GeoJsonPosition> loopRoute = extractPolyline(loopDto);
+        loopRoute = cleanRoute(loopRoute);
+
         final List<GeoJsonPosition> resultRoute = addWaypoints(loopRoute, required);
         final double loopRouteLength = computeLength(resultRoute);
 
@@ -425,8 +573,9 @@ public class AddStopsServiceImpl implements AddStopsService {
             double extraLength = minAllowed - loopRouteLength;
             double factor = minAllowed / loopRouteLength;
             extraLength *= factor;
-            loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) (loopLength-diff+extraLength), 10, 1);
+            loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) (loopLength - diff + extraLength), roundness, seed);
             loopRoute = extractPolyline(loopDto);
+            loopRoute = cleanRoute(loopRoute);
             return addWaypoints(loopRoute, required);
         }
 
@@ -435,8 +584,9 @@ public class AddStopsServiceImpl implements AddStopsService {
             double excessLength = loopRouteLength - maxAllowed;
             double factor = loopRouteLength / maxAllowed;
             excessLength *= factor;
-            loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) (loopLength-diff-excessLength), 10, 1);
+            loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) (loopLength - diff - excessLength), roundness, seed);
             loopRoute = extractPolyline(loopDto);
+            loopRoute = cleanRoute(loopRoute);
             return addWaypoints(loopRoute, required);
         }
 
@@ -447,7 +597,6 @@ public class AddStopsServiceImpl implements AddStopsService {
         int midIndex = route.size() / 2;
         return route.get(midIndex);
     }
-
 
     private GeoJsonPosition computeCentroid(List<GeoJsonPosition> points) {
         if (points == null || points.isEmpty()) {
@@ -469,7 +618,9 @@ public class AddStopsServiceImpl implements AddStopsService {
     }
 
     private double computeLength(List<GeoJsonPosition> route) {
-        if (route == null || route.size() < 2) return 0.0;
+        if (route == null || route.size() < 2) {
+            return 0.0;
+        }
 
         double sum = 0.0;
         for (int i = 0; i < route.size() - 1; i++) {

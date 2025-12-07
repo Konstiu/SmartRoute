@@ -68,7 +68,6 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
     }
 
 
-
     @Override
     public GeoJsonDto generateRoundTrip(List<GeoJsonPosition> coordinates, int length, int points, int seed) {
         if (coordinates == null || coordinates.isEmpty()) {
@@ -113,5 +112,38 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
             throw new RuntimeException("Failed generating ORS round trip", e);
         }
     }
+
+    public GeoJsonDto generateRouteAvoidingPolygon(List<GeoJsonPosition> positions, List<List<Double>> avoidPolygon) {
+        List<List<Double>> coords = positions.stream()
+                .map(p -> List.of(p.getLongitude(), p.getLatitude()))
+                .toList();
+
+        Map<String, Object> body = Map.of(
+                "coordinates", coords,
+                "options", Map.of(
+                        "avoid_polygons", Map.of(
+                                "type", "Polygon",
+                                "coordinates", List.of(avoidPolygon)
+                        )
+                )
+        );
+
+        try {
+            String response = webClient.post()
+                    .uri("https://api.openrouteservice.org/v2/directions/foot-walking/geojson")
+                    .header("Authorization", orsAccessToken)
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            return new ObjectMapper().readValue(response, GeoJsonDto.class);
+
+        } catch (Exception e) {
+            LOGGER.error("ORS avoid_polygon failed", e);
+            return null;
+        }
+    }
+
 
 }
