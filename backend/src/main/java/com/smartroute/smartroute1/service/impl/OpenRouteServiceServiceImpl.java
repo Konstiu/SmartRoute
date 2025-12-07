@@ -68,7 +68,7 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
                     .uri("https://api.openrouteservice.org/v2/directions/foot-walking/geojson")
                     .header("Authorization", orsAccessToken)
                     .header("Content-Type", "application/json")
-                    .bodyValue("{\"coordinates\":" + coords + "\"language\":\"en\",\"units\":\"km\",\"options\":{\"round_trip\":{\"length\":" + length + ",\"points\":" + points + ",\"seed\":" + seed + "}}" + "}")
+                    .bodyValue("{\"coordinates\":" + coords + ",\"language\":\"en\",\"units\":\"km\",\"options\":{\"round_trip\":{\"length\":" + length + ",\"points\":" + points + ",\"seed\":" + seed + "}}}")
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
