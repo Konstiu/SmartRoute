@@ -27,7 +27,7 @@ import java.util.TreeSet;
 public class AddStopsServiceImpl implements AddStopsService {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final double EARTH_RADIUS_METERS = 6371000.0;
-    private static final double MAX_DISTANCE_FROM_ROUTE_METERS = 1000.0; // 1 km
+    private static final double MAX_DISTANCE_FROM_ROUTE_METERS = 2000.0; // 1 km
 
     private final AddStopsValidator validator;
     private final OpenRouteServiceService orsService;
@@ -379,8 +379,7 @@ public class AddStopsServiceImpl implements AddStopsService {
         return new GeoJsonPosition(Math.toDegrees(latProj), Math.toDegrees(lonProj), 0.0); // altitude is not important here
     }
 
-    public List<GeoJsonPosition> reshape(List<GeoJsonPosition> originalRoute, List<GeoJsonPosition> newPoints
-    ) throws ValidationException {
+    public List<GeoJsonPosition> reshape(List<GeoJsonPosition> originalRoute, List<GeoJsonPosition> newPoints, double toleranceFactor) throws ValidationException {
 
         if (originalRoute == null || originalRoute.size() < 2) {
             throw new ValidationException("Original route must have at least 2 points.");
@@ -396,10 +395,11 @@ public class AddStopsServiceImpl implements AddStopsService {
 
         double baselineLength = computeLength(baseline);
         double originalLength = computeLength(originalRoute);
+        double baseStitchedLength = computeLength(addWaypoints(originalRoute, newPoints));
+        double diff = baseStitchedLength - originalLength;
 
-        double toleranceFactor = 0.10;
-        double minAllowed = originalLength * (1 - toleranceFactor);
-        double maxAllowed = originalLength * (1 + toleranceFactor);
+        final double minAllowed = originalLength * (1 - toleranceFactor);
+        final double maxAllowed = originalLength * (1 + toleranceFactor);
 
         if (baselineLength > maxAllowed) {
             throw new ValidationException(
@@ -412,13 +412,35 @@ public class AddStopsServiceImpl implements AddStopsService {
         final double minLoop = 400;                   // needed for ORS stability
         double loopLength = Math.max(minLoop, originalLength);
 
-        GeoJsonPosition loopCenter = baseline.get(baseline.size() / 2);
+        GeoJsonPosition loopCenter = computeCentroid(required);
 
-        GeoJsonDto loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) loopLength, 3, 1);
+        GeoJsonDto loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) (loopLength-diff), 10, 1);
 
         List<GeoJsonPosition> loopRoute = extractPolyline(loopDto);
+        final List<GeoJsonPosition> resultRoute = addWaypoints(loopRoute, required);
+        final double loopRouteLength = computeLength(resultRoute);
 
-        return addWaypoints(loopRoute, required);
+        // recalculate loop if too small
+        if (minAllowed > loopRouteLength) {
+            double extraLength = minAllowed - loopRouteLength;
+            double factor = minAllowed / loopRouteLength;
+            extraLength *= factor;
+            loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) (loopLength-diff+extraLength), 10, 1);
+            loopRoute = extractPolyline(loopDto);
+            return addWaypoints(loopRoute, required);
+        }
+
+        // recalculate loop if too large
+        if (maxAllowed < loopRouteLength) {
+            double excessLength = loopRouteLength - maxAllowed;
+            double factor = loopRouteLength / maxAllowed;
+            excessLength *= factor;
+            loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) (loopLength-diff-excessLength), 10, 1);
+            loopRoute = extractPolyline(loopDto);
+            return addWaypoints(loopRoute, required);
+        }
+
+        return resultRoute;
     }
 
     private GeoJsonPosition midpointOfRoute(List<GeoJsonPosition> route) {
