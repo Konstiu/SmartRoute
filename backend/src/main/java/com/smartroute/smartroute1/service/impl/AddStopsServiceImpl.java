@@ -27,6 +27,7 @@ import java.util.TreeSet;
 public class AddStopsServiceImpl implements AddStopsService {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final double EARTH_RADIUS_METERS = 6371000.0;
+    private static final double MAX_DISTANCE_FROM_ROUTE_METERS = 1000.0; // 1 km
 
     private final AddStopsValidator validator;
     private final OpenRouteServiceService orsService;
@@ -112,6 +113,7 @@ public class AddStopsServiceImpl implements AddStopsService {
             throws ValidationException {
 
         ClosestPointResult closest = findClosestPoint(route, newPoint);
+        validator.validateMaxDetourDistance(MAX_DISTANCE_FROM_ROUTE_METERS, closest.distanceMeters);
 
         // Find protected boundaries for this insertion
         int prevProtected = findPreviousProtectedIndex(closest.segmentIndex);

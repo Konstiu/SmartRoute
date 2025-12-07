@@ -60,7 +60,7 @@ public class AddStopsValidator {
 
     public void validateCoordinates(double latitude, double longitude) throws ValidationException {
         List<String> errors = new ArrayList<>();
-        LOGGER.trace("Validation of latitude and longitude: {}, {}", latitude, longitude);
+        LOGGER.trace("Validation of latitude {} and longitude: {}", latitude, longitude);
 
         if (latitude < -90) {
             errors.add("latitude is smaller than -90");
@@ -80,6 +80,16 @@ public class AddStopsValidator {
 
         if (!errors.isEmpty()) {
             throw new ValidationException("Errors while verifying lat. and long.:", errors);
+        }
+    }
+
+    public void validateMaxDetourDistance(double maxAllowedDistance, double closestDistance) throws ValidationException {
+        List<String> errors = new ArrayList<>();
+        LOGGER.trace("Validation of closest distance {} and max allowed distance {}", closestDistance, maxAllowedDistance);
+
+        if (closestDistance > maxAllowedDistance) {
+            errors.add("Closest distance is beyond the allowed maximum of " + maxAllowedDistance + " meters");
+            throw new ValidationException("Errors while verifying max allowed distance:", errors);
         }
     }
 }
