@@ -1,7 +1,6 @@
 package com.smartroute.smartroute1.unittest;
 
 import com.smartroute.smartroute1.basetest.BaseTest;
-import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.WeatherResponse;
@@ -52,12 +51,6 @@ public class WorkoutTypeSelectorServiceTest extends BaseTest {
         return new WeatherResponse();
     }
 
-    private WeatherImpactDto weatherImpact(double weatherScore) {
-        WeatherImpactDto dto = new WeatherImpactDto();
-        dto.setWeatherScore(weatherScore);
-        return dto;
-    }
-
     private Activity dummyActivityOfDistance(int distanceMeters) {
         Activity activity = new Activity();
         activity.setDistance(distanceMeters);
@@ -96,7 +89,7 @@ public class WorkoutTypeSelectorServiceTest extends BaseTest {
 
         WeatherResponse wr = dummyWeatherResponse();
         when(weatherService.getWeatherAtTime(anyDouble(), anyDouble(), anyString())).thenReturn(wr);
-        when(weatherService.calculateWeatherScore(eq(wr), anyInt())).thenReturn(weatherImpact(0.9));
+        when(weatherService.calculateWeatherScore(eq(wr))).thenReturn(0.9);
 
         when(injuryAwareTrainingService.getInjuryConstraint(anyString())).thenReturn(1.0); // healthy
 
@@ -120,7 +113,7 @@ public class WorkoutTypeSelectorServiceTest extends BaseTest {
 
         WeatherResponse wr = dummyWeatherResponse();
         when(weatherService.getWeatherAtTime(anyDouble(), anyDouble(), anyString())).thenReturn(wr);
-        when(weatherService.calculateWeatherScore(eq(wr), anyInt())).thenReturn(weatherImpact(0.1)); // bad outdoor weather
+        when(weatherService.calculateWeatherScore(eq(wr))).thenReturn(0.1); // bad outdoor weather
 
         when(injuryAwareTrainingService.getInjuryConstraint(anyString())).thenReturn(1.0);
 
@@ -143,7 +136,7 @@ public class WorkoutTypeSelectorServiceTest extends BaseTest {
 
         WeatherResponse wr = dummyWeatherResponse();
         when(weatherService.getWeatherAtTime(anyDouble(), anyDouble(), anyString())).thenReturn(wr);
-        when(weatherService.calculateWeatherScore(eq(wr), anyInt())).thenReturn(weatherImpact(0.8));
+        when(weatherService.calculateWeatherScore(eq(wr))).thenReturn(0.8);
 
         when(injuryAwareTrainingService.getInjuryConstraint(anyString())).thenReturn(0.0); // severely injured
 
@@ -168,7 +161,7 @@ public class WorkoutTypeSelectorServiceTest extends BaseTest {
 
         WeatherResponse wr = dummyWeatherResponse();
         when(weatherService.getWeatherAtTime(anyDouble(), anyDouble(), anyString())).thenReturn(wr);
-        when(weatherService.calculateWeatherScore(eq(wr), anyInt())).thenReturn(weatherImpact(0.9));
+        when(weatherService.calculateWeatherScore(eq(wr))).thenReturn(0.9);
 
         when(injuryAwareTrainingService.getInjuryConstraint(anyString())).thenReturn(1.0);
 
@@ -192,7 +185,7 @@ public class WorkoutTypeSelectorServiceTest extends BaseTest {
         WeatherResponse wr = dummyWeatherResponse();
         when(weatherService.getWeatherAtTime(anyDouble(), anyDouble(), anyString())).thenReturn(wr);
         // We can't directly assert input 3000 here, but ensure the flow continues normally
-        when(weatherService.calculateWeatherScore(eq(wr), anyInt())).thenReturn(weatherImpact(0.5));
+        when(weatherService.calculateWeatherScore(eq(wr))).thenReturn(0.5);
 
         when(injuryAwareTrainingService.getInjuryConstraint(anyString())).thenReturn(1.0);
 

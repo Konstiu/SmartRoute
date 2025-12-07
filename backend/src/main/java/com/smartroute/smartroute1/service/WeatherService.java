@@ -1,10 +1,8 @@
 package com.smartroute.smartroute1.service;
 
-import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
+import com.smartroute.smartroute1.endpoint.dto.WeatherSummaryDto;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.ValidationException;
-
-import java.util.List;
 
 /** Provides methods to retrieve hourly weather forecast data from an external API. */
 public interface WeatherService {
@@ -22,24 +20,46 @@ public interface WeatherService {
     WeatherResponse getWeatherAtTime(double latitude, double longitude, String timeUtc) throws ValidationException;
 
     /**
-     * Estimates the performance impact of weather conditions on a running event.
-     *
+     * Calculates the weather score, a metric that quantifies the outdoor conditions.
      *
      * @param weather Weather Data.
      *
-     * @param age Runners age.
-     *
-     * @return
-     *        A {@link WeatherImpactDto} containing:
-     *        <ul>
-     *            <li>The estimated percentage performance penalty</li>
-     *            <li>The weather score ranging form 0 to 1, where 1 are optimal conditions and 0 are conditions where outdoor activities should be avoided.</li>
-     *            <li>A heat-risk category based on WBGT or windchill</li>
-     *            <li>Classification of precipitation</li>
-     *            <li>Classification of wind speed</li>
-     *        </ul>
+     * @return weatherScore between 0 and 1.
      *
      * @throws ValidationException if weather data is abnormal.
      */
-    WeatherImpactDto calculateWeatherScore(WeatherResponse weather, int age) throws ValidationException;
+    double calculateWeatherScore(WeatherResponse weather) throws ValidationException;
+
+    /**
+     * Estimates the negative impact the weather has on performance, in comparison to optimal conditions.
+     *
+     * @param weather Weather Data.
+     *
+     * @return estimated performance penalty in %.
+     *
+     * @throws ValidationException if weather data is abnormal.
+     */
+    double estimatePerformancePenalty(WeatherResponse weather) throws ValidationException;
+
+
+    /**
+     * Generates a description fitting of the given weather data.
+     *
+     * @param weather Weather Data.
+     *
+     * @return a WeatherSummaryDto containing the description of the weather events.
+     *
+     * @throws ValidationException if weather data is abnormal.
+     */
+    WeatherSummaryDto buildWeatherDescription(WeatherResponse weather) throws ValidationException;
+
+
+    /**
+     * Maps the weather score to a very brief description.
+     *
+     * @param weatherScore a metric between 0 and 1 that quantifies the outdoor conditions.
+     *
+     * @return a brief description.
+     */
+    String evaluateWeatherScore(double weatherScore);
 }

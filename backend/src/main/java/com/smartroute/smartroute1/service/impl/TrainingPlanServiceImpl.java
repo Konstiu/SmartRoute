@@ -6,18 +6,14 @@ import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.endpoint.dto.RecommendedActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.RouteDto;
 import com.smartroute.smartroute1.endpoint.dto.ViewInjuryDto;
-import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
-import com.smartroute.smartroute1.endpoint.mapper.ExerciseMapper;
 import com.smartroute.smartroute1.endpoint.mapper.InjuryMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
-import com.smartroute.smartroute1.entity.GymWorkout;
 import com.smartroute.smartroute1.entity.Injuries;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.exception.InsufficientTrainingDataException;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.exception.WeatherException;
-import com.smartroute.smartroute1.repository.GymWorkoutRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.FatigueAndOverloadService;
 import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
@@ -27,10 +23,8 @@ import com.smartroute.smartroute1.service.TrainingPlanService;
 import com.smartroute.smartroute1.service.WeatherService;
 import com.smartroute.smartroute1.service.WorkoutTypeSelectorService;
 import lombok.AllArgsConstructor;
-import org.hibernate.LazyInitializationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
@@ -78,7 +72,7 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
             if (weatherResponse == null) {
                 throw new WeatherException("Failed to get weather at " + utcTimeStr);
             }
-            WeatherImpactDto weatherImpactDto = weatherService.calculateWeatherScore(weatherResponse, age);
+            double weatherScore = weatherService.calculateWeatherScore(weatherResponse);
 
             // get TSB and readiness
             double tsb;
@@ -113,7 +107,7 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
             // TODO implement more detailed weather info
             // set weather info
             dto.setWeather(new CompactWeatherDto(
-                    weatherImpactDto.getWeatherScore(),
+                    weatherScore,
                     weatherResponse.getTemperature2m(),
                     weatherResponse.getWindSpeed10m(),
                     "N",
@@ -152,14 +146,13 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
                 // TODO take name from selected workout when different gym workouts have been implemented
                 dto.setName("Gym Workout");
 
+                // TODO generate only one new workout per day
                 // get gym workout
                 GymWorkoutDto gymWorkout = gymWorkoutSelectorService.getGymWorkout(
                         user,
-                        today,
                         injuryAwareTrainingService.calculateInjuriesMap(allInjuries),
                         readinessScore
                 );
-
                 dto.setGymSession(gymWorkout);
             }
 
