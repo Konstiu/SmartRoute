@@ -21,7 +21,7 @@ public interface PolyLineMapper {
     }
 
     private void convertCoordinate(double coordinate, StringBuilder sb) {
-        int coord = (int) Math.round(coordinate * 1e5);
+        int coord = (int) Math.round(coordinate * 1e6);
         coord <<= 1;
         if (coordinate < 0) {
             coord = ~coord;

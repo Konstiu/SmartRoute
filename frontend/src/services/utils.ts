@@ -24,7 +24,7 @@ export function convertPolylineToCoordinateList(polyline: string): number[][] {
   while (i < polyline.length) {
     lat += convertCoordinate();
     long += convertCoordinate();
-    coords.push([lat / 1e5, long / 1e5])
+    coords.push([lat / 1e6, long / 1e6])
   }
 
   return coords;

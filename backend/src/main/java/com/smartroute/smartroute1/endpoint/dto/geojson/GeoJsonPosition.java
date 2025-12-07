@@ -34,8 +34,8 @@ public class GeoJsonPosition {
     @JsonValue
     public List<Double> toJson() {
         List<Double> coordinates = new ArrayList<>();
-        coordinates.add(latitude);
         coordinates.add(longitude);
+        coordinates.add(latitude);
         if (altitude != null) {
             coordinates.add(altitude);
         }
@@ -50,9 +50,9 @@ public class GeoJsonPosition {
                 throw new JsonParseException(p, "GeoJsonPosition is encoded as an array (missing START_ARRAY token).");
             }
             p.nextToken();
-            double latitude = p.getDoubleValue();
-            p.nextToken();
             double longitude = p.getDoubleValue();
+            p.nextToken();
+            double latitude = p.getDoubleValue();
             Double altitude = null;
             if (p.nextToken() != JsonToken.END_ARRAY) {
                 altitude = p.getDoubleValue();
