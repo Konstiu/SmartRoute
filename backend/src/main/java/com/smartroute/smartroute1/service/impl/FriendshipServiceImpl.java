@@ -40,7 +40,7 @@ public class FriendshipServiceImpl implements FriendshipService {
         
         // check if receiver exists
         if (receiver == null) {
-            throw new NotFoundException("Receiver with email " + receiverEmail + " not found");
+            throw new NotFoundException("Receiver email not found");
         }
 
         // check if receiver is not the same as sender
@@ -64,7 +64,7 @@ public class FriendshipServiceImpl implements FriendshipService {
 
         // check if the existing friendship is already accepted
         if (existingFriendship.getStatus() == FriendshipStatus.ACCEPTED) {
-            throw new ConflictException("Friendship already exists between " + senderEmail + " and " + receiverEmail);
+            throw new ConflictException("Friendship already exists");
         }
         
         // if the receiver also sent a friend request to the sender, accept it automatically
@@ -78,7 +78,7 @@ public class FriendshipServiceImpl implements FriendshipService {
         }
         
         // Otherwise, there is already a pending request from sender to receiver
-        throw new ConflictException("A pending friend request already exists between " + senderEmail + " and " + receiverEmail);
+        throw new ConflictException("A pending friend request already exists");
     }
 
     @Override
@@ -102,7 +102,7 @@ public class FriendshipServiceImpl implements FriendshipService {
         
         // check if the friendship is in PENDING status
         if (existingFriendship.getStatus() != FriendshipStatus.PENDING) {
-            throw new ConflictException("Friendship already exists between " + senderEmail + " and " + friendshipId);
+            throw new ConflictException("Friendship between users already exists");
         }
         
         // cancel the friend request

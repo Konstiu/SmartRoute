@@ -84,7 +84,7 @@ public class FriendshipEndpoint {
     @Secured("ROLE_USER")
     @Operation(summary = "Get friends", description = "Return all accepted friendships of the authenticated user.")
     public List<FriendshipDetailDto> getFriends() {
-        LOGGER.trace("GET /api/v1/friendship");
+        LOGGER.trace("GET /api/v1/friendship/friends");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         List<Friendship> friendships = friendshipService.getFriends(authentication.getName());
         return friendships.stream().map(mapper::entityToDto).toList();
