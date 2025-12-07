@@ -5,12 +5,23 @@ import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
 import com.smartroute.smartroute1.endpoint.dto.PersonalDataDto;
 import com.smartroute.smartroute1.endpoint.dto.UserLoginDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.AthleteZone;
+import com.smartroute.smartroute1.entity.GarminAccount;
+import com.smartroute.smartroute1.entity.GymWorkout;
 import com.smartroute.smartroute1.exception.NotFoundException;
+import com.smartroute.smartroute1.exception.StravaAuthorizationException;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.UserRepository;
+import com.smartroute.smartroute1.repository.InjuryRepository;
+import com.smartroute.smartroute1.repository.ActivityRepository;
+import com.smartroute.smartroute1.repository.GarminAccountRepository;
+import com.smartroute.smartroute1.repository.AthleteZoneRepository;
+import com.smartroute.smartroute1.repository.GymWorkoutRepository;
+import com.smartroute.smartroute1.repository.StravaAccountRepository;
 import com.smartroute.smartroute1.security.JwtTokenizer;
 import com.smartroute.smartroute1.service.EmailSmtpService;
 import com.smartroute.smartroute1.service.RateLimitCheck;
+import com.smartroute.smartroute1.service.StravaOauthService;
 import com.smartroute.smartroute1.service.UserService;
 import com.smartroute.smartroute1.service.validators.UserValidator;
 import jakarta.transaction.Transactional;
@@ -39,15 +50,34 @@ public class CustomUserDetailService implements UserService {
     private final UserValidator validator;
     private final EmailSmtpService emailService;
     private final RateLimitCheck rateLimitCheck;
+    private final InjuryRepository injuryRepository;
+    private final ActivityRepository activityRepository;
+    private final GarminAccountRepository garminAccountRepository;
+    private final AthleteZoneRepository athleteZoneRepository;
+    private final GymWorkoutRepository gymWorkoutRepository;
+    private final StravaAccountRepository stravaAccountRepository;
+    private final StravaOauthService stravaOauthService;
 
     @Autowired
-    public CustomUserDetailService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenizer jwtTokenizer, UserValidator validator, EmailSmtpService emailService, RateLimitCheck rateLimitCheck) {
+    public CustomUserDetailService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenizer jwtTokenizer,
+                                   UserValidator validator, EmailSmtpService emailService, RateLimitCheck rateLimitCheck,
+                                   InjuryRepository injuryRepository, ActivityRepository activityRepository,
+                                   GarminAccountRepository garminAccountRepository, AthleteZoneRepository athleteZoneRepository,
+                                   GymWorkoutRepository gymWorkoutRepository, StravaAccountRepository stravaAccountRepository,
+                                   StravaOauthService stravaOauthService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenizer = jwtTokenizer;
         this.validator = validator;
         this.emailService = emailService;
         this.rateLimitCheck = rateLimitCheck;
+        this.injuryRepository = injuryRepository;
+        this.activityRepository = activityRepository;
+        this.garminAccountRepository = garminAccountRepository;
+        this.athleteZoneRepository = athleteZoneRepository;
+        this.gymWorkoutRepository = gymWorkoutRepository;
+        this.stravaAccountRepository = stravaAccountRepository;
+        this.stravaOauthService = stravaOauthService;
     }
 
     @Override
@@ -253,5 +283,15 @@ public class CustomUserDetailService implements UserService {
         return false;
     }
 
-
+    @Override
+    @Transactional
+    public void deleteAccount(String email) {
+        ApplicationUser user = this.userRepository.findUserByEmail(email);
+        this.activityRepository.deleteAllByUser(user);
+        this.garminAccountRepository.deleteAllByUser(user);
+        this.athleteZoneRepository.deleteAllByUser(user);
+        this.injuryRepository.deleteAllByApplicationUser(user);
+        this.stravaOauthService.disconnectStravaAccount(email);
+        this.userRepository.delete(user);
+    }
 }

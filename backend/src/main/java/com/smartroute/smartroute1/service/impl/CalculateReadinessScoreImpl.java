@@ -113,9 +113,6 @@ public class CalculateReadinessScoreImpl implements ReadinessScoreService {
             + weights[INDEX_INJURY]  * injuryPenalty
             + weights[INDEX_SATISFACTION] * normalizedSatisfaction;
 
-        // return as value between 0 and 100
-        System.out.println(fitnessReward + " " + weights[INDEX_FITNESS]);
-
         return (int) Math.round(readiness * 100.0);
     }
 
