@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.endpoint.exceptionhandler;
 
+import com.smartroute.smartroute1.exception.ConflictException;
 import com.smartroute.smartroute1.exception.ErrorListException;
 import com.smartroute.smartroute1.exception.NotFoundException;
 import com.smartroute.smartroute1.exception.StravaAuthorizationException;
@@ -134,6 +135,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     protected ResponseEntity<Object> handleValidation(ErrorListException ex, WebRequest request) {
         LOGGER.warn(ex.getMessage());
         return handleExceptionInternal(ex, ex.getMessage(), new HttpHeaders(), HttpStatus.UNPROCESSABLE_ENTITY, request);
+    }
+
+    @ExceptionHandler(value = {ConflictException.class})
+    @ResponseStatus(HttpStatus.CONFLICT)
+    protected ResponseEntity<Object> handleConflict(ConflictException ex, WebRequest request) {
+        LOGGER.warn("Conflict occurred: {}", ex.getMessage());
+        return handleExceptionInternal(ex, ex.getMessage(), new HttpHeaders(), HttpStatus.CONFLICT, request);
     }
 
     @ExceptionHandler(value = {StravaAuthorizationException.class})

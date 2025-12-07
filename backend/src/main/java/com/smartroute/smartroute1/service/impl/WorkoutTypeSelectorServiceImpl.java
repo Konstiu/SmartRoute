@@ -1,6 +1,5 @@
 package com.smartroute.smartroute1.service.impl;
 
-import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.WeatherResponse;
@@ -145,8 +144,7 @@ public class WorkoutTypeSelectorServiceImpl implements WorkoutTypeSelectorServic
 
         // get today's weather score
         WeatherResponse weatherResponse = weatherService.getWeatherAtTime(latitude, longitude, utcTimeStr);
-        WeatherImpactDto weatherImpact = weatherService.calculateWeatherScore(weatherResponse, userAge);
-        double weatherScore = weatherImpact.getWeatherScore();
+        double weatherScore = weatherService.calculateWeatherScore(weatherResponse);
 
         // Injury constraint (0) severely injured, (1) healthy
         double injuryConstraint = injuryAwareTrainingService.getInjuryConstraint(email);
