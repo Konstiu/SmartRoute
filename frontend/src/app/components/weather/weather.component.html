@@ -1,0 +1,48 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Weather Insights</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="close()">Close</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Temperature</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <p>{{ temperatureText }}</p>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Wind Conditions</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <p>{{ windText }}</p>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Precipitation</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <p>{{ precipitationText }}</p>
+    </ion-card-content>
+  </ion-card>
+
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Summary</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <p>{{ getWeatherScoreSummary(weatherScore) }}</p>
+    </ion-card-content>
+  </ion-card>
+
+</ion-content>
