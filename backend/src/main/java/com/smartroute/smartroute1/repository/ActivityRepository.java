@@ -57,4 +57,6 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
         List<WorkoutType> workoutTypes,
         Instant startDate
     );
+
+    void deleteAllByUser(ApplicationUser user);
 }

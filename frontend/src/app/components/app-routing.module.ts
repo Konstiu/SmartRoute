@@ -52,6 +52,14 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'privacy',
+    loadComponent: () => import('./privacy/privacy.page').then( m => m.PrivacyPage)
+  },
+  {
+    path: 'TandC',
+    loadComponent: () => import('./agb/agb.page').then( m => m.AgbPage)
+  },
+  {
     path: 'not-found',
     loadComponent: () => import('./not-found/not-found.page').then(m => m.NotFoundPage),
   },
@@ -59,6 +67,7 @@ const routes: Routes = [
     path: '**',
     loadComponent: () => import('./not-found/not-found.page').then(m => m.NotFoundPage),
   }
+
 ];
 
 @NgModule({

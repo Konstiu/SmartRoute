@@ -1,6 +1,6 @@
-import { Component } from '@angular/core';
+import {Component, inject} from '@angular/core';
 import { ConnectStravaComponent } from '../connect-strava/connect-strava.component'
-import { AlertController, IonicModule } from '@ionic/angular';
+import { AlertController, IonicModule, ToastController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ExploreContainerComponentModule } from '../explore-container/explore-container.module';
@@ -8,6 +8,7 @@ import { AuthService } from 'src/services/auth.service';
 import { ConnectGarminComponent } from "../connect-garmin/connect-garmin.component";
 import { UserDataDisplayComponent } from '../user-data-display/user-data-display.component';
 import {Router} from "@angular/router";
+import {UserService} from "../../../services/user.service";
 
 @Component({
   selector: 'app-account',
@@ -17,11 +18,14 @@ import {Router} from "@angular/router";
   imports: [IonicModule, CommonModule, FormsModule, ExploreContainerComponentModule, UserDataDisplayComponent]
 })
 export class AccountPage {
+  private userService = inject(UserService);
 
   constructor(
     private authService: AuthService,
     private alertController: AlertController,
-    private router: Router
+    private router: Router,
+    private toastController: ToastController,
+
   ) { }
 
   async presentLogoutConfirm() {
@@ -46,6 +50,31 @@ export class AccountPage {
     await alert.present();
   }
 
+  async deleteAccount() {
+    this.userService.deleteAccount().subscribe({
+      next: async () => {
+        const toast = await this.toastController.create({
+          message: 'Account deleted successfully',
+          color: 'success',
+          duration: 2000
+        });
+        await toast.present();
+
+        // Logout and redirect to login page
+        this.authService.logoutUser();
+      },
+      error: async (error) => {
+        console.error('Error deleting account:', error);
+        const toast = await this.toastController.create({
+          message: 'Failed to delete account. Please try again.',
+          color: 'danger',
+          duration: 3000
+        });
+        await toast.present();
+      }
+    });
+  }
+
   navigateToSync() {
     this.router.navigate(['/sync-activities']);
   }
@@ -60,5 +89,9 @@ export class AccountPage {
 
   logout() {
     this.authService.logoutUser();
+  }
+
+  delete() {
+    this.userService.deleteAccount();
   }
 }
