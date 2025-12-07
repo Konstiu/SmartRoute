@@ -4,7 +4,6 @@ import com.smartroute.smartroute1.endpoint.dto.AthleteStatusDto;
 import com.smartroute.smartroute1.endpoint.dto.CompactWeatherDto;
 import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.endpoint.dto.RecommendedActivityDto;
-import com.smartroute.smartroute1.endpoint.dto.RouteDto;
 import com.smartroute.smartroute1.endpoint.dto.ViewInjuryDto;
 import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
 import com.smartroute.smartroute1.endpoint.mapper.InjuryMapper;
@@ -20,6 +19,7 @@ import com.smartroute.smartroute1.service.FatigueAndOverloadService;
 import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import com.smartroute.smartroute1.service.ReadinessScoreService;
+import com.smartroute.smartroute1.service.RouteGenerationService;
 import com.smartroute.smartroute1.service.TrainingPlanService;
 import com.smartroute.smartroute1.service.WeatherService;
 import com.smartroute.smartroute1.service.WorkoutTypeSelectorService;
@@ -50,6 +50,7 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
     private InjuryAwareTrainingService injuryAwareTrainingService;
     private InjuryMapper injuryMapper;
     private GymWorkoutSelectorService gymWorkoutSelectorService;
+    private final RouteGenerationService routeGenerationService;
 
     @Override
     public RecommendedActivityDto getTrainingPlan(String email, double latitude, double longitude) {
@@ -139,8 +140,8 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
                 dto.setType(RecommendedActivityDto.SessionType.RUN);
                 dto.setName(selectedWorkout.toString());
 
-                //TODO implement route generation and set route dto
-                dto.setRoute(new RouteDto(5000.0, 2.5, 30.0));
+                // TODO: implement actual route generation (not just the parameters)
+                dto.setRoute(routeGenerationService.generateRoute(user, selectedWorkout, readinessScore));
 
             } else if (gymWorkouts.contains(selectedWorkout)) {
                 dto.setType(RecommendedActivityDto.SessionType.GYM);
