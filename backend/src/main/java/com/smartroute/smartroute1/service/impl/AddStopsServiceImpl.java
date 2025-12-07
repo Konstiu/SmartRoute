@@ -1,7 +1,10 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonDto;
+import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonPosition;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.AddStopsService;
+import com.smartroute.smartroute1.service.OpenRouteServiceService;
 import com.smartroute.smartroute1.service.validators.AddStopsValidator;
 import com.smartroute.smartroute1.util.Coordinate;
 import io.jenetics.jpx.GPX;
@@ -26,32 +29,60 @@ public class AddStopsServiceImpl implements AddStopsService {
     private static final double EARTH_RADIUS_METERS = 6371000.0;
 
     private final AddStopsValidator validator;
+    private final OpenRouteServiceService orsService;
 
     // Protected waypoint indices for the current operation. Always contains the original endpoints and all inserted points.
     private final NavigableSet<Integer> protectedIndices = new TreeSet<>();
 
-    private record ClosestPointResult(int segmentIndex, Coordinate closestPoint, double distanceMeters,
+    private record ClosestPointResult(int segmentIndex, GeoJsonPosition closestPoint, double distanceMeters,
                                       double totalLengthRoute) {
     }
 
-    private record AnchorPoint(int startIndex, int endIndex, Coordinate startCoordinate, Coordinate endCoordinate) {
+    private record AnchorPoint(int startIndex, int endIndex, GeoJsonPosition startCoordinate, GeoJsonPosition endCoordinate) {
     }
 
     @Override
-    public List<Coordinate> routeThroughPoint(Coordinate start, Coordinate via, Coordinate end) throws ValidationException {
+    public List<GeoJsonPosition> routeThroughPoint(GeoJsonPosition start, GeoJsonPosition via, GeoJsonPosition end) throws ValidationException {
         validator.validateCoordinates(start.getLatitude(), start.getLongitude());
         validator.validateCoordinates(via.getLatitude(), via.getLongitude());
         validator.validateCoordinates(end.getLatitude(), end.getLongitude());
 
-        List<Coordinate> result = new ArrayList<>();
+        List<GeoJsonPosition> result = new ArrayList<>();
+
         result.add(start);
         result.add(via);
         result.add(end);
+
+        GeoJsonDto dto = orsService.generateRoute(result);
+
+        return extractPolyline(dto);
+    }
+
+    private List<GeoJsonPosition> extractPolyline(GeoJsonDto dto) {
+        if (dto == null
+                || dto.getFeatures() == null
+                || dto.getFeatures().isEmpty()) {
+            return List.of();
+        }
+
+        List<GeoJsonPosition> coords = dto.getFeatures().getFirst().getGeometry().getCoordinates();
+
+        List<GeoJsonPosition> result = new ArrayList<>();
+
+        for (GeoJsonPosition c : coords) {
+            double lon = c.getLatitude(); // ORS format: [lon, lat]
+            double lat = c.getLongitude();
+
+            // Convert to lat long format
+            result.add(new GeoJsonPosition(lat, lon, c.getAltitude()));
+        }
+
         return result;
     }
 
+
     @Override
-    public List<Coordinate> addWaypoints(List<Coordinate> originalRoute, List<Coordinate> newPoints)
+    public List<GeoJsonPosition> addWaypoints(List<GeoJsonPosition> originalRoute, List<GeoJsonPosition> newPoints)
             throws ValidationException {
 
         validator.validateRouteLength(originalRoute);
@@ -65,9 +96,9 @@ public class AddStopsServiceImpl implements AddStopsService {
         protectedIndices.add(0);
         protectedIndices.add(originalRoute.size() - 1);
 
-        List<Coordinate> updatedRoute = new ArrayList<>(originalRoute);
+        List<GeoJsonPosition> updatedRoute = new ArrayList<>(originalRoute);
 
-        for (Coordinate newPoint : newPoints) {
+        for (GeoJsonPosition newPoint : newPoints) {
             validator.validateCoordinates(newPoint.getLatitude(), newPoint.getLongitude());
             updatedRoute = addSingleWaypoint(updatedRoute, newPoint);
         }
@@ -77,7 +108,7 @@ public class AddStopsServiceImpl implements AddStopsService {
         return updatedRoute;
     }
 
-    private List<Coordinate> addSingleWaypoint(List<Coordinate> route, Coordinate newPoint)
+    private List<GeoJsonPosition> addSingleWaypoint(List<GeoJsonPosition> route, GeoJsonPosition newPoint)
             throws ValidationException {
 
         ClosestPointResult closest = findClosestPoint(route, newPoint);
@@ -88,19 +119,17 @@ public class AddStopsServiceImpl implements AddStopsService {
 
         AnchorPoint anchors = chooseAnchorPoints(route, closest, prevProtected, nextProtected);
 
-        List<Coordinate> detour = routeThroughPoint(
+        List<GeoJsonPosition> detour = routeThroughPoint(
                 anchors.startCoordinate,
                 newPoint,
                 anchors.endCoordinate
         );
 
-        List<Coordinate> result = new ArrayList<>();
-
         // Before start anchor
-        result.addAll(route.subList(0, anchors.startIndex + 1));
+        List<GeoJsonPosition> result = new ArrayList<>(route.subList(0, anchors.startIndex + 1));
 
         // Insert trimmed detour
-        List<Coordinate> trimmedDetour = trimDetour(detour, anchors.startCoordinate, anchors.endCoordinate);
+        List<GeoJsonPosition> trimmedDetour = trimDetour(detour, anchors.startCoordinate, anchors.endCoordinate);
         result.addAll(trimmedDetour);
 
         // After end anchor
@@ -125,29 +154,29 @@ public class AddStopsServiceImpl implements AddStopsService {
     }
 
     // Find the closest segment of the polyline to the new point and derive anchor points where the old route should "exit" and "rejoin".
-    private ClosestPointResult findClosestPoint(List<Coordinate> polyline, Coordinate newPoint)
+    private ClosestPointResult findClosestPoint(List<GeoJsonPosition> polyline, GeoJsonPosition newPoint)
             throws ValidationException {
 
         validator.validateRouteLength(polyline);
 
         int bestIndex = -1;
-        Coordinate bestPoint = null;
+        GeoJsonPosition bestPoint = null;
         double bestDist = Double.MAX_VALUE;
         double routeLength = 0.0;
 
         for (int i = 0; i < polyline.size() - 1; i++) {
-            Coordinate a = polyline.get(i);
-            Coordinate b = polyline.get(i + 1);
+            GeoJsonPosition a = polyline.get(i);
+            GeoJsonPosition b = polyline.get(i + 1);
 
             routeLength += haversine(a, b);
 
-            Coordinate proj = projectPointToSegment(newPoint, a, b);
-            double dist = haversine(newPoint, proj);
+            GeoJsonPosition projection = projectPointToSegment(newPoint, a, b);
+            double dist = haversine(newPoint, projection);
 
             if (dist < bestDist) {
                 bestDist = dist;
                 bestIndex = i;
-                bestPoint = proj;
+                bestPoint = projection;
             }
         }
 
@@ -155,7 +184,7 @@ public class AddStopsServiceImpl implements AddStopsService {
     }
 
     // Picks anchor points where the route should leave and rejoin. * Uses curvature + minimum distance to select natural anchor points.
-    private AnchorPoint chooseAnchorPoints(List<Coordinate> route, ClosestPointResult closest, int prevProtectedIndex, int nextProtectedIndex) {
+    private AnchorPoint chooseAnchorPoints(List<GeoJsonPosition> route, ClosestPointResult closest, int prevProtectedIndex, int nextProtectedIndex) {
         int index = closest.segmentIndex;
         double routeLength = closest.totalLengthRoute;
 
@@ -182,18 +211,18 @@ public class AddStopsServiceImpl implements AddStopsService {
     }
 
     // Walks along the route in the specified direction (step = +/-1) * until we have travelled a minium distance and the local curvature (angle between segments) is below threshold.
-    private int walkUntilStable(List<Coordinate> route, int startIndex, int step, double minAnchorDistance) {
+    private int walkUntilStable(List<GeoJsonPosition> route, int startIndex, int step, double minAnchorDistance) {
         int index = startIndex;
         int size = route.size();
         final double maxTurnAngle = 20.0;
 
         double totalDist = 0.0;
 
-        Coordinate previous = route.get(Math.max(0, Math.min(size - 1, index)));
-        Coordinate current = route.get(Math.max(0, Math.min(size - 1, index + step)));
+        GeoJsonPosition previous = route.get(Math.max(0, Math.min(size - 1, index)));
+        GeoJsonPosition current = route.get(Math.max(0, Math.min(size - 1, index + step)));
 
         while (index + step >= 0 && index + step < size - 1) {
-            Coordinate next = route.get(index + step);
+            GeoJsonPosition next = route.get(index + step);
             totalDist += haversine(current, next);
 
             double angle = turnAngle(previous, current, next);
@@ -211,9 +240,13 @@ public class AddStopsServiceImpl implements AddStopsService {
     }
 
     //Computes the angle between segments (prev->curr) and (curr->next). Returns angle in degrees.
-    private double turnAngle(Coordinate prev, Coordinate curr, Coordinate next) {
-        double[] v1 = vectorMeters(prev, curr);
-        double[] v2 = vectorMeters(curr, next);
+    private double turnAngle(GeoJsonPosition prev, GeoJsonPosition curr, GeoJsonPosition next) {
+        Coordinate prevCord = new Coordinate(prev.getLatitude(), prev.getLongitude());
+        Coordinate currentCord = new Coordinate(curr.getLatitude(), curr.getLongitude());
+        Coordinate nextCord = new Coordinate(next.getLatitude(), next.getLongitude());
+
+        double[] v1 = vectorMeters(prevCord, currentCord);
+        double[] v2 = vectorMeters(currentCord, nextCord);
 
         double dot = v1[0] * v2[0] + v1[1] * v2[1];
         double m1 = Math.hypot(v1[0], v1[1]);
@@ -238,7 +271,7 @@ public class AddStopsServiceImpl implements AddStopsService {
     }
 
     // Removes duplicate endpoints from the detour segment if they coincide with the anchor points (within 1m).
-    private List<Coordinate> trimDetour(List<Coordinate> detour, Coordinate anchorStart, Coordinate anchorEnd)
+    private List<GeoJsonPosition> trimDetour(List<GeoJsonPosition> detour, GeoJsonPosition anchorStart, GeoJsonPosition anchorEnd)
             throws ValidationException {
 
         validator.validateRouteLength(detour);
@@ -262,15 +295,15 @@ public class AddStopsServiceImpl implements AddStopsService {
     }
 
     @Override
-    public List<Coordinate> gpxToPolyline(String pathname) throws IOException {
+    public List<GeoJsonPosition> gpxToPolyline(String pathname) throws IOException {
         GPX gpx = GPX.read(Path.of(pathname));
         List<WayPoint> points = gpx.tracks()
                 .flatMap(t -> t.segments())
                 .flatMap(s -> s.points())
                 .toList();
 
-        List<Coordinate> coords = points.stream()
-                .map(p -> new Coordinate(p.getLatitude().doubleValue(), p.getLongitude().doubleValue()))
+        List<GeoJsonPosition> coords = points.stream()
+                .map(p -> new GeoJsonPosition(p.getLatitude().doubleValue(), p.getLongitude().doubleValue(), 0.0))
                 .toList();
 
         LOGGER.trace("first coordinate: {}", coords.getFirst());
@@ -278,7 +311,7 @@ public class AddStopsServiceImpl implements AddStopsService {
     }
 
     @Override
-    public void createGpx(List<Coordinate> coordinates, String pathname) throws IOException {
+    public void createGpx(List<GeoJsonPosition> coordinates, String pathname) throws IOException {
         GPX gpx = GPX.builder()
                 .addTrack(track -> track.addSegment(seg ->
                         coordinates.forEach(c -> seg.addPoint(WayPoint.of(c.getLatitude(), c.getLongitude())))
@@ -289,7 +322,7 @@ public class AddStopsServiceImpl implements AddStopsService {
     }
 
     // Haversine distance in meters between two lat/lon points.
-    private static double haversine(Coordinate a, Coordinate b) {
+    private static double haversine(GeoJsonPosition a, GeoJsonPosition b) {
         double lat1 = Math.toRadians(a.getLatitude());
         double lat2 = Math.toRadians(b.getLatitude());
         double dlat = lat2 - lat1;
@@ -305,7 +338,7 @@ public class AddStopsServiceImpl implements AddStopsService {
     }
 
     // Project point P onto segment AB (in lat/lon space, approximated as 2D).
-    private static Coordinate projectPointToSegment(Coordinate p, Coordinate a, Coordinate b) {
+    private static GeoJsonPosition projectPointToSegment(GeoJsonPosition p, GeoJsonPosition a, GeoJsonPosition b) {
         double lat1 = Math.toRadians(a.getLatitude());
         double lon1 = Math.toRadians(a.getLongitude());
         double lat2 = Math.toRadians(b.getLatitude());
@@ -340,6 +373,6 @@ public class AddStopsServiceImpl implements AddStopsService {
         double latProj = projY / EARTH_RADIUS_METERS;
         double lonProj = projX / (EARTH_RADIUS_METERS * Math.cos(phi0));
 
-        return new Coordinate(Math.toDegrees(latProj), Math.toDegrees(lonProj));
+        return new GeoJsonPosition(Math.toDegrees(latProj), Math.toDegrees(lonProj), 0.0); // altitude is not important here
     }
 }

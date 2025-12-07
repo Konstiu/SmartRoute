@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.service.validators;
 
+import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonPosition;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.util.Coordinate;
 import org.slf4j.Logger;
@@ -15,7 +16,7 @@ import java.util.Objects;
 public class AddStopsValidator {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-    public void validateRouteLength(List<Coordinate> route) throws ValidationException {
+    public void validateRouteLength(List<GeoJsonPosition> route) throws ValidationException {
         List<String> errors = new ArrayList<>();
         LOGGER.trace("Validation of route length: {}", route);
 
@@ -33,11 +34,11 @@ public class AddStopsValidator {
         }
     }
 
-    private boolean checkCoordinateEquality(Coordinate coordinate1, Coordinate coordinate2) {
+    private boolean checkCoordinateEquality(GeoJsonPosition coordinate1, GeoJsonPosition coordinate2) {
         return (Objects.equals(coordinate1.getLongitude(), coordinate2.getLongitude()) && Objects.equals(coordinate1.getLatitude(), coordinate2.getLatitude()));
     }
 
-    public void validateSameEndpoints(List<Coordinate> oldRoute, List<Coordinate> newRoute) throws ValidationException {
+    public void validateSameEndpoints(List<GeoJsonPosition> oldRoute, List<GeoJsonPosition> newRoute) throws ValidationException {
         LOGGER.trace("Validating if new and old route have the same endpoints: oldRoute {}, newRoute {}", oldRoute, newRoute);
 
         validateRouteLength(oldRoute);
