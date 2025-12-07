@@ -54,6 +54,10 @@ export class AccountPage {
     this.router.navigate(['/injuries']);
   }
 
+  navigateToFriends() {
+    this.router.navigate(['/friends']);
+  }
+
   logout() {
     this.authService.logoutUser();
   }
