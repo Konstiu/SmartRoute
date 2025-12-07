@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { ModalController, IonicModule } from '@ionic/angular';
+import { IonicModule, ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -11,14 +11,21 @@ import { CommonModule } from '@angular/common';
 })
 export class WeatherInfoComponent {
 
-  @Input() temperatureDescription!: string;
-  @Input() windDescription!: string;
-  @Input() precipitationDescription!: string;
-  @Input() combinedSummary!: string;
+  @Input() temperatureText!: string;
+  @Input() windText!: string;
+  @Input() precipitationText!: string;
 
   constructor(private modalCtrl: ModalController) {}
 
-  dismiss() {
+  close() {
     this.modalCtrl.dismiss();
+  }
+
+  ngOnInit() {
+    console.log("Weather modal received:", {
+      temperature: this.temperatureText,
+      wind: this.windText,
+      precipitation: this.precipitationText
+    });
   }
 }

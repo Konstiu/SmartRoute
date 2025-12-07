@@ -16,12 +16,9 @@ export interface RecommendedActivityDto {
     windSpeed: number;
     precipitation: number;
     relativeHumidity: number;
-     // Placeholder fields until backend generator is merged
-     temperatureDescription?: string;
-     windDescription?: string;
-     precipitationDescription?: string;
-
-    description?: string;
+    weatherPerformancePenalty: number;
+    weatherScoreDescription: string;
+    weatherSummary: WeatherSummaryDto;
   },
   athleteStatus: {
     tsb: number;
@@ -36,4 +33,11 @@ export enum SessionType {
   GYM = "GYM",
   REST = "REST",
 }
+
+export interface WeatherSummaryDto {
+  temperatureText: string;
+  windText: string;
+  precipitationText: string;
+}
+
 

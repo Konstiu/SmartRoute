@@ -44,11 +44,14 @@ export class TrainingPlanPage implements OnInit {
       windSpeed: 4,
       precipitation: 0,
       relativeHumidity: 50,
-
-       temperatureDescription: "Mild temperatures, comfortable for most training.",
-       windDescription: "Light winds with little impact on performance.",
-       precipitationDescription: "No precipitation expected.",
-    },
+      weatherPerformancePenalty: 1.0,
+      weatherScoreDescription: "Excellent weather",
+      weatherSummary: {
+        temperatureText: "Mild temperatures, comfortable for most training.",
+        windText: "Light winds with little impact.",
+        precipitationText: "No precipitation expected.",
+        }
+      },
     athleteStatus: {
       tsb: 22,
       readinessScore: 75,
@@ -213,31 +216,16 @@ export class TrainingPlanPage implements OnInit {
     return "rainy-heavy"; // heavy rain
   }
 
-  getWeatherScoreDescription(score: number): string {
-    score = score * 100;
-    const scoreFixed: string = score.toFixed(0);
-    if (score >= 0.85) {
-      return `${scoreFixed} - Great conditions for training`;
-    }
-    if (score >= 0.65) {
-      return `${scoreFixed} - Decent weather — you can train normally`;
-    }
-    if (score >= 0.40) {
-      return `${scoreFixed} - Challenging weather — adjust effort`;
-    }
-    return `${scoreFixed} - Poor conditions — caution advised`;
-  }
-
   private modalCtrl = inject(ModalController);
 
   async openWeatherExplanation() {
+    const summary = this.recommendedActivity!.weather.weatherSummary;
     const modal = await this.modalCtrl.create({
       component: WeatherInfoComponent,
       componentProps: {
-        temperatureDescription: this.recommendedActivity?.weather.temperatureDescription,
-        windDescription: this.recommendedActivity?.weather.windDescription,
-        precipitationDescription: this.recommendedActivity?.weather.precipitationDescription,
-        score: this.recommendedActivity?.weather.weatherScore
+        temperatureText: summary.temperatureText,
+        windText: summary.windText,
+        precipitationText: summary.precipitationText,
       }
     });
 
