@@ -14,6 +14,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 
 import java.lang.invoke.MethodHandles;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -29,31 +30,39 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
     // email: col600aom@ia.wrg89
 
     @Override
-    public GeoJsonDto generateRoute(List<GeoJsonPosition> coordinates) {
-        if (coordinates == null || coordinates.size() < 2) {
+    public GeoJsonDto generateRoute(List<GeoJsonPosition> positions) {
+        if (positions == null || positions.size() < 2) {
             throw new IllegalArgumentException("'coordinates' must contain at least two coordinates.");
         }
-        ObjectMapper objectMapper = new ObjectMapper();
-        try {
-            String coords = objectMapper.writeValueAsString(coordinates);
 
+        // Convert to ORS-required format: [[lon,lat], [lon,lat], ...]
+        List<List<Double>> orsCoords = positions.stream()
+                .map(p -> List.of(p.getLongitude(), p.getLatitude()))
+                .toList();
+
+        try {
             String response = webClient.post()
                     .uri("https://api.openrouteservice.org/v2/directions/foot-walking/geojson")
                     .header("Authorization", orsAccessToken)
-                    .header("Content-Type", "application/json")
-                    .bodyValue("{\"coordinates\":" + coords + "}")
+                    .bodyValue(
+                            Map.of("coordinates", orsCoords)
+                    )
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
 
-            return objectMapper.readValue(response, GeoJsonDto.class);
-        } catch (JsonProcessingException e) {
-            LOGGER.error("Error processing json: ", e);
+            ObjectMapper mapper = new ObjectMapper();
+            return mapper.readValue(response, GeoJsonDto.class);
+
         } catch (WebClientResponseException e) {
-            LOGGER.error("Failed generating route. Response from server: ", e);
+            LOGGER.error("ORS error {}: {}", e.getStatusCode(), e.getResponseBodyAsString());
+            throw e; // DO NOT swallow
+        } catch (Exception e) {
+            LOGGER.error("Error contacting ORS", e);
+            throw new RuntimeException("Could not call ORS", e);
         }
-        return null;
     }
+
 
     @Override
     public GeoJsonDto generateRoundTrip(List<GeoJsonPosition> coordinates, int length, int points, int seed) {

@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.endpoint;
 
+import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonPosition;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.AddStopsService;
 import com.smartroute.smartroute1.util.Coordinate;
@@ -24,8 +25,8 @@ public class AddStopsEndpoint {
     @PermitAll
     @Operation(summary = "Insert additional stops.",
             description = "Edit a given route to include multiple coordinates the user sets.")
-    public ResponseEntity<List<Coordinate>> addWaypoints(@RequestBody List<Coordinate> originalRoute, @RequestBody List<Coordinate> newPoints) throws ValidationException {
-        List<Coordinate> editedRoute  = service.addWaypoints(originalRoute, newPoints);
+    public ResponseEntity<List<GeoJsonPosition>> addWaypoints(@RequestBody List<GeoJsonPosition> originalRoute, @RequestBody List<GeoJsonPosition> newPoints) throws ValidationException {
+        List<GeoJsonPosition> editedRoute  = service.addWaypoints(originalRoute, newPoints);
         return ResponseEntity.ok(editedRoute);
     }
 }
