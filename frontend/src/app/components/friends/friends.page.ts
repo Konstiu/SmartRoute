@@ -26,6 +26,10 @@ export class FriendsPage implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.loadData();
+  }
+
+  loadData() {
     this.friendshipService.getFriends().subscribe({
       next: (result) => {
         this.friendships = result;
@@ -52,6 +56,13 @@ export class FriendsPage implements OnInit {
         console.error('Error fetching incoming requests:', err);
       }
     });
+  }
+
+  handleRefresh(event: any) {
+    this.loadData();
+    setTimeout(() => {
+      event.target.complete();
+    }, 1000);
   }
 
   getFriendsDto(): FriendInfoDto[] {
