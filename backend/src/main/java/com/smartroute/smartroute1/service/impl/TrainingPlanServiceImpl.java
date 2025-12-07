@@ -104,7 +104,6 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
 
             RecommendedActivityDto dto = new RecommendedActivityDto();
 
-            // TODO implement more detailed weather info
             // set weather info
             dto.setWeather(new CompactWeatherDto(
                     weatherScore,
@@ -112,7 +111,9 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
                     weatherResponse.getWindSpeed10m(),
                     weatherResponse.getPrecipitation(),
                     weatherResponse.getRelativeHumidity(),
-                    null
+                    weatherService.estimatePerformancePenalty(weatherResponse),
+                    weatherService.evaluateWeatherScore(weatherScore),
+                    weatherService.buildWeatherDescription(weatherResponse)
             ));
 
             // set athlete status
