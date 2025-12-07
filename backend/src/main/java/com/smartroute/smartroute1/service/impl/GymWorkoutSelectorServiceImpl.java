@@ -1,6 +1,5 @@
 package com.smartroute.smartroute1.service.impl;
 
-import com.smartroute.smartroute1.endpoint.dto.ExerciseDto;
 import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.endpoint.mapper.ExerciseMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
@@ -11,8 +10,8 @@ import com.smartroute.smartroute1.entity.enums.Muscle;
 import com.smartroute.smartroute1.exception.NotFoundException;
 import com.smartroute.smartroute1.repository.ExerciseRepository;
 import com.smartroute.smartroute1.repository.GymWorkoutRepository;
-import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
+import com.smartroute.smartroute1.service.ReadinessScoreService;
 import com.smartroute.smartroute1.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.lang.invoke.MethodHandles;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 
@@ -61,16 +62,16 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
     private final GymWorkoutRepository gymWorkoutRepository;
     private final ExerciseMapper exerciseMapper;
     private final List<Muscle> toTrain;
+    private final ReadinessScoreService readinessScoreService;
 
 
-    public GymWorkoutSelectorServiceImpl(ExerciseRepository exerciseRepository, UserService userService, GymWorkoutRepository gymWorkoutRepository, ExerciseMapper exerciseMapper) {
+    public GymWorkoutSelectorServiceImpl(ExerciseRepository exerciseRepository, UserService userService, GymWorkoutRepository gymWorkoutRepository, ExerciseMapper exerciseMapper, ReadinessScoreService readinessScoreService) {
         this.exerciseRepository = exerciseRepository;
         this.userService = userService;
         this.gymWorkoutRepository = gymWorkoutRepository;
         this.exerciseMapper = exerciseMapper;
         this.toTrain = getTrainingMuscles();
-
-
+        this.readinessScoreService = readinessScoreService;
     }
 
     /**
@@ -87,10 +88,26 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
 
     @Override
     @Transactional
+    public GymWorkoutDto getGymWorkout(ApplicationUser user, LocalDate date, Map<BodyPart, Double> injuriesMap, Integer readinessScore) {
+        Optional<GymWorkout> existing = gymWorkoutRepository.findFirstByUserAndCreationDate(user, date);
+        if (existing.isPresent()) {
+            GymWorkoutDto gymWorkoutDto = getGymWorkoutById(existing.get().getId(), user.getEmail());
+
+            return gymWorkoutDto;
+        } else {
+            return getGymWorkout(user, injuriesMap, readinessScore);
+        }
+    }
+
+    @Override
+    @Transactional
     public GymWorkoutDto getGymWorkout(ApplicationUser user, Map<BodyPart, Double> injuriesMap, Integer readinessScore) {
+        LocalDate today = LocalDate.now();
+
         GymWorkout gymWorkout = getGymWorkout(injuriesMap, readinessScore);
 
         gymWorkout.setUser(user);
+        gymWorkout.setCreationDate(today);
 
         gymWorkout = gymWorkoutRepository.save(gymWorkout);
         gymWorkoutRepository.flush();
