@@ -51,5 +51,5 @@ public interface GymWorkoutSelectorService {
      * @param id the id of the gym workout
      * @return the gym workout from the id
      */
-    GymWorkoutDto getGymWorkoutById(Long id);
+    GymWorkoutDto getGymWorkoutById(Long id, String email);
 }

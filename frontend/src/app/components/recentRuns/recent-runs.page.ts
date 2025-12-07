@@ -1,10 +1,12 @@
-import {Component, inject, OnInit} from '@angular/core';
+import {Component, inject, OnInit, OnDestroy} from '@angular/core';
 import {IonicModule} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../services/activities.service';
 import {Activity} from '../../dtos/Activity';
 import {Router} from "@angular/router";
 import {ToastController} from '@ionic/angular';
+import {formatDistance, formatDuration, formatElevation, formatHeartRate, formatPace} from "../../util/formatters";
+import {ActivitySyncNotificationService} from "../../../services/ActivitySyncNotificationService";
 
 
 @Component({
@@ -18,15 +20,21 @@ export class RecentRunsPage implements OnInit {
   activities: Activity[] = [];
   isLoading = false;
   error: string | null = null;
+  private syncSubscription: any;
 
-  constructor(private stravaService: ActivitiesService, private router: Router) {
-  }
+  constructor(private stravaService: ActivitiesService,
+              private router: Router,
+              private syncNotificationService: ActivitySyncNotificationService
+  ) {}
 
   private activitiesService: ActivitiesService = inject(ActivitiesService);
   private toastCtrl: ToastController = inject(ToastController);
 
   ngOnInit() {
     this.loadActivities();
+    this.syncSubscription = this.syncNotificationService.syncCompleted.subscribe(() => {
+      this.loadActivities();
+    });
   }
 
   loadActivities(event?: any) {
@@ -97,7 +105,8 @@ export class RecentRunsPage implements OnInit {
   }
 
   formatDate(dateString: string): string {
-    const date = new Date(dateString);
+    const cleanString = dateString.replace('Z', '');
+    const date = new Date(cleanString);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -165,6 +174,14 @@ export class RecentRunsPage implements OnInit {
 
   importGpx() {
     this.router.navigate(['/import-gpx']);
+  }
+
+  protected readonly formatElevation = formatElevation;
+  protected readonly formatHeartRate = formatHeartRate;
+  ngOnDestroy() {
+    if (this.syncSubscription) {
+      this.syncSubscription.unsubscribe();
+    }
   }
 
 }

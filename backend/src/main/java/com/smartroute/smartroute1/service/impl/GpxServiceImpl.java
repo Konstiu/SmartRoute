@@ -28,6 +28,8 @@ import java.io.InputStream;
 import java.lang.invoke.MethodHandles;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -78,8 +80,10 @@ public class GpxServiceImpl implements GpxService {
                 }
             });
             gpx.getMetadata().flatMap(Metadata::getTime).ifPresent(startDate -> {
+                ZoneId sys = ZoneId.systemDefault();
+                ZoneOffset offset = sys.getRules().getOffset(startDate);
+                activity.setStartDateLocal(startDate.plusSeconds(offset.getTotalSeconds()));
                 activity.setStartDate(startDate);
-                activity.setStartDateLocal(startDate);
             });
 
             // extract all waypoints from all segments of all tracks

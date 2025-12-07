@@ -94,7 +94,7 @@ import java.util.List;
 )
 public class StravaEndpoint {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
-    private final StravaOauthServiceImpl authService;
+    private final StravaOauthService authService;
     private final StravaService stravaService;
     @Value("${strava.client.id}")
     private String clientId;

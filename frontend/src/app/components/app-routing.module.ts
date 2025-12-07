@@ -47,8 +47,12 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'not-found',
+    loadComponent: () => import('./not-found/not-found.page').then(m => m.NotFoundPage),
+  },
+  {
     path: '**',
-    loadComponent: () => import('./register/register.page').then(m => m.RegisterPage),
+    loadComponent: () => import('./not-found/not-found.page').then(m => m.NotFoundPage),
   }
 ];
 
