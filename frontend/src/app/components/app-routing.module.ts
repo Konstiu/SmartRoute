@@ -47,6 +47,11 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'friends',
+    loadComponent: () => import('./friends/friends.page').then(m => m.FriendsPage),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'privacy',
     loadComponent: () => import('./privacy/privacy.page').then( m => m.PrivacyPage)
   },
