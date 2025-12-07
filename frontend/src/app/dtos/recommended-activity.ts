@@ -14,10 +14,11 @@ export interface RecommendedActivityDto {
     weatherScore: number;
     temperature: number;
     windSpeed: number;
-    windDirection: string;
     precipitation: number;
     relativeHumidity: number;
-    description?: string;
+    weatherPerformancePenalty: number;
+    weatherScoreDescription: string;
+    weatherSummary: WeatherSummaryDto;
   },
   athleteStatus: {
     tsb: number;
@@ -32,4 +33,11 @@ export enum SessionType {
   GYM = "GYM",
   REST = "REST",
 }
+
+export interface WeatherSummaryDto {
+  temperatureText: string;
+  windText: string;
+  precipitationText: string;
+}
+
 
