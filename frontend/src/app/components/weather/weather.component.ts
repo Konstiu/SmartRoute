@@ -1,5 +1,5 @@
 import { Component, Input } from '@angular/core';
-import { IonicModule } from '@ionic/angular';
+import { ModalController, IonicModule } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -10,11 +10,15 @@ import { CommonModule } from '@angular/common';
   imports: [IonicModule, CommonModule]
 })
 export class WeatherInfoComponent {
+
   @Input() temperatureDescription!: string;
   @Input() windDescription!: string;
   @Input() precipitationDescription!: string;
   @Input() combinedSummary!: string;
 
-  dismiss() {}
-}
+  constructor(private modalCtrl: ModalController) {}
 
+  dismiss() {
+    this.modalCtrl.dismiss();
+  }
+}
