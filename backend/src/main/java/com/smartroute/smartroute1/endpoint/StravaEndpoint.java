@@ -142,7 +142,10 @@ public class StravaEndpoint {
                     + "(zones and activities)."
     )
     @GetMapping("/callback")
-    public ResponseEntity<Void> callback(@RequestParam(value = "code", required = false) Optional<String> code, @RequestParam(value = "scope", required = false) Optional<String> scope, @RequestParam("state") String state, @RequestParam(value = "error", required = false) Optional<String> error) {
+    public ResponseEntity<Void> callback(@RequestParam(value = "code", required = false) Optional<String> code,
+                                         @RequestParam(value = "scope", required = false) Optional<String> scope,
+                                         @RequestParam("state") String state,
+                                         @RequestParam(value = "error", required = false) Optional<String> error) {
         LOGGER.info("GET /api/v1/strava/callback code: {}, scope: {}, state: {}, error {}", code, scope, state, error);
 
         StravaOauthService.StravaOauthState stravaOauthState = authService.getState(state);
