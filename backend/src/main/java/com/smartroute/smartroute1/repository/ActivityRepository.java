@@ -31,6 +31,8 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
             @Param("end") Instant end
     );
 
+    List<Activity> findTop10ByUserAndTypeIsOrderByStartDateDesc(ApplicationUser user, String type, Pageable pageable);
+
     List<Activity> findAllByUserAndStartDateBetweenOrderByStartDateAsc(ApplicationUser user, Instant start, Instant end);
 
     List<Activity> findAllByUserOrderByStartDateAsc(ApplicationUser user);

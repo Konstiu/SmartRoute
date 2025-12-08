@@ -1,6 +1,6 @@
-import {IonicModule} from '@ionic/angular';
-import {Component, inject, OnInit} from '@angular/core';
-import {CommonModule} from '@angular/common';
+import { AlertController, IonicModule } from '@ionic/angular';
+import { Component, EventEmitter, inject, OnInit, ViewChild } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import {
   formatDistance,
   formatElevation, formatInjuryIndex,
@@ -10,10 +10,14 @@ import {
   formatWindDirection,
   formatWindSpeed,
 } from "../../util/formatters";
-import {RecommendedActivityDto, SessionType} from "../../dtos/recommended-activity";
-import {Router} from "@angular/router";
-import {BodyPart, getBodyPartLabel, getSeverityColor} from "../../dtos/injuries";
-import {TrainingPlanService} from "../../../services/training-plan.service";
+import { RecommendedActivityDto, SessionType } from "../../dtos/recommended-activity";
+import { Router } from "@angular/router";
+import { BodyPart, getBodyPartLabel, getSeverityColor } from "../../dtos/injuries";
+import { TrainingPlanService } from "../../../services/training-plan.service";
+import { MapComponent } from '../map/map.component';
+import { Icon, icon, latLng, LatLng, Layer, marker, polyline } from 'leaflet';
+import { RouteService } from 'src/services/route.service';
+import { convertPolylineToCoordinateList } from 'src/services/utils';
 import { ModalController } from '@ionic/angular';
 import { WeatherInfoComponent } from '../weather/weather.component';
 
@@ -22,7 +26,7 @@ import { WeatherInfoComponent } from '../weather/weather.component';
   templateUrl: 'trainingPlan.page.html',
   styleUrls: ['trainingPlan.page.scss'],
   standalone: true,
-  imports: [IonicModule, CommonModule]
+  imports: [IonicModule, CommonModule, MapComponent]
 })
 export class TrainingPlanPage implements OnInit {
 
@@ -50,8 +54,8 @@ export class TrainingPlanPage implements OnInit {
         temperatureText: "Mild temperatures, comfortable for most training.",
         windText: "Light winds with little impact.",
         precipitationText: "No precipitation expected.",
-        }
-      },
+      }
+    },
     athleteStatus: {
       tsb: 22,
       readinessScore: 75,
@@ -69,10 +73,10 @@ export class TrainingPlanPage implements OnInit {
     gymSession: {
       id: 1,
       exercises: [
-        {name: "Exercise 1", exerciseId: "1", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
-        {name: "Exercise 2", exerciseId: "2", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
-        {name: "Exercise 3", exerciseId: "3", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
-        {name: "Exercise 4", exerciseId: "4", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: []},
+        { name: "Exercise 1", exerciseId: "1", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
+        { name: "Exercise 2", exerciseId: "2", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
+        { name: "Exercise 3", exerciseId: "3", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
+        { name: "Exercise 4", exerciseId: "4", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
       ],
       sets: 4,
       reps: 40,
@@ -180,7 +184,7 @@ export class TrainingPlanPage implements OnInit {
     return "battery-dead-outline";
   }
 
-  getTsbColor(tsb: number):string {
+  getTsbColor(tsb: number): string {
     if (tsb >= 15) {
       return "success";
     }
@@ -197,6 +201,66 @@ export class TrainingPlanPage implements OnInit {
       return "danger";
     }
     return "danger";
+  }
+
+  layers: Layer[] = [];
+  routeService = inject(RouteService);
+
+  alertController = inject(AlertController);
+  markerOptions = {
+    icon: icon({
+      ...Icon.Default.prototype.options,
+      iconUrl: 'assets/marker-icon.png',
+      iconRetinaUrl: 'assets/marker-icon-2x.png',
+      shadowUrl: 'assets/marker-shadow.png'
+    })
+  };
+
+  async onGeolocationError(_error: GeolocationPositionError) {
+
+    let alert = await this.alertController.create({
+      header: "Unable to determine location.",
+      message: "Please add a marker to the map to select the starting point of the route.",
+      buttons: ["Okay"]
+    });
+
+    await alert.present();
+  }
+
+  hasLocation = false;
+  @ViewChild(MapComponent) mapComponent!: MapComponent;
+
+  handleNewLocation(location: LatLng) {
+    if (this.recommendedActivity?.route?.distance) {
+      this.layers.push(marker(location, this.markerOptions));
+      this.routeService.getGeneratedRoute(location.lat, location.lng, this.recommendedActivity?.route?.distance).subscribe({
+        next: (e) => {
+          if (this.recommendedActivity?.route?.distance) {
+            this.recommendedActivity.route.distance = e.distance;
+          }
+          if (this.recommendedActivity?.route?.elevation) {
+            this.recommendedActivity.route.elevation = e.elevation;
+          }
+          let coords = polyline(convertPolylineToCoordinateList(e.polyline).map(x => latLng(x[0], x[1])));
+          this.layers.push(coords)
+          if (this.mapComponent['map']) {
+            const bounds = coords.getBounds();
+            this.mapComponent['map'].fitBounds(bounds, { padding: [50, 50] });
+          }
+        }
+      });
+    }
+  }
+
+  onNewLocationRegisterd(location: LatLng) {
+    if (this.hasLocation) return;
+    this.handleNewLocation(location);
+    this.hasLocation = true;
+  }
+
+  geoLocation(location: LatLng) {
+    this.handleNewLocation(location);
+    this.hasLocation = true;
   }
 
   // ------- Weather -------
