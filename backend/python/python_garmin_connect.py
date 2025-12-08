@@ -139,7 +139,7 @@ def main():
         # only write temporary token files as a fallback if injection fails.
         inline_obj = obj
 
-    if sys.argv[1] == "--token-base64":
+    elif sys.argv[1] == "--token-base64":
         if len(sys.argv) < 3:
             print(json.dumps({"error": "Missing token JSON"}), file=sys.stderr)
             sys.exit(1)
@@ -148,7 +148,7 @@ def main():
             sys.exit(1)
         inline = sys.argv[2]
         try:
-            inline_obj = base64.b64decode(inline_obj).decode('utf-8')
+            inline = base64.b64decode(inline).decode('utf-8')
             obj = json.loads(inline)
         except Exception as e:
             print(json.dumps({"error": f"Invalid token JSON: {e}"}), file=sys.stderr)
@@ -159,6 +159,7 @@ def main():
             print(json.dumps({"error": "activity_count must be integer"}), file=sys.stderr)
             sys.exit(1)
 
+        inline_obj = obj
 
     elif len(sys.argv) == 4 and '@' in sys.argv[1]:
         # legacy credential invocation
@@ -197,45 +198,10 @@ def main():
                 print("Debug: In-memory token injection failed, falling back to file-based", file=sys.stderr)
                 api = None
 
-        # If we didn't get an API client via in-memory injection, use tokenstore_path or credentials
+        # If we didn't get an API client via in-memory injection, use credentials
         if api is None:
-            if inline_obj is not None:
-                print("Debug: Falling back to writing inline_obj to temp token store", file=sys.stderr)
-
-                # fallback: write inline_obj into a temp dir and point GARMINTOKENS there
-                tokenstore_temp = tempfile.TemporaryDirectory()
-                tokenstore_path = Path(tokenstore_temp.name)
-                try:
-                    if isinstance(inline_obj, dict):
-                        wrote = False
-                        for k, v in inline_obj.items():
-                            if isinstance(k, str) and k.endswith('.json'):
-                                p = tokenstore_path / k
-                                p.write_text(json.dumps(v))
-                                wrote = True
-                        if not wrote:
-                            p = tokenstore_path / 'oauth1_token.json'
-                            p.write_text(json.dumps(inline_obj))
-                    else:
-                        p = tokenstore_path / 'oauth1_token.json'
-                        p.write_text(json.dumps(inline_obj))
-                except Exception as e:
-                    print(json.dumps({"error": f"Failed to write token files: {e}"}), file=sys.stderr)
-                    tokenstore_temp.cleanup()
-                    sys.exit(1)
-
-                os.environ.setdefault("GARMINTOKENS", str(tokenstore_path))
-                api = Garmin()
-                try:
-                    api.login()
-                except TypeError:
-                    try:
-                        api.login(str(tokenstore_path))
-                    except Exception:
-                        pass
-            else:
-                api = Garmin(email, password)
-                api.login()
+            api = Garmin(email, password)
+            api.login()
 
         # Collect runs
         runs = collect_last_runs(api, target_count)

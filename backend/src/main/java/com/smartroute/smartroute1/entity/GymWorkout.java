@@ -1,5 +1,7 @@
 package com.smartroute.smartroute1.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -14,6 +16,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Data
@@ -30,9 +33,10 @@ public class GymWorkout {
 
     @ManyToOne
     @JoinColumn(name = "application_user_id")
+    @JsonIgnore
     private ApplicationUser user;
 
-    @ManyToMany
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE, CascadeType.REFRESH, CascadeType.DETACH})
     @JoinTable(
             name = "gym_workout_exercise",
             joinColumns = @JoinColumn(name = "gym_workout_id"),
@@ -41,6 +45,6 @@ public class GymWorkout {
     private List<Exercise> exercises;
     private Integer sets;
     private Integer reps;
-
+    private LocalDate creationDate;
 
 }

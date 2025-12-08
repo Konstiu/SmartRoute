@@ -1,7 +1,7 @@
 // src/app/components/app-routing.module.ts
-import { NgModule } from '@angular/core';
-import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
-import { AuthGuard } from '../../guards/auth.guard';
+import {NgModule} from '@angular/core';
+import {PreloadAllModules, RouterModule, Routes} from '@angular/router';
+import {AuthGuard} from '../../guards/auth.guard';
 
 const routes: Routes = [
   {
@@ -37,15 +37,44 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: "injuries",
+    loadComponent: () => import('./injuries/injuries.page').then(m => m.InjuriesPage),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: "sync-activities",
+    loadComponent: () => import('./account/sync-activities/sync-activities.page').then(m => m.SyncActivitiesPage),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'friends',
+    loadComponent: () => import('./friends/friends.page').then(m => m.FriendsPage),
+    canActivate: [AuthGuard]
+  },
+  {
+    path: 'privacy',
+    loadComponent: () => import('./privacy/privacy.page').then( m => m.PrivacyPage)
+  },
+  {
+    path: 'TandC',
+    loadComponent: () => import('./agb/agb.page').then( m => m.AgbPage)
+  },
+  {
+    path: 'not-found',
+    loadComponent: () => import('./not-found/not-found.page').then(m => m.NotFoundPage),
+  },
+  {
     path: '**',
-    loadComponent: () => import('./register/register.page').then(m => m.RegisterPage),
+    loadComponent: () => import('./not-found/not-found.page').then(m => m.NotFoundPage),
   }
+
 ];
 
 @NgModule({
   imports: [
-    RouterModule.forRoot(routes, { preloadingStrategy: PreloadAllModules })
+    RouterModule.forRoot(routes, {preloadingStrategy: PreloadAllModules})
   ],
   exports: [RouterModule]
 })
-export class AppRoutingModule { }
+export class AppRoutingModule {
+}

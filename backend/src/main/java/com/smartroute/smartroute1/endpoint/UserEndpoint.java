@@ -36,6 +36,8 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.DeleteMapping;
+
 
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
@@ -205,5 +207,27 @@ public class UserEndpoint {
             injuries.add(injuryMapper.entitytoDto(injury));
         }
         return injuries;
+    }
+
+    @Operation(
+            summary = "Delete an Injury",
+            description = "Deletes one injury with the corresponding id for the authenticated user."
+    )
+    @DeleteMapping(value = "/injuries/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    @Secured("ROLE_USER")
+    public void deleteInjury(@PathVariable("id") long id) {
+        LOGGER.info("DELETE /api/v1/user/injuries/{}", id);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        injuryAwareTrainingService.deleteInjuriesByEmailAndId(authentication.getName(), id);
+    }
+
+    @DeleteMapping(value = "/account")
+    @ResponseStatus(HttpStatus.OK)
+    @Secured("ROLE_USER")
+    public void deleteUserAccount() {
+        LOGGER.info("DELETE /api/v1/user/account");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        this.userService.deleteAccount(authentication.getName());
     }
 }
