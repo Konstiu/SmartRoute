@@ -105,6 +105,11 @@ public interface UserService extends UserDetailsService {
      */
     boolean changePasswordWithToken(String token, PasswordResetDto resetDto) throws ValidationException;
 
+    /**
+     * Deletes the user account associated with the given email.
+     *
+     * @param email the email of the user whose account is to be deleted
+     */
     void deleteAccount(String email);
 
 }
