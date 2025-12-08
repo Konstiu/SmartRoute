@@ -48,6 +48,24 @@ spec:
             periodSeconds: 5
             failureThreshold: 120
           lifecycle:
+           postStart:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  echo ">>> Installing Python for this pod..."
+                  apt-get update
+                  apt-get install -y python3 python3-venv python3-pip
+                  python3 --version
+
+                  echo ">>> Running setup.sh in /app/python ..."
+                  cd /app/python
+                  rm -rf .venv || true
+                  chmod +x setup.sh
+                  ./setup.sh
+                  echo ">>> setup.sh finished"
             preStop:
               httpGet:
                 port: 8080
