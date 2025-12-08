@@ -29,6 +29,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.lang.invoke.MethodHandles;
 import java.net.URI;
 import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequiredArgsConstructor
@@ -141,29 +142,42 @@ public class StravaEndpoint {
                     + "(zones and activities)."
     )
     @GetMapping("/callback")
-    public ResponseEntity<Void> callback(@RequestParam("code") String code, @RequestParam("scope") String scope, @RequestParam("state") String state) {
-        LOGGER.info("GET /api/v1/strava/callback code: {}, scope: {}, state: {}", code, scope, state);
+    public ResponseEntity<Void> callback(@RequestParam(value = "code", required = false) Optional<String> code, @RequestParam(value = "scope", required = false) Optional<String> scope, @RequestParam("state") String state, @RequestParam(value = "error", required = false) Optional<String> error) {
+        LOGGER.info("GET /api/v1/strava/callback code: {}, scope: {}, state: {}, error {}", code, scope, state, error);
 
         StravaOauthService.StravaOauthState stravaOauthState = authService.getState(state);
+        if (stravaOauthState == null) {
+            URI redirectUri = URI.create(frontendUrl + "/");
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .location(redirectUri)
+                    .build();
+        }
+
         String email = stravaOauthState.email;
         String origin = stravaOauthState.origin;
+
+        URI redirectUri = URI.create(frontendUrl + "/" + origin);
 
         if (email == null || origin == null || email.equals("anonymousUser")) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        authService.exchangeCodeForToken(code, scope, email);
+        if (error.isPresent() || code.isEmpty() || scope.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FOUND)
+                    .location(redirectUri)
+                    .build();
+        }
 
-        if (scope.contains("activity:read_all")) {
+        authService.exchangeCodeForToken(code.get(), scope.get(), email);
+
+        if (scope.get().contains("activity:read_all")) {
             stravaService.importStravaActivities(email, 50);
         }
-        if (scope.contains("profile:read_all")) {
+        if (scope.get().contains("profile:read_all")) {
             stravaService.importStravaZoneData(email);
         }
 
         stravaService.importStravaAthlete(email);
-
-        URI redirectUri = URI.create(frontendUrl + "/" + origin);
 
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(redirectUri)
