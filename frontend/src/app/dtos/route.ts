@@ -1,4 +1,6 @@
 export interface GeneratedRouteDto {
-  bbox: string,
+  bbox: number[],
   polyline: string,
+  distance: number,
+  elevation: number,
 }
