@@ -16,6 +16,7 @@ spec:
       containers:
         - name: 25ws-ase-pr-inso-05-container
           image: registry.reset.inso-w.at/2025ws-ase-pr-group/25ws-ase-pr-inso-05:latest
+          workingDir: /app
           resources:
             requests:
               memory: "256Mi"
