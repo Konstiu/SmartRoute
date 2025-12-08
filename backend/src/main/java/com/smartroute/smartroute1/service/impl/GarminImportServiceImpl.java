@@ -29,6 +29,8 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -226,9 +228,29 @@ public class GarminImportServiceImpl implements GarminImportService {
         log.info("Python script completed successfully");
 
         String json = output.toString().trim();
-        log.debug("Raw JSON from Python: {}", json);
+        JsonNode meta = objectMapper.readTree(json);
 
-        return objectMapper.readValue(json, GarminScriptResult.class);
+        if (!meta.has("result_file")) {
+            return objectMapper.treeToValue(meta, GarminScriptResult.class);
+        }
+
+        String resultFile = meta.path("result_file").asText(null);
+        if (resultFile == null || resultFile.isBlank()) {
+            throw new GarminScriptException("Python script did not return a valid result_file path");
+        }
+
+        Path resultPath = Path.of(resultFile);
+        String resultJson = Files.readString(resultPath, StandardCharsets.UTF_8);
+
+        try {
+            Files.deleteIfExists(resultPath);
+        } catch (IOException ex) {
+            log.warn("Failed to delete temporary result file {}", resultPath, ex);
+        }
+
+        log.debug("Loaded detailed Garmin result JSON from {}", resultFile);
+
+        return objectMapper.readValue(resultJson, GarminScriptResult.class);
     }
 
 
