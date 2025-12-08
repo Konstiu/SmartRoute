@@ -93,12 +93,35 @@
         </ion-text>
       </div>
 
+      <ion-item lines="none" class="checkbox-item">
+        <ion-checkbox
+          labelPlacement="end"
+          justify="start"
+          name="termsAccepted"
+          [(ngModel)]="termsAccepted"
+          #terms="ngModel"
+          required
+          [disabled]="isSubmitting">
+          I accept the terms and conditions
+        </ion-checkbox>
+      </ion-item>
+      <div class="error-message" *ngIf="!termsAccepted && form.submitted">
+        <ion-text color="danger"><small>You must accept the terms and conditions</small></ion-text>
+      </div>
+
+      <!-- Links to AGB and Privacy Policy -->
+      <div class="policy-links">
+        <a (click)="openAgb($event)" class="policy-link">Terms and Conditions</a>
+        <span class="separator">•</span>
+        <a (click)="openPrivacyPolicy($event)" class="policy-link">Privacy Policy</a>
+      </div>
+
       <ion-button
         expand="block"
         type="submit"
         class="ion-margin-top"
         color="primary"
-        [disabled]="form.invalid || isSubmitting">
+        [disabled]="form.invalid || isSubmitting || !termsAccepted">
         <ion-icon slot="start" name="person-add-outline"></ion-icon>
         Create Account
       </ion-button>

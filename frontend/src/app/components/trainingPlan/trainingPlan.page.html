@@ -66,29 +66,37 @@
                           <ion-list-header lines="inset">
                             <ion-label class="info-header">Weather</ion-label>
                           </ion-list-header>
+
+                          <!-- Temperature -->
                           <ion-item>
                         <span><ion-icon name="thermometer-outline"></ion-icon>
                           {{ formatTemperature(recommendedActivity!.weather.temperature) }}</span>
                           </ion-item>
+
+                          <!-- Wind -->
                           <ion-item>
                             <ion-label class="wind-info">
-                              <h2>Wind:</h2>
                               <div class="wind-row">
-                                <ion-icon name="speedometer-outline"></ion-icon>
+                                <ion-icon name="flag-outline"></ion-icon>
                                 {{ formatWindSpeed(recommendedActivity!.weather.windSpeed) }}
-                              </div>
-                              <div class="wind-row">
-                                <ion-icon name="compass-outline"></ion-icon>
-                                {{ formatWindDirection(recommendedActivity!.weather.windDirection) }}
                               </div>
                             </ion-label>
                           </ion-item>
-                          @if (recommendedActivity!.weather.precipitation > 0) {
+
+                          <!-- Relative Humidity -->
+                          <ion-item>
+                            <span>
+                              <ion-icon name="water-outline"></ion-icon>
+                              {{ recommendedActivity!.weather.relativeHumidity }} %
+                            </span>
+                          </ion-item>
+
+                          <!-- Precipitation -->
                             <ion-item>
-                          <span><ion-icon name="rainy-outline"></ion-icon>
-                            {{ formatPrecipitation(recommendedActivity!.weather.precipitation) }}</span>
+                          <span><ion-icon [name]="getPrecipitationIcon(recommendedActivity!.weather.precipitation)"></ion-icon>
+                            {{ formatPrecipitation(recommendedActivity!.weather.precipitation) }}
+                          </span>
                             </ion-item>
-                          }
                         </ion-list>
                       </ion-col>
                     </ion-row>
@@ -170,6 +178,20 @@
                       </ion-label>
                     </ion-item>
                   }
+                  <!-- Weather Score -->
+                  <ion-item>
+                    <ion-label>
+                      <ion-icon [color]="getWeatherScoreColor(recommendedActivity!.weather.weatherScore)"
+                                name="sunny-outline"></ion-icon>
+                          Weather Score: {{ (recommendedActivity!.weather.weatherScore * 100) | number:'1.0-0' }} -
+                      {{ recommendedActivity!.weather.weatherScoreDescription }}
+                    </ion-label>
+                    <ion-icon
+                      name="information-circle-outline"
+                      class="weather-info-icon"
+                      (click)="openWeatherExplanation()">
+                    </ion-icon>
+                  </ion-item>
                 </ion-list>
               </ion-card-content>
             </ion-card>

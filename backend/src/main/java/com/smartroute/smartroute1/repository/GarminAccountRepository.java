@@ -9,4 +9,6 @@ import org.springframework.stereotype.Repository;
 public interface GarminAccountRepository extends JpaRepository<GarminAccount, Long> {
 
     GarminAccount findByUser(ApplicationUser user);
+
+    void deleteAllByUser(ApplicationUser user);
 }
