@@ -220,6 +220,7 @@ export class TrainingPlanPage implements OnInit {
   }
 
   hasLocation = false;
+  @ViewChild(MapComponent) mapComponent!: MapComponent;
 
   handleNewLocation(location: LatLng) {
     if (this.recommendedActivity?.route?.distance) {
@@ -232,9 +233,12 @@ export class TrainingPlanPage implements OnInit {
           if (this.recommendedActivity?.route?.elevation) {
             this.recommendedActivity.route.elevation = e.elevation;
           }
-          let coords = convertPolylineToCoordinateList(e.polyline).map(x => latLng(x[0], x[1]));
-          this.layers.push(polyline(coords))
-          this.zoom = 15;
+          let coords = polyline(convertPolylineToCoordinateList(e.polyline).map(x => latLng(x[0], x[1])));
+          this.layers.push(coords)
+          if (this.mapComponent['map']) {
+            const bounds = coords.getBounds();
+            this.mapComponent['map'].fitBounds(bounds, { padding: [50, 50] });
+          }
         }
       });
     }
