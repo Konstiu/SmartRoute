@@ -64,11 +64,6 @@ spec:
                 secretKeyRef:
                   name: strava-secret
                   key: STRAVA_CLIENT_SECRET
-
-            - name: GARMIN_PYTHON_EXECUTABLE
-              value: "/usr/bin/python3"
-            - name: GARMIN_PYTHON_SCRIPT_PATH
-              value: "/app/python/python_garmin_connect.py"
       imagePullSecrets:
         - name: secret-dockercfg
   revisionHistoryLimit: 2
