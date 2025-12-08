@@ -1,4 +1,4 @@
-<ion-card>
+<ion-card class="rounded-card">
   <ion-card-header>
     <ion-card-title class="connected-title">
       Personal Data
@@ -17,7 +17,7 @@
       </ion-list>
     </ion-grid>
 
-    <ion-button style="margin-top: 1em;" (click)="updateUserData()">Change personal data</ion-button>
+    <ion-button expand="block" fill="outline" style="margin-top: 1em;" (click)="updateUserData()">Change personal data</ion-button>
   </ion-card-content>
 
   <ion-toast [isOpen]="errorToastOpen" color="danger"

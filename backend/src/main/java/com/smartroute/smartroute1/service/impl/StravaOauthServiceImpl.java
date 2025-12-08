@@ -8,6 +8,7 @@ import com.smartroute.smartroute1.exception.StravaAuthorizationException;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.StravaOauthService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,6 +66,7 @@ public class StravaOauthServiceImpl implements StravaOauthService {
     }
 
     @Override
+    @Transactional
     public StravaAccountConnectionStateDto disconnectStravaAccount(String email) {
         ApplicationUser user = userRepository.findUserByEmail(email);
         if (user == null) {
@@ -78,7 +80,17 @@ public class StravaOauthServiceImpl implements StravaOauthService {
             );
         }
 
-        String token = ensureValidAccessToken(account.get());
+        String token = "";
+        try {
+            token = ensureValidAccessToken(account.get());
+        } catch (StravaAuthorizationException e) {
+            LOGGER.warn(e.getMessage());
+            stravaAccountRepository.deleteByUser(user);
+            return new StravaAccountConnectionStateDto(
+                    false,
+                    ""
+            );
+        }
 
         try {
             webClient.post()

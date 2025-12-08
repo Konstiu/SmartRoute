@@ -10,4 +10,6 @@ import java.util.Optional;
 @Repository
 public interface StravaAccountRepository extends JpaRepository<StravaAccount, Long> {
     Optional<StravaAccount> findByUser(ApplicationUser user);
+
+    void deleteByUser(ApplicationUser user);
 }

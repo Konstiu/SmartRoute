@@ -3,7 +3,7 @@ import {ActivatedRoute} from '@angular/router';
 import {IonicModule} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../../services/activities.service';
-import {DetailedStravaActivity} from '../../../dtos/StravaActivity';
+import {DetailedActivity} from '../../../dtos/Activity';
 import * as L from 'leaflet';
 
 @Component({
@@ -16,7 +16,7 @@ import * as L from 'leaflet';
 export class ActivityDetailPage implements OnInit, AfterViewInit {
   @ViewChild('map', {static: false}) mapElement!: ElementRef;
 
-  activity: DetailedStravaActivity | null = null;
+  activity: DetailedActivity | null = null;
   isLoading = true;
   error: string | null = null;
   map: L.Map | null = null;
@@ -200,7 +200,8 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
 
 
   formatDate(dateString: string): string {
-    const date = new Date(dateString);
+    const cleanString = dateString.replace('Z', '');
+    const date = new Date(cleanString);
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));

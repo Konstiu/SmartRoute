@@ -1,8 +1,10 @@
 import { Component, inject } from '@angular/core';
-import { IonicModule } from '@ionic/angular';
+import { IonicModule, ToastController } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { GpxService } from '../../../services/gpx.service';
+import { Router } from '@angular/router';
+import { ActivitySyncNotificationService } from 'src/services/ActivitySyncNotificationService';
 
 @Component({
   selector: 'app-import-gpx',
@@ -14,10 +16,12 @@ import { GpxService } from '../../../services/gpx.service';
 export class ImportGpxPage {
   files: File[] = [];
   errorMessage: string | null = null;
-  successMessage: string | null = null;
   readonly maxTotalBytes = 10 * 1024 * 1024; // 10 MB
   uploadInProgress = false;
   private gpxService = inject(GpxService);
+  private toastCtrl = inject(ToastController);
+  private router = inject(Router);
+  private syncNotificationService: ActivitySyncNotificationService = inject(ActivitySyncNotificationService);
 
   onFileButtonClick(fileInput: HTMLInputElement) {
     fileInput.click();
@@ -37,7 +41,6 @@ export class ImportGpxPage {
       this.errorMessage = null;
     }
 
-    this.successMessage = null;
     input.value = '';
   }
 
@@ -48,7 +51,6 @@ export class ImportGpxPage {
     if (total <= this.maxTotalBytes) {
       this.errorMessage = null;
     }
-    this.successMessage = null;
   }
 
   formatFileSize(bytes: number): string {
@@ -68,7 +70,6 @@ export class ImportGpxPage {
     if (this.files.length === 0) return;
     this.uploadInProgress = true;
     this.errorMessage = null;
-    this.successMessage = null;
 
     this.gpxService.importStravaGpx(this.files).subscribe({
       next: (activities) => {
@@ -76,8 +77,13 @@ export class ImportGpxPage {
         this.uploadInProgress = false;
         this.errorMessage = null;
         const count = Array.isArray(activities) ? activities.length : 0;
-        this.successMessage = `Import successful (${count} activities).`;
         this.files = [];
+
+        const message = `Import successful (${count} activities).`;
+        this.toastCtrl.create({ message, color: 'success', duration: 3000, position: 'top' })
+          .then(t => t.present())
+          .then(() => this.syncNotificationService.notifySyncCompleted())
+          .then(() => this.router.navigate(['/tabs/recentRuns']));
       },
       error: (err) => {
         console.error('Upload error', err);

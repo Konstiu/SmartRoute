@@ -1,62 +1,65 @@
 package com.smartroute.smartroute1.service;
 
-import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
-import com.smartroute.smartroute1.endpoint.dto.WeatherImpactDto;
-import com.smartroute.smartroute1.exception.WeatherException;
+import com.smartroute.smartroute1.endpoint.dto.WeatherSummaryDto;
+import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.ValidationException;
-
-import java.util.List;
 
 /** Provides methods to retrieve hourly weather forecast data from an external API. */
 public interface WeatherService {
     /**
      * Fetches the hourly weather data of a given location of the next seven days.
      *
-     * @param latitude latitude of the location from which the weather data should be fetched
+     * @param latitude latitude coordinate from where the weather data should be fetched.
      *
-     * @param longitude longitude of the location from which the weather data should be fetched
+     * @param longitude latitude coordinate from where the weather data should be fetched.
      *
-     * @return a list of {@link WeatherDto} objects, each representing one hour of forecast data
+     * @param timeUtc time from which the weather data should be fetched for.
      *
-     * @throws WeatherException if weather data could not be fetched
+     * @throws ValidationException coordinates contain invalid latitude or longitude values, time is in a wrong format or data is not available for that time.
      */
-    List<WeatherDto> getHourlyWeather(double latitude, double longitude) throws ValidationException;
+    WeatherResponse getWeatherAtTime(double latitude, double longitude, String timeUtc) throws ValidationException;
 
     /**
-     * Estimates the performance impact of weather conditions on a running event.
+     * Calculates the weather score, a metric that quantifies the outdoor conditions.
      *
-     * @param distance The distance of the running event in meters.
+     * @param weather Weather Data.
      *
-     * @param baseTimeSeconds The runner's baseline expected time for the event, in seconds, under optimal conditions.
+     * @return weatherScore between 0 and 1.
      *
-     * @param temperature Temperature in degrees Celsius.
-     *
-     * @param relativeHumidity Relative humidity as a percentage (0–100).
-     *
-     * @param shortwaveRadiation Solar radiation in W/m².
-     *
-     * @param windSpeed Wind speed in m/s.
-     *
-     * @param precipitation rain, showers, snow in mm
-     *
-     * @param age Runners age
-     *
-     * @return
-     *        A {@link WeatherImpactDto} containing:
-     *        <ul>
-     *            <li>The estimated percentage performance penalty (positive or negative)</li>
-     *            <li>The adjusted predicted finish time in seconds</li>
-     *            <li>A heat-risk category based on WBGT</li>
-     *        </ul>
+     * @throws ValidationException if weather data is abnormal.
      */
-    WeatherImpactDto estimateImpact(
-            int distance,
-            long baseTimeSeconds,
-            double temperature,
-            double relativeHumidity,
-            double shortwaveRadiation,
-            double windSpeed,
-            double precipitation,
-            int age
-    );
+    double calculateWeatherScore(WeatherResponse weather) throws ValidationException;
+
+    /**
+     * Estimates the negative impact the weather has on performance, in comparison to optimal conditions.
+     *
+     * @param weather Weather Data.
+     *
+     * @return estimated performance penalty in %.
+     *
+     * @throws ValidationException if weather data is abnormal.
+     */
+    double estimatePerformancePenalty(WeatherResponse weather) throws ValidationException;
+
+
+    /**
+     * Generates a description fitting of the given weather data.
+     *
+     * @param weather Weather Data.
+     *
+     * @return a WeatherSummaryDto containing the description of the weather events.
+     *
+     * @throws ValidationException if weather data is abnormal.
+     */
+    WeatherSummaryDto buildWeatherDescription(WeatherResponse weather) throws ValidationException;
+
+
+    /**
+     * Maps the weather score to a very brief description.
+     *
+     * @param weatherScore a metric between 0 and 1 that quantifies the outdoor conditions.
+     *
+     * @return a brief description.
+     */
+    String evaluateWeatherScore(double weatherScore);
 }

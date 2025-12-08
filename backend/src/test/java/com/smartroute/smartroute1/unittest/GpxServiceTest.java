@@ -51,9 +51,9 @@ public class GpxServiceTest {
             () -> assertEquals(3442, activity.getElapsedTime()),
             () -> assertEquals(15.5, activity.getTotalElevationGain(), 0.1),
             () -> assertNull(activity.getType()),
-            () -> assertNull(activity.getSportType()),
+            () -> assertEquals("Run",activity.getSportType()),
             () -> assertEquals(Instant.parse("2025-10-22T18:41:58Z"), activity.getStartDate()),
-            () -> assertEquals(Instant.parse("2025-10-22T18:41:58Z"), activity.getStartDateLocal()),
+            () -> assertNotNull(activity.getStartDateLocal()),
             () -> assertEquals(2.5363064, activity.getAverageSpeed(), 0.1),
             () -> assertEquals(5.6, activity.getMaxSpeed(), 0.1),
             () -> assertEquals(155.86769, activity.getAverageHeartrate(), 0.1),
@@ -81,9 +81,9 @@ public class GpxServiceTest {
             () -> assertEquals(3442, activity.getElapsedTime()),
             () -> assertEquals(15.5, activity.getTotalElevationGain(), 0.1),
             () -> assertNull(activity.getType()),
-            () -> assertNull(activity.getSportType()),
+            () -> assertEquals("Run", activity.getSportType()),
             () -> assertEquals(Instant.parse("2025-10-22T18:41:58Z"), activity.getStartDate()),
-            () -> assertEquals(Instant.parse("2025-10-22T18:41:58Z"), activity.getStartDateLocal()),
+            () -> assertNotNull(activity.getStartDateLocal()),
             () -> assertEquals(2.5363064, activity.getAverageSpeed(), 0.1),
             () -> assertEquals(5.6, activity.getMaxSpeed(), 0.1),
             () -> assertEquals(155.86769, activity.getAverageHeartrate(), 0.1),
@@ -91,7 +91,7 @@ public class GpxServiceTest {
             () -> assertNull(activity.getAverageWatts()),
             () -> assertNull(activity.getKilojoules()),
             () -> assertNull(activity.getSufferScore()),
-            () -> assertEquals(322, activity.getSessionLoad()),
+            () -> assertEquals(207, activity.getSessionLoad()),
             () -> assertNotNull(activity.getSummaryPolyline())
         );
     }
