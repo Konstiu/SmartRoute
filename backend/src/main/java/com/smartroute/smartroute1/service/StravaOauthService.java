@@ -3,6 +3,9 @@ package com.smartroute.smartroute1.service;
 import com.smartroute.smartroute1.endpoint.dto.StravaAccountConnectionStateDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaTokenResponseDto;
 import com.smartroute.smartroute1.entity.StravaAccount;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
@@ -15,6 +18,8 @@ import org.springframework.web.server.ResponseStatusException;
  */
 public interface StravaOauthService {
 
+    @AllArgsConstructor
+    @NoArgsConstructor
     class StravaOauthState {
         public String email;
         public String origin;
