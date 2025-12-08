@@ -4,13 +4,5 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends python3 python3-pip python3-venv \
  && rm -rf /var/lib/apt/lists/*
 
-RUN mkdir -p /app/python
-WORKDIR /app/python
-
-COPY python/requirements.txt /app/python/requirements.txt
-
-RUN python3 -m venv /app/python/.venv \
- && /app/python/.venv/bin/pip install --upgrade pip \
- && /app/python/.venv/bin/pip install --no-cache-dir -r /app/python/requirements.txt
-
+RUN mkdir -p /app
 WORKDIR /app

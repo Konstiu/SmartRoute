@@ -34,7 +34,8 @@ build-python-base-image:
   script:
     - cd backend
     - docker login $CI_REGISTRY -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD
-    - docker build -f Dockerfile.python-base -t registry.reset.inso-w.at/pub/docker/eclipse-temurin-17-python .
+    - docker build -f Dockerfile.python-base \
+      -t registry.reset.inso-w.at/pub/docker/eclipse-temurin-17-python .
     - docker push registry.reset.inso-w.at/pub/docker/eclipse-temurin-17-python
   only:
     - master
