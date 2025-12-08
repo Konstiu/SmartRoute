@@ -29,7 +29,7 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
 
     private static final double easyDistanceFactor = 0.8f; // 0.7 - 1.0
     private static final double tempoDistanceFactor = 0.9f; // 0.8 - 1.1
-    private static final double longDistanceFactor = 1.1f; // 1.0 - 1.3
+    private static final double longDistanceFactor = 1.7f; // 1.5 - 2.0
     private static final double maxDistanceProgress = 1000; // 1.0 - 1.3
 
     private static final double readinessPacePenalty = 0.1;
@@ -96,7 +96,6 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
     private double calculateTargetDistance(List<Activity> activities, WorkoutType workoutType, double readinessScore) {
         double[] distances = activities.stream().map(Activity::getDistance).mapToDouble(Float::doubleValue).sorted().toArray();
 
-        double maxDistance = distances[distances.length - 1];
         double medianDistance = distances[distances.length / 2];
         if (distances.length % 2 == 0) {
             medianDistance = (medianDistance + distances[distances.length / 2 + 1]) / 2;
@@ -109,7 +108,7 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
         } else if (workoutType == WorkoutType.TEMPO_RUN || workoutType == WorkoutType.INTERVAL_RUN) {
             return medianDistance * tempoDistanceFactor * readinessModifier;
         } else {
-            return Math.min(maxDistance * longDistanceFactor * readinessModifier, maxDistance + maxDistanceProgress);
+            return Math.min(medianDistance * longDistanceFactor * readinessModifier, medianDistance + maxDistanceProgress);
         }
     }
 
@@ -118,7 +117,6 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
                 .map(a -> (a.getMovingTime() / 60) / (a.getDistance() / 1000))
                 .sorted()
                 .mapToDouble(Float::doubleValue).toArray();
-        LOGGER.info("paces {}", averagePaces);
 
         double medianPace = averagePaces[averagePaces.length / 2];
         if (averagePaces.length % 2 == 0) {

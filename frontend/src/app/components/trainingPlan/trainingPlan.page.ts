@@ -225,7 +225,17 @@ export class TrainingPlanPage implements OnInit {
     if (this.recommendedActivity?.route?.distance) {
       this.layers.push(marker(location, this.markerOptions));
       this.routeService.getGeneratedRoute(location.lat, location.lng, this.recommendedActivity?.route?.distance).subscribe({
-        next: (e) => this.layers.push(polyline(convertPolylineToCoordinateList(e.polyline).map(x => latLng(x[0], x[1]))))
+        next: (e) => {
+          if (this.recommendedActivity?.route?.distance) {
+            this.recommendedActivity.route.distance = e.distance;
+          }
+          if (this.recommendedActivity?.route?.elevation) {
+            this.recommendedActivity.route.elevation = e.elevation;
+          }
+          let coords = convertPolylineToCoordinateList(e.polyline).map(x => latLng(x[0], x[1]));
+          this.layers.push(polyline(coords))
+          this.zoom = 15;
+        }
       });
     }
   }
