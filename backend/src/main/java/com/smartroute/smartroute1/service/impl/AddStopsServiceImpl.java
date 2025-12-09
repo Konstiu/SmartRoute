@@ -548,11 +548,14 @@ public class AddStopsServiceImpl implements AddStopsService {
         final double maxAllowed = originalLength * (1 + toleranceFactor);
 
         if (baselineLength > maxAllowed) {
-            throw new ValidationException(
+            LOGGER.warn(
                     "Via points are too far apart or too far from the original route. "
-                            + "The shortest route through them already exceeds allowed length ("
-                            + baselineLength + "m > " + maxAllowed + "m)."
+                            + "Baseline length {} exceeds allowed maximum {}. Falling back to simple stitched route.",
+                    baselineLength, maxAllowed
             );
+
+            // Fallback: route with points inserted but no reshape
+            return addWaypoints(originalRoute, newPoints);
         }
 
         final double minLoop = 400;                   // needed for ORS stability
