@@ -30,7 +30,7 @@
         <ion-list>
           <ion-item (click)="openExercise(ex)" *ngFor="let ex of day1Exercises" button>
             <ion-thumbnail slot="start">
-              <img [src]="ex.gifUrl"/>
+              <img (error)="onImageError($event)" [src]="ex.gifUrl"/>
             </ion-thumbnail>
             <ion-label>
               <h2>{{ ex.name }}</h2>
@@ -51,7 +51,7 @@
         <ion-list>
           <ion-item (click)="openExercise(ex)" *ngFor="let ex of day2Exercises" button>
             <ion-thumbnail slot="start">
-              <img [src]="ex.gifUrl"/>
+              <img (error)="onImageError($event)" [src]="ex.gifUrl"/>
             </ion-thumbnail>
             <ion-label>
               <h2>{{ ex.name }}</h2>
