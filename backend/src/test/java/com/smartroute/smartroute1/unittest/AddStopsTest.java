@@ -16,8 +16,6 @@ import java.util.List;
 public class AddStopsTest {
     @Autowired
     AddStopsService service;
-    @Autowired
-    AddStopsServiceImpl impl;
 
     private final static GeoJsonPosition CORD1 = new GeoJsonPosition(48.245319, 16.300269, 0.0);
     private final static GeoJsonPosition CORD2 = new GeoJsonPosition(48.241755, 16.297835, 0.0);
@@ -52,7 +50,7 @@ public class AddStopsTest {
 //        //coords.add(C4);
 //        //coords.add(C5);
 //        List<GeoJsonPosition> originalRoute = service.gpxToPolyline("/home/sprotte/Documents/gpxFiles/in/testGpx3.gpx");
-//        List<GeoJsonPosition> newRoute = impl.reshape(originalRoute, coords, 0.1);
+//        List<GeoJsonPosition> newRoute = service.reshape(originalRoute, coords, 0.1);
 //        service.createGpx(newRoute, "/home/sprotte/Documents/gpxFiles/out/outGpx3.gpx");
 //    }
 //
@@ -79,7 +77,7 @@ public class AddStopsTest {
 //        coords.add(C4);
 //        coords.add(C5);
 //        List<GeoJsonPosition> originalRoute = service.gpxToPolyline("/home/sprotte/Documents/gpxFiles/in/testGpx2.gpx");
-//        List<GeoJsonPosition> newRoute = impl.reshape(originalRoute, coords, 0.1);
+//        List<GeoJsonPosition> newRoute = service.reshape(originalRoute, coords, 0.1);
 //        service.createGpx(newRoute, "/home/sprotte/Documents/gpxFiles/out/create4.gpx");
 //    }
 //

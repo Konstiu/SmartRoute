@@ -92,4 +92,17 @@ public class AddStopsValidator {
             throw new ValidationException("Errors while verifying max allowed distance:", errors);
         }
     }
+
+    public void validateToleranceFactor(double toleranceFactor) throws ValidationException {
+        List<String> errors = new ArrayList<>();
+        LOGGER.trace("Validation of tolerance factor {}", toleranceFactor);
+
+        if (toleranceFactor < 0) {
+            errors.add("tolerance factor may not be negative");
+        }
+
+        if (!errors.isEmpty()) {
+            throw new ValidationException("Errors while verifying tolerance factor:", errors);
+        }
+    }
 }

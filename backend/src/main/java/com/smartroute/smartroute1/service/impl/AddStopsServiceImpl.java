@@ -523,10 +523,13 @@ public class AddStopsServiceImpl implements AddStopsService {
         return new GeoJsonPosition(Math.toDegrees(latProj), Math.toDegrees(lonProj), 0.0); // altitude is not important here
     }
 
+    @Override
     public List<GeoJsonPosition> reshape(List<GeoJsonPosition> originalRoute, List<GeoJsonPosition> newPoints, double toleranceFactor) throws ValidationException {
         if (originalRoute == null || originalRoute.size() < 2) {
             throw new ValidationException("Original route must have at least 2 points.");
         }
+
+        validator.validateToleranceFactor(toleranceFactor);
 
         final int roundness = 10;
         final int seed = 1;
@@ -601,11 +604,6 @@ public class AddStopsServiceImpl implements AddStopsService {
             }
         }
         return cleanRoute(candidate);
-    }
-
-    private GeoJsonPosition midpointOfRoute(List<GeoJsonPosition> route) {
-        int midIndex = route.size() / 2;
-        return route.get(midIndex);
     }
 
     private GeoJsonPosition computeCentroid(List<GeoJsonPosition> points) {
