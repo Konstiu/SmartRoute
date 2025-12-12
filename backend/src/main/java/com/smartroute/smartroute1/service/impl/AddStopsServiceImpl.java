@@ -52,7 +52,8 @@ public class AddStopsServiceImpl implements AddStopsService {
 
         // Compute the forward path start to via
         GeoJsonDto forwardDto = orsService.generateRoute(List.of(start, via));
-        List<GeoJsonPosition> forwardPath = extractPolyline(forwardDto);
+        List<GeoJsonPosition> forwardPath = forwardDto.getFeatures().getFirst().getGeometry().getCoordinates();
+        //List<GeoJsonPosition> forwardPath = extractPolyline(forwardDto);
 
         if (forwardPath.isEmpty()) {
             throw new ValidationException("ORS failed to generate forward path for detour.");
@@ -63,11 +64,14 @@ public class AddStopsServiceImpl implements AddStopsService {
 
         // Compute the return path via to end, avoiding the forward corridor
         GeoJsonDto returnDto = orsService.generateRouteAvoidingPolygon(List.of(via, end), avoidPolygon);
-        List<GeoJsonPosition> returnPath = extractPolyline(returnDto);
+        //List<GeoJsonPosition> returnPath = extractPolyline(returnDto);
+        List<GeoJsonPosition> returnPath = returnDto.getFeatures().getFirst().getGeometry().getCoordinates();
 
         // fallback: allow ORS to route without avoidance
         if (returnPath.isEmpty()) {
-            returnPath = extractPolyline(orsService.generateRoute(List.of(via, end)));
+            //returnPath = extractPolyline(orsService.generateRoute(List.of(via, end)));
+            GeoJsonDto fallbackDto = orsService.generateRoute(List.of(via, end));
+            returnPath = fallbackDto.getFeatures().getFirst().getGeometry().getCoordinates();
         }
 
         // Combine: forwardPath + returnPath (trim duplicate via point)
@@ -213,27 +217,6 @@ public class AddStopsServiceImpl implements AddStopsService {
         cleaned.add(route.getLast());
         return cleaned;
     }
-
-    private List<GeoJsonPosition> extractPolyline(GeoJsonDto dto) {
-        if (dto == null || dto.getFeatures() == null || dto.getFeatures().isEmpty()) {
-            return List.of();
-        }
-
-        List<GeoJsonPosition> coords = dto.getFeatures().getFirst().getGeometry().getCoordinates();
-
-        List<GeoJsonPosition> result = new ArrayList<>();
-
-        for (GeoJsonPosition c : coords) {
-            double lon = c.getLatitude(); // ORS format: [lon, lat]
-            double lat = c.getLongitude();
-
-            // Convert to lat long format
-            result.add(new GeoJsonPosition(lat, lon, c.getAltitude()));
-        }
-
-        return result;
-    }
-
 
     @Override
     public List<GeoJsonPosition> addWaypoints(List<GeoJsonPosition> originalRoute, List<GeoJsonPosition> newPoints)
@@ -540,7 +523,7 @@ public class AddStopsServiceImpl implements AddStopsService {
         required.add(originalRoute.getLast());
 
         GeoJsonDto baselineDto = orsService.generateRoute(required);
-        List<GeoJsonPosition> baseline = extractPolyline(baselineDto);
+        List<GeoJsonPosition> baseline = baselineDto.getFeatures().getFirst().getGeometry().getCoordinates();
 
         double baselineLength = computeLength(baseline);
         double originalLength = computeLength(originalRoute);
@@ -582,8 +565,7 @@ public class AddStopsServiceImpl implements AddStopsService {
             double requested = (low + high) / 2.0;
 
             GeoJsonDto dto = orsService.generateRoundTrip(List.of(loopCenter), (int) requested, roundness, seed);
-
-            List<GeoJsonPosition> loop = extractPolyline(dto);
+            List<GeoJsonPosition> loop = dto.getFeatures().getFirst().getGeometry().getCoordinates();
             candidate = addWaypoints(loop, required);
             double length = computeLength(candidate);
 
