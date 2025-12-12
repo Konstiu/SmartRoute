@@ -1,6 +1,6 @@
-import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, SimpleChanges } from '@angular/core';
 import { LeafletDirective, LeafletLayersDirective } from '@bluehalo/ngx-leaflet';
-import { Icon, icon, LatLng, latLng, Layer, MapOptions, marker, tileLayer, Map, Polyline, LeafletMouseEvent, Marker, Point } from 'leaflet';
+import { Icon, icon, LatLng, latLng, Layer, MapOptions, marker, tileLayer, Map, Polyline, LeafletMouseEvent, Marker, Point, latLngBounds } from 'leaflet';
 import { Geolocation } from "@capacitor/geolocation"
 
 @Component({
@@ -18,6 +18,8 @@ export class MapComponent implements OnInit {
   @Output() onGeolocationError = new EventEmitter();
   @Output() onNewLocationRegisterd = new EventEmitter();
   @Output() geoLocation = new EventEmitter();
+
+  public map: Map | null = null;
 
   constructor() { }
 
@@ -46,7 +48,8 @@ export class MapComponent implements OnInit {
   touched = false;
 
   onMapReady(map: Map) {
-    setTimeout(() => map.invalidateSize(), 0); // See https://github.com/bluehalo/ngx-leaflet/issues/104
+    setTimeout(() => map.invalidateSize(), 100); // See https://github.com/bluehalo/ngx-leaflet/issues/104
+    this.map = map;
 
     // register events to detect new markers
     map.getContainer().addEventListener("touchstart", (e) => {
@@ -61,6 +64,13 @@ export class MapComponent implements OnInit {
     })
     map.getContainer().addEventListener("touchmove", () => clearTimeout(this.touchTimeout));
     map.getContainer().addEventListener("touchend", () => clearTimeout(this.touchTimeout));
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    // When route input changes and map exists, fit bounds to route
+    if (true) {
+      return;
+    }
   }
 
   async ngOnInit() {

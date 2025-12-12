@@ -10,9 +10,9 @@ import java.util.List;
 @Data
 @Getter
 @Setter
-@JsonIgnoreProperties(value = {"properties"})
 public class GeoJsonFeature {
     private String type;
     private List<Double> bbox;
     private GeoJsonGeometryLineString geometry;
+    private GeoJsonProperties properties;
 }

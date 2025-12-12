@@ -1,7 +1,7 @@
 import {Component, Input} from '@angular/core';
 import {IonicModule, ModalController} from '@ionic/angular';
 import {ExerciseDto} from '../../dtos/exercise';
-import { CommonModule } from '@angular/common';
+import {CommonModule} from '@angular/common';
 
 @Component({
   selector: 'app-exercise-detail',
@@ -20,5 +20,10 @@ export class ExerciseDetailComponent {
 
   dismiss() {
     this.modalCtrl.dismiss();
+  }
+
+  onImageError(event: Event) {
+    const imgElement = event.target as HTMLImageElement;
+    imgElement.src = 'assets/noimage.png';
   }
 }
