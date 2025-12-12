@@ -9,6 +9,7 @@ import com.smartroute.smartroute1.exception.StravaAuthorizationException;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.impl.StravaOauthServiceImpl;
+import jakarta.transaction.Transactional;
 import okhttp3.mockwebserver.MockResponse;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -128,4 +129,72 @@ public class StravaOauthServiceTest extends BaseTest {
         assertThrows(StravaAuthorizationException.class,
                 () -> service.exchangeCodeForToken("invalid", "read", user.getEmail()));
     }
+
+    @Test
+    void testExchangeCodeForToken_updatesToken() throws Exception {
+        ApplicationUser user = new ApplicationUser();
+        user.setEmail("update@test.com");
+        user.setFirstname("Test");
+        user.setLastname("User");
+        user.setPassword("pw");
+        user.setVerified(true);
+        userRepository.save(user);
+
+        // existing account
+        StravaAccount existing = new StravaAccount();
+        existing.setUser(user);
+        existing.setAccessToken("old-access");
+        existing.setRefreshToken("old-refresh");
+        existing.setExpiresAt(Instant.now().minusSeconds(1000));
+        stravaAccountRepository.save(existing);
+
+        StravaTokenResponseDto dto = new StravaTokenResponseDto();
+        dto.setAccessToken("updated-access");
+        dto.setRefreshToken("updated-refresh");
+        dto.setExpiresAt(Instant.now().plusSeconds(3600).getEpochSecond());
+        dto.setScope("read,activity:read");
+
+        mockApiServer.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setHeader("Content-Type", "application/json")
+                .setBody(mapper.writeValueAsString(dto))
+        );
+
+        StravaTokenResponseDto result = service.exchangeCodeForToken("abc123", "read", user.getEmail());
+
+        StravaAccount updated = stravaAccountRepository.findByUser(user).orElseThrow();
+
+        assertAll(
+                () -> assertEquals("updated-access", updated.getAccessToken()),
+                () -> assertEquals("updated-refresh", updated.getRefreshToken()),
+                () -> assertTrue(updated.getExpiresAt().isAfter(Instant.now()))
+        );
+    }
+
+    @Test
+    void testEnsureValidAccessToken_doesNotRefreshIfNotExpired() throws Exception {
+        ApplicationUser user = new ApplicationUser();
+        user.setEmail("norefresh@test.com");
+        user.setFirstname("Test");
+        user.setLastname("User");
+        user.setPassword("pw");
+        user.setVerified(true);
+        userRepository.save(user);
+
+        StravaAccount account = new StravaAccount();
+        account.setUser(user);
+        account.setAccessToken("still-valid");
+        account.setRefreshToken("refresh");
+        account.setExpiresAt(Instant.now().plusSeconds(3600)); // VALID
+        stravaAccountRepository.save(account);
+
+        String token = service.ensureValidAccessToken(account);
+
+        assertAll(
+                () -> assertEquals("still-valid", token),
+                () -> assertEquals(0, mockApiServer.getRequestCount()) // no HTTP request
+        );
+
+    }
+
 }

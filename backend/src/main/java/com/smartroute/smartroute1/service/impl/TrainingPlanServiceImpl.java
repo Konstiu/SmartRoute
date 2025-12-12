@@ -139,8 +139,7 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
                 dto.setType(RecommendedActivityDto.SessionType.RUN);
                 dto.setName(selectedWorkout.toString());
 
-                // TODO: implement actual route generation (not just the parameters)
-                dto.setRoute(routeGenerationService.generateRoute(user, selectedWorkout, readinessScore));
+                dto.setRoute(routeGenerationService.generateRouteDetails(user, selectedWorkout, readinessScore));
 
             } else if (gymWorkouts.contains(selectedWorkout)) {
                 dto.setType(RecommendedActivityDto.SessionType.GYM);
