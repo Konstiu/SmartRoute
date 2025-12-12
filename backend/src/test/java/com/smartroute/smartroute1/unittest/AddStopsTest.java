@@ -36,6 +36,27 @@ public class AddStopsTest {
     private final static GeoJsonPosition C4 = new GeoJsonPosition( 48.229492, 16.361286, 0.0);
     private final static GeoJsonPosition C5 = new GeoJsonPosition( 48.223973, 16.343729, 0.0);
 
+    private final static GeoJsonPosition C1G3 = new GeoJsonPosition(48.208992, 16.377387, 0.0);
+    private final static GeoJsonPosition C2G3 = new GeoJsonPosition(48.214326, 16.358193, 0.0);
+
+    private final static GeoJsonPosition C3G3 = new GeoJsonPosition(48.201805, 16.345101, 0.0); // schottenfeld
+
+
+
+//    @Test
+//    void testKeepLengthGpx3() throws ValidationException, IOException {
+//        List<GeoJsonPosition> coords = new ArrayList<>();
+//        coords.add(C1G3);
+//        coords.add(C2G3);
+//        //coords.add(C3G3);
+//        //coords.add(C4);
+//        //coords.add(C5);
+//        List<GeoJsonPosition> originalRoute = service.gpxToPolyline("/home/sprotte/Documents/gpxFiles/in/testGpx3.gpx");
+//        List<GeoJsonPosition> newRoute = impl.reshape(originalRoute, coords, 0.1);
+//        service.createGpx(newRoute, "/home/sprotte/Documents/gpxFiles/out/outGpx3.gpx");
+//    }
+//
+//
 //    @Test
 //    void addPoint() throws IOException, ValidationException {
 //        List<GeoJsonPosition> coords = new ArrayList<>();

@@ -558,42 +558,49 @@ public class AddStopsServiceImpl implements AddStopsService {
             return addWaypoints(originalRoute, newPoints);
         }
 
-        final double minLoop = 400;                   // needed for ORS stability
-        double loopLength = Math.max(minLoop, originalLength);
-
+        final double minLoop = 400; // needed for ORS stability
         GeoJsonPosition loopCenter = computeCentroid(required);
 
-        GeoJsonDto loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) (loopLength - diff), roundness, seed);
+        // binary search
+        double targetMin = minAllowed;
+        double targetMax = maxAllowed;
 
-        List<GeoJsonPosition> loopRoute = extractPolyline(loopDto);
-        loopRoute = cleanRoute(loopRoute);
+        double low = Math.max(minLoop, (originalLength - diff) * 0.5);
+        double high = (originalLength - diff) * (1 + toleranceFactor) * 2;
 
-        final List<GeoJsonPosition> resultRoute = addWaypoints(loopRoute, required);
-        final double loopRouteLength = computeLength(resultRoute);
+        final int maxIterations = 3;
 
-        // recalculate loop if too small
-        if (minAllowed > loopRouteLength) {
-            double extraLength = minAllowed - loopRouteLength;
-            double factor = minAllowed / loopRouteLength;
-            extraLength *= factor;
-            loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) (loopLength - diff + extraLength), roundness, seed);
-            loopRoute = extractPolyline(loopDto);
-            loopRoute = cleanRoute(loopRoute);
-            return addWaypoints(loopRoute, required);
+        List<GeoJsonPosition> bestRoute = null;
+        double bestError = Double.MAX_VALUE;
+
+        List<GeoJsonPosition> candidate = new ArrayList<>();
+
+        for (int i = 0; i < maxIterations; i++) {
+            double requested = (low + high) / 2.0;
+
+            GeoJsonDto dto = orsService.generateRoundTrip(List.of(loopCenter), (int) requested, roundness, seed);
+
+            List<GeoJsonPosition> loop = extractPolyline(dto);
+            candidate = addWaypoints(loop, required);
+            double length = computeLength(candidate);
+
+            double error = Math.abs(length - originalLength);
+
+            // keep best attempt
+            if (error < bestError) {
+                bestError = error;
+                bestRoute = candidate;
+            }
+
+            if (length < targetMin) {
+                low = requested; // need longer route
+            } else if (length > targetMax) {
+                high = requested; // need shorter route
+            } else {
+                break; // success
+            }
         }
-
-        // recalculate loop if too large
-        if (maxAllowed < loopRouteLength) {
-            double excessLength = loopRouteLength - maxAllowed;
-            double factor = loopRouteLength / maxAllowed;
-            excessLength *= factor;
-            loopDto = orsService.generateRoundTrip(List.of(loopCenter), (int) (loopLength - diff - excessLength), roundness, seed);
-            loopRoute = extractPolyline(loopDto);
-            loopRoute = cleanRoute(loopRoute);
-            return addWaypoints(loopRoute, required);
-        }
-
-        return resultRoute;
+        return cleanRoute(candidate);
     }
 
     private GeoJsonPosition midpointOfRoute(List<GeoJsonPosition> route) {
