@@ -16,7 +16,7 @@ public interface AddStopsService {
      * @param via   the user-defined {@link GeoJsonPosition} that the route must visit
      * @param end   the {@link GeoJsonPosition} where the new segment should end
      * @return an ordered list of {@link GeoJsonPosition} representing the computed route from start through via to end
-     * @throws IllegalStateException if the routing provider returns an invalid or empty response
+     * @throws ValidationException if the routing provider returns an invalid or empty response
      */
     List<GeoJsonPosition> routeThroughPoint(GeoJsonPosition start, GeoJsonPosition via, GeoJsonPosition end) throws ValidationException;
 
@@ -25,9 +25,9 @@ public interface AddStopsService {
      * Computes optimal endpoints on original route, generates new route segments and stitches them together.
      *
      * @param originalRoute the full list of {@link GeoJsonPosition} representing the existing route; must contain at least two points
-     * @param newPoints     list of {@link GeoJsonPosition} that should be added to the rout
+     * @param newPoints list of {@link GeoJsonPosition} that should be added to the rout
      * @return a new list of {@link GeoJsonPosition} representing the updated route including the waypoint
-     * @throws IllegalArgumentException if the input route is null, too short, or contains invalid data
+     * @throws ValidationException if the input route is null, too short, or contains invalid data
      */
     List<GeoJsonPosition> addWaypoints(List<GeoJsonPosition> originalRoute, List<GeoJsonPosition> newPoints) throws ValidationException;
 
@@ -48,4 +48,16 @@ public interface AddStopsService {
      * @throws IOException if the file cannot be created, written to, or closed properly
      */
     void createGpx(List<GeoJsonPosition> coordinates, String pathname) throws IOException;
+
+
+    /**
+     * Tries to reshape a given route to include newly chosen points, while trying to maintain the length of the original route.
+     *
+     * @param originalRoute the full list of {@link GeoJsonPosition} representing the existing route; must contain at least two points
+     * @param newPoints list of {@link GeoJsonPosition} that should be added to the rout
+     * @param toleranceFactor double governing how closely the new length should match the old length. Factor of 0.1 gives a route with a max length of 1.1 * original route length.
+     * @return @return a new list of {@link GeoJsonPosition} representing the updated route including the waypoints.
+     * @throws ValidationException if the input route is null, too short, or contains invalid data
+     */
+    List<GeoJsonPosition> reshape(List<GeoJsonPosition> originalRoute, List<GeoJsonPosition> newPoints, double toleranceFactor) throws ValidationException;
 }
