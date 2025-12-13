@@ -295,6 +295,20 @@ export class TrainingPlanPage implements OnInit {
     await modal.present();
   }
 
+  isMapExpanded = false;
+
+  toggleMap() {
+    this.isMapExpanded = !this.isMapExpanded;
+
+    // Leaflet needs a resize trigger
+    setTimeout(() => {
+      if (this.mapComponent?.['map']) {
+        this.mapComponent['map'].invalidateSize();
+      }
+    }, 300);
+  }
+
+
   protected readonly SessionType = SessionType;
   protected readonly formatDistance = formatDistance;
   protected readonly formatPace = formatPace;
