@@ -58,19 +58,14 @@ ion-list {
   }
 }
 
+/* Collapsed card */
 .map-card {
   position: relative;
   height: 20rem;
   overflow: hidden;
 }
 
-/* make sure map fills the card */
-.map-host {
-  display: block;
-  height: 100%;
-}
-
-/* FAB on top of Leaflet tiles */
+/* FAB positioning */
 .map-fab {
   position: absolute;
   top: 12px;

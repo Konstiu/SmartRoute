@@ -20,6 +20,7 @@ import { RouteService } from 'src/services/route.service';
 import { convertPolylineToCoordinateList } from 'src/services/utils';
 import { ModalController } from '@ionic/angular';
 import { WeatherInfoComponent } from '../weather/weather.component';
+import { MapModalComponent } from '../map/mapModal.component'
 
 @Component({
   selector: 'app-trainingplan',
@@ -295,19 +296,18 @@ export class TrainingPlanPage implements OnInit {
     await modal.present();
   }
 
-  isMapExpanded = false;
+async openMapModal() {
+  const modal = await this.modalCtrl.create({
+    component: MapModalComponent,
+    componentProps: {
+      layers: this.layers
+    },
+    cssClass: 'fullscreen-map-modal',
+    backdropDismiss: false
+  });
 
-  toggleMap() {
-    this.isMapExpanded = !this.isMapExpanded;
-
-    // Leaflet needs a resize trigger
-    setTimeout(() => {
-      if (this.mapComponent?.['map']) {
-        this.mapComponent['map'].invalidateSize();
-      }
-    }, 300);
-  }
-
+  await modal.present();
+}
 
   protected readonly SessionType = SessionType;
   protected readonly formatDistance = formatDistance;
