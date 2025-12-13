@@ -1,9 +1,8 @@
 import { Component, Input, ViewChild } from '@angular/core';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
-import { Layer } from 'leaflet';
-import { MapComponent } from '../map/map.component';
 import { LatLngBounds } from 'leaflet';
+import { MapComponent } from './map.component';
 
 @Component({
   standalone: true,
@@ -20,6 +19,25 @@ export class MapModalComponent {
   @ViewChild(MapComponent) mapComponent!: MapComponent;
 
   constructor(private modalCtrl: ModalController) {}
+
+  /** Ionic lifecycle: modal is fully visible */
+  ionViewDidEnter() {
+    this.centerRouteImmediately();
+  }
+
+  private centerRouteImmediately() {
+    requestAnimationFrame(() => {
+      const map = this.mapComponent?.map;
+      if (!map || !this.routeBounds) return;
+
+      map.invalidateSize();
+
+      map.fitBounds(this.routeBounds, {
+        padding: [50, 50],
+        animate: false   // instant on open
+      });
+    });
+  }
 
   centerRoute() {
     const map = this.mapComponent?.map;
