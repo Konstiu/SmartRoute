@@ -43,6 +43,7 @@
             class="map-host"
             [showLocation]="true"
             [layers]="layers"
+            [interactive]="true"
             (onGeolocationError)="onGeolocationError($event)"
             (onNewLocationRegisterd)="onNewLocationRegisterd($event)"
             (geoLocation)="geoLocation($event)"
