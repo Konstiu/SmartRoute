@@ -21,7 +21,6 @@ import { convertPolylineToCoordinateList } from 'src/services/utils';
 import { ModalController } from '@ionic/angular';
 import { WeatherInfoComponent } from '../weather/weather.component';
 import { MapModalComponent } from '../map/mapModal.component'
-import { mapModalEnter, mapModalLeave } from '../../animations/mapModal.animation';
 import { Polyline } from "leaflet";
 
 @Component({
@@ -307,8 +306,6 @@ async openMapModal() {
       routeBounds: this.routeLine?.getBounds()
     },
     cssClass: 'fullscreen-map-modal',
-    //enterAnimation: mapModalEnter,
-    //leaveAnimation: mapModalLeave
   });
 
   await modal.present();
