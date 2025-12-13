@@ -32,10 +32,25 @@
       <ion-card-content>
         @if (recommendedActivity) {
         @if (recommendedActivity!.type === SessionType.RUN) {
-        <ion-card class="rounded-card" color="success" style="height:20rem">
-          <app-map [showLocation]="true" (onGeolocationError)="onGeolocationError($event)"
-                   (onNewLocationRegisterd)="onNewLocationRegisterd($event)" (geoLocation)="geoLocation($event)"
-                   [layers]="layers"></app-map>
+        <ion-card
+          class="rounded-card map-card"
+          color="success"
+          [class.map-expanded]="isMapExpanded"
+        >
+          <ion-fab class="map-fab" vertical="top" horizontal="end">
+            <ion-fab-button size="small" (click)="toggleMap()">
+              <ion-icon [name]="isMapExpanded ? 'contract-outline' : 'expand-outline'"></ion-icon>
+            </ion-fab-button>
+          </ion-fab>
+
+          <app-map
+            class="map-host"
+            [showLocation]="true"
+            (onGeolocationError)="onGeolocationError($event)"
+            (onNewLocationRegisterd)="onNewLocationRegisterd($event)"
+            (geoLocation)="geoLocation($event)"
+            [layers]="layers"
+          ></app-map>
         </ion-card>
         <ion-card class="rounded-card" color="light">
           <ion-card-content>
