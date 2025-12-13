@@ -8,14 +8,29 @@
 </ion-header>
 
 <ion-content fullscreen>
+
+  <!-- Spinner overlay -->
+  <div class="map-loading" *ngIf="!isMapReady">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Centering route…</p>
+  </div>
+
+  <!-- Map (always mounted) -->
   <app-map
     class="full-map"
-    [layers]="layers">
+    [layers]="layers"
+    [class.map-hidden]="!isMapReady">
   </app-map>
 
-  <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+  <!-- Center FAB -->
+  <ion-fab
+    vertical="bottom"
+    horizontal="end"
+    slot="fixed"
+    *ngIf="isMapReady">
     <ion-fab-button (click)="centerRoute()">
       <ion-icon name="locate-outline"></ion-icon>
     </ion-fab-button>
   </ion-fab>
+
 </ion-content>
