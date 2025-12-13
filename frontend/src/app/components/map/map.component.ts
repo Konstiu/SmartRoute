@@ -14,6 +14,7 @@ export class MapComponent implements OnInit {
   @Input() showLocation = false;
   @Input() route: Polyline | null = null;
   @Input() layers: Layer[] = [];
+  @Input() interactive = true;
 
   @Output() onGeolocationError = new EventEmitter();
   @Output() onNewLocationRegisterd = new EventEmitter();
@@ -50,6 +51,14 @@ export class MapComponent implements OnInit {
   onMapReady(map: Map) {
     setTimeout(() => map.invalidateSize(), 100); // See https://github.com/bluehalo/ngx-leaflet/issues/104
     this.map = map;
+
+    if (!this.interactive) {
+      this.map!.dragging.disable();
+      this.map!.scrollWheelZoom.disable();
+      this.map!.doubleClickZoom.disable();
+      this.map!.boxZoom.disable();
+      this.map!.keyboard.disable();
+    }
 
     // register events to detect new markers
     map.getContainer().addEventListener("touchstart", (e) => {
