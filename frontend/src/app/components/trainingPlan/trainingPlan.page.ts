@@ -21,6 +21,8 @@ import { convertPolylineToCoordinateList } from 'src/services/utils';
 import { ModalController } from '@ionic/angular';
 import { WeatherInfoComponent } from '../weather/weather.component';
 import { MapModalComponent } from '../map/mapModal.component'
+import { mapModalEnter, mapModalLeave } from '../../animations/mapModal.animation';
+import { Polyline } from "leaflet";
 
 @Component({
   selector: 'app-trainingplan',
@@ -33,6 +35,7 @@ export class TrainingPlanPage implements OnInit {
 
   private readonly router: Router = inject(Router);
   private readonly service: TrainingPlanService = inject(TrainingPlanService);
+  private routeLine: Polyline | null = null;
 
   date: string = new Date().toLocaleDateString();
   recommendedActivity: RecommendedActivityDto | undefined = {
@@ -242,10 +245,10 @@ export class TrainingPlanPage implements OnInit {
           if (this.recommendedActivity?.route?.elevation) {
             this.recommendedActivity.route.elevation = e.elevation;
           }
-          let coords = polyline(convertPolylineToCoordinateList(e.polyline).map(x => latLng(x[0], x[1])));
-          this.layers.push(coords)
+          this.routeLine = polyline(convertPolylineToCoordinateList(e.polyline).map(x => latLng(x[0], x[1])));
+          this.layers.push(this.routeLine)
           if (this.mapComponent['map']) {
-            const bounds = coords.getBounds();
+            const bounds = this.routeLine.getBounds();
             this.mapComponent['map'].fitBounds(bounds, { padding: [50, 50] });
           }
         }
@@ -300,10 +303,12 @@ async openMapModal() {
   const modal = await this.modalCtrl.create({
     component: MapModalComponent,
     componentProps: {
-      layers: this.layers
+      layers: this.layers,
+      routeBounds: this.routeLine?.getBounds()
     },
     cssClass: 'fullscreen-map-modal',
-    backdropDismiss: false
+    //enterAnimation: mapModalEnter,
+    //leaveAnimation: mapModalLeave
   });
 
   await modal.present();
