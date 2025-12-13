@@ -20,22 +20,29 @@ export class MapModalComponent {
 
   constructor(private modalCtrl: ModalController) {}
 
-  /** Ionic lifecycle: modal is fully visible */
   ionViewDidEnter() {
-    this.centerRouteImmediately();
+    this.centerRouteInitially();
   }
 
-  private centerRouteImmediately() {
+  isMapReady = false;
+
+  private centerRouteInitially() {
     requestAnimationFrame(() => {
       const map = this.mapComponent?.map;
       if (!map || !this.routeBounds) return;
 
       map.invalidateSize();
 
+      // Fit route immediately
       map.fitBounds(this.routeBounds, {
         padding: [50, 50],
-        animate: false   // instant on open
+        animate: false
       });
+
+      // Reveal map AFTER centering
+      setTimeout(() => {
+        this.isMapReady = true;
+      }, 50); // tiny delay ensures tiles settle
     });
   }
 
