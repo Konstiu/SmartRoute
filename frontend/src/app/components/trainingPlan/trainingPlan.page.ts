@@ -316,8 +316,6 @@ export class TrainingPlanPage implements OnInit {
   }
 
 async openMapModal() {
-  if (!this.routeBounds) return;
-
   const modal = await this.modalCtrl.create({
     component: MapModalComponent,
     componentProps: {
@@ -325,10 +323,19 @@ async openMapModal() {
       routeBounds: this.routeBounds
     },
     cssClass: 'fullscreen-map-modal',
+    animated: false
+  });
+
+  modal.onDidDismiss().then(result => {
+    const addedPoints: LatLng[] = result.data?.addedPoints ?? [];
+    if (addedPoints.length) {
+      this.handleAdditionalPoints(addedPoints);
+    }
   });
 
   await modal.present();
 }
+
 
 
  private cloneLayersForModal(): Layer[] {
@@ -354,6 +361,15 @@ async openMapModal() {
 
    return cloned;
  }
+
+handleAdditionalPoints(points: LatLng[]) {
+  console.log('Additional points from modal:', points);
+
+  // Example:
+  // this.routeService.generateRouteWithStops(points)
+  // this.updatePreviewRoute(...)
+}
+
 
 
   protected readonly SessionType = SessionType;

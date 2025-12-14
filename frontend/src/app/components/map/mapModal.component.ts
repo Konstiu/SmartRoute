@@ -1,7 +1,7 @@
 import { Component, Input, ViewChild } from '@angular/core';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
-import { LatLngBounds } from 'leaflet';
+import { LatLngBounds, LatLng, Layer, marker } from 'leaflet';
 import { MapComponent } from './map.component';
 
 @Component({
@@ -18,7 +18,37 @@ export class MapModalComponent {
 
   @ViewChild(MapComponent) mapComponent!: MapComponent;
 
+  addPointMode = false;
+  addedPoints: LatLng[] = [];
+  localLayers: Layer[] = [];
+  private baseLayers: Layer[] = [];
+
+
   constructor(private modalCtrl: ModalController) {}
+
+  ngOnInit() {
+    // immutable snapshot of initial layers
+    this.baseLayers = [...this.layers];
+    this.localLayers = [...this.layers];
+  }
+
+
+  toggleAddPointMode() {
+    if (this.addPointMode) {
+      // CANCEL → remove unconfirmed points
+      this.addedPoints = [];
+      this.localLayers = [...this.baseLayers];
+    }
+
+    this.addPointMode = !this.addPointMode;
+  }
+
+  onPointAdded(point: LatLng) {
+    this.addedPoints.push(point);
+
+    const m = marker(point);
+    this.localLayers = [...this.localLayers, m];
+  }
 
   ionViewDidEnter() {
     this.centerRouteInitially();
@@ -57,6 +87,8 @@ export class MapModalComponent {
   }
 
   close() {
-    this.modalCtrl.dismiss();
+    this.modalCtrl.dismiss({
+      addedPoints: this.addedPoints
+    });
   }
 }
