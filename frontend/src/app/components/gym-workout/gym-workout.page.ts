@@ -54,6 +54,11 @@ export class GymWorkoutPage implements OnInit {
     });
   }
 
+  onImageError(event: Event) {
+    const imgElement = event.target as HTMLImageElement;
+    imgElement.src = 'assets/noimage.png';
+  }
+
   async openExercise(exercise: ExerciseDto) {
     const modal = await this.modalCtrl.create({
       component: ExerciseDetailComponent,
