@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk
+FROM registry.reset.inso-w.at/pub/docker/eclipse-temurin:21
 
 RUN apt-get update && \
     apt-get install -y software-properties-common && \
