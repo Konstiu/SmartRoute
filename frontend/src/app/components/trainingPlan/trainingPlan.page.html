@@ -40,14 +40,12 @@
           </ion-fab>
 
           <app-map
-            class="map-host"
             [showLocation]="true"
+            [interactive]="false"
             [layers]="layers"
-            [interactive]="true"
-            (onGeolocationError)="onGeolocationError($event)"
-            (onNewLocationRegisterd)="onNewLocationRegisterd($event)"
-            (geoLocation)="geoLocation($event)"
-          ></app-map>
+            (locationSelected)="onLocationSelected($event)"
+            (locationError)="onGeolocationError($event)">
+          </app-map>
         </ion-card>
 
         <ion-card class="rounded-card" color="light">
