@@ -1,6 +1,9 @@
 package com.smartroute.smartroute1.service.impl;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartroute.smartroute1.entity.Activity;
@@ -128,7 +131,7 @@ public class GarminImportServiceImpl implements GarminImportService {
                 garminAccount.setUser(managedUser);
             }
 
-            GarminScriptResult result;
+            Path result;
 
             if (firstLogin) {
                 // for first login
@@ -144,16 +147,12 @@ public class GarminImportServiceImpl implements GarminImportService {
             }
 
             // Update tokens in DB (tokens may be refreshed on every run)
-            String newTokenJson = objectMapper.writeValueAsString(result.tokens);
+            String newTokenJson = extractTokensFromFile(result);
             garminAccount.setTokenJson(newTokenJson);
             garminAccountRepository.save(garminAccount);
 
-            // Optionally: log activities
-            logActivities(result.activities);
-            for (int i = 0; i < result.activities.size(); i++) {
-                importSingleGarminActivity(user, result.activities.get(i));
-            }
-
+            int count = processActivitiesFromFile(user, result);
+            log.trace("Garmin activity sync for user {} synced {} activities", user.getEmail(), count);
 
             return null; //result.activities;
 
@@ -167,6 +166,64 @@ public class GarminImportServiceImpl implements GarminImportService {
         }
     }
 
+
+    private int processActivitiesFromFile(ApplicationUser user, Path filePath) throws IOException {
+        JsonFactory jsonFactory = new JsonFactory();
+        int processedCount = 0;
+
+        try (JsonParser parser = jsonFactory.createParser(filePath.toFile())) {
+
+            // Find the "activities" array
+            while (parser.nextToken() != null) {
+                String fieldName = parser.currentName();
+
+                if ("activities".equals(fieldName)) {
+                    parser.nextToken(); // Move to START_ARRAY
+
+                    // Process each activity ONE AT A TIME
+                    while (parser.nextToken() != JsonToken.END_ARRAY) {
+                        // Read ONLY this one activity
+                        JsonNode activity = objectMapper.readTree(parser);
+
+                        processedCount++;
+
+                        // Import it
+                        importSingleGarminActivity(user, activity);
+
+                        // At this point, 'activity' can be garbage collected
+                        // The next iteration will load the NEXT activity
+
+                        if (processedCount % 10 == 0) {
+                            System.gc(); // Suggest cleanup
+                        }
+                    }
+                }
+            }
+        }
+
+        return processedCount;
+    }
+
+    private String extractTokensFromFile(Path filePath) throws IOException {
+        JsonFactory jsonFactory = new JsonFactory();
+
+        try (JsonParser parser = jsonFactory.createParser(filePath.toFile())) {
+            while (parser.nextToken() != JsonToken.END_OBJECT) {
+                String fieldName = parser.currentName();
+
+                if ("tokens".equals(fieldName)) {
+                    parser.nextToken(); // Move to the tokens object
+                    JsonNode tokensNode = objectMapper.readTree(parser);
+
+                    // Convert directly to JSON string
+                    return objectMapper.writeValueAsString(tokensNode);
+                }
+            }
+        }
+
+        throw new GarminScriptException("No tokens found in result file");
+    }
+
     /**
      * Executes the Python script with:
      * 1) Legacy credential mode: script.py <\email> <\password> <\activity_count>
@@ -174,7 +231,7 @@ public class GarminImportServiceImpl implements GarminImportService {
      * and expects JSON:
      * { "tokens": {...}, "activities": [...] }
      */
-    private GarminScriptResult executePythonScript(String first, String second, int activityCount) throws IOException, InterruptedException, GarminScriptException {
+    private Path executePythonScript(String first, String second, int activityCount) throws IOException, InterruptedException, GarminScriptException {
 
         Process process = getProcess(first, second, activityCount);
 
@@ -231,7 +288,8 @@ public class GarminImportServiceImpl implements GarminImportService {
         JsonNode meta = objectMapper.readTree(json);
 
         if (!meta.has("result_file")) {
-            return objectMapper.treeToValue(meta, GarminScriptResult.class);
+            throw new RuntimeException("Python script must return a result_file path for streaming.");
+            //return objectMapper.treeToValue(meta, GarminScriptResult.class);
         }
 
         String resultFile = meta.path("result_file").asText(null);
@@ -239,18 +297,7 @@ public class GarminImportServiceImpl implements GarminImportService {
             throw new GarminScriptException("Python script did not return a valid result_file path");
         }
 
-        Path resultPath = Path.of(resultFile);
-        String resultJson = Files.readString(resultPath, StandardCharsets.UTF_8);
-
-        try {
-            Files.deleteIfExists(resultPath);
-        } catch (IOException ex) {
-            log.warn("Failed to delete temporary result file {}", resultPath, ex);
-        }
-
-        log.debug("Loaded detailed Garmin result JSON from {}", resultFile);
-
-        return objectMapper.readValue(resultJson, GarminScriptResult.class);
+        return Path.of(resultFile);
     }
 
 
@@ -649,11 +696,7 @@ public class GarminImportServiceImpl implements GarminImportService {
 
         activity.setSessionLoad(sessionLoad);
         activity.setGarminActivityTrainingsLoad(summary.path("activityTrainingLoad").asDouble());
-        // since it is not the same as the id strava provieds
-        //activity.setExternalId("garmin_ping_" + summary.get("activityId").asText());
 
-        log.info(String.valueOf(activity.getStartDate()));
-        log.info(String.valueOf(activity.getStartDateLocal()));
         Activity saved;
         List<Activity> storedActivities = activityRepository.findAllByUserAndStartDate(user, activity.getStartDate());
         Activity storedActivity = null;
