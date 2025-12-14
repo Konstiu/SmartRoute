@@ -17,9 +17,10 @@
 
   <!-- Map -->
   <app-map
-    [showLocation]="false"
+    [layers]="localLayers"
     [interactive]="true"
-    [layers]="layers">
+    [addPointMode]="addPointMode"
+    (pointAdded)="onPointAdded($event)">
   </app-map>
 
   <!-- Center FAB -->
@@ -32,5 +33,31 @@
       <ion-icon name="locate-outline"></ion-icon>
     </ion-fab-button>
   </ion-fab>
+
+  <!-- LEFT STACKED FABs -->
+  <ion-fab vertical="bottom" horizontal="start" slot="fixed">
+
+    <!-- Confirm (only if points exist) -->
+    <ion-fab-button
+      *ngIf="addedPoints.length > 0"
+      color="success"
+      class="fab-confirm"
+      (click)="close()">
+      <ion-icon name="checkmark-outline"></ion-icon>
+    </ion-fab-button>
+
+    <!-- Add / Cancel -->
+    <ion-fab-button
+      [color]="addPointMode ? 'danger' : 'primary'"
+      (click)="toggleAddPointMode()">
+
+      <ion-icon
+        [name]="addPointMode ? 'close-outline' : 'add-outline'">
+      </ion-icon>
+
+    </ion-fab-button>
+
+  </ion-fab>
+
 
 </ion-content>

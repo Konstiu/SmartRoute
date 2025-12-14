@@ -14,7 +14,9 @@ export class MapComponent implements OnInit {
   @Input() showLocation = false;
   @Input() layers: Layer[] = [];
   @Input() interactive = true;
+  @Input() addPointMode = false;
 
+  @Output() pointAdded = new EventEmitter<LatLng>();
   @Output() locationError = new EventEmitter();
   @Output() locationSelected = new EventEmitter<LatLng>();
 
@@ -97,14 +99,9 @@ export class MapComponent implements OnInit {
 
   onClick(event: LeafletMouseEvent) {
     if (this.touched) return; // disable click for mobile, as markers get added via tap-and-hold
-    if (Date.now() - this.lastClick < 450) {
-      clearTimeout(this.clickTimeout);
-    } else {
-      this.clickTimeout = setTimeout(() => {
-        this.emitLocationOnce(event.latlng);
-      }, 500);
-    }
-    this.lastClick = Date.now();
+    if (!this.interactive || !this.addPointMode) return;
+
+    this.pointAdded.emit(event.latlng);
   }
 
   registerTouchHandlers(map: Map) {
