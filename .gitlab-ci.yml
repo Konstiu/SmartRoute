@@ -49,11 +49,15 @@ build-base-image:
   image:
     name: ghcr.io/kaniko-build/dist/chainguard-dev-kaniko/executor:v1.25.5-debug
     entrypoint: [""]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      changes:
+        - backend/Dockerfile.base
+      when: on_success
+    - when: never
   script:
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"},\"$CI_DEPENDENCY_PROXY_SERVER\":{\"auth\":\"$(printf "%s:%s" ${CI_DEPENDENCY_PROXY_USER} "${CI_DEPENDENCY_PROXY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
     - /kaniko/executor --context "${CI_PROJECT_DIR}/backend" --dockerfile "${CI_PROJECT_DIR}/backend/Dockerfile.base" --destination "registry.reset.inso-w.at/$CI_PROJECT_PATH/base:python312"
-  only:
-    - master
 
 # -------- BACKEND DOCKER IMAGE BUILD --------
 backend-build-image:
