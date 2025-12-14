@@ -15,11 +15,11 @@
     <p>Centering route…</p>
   </div>
 
-  <!-- Map (always mounted) -->
+  <!-- Map -->
   <app-map
-    class="full-map"
-    [layers]="layers"
-    [class.map-hidden]="!isMapReady">
+    [showLocation]="false"
+    [interactive]="true"
+    [layers]="layers">
   </app-map>
 
   <!-- Center FAB -->
