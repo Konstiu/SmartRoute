@@ -11,7 +11,7 @@
 <ion-content>
   <ion-card class="gif-card">
     <div class="gif-container">
-      <img [src]="exercise.gifUrl" alt="{{exercise.name}}"/>
+      <img (error)="onImageError($event)" [src]="exercise.gifUrl" alt="{{exercise.name}}"/>
     </div>
 
     <ion-card-content>

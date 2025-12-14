@@ -53,6 +53,8 @@ spec:
                 port: 8080
                 path: /health/prepareShutdown
           env:
+            - name: GARMIN_PYTHON_EXECUTABLE
+              value: "python3.12" 
             - name: STRAVA_CLIENT_ID
               valueFrom:
                 secretKeyRef:
