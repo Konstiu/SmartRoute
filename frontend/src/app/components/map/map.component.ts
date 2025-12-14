@@ -12,58 +12,49 @@ import { Geolocation } from "@capacitor/geolocation"
 export class MapComponent implements OnInit {
 
   @Input() showLocation = false;
-  @Input() route: Polyline | null = null;
   @Input() layers: Layer[] = [];
+  @Input() interactive = true;
 
-  @Output() onGeolocationError = new EventEmitter();
-  @Output() onNewLocationRegisterd = new EventEmitter();
-  @Output() geoLocation = new EventEmitter();
+  @Output() locationError = new EventEmitter();
+  @Output() locationSelected = new EventEmitter<LatLng>();
 
   public map: Map | null = null;
+  private locationEmitted = false;
 
   constructor() { }
 
-  markerOptions = {
-    icon: icon({
-      ...Icon.Default.prototype.options,
-      iconUrl: 'assets/marker-icon.png',
-      iconRetinaUrl: 'assets/marker-icon-2x.png',
-      shadowUrl: 'assets/marker-shadow.png'
-    })
-  };
 
   options: MapOptions = {
     layers: [
       // NOTE: This layer is 'blurry' on HiDPI displays. To remidy this one can use a vector tileset (like https://protomaps.com) or use the detectRetina option below (this however makes the text in the images smaller)
-      tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: "Map data from <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>" }),
+      tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: "Map data from <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
+        keepBuffer: 100,              // keep tiles outside viewport
+         }),
     ],
     zoomAnimation: true,
     zoomAnimationThreshold: 0,
   };
   zoom = 10;
   center = latLng(48.2081693881957, 16.3738174047985);
-  markerSelection: Marker | null = null;
-
-  touchTimeout: any;
-  touched = false;
 
   onMapReady(map: Map) {
-    setTimeout(() => map.invalidateSize(), 100); // See https://github.com/bluehalo/ngx-leaflet/issues/104
     this.map = map;
 
-    // register events to detect new markers
-    map.getContainer().addEventListener("touchstart", (e) => {
-      this.touched = true;
-      if (e.touches.length > 1) return;
-      this.touchTimeout = setTimeout(() => {
-        let bb = map.getContainer().getBoundingClientRect()
-        let p = new Point(e.touches[0].clientX - bb.left, e.touches[0].clientY - bb.top)
-        let location = map.containerPointToLatLng(p);
-        this.onNewLocationRegisterd.next(location);
-      }, 500);
-    })
-    map.getContainer().addEventListener("touchmove", () => clearTimeout(this.touchTimeout));
-    map.getContainer().addEventListener("touchend", () => clearTimeout(this.touchTimeout));
+    // Ensure correct sizing (Leaflet quirk)
+    setTimeout(() => map.invalidateSize(), 100);
+
+    if (!this.interactive) {
+      this.disableInteraction(map);
+    }
+  }
+
+  private emitLocationOnce(location: LatLng) {
+    if (this.locationEmitted) return;
+
+    this.locationEmitted = true;
+    this.locationSelected.emit(location);
   }
 
   ngOnChanges(changes: SimpleChanges) {
@@ -77,32 +68,32 @@ export class MapComponent implements OnInit {
     if (this.showLocation) {
       const location = await this.getLocation();
       if (location) {
-        this.geoLocation.next(location);
+        this.emitLocationOnce(location);
       }
-    }
-    if (this.route) {
-      this.layers.push(this.route)
     }
   }
 
-  async getLocation(): Promise<(LatLng | null)> {
+  private async getLocation(): Promise<LatLng | null> {
     try {
-      const location = await Geolocation.getCurrentPosition({
+      const pos = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
         maximumAge: 0
       });
-      return latLng(location.coords.latitude, location.coords.longitude);
+
+      return latLng(pos.coords.latitude, pos.coords.longitude);
     } catch (e) {
-      console.error("ERROR: unable to determine position:", e);
-      if (e instanceof GeolocationPositionError && this.onGeolocationError != null) {
-        this.onGeolocationError.next(e);
+      console.error('Geolocation failed:', e);
+      if (e instanceof GeolocationPositionError) {
+        this.locationError.emit(e);
       }
+      return null;
     }
-    return null;
   }
 
-  clickTimeout: any;
-  lastClick = 0;
+  private touched = false;
+  private touchTimeout: any;
+  private lastClick = 0;
+  private clickTimeout: any;
 
   onClick(event: LeafletMouseEvent) {
     if (this.touched) return; // disable click for mobile, as markers get added via tap-and-hold
@@ -110,9 +101,46 @@ export class MapComponent implements OnInit {
       clearTimeout(this.clickTimeout);
     } else {
       this.clickTimeout = setTimeout(() => {
-        this.onNewLocationRegisterd.next(event.latlng);
+        this.emitLocationOnce(event.latlng);
       }, 500);
     }
     this.lastClick = Date.now();
+  }
+
+  registerTouchHandlers(map: Map) {
+    const container = map.getContainer();
+
+    container.addEventListener('touchstart', (e: TouchEvent) => {
+      if (!this.interactive) return;
+      this.touched = true;
+
+      if (e.touches.length > 1) return;
+
+      this.touchTimeout = setTimeout(() => {
+        const rect = container.getBoundingClientRect();
+        const p = new Point(
+          e.touches[0].clientX - rect.left,
+          e.touches[0].clientY - rect.top
+        );
+
+        this.emitLocationOnce(map.containerPointToLatLng(p));
+      }, 500);
+    });
+
+    container.addEventListener('touchmove', () =>
+      clearTimeout(this.touchTimeout)
+    );
+    container.addEventListener('touchend', () =>
+      clearTimeout(this.touchTimeout)
+    );
+  }
+
+  // -------- INTERACTION --------
+  private disableInteraction(map: Map) {
+    map.dragging.disable();
+    map.scrollWheelZoom.disable();
+    map.doubleClickZoom.disable();
+    map.boxZoom.disable();
+    map.keyboard.disable();
   }
 }

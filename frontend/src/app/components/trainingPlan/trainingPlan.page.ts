@@ -20,6 +20,8 @@ import { RouteService } from 'src/services/route.service';
 import { convertPolylineToCoordinateList } from 'src/services/utils';
 import { ModalController } from '@ionic/angular';
 import { WeatherInfoComponent } from '../weather/weather.component';
+import { MapModalComponent } from '../map/mapModal.component'
+import { Polyline, Marker, LatLngBounds } from "leaflet";
 
 @Component({
   selector: 'app-trainingplan',
@@ -32,6 +34,9 @@ export class TrainingPlanPage implements OnInit {
 
   private readonly router: Router = inject(Router);
   private readonly service: TrainingPlanService = inject(TrainingPlanService);
+  private routeLine: Polyline | null = null;
+  private userLocationMarker: Marker | null = null;
+  private routeBounds: LatLngBounds | null = null;
 
   date: string = new Date().toLocaleDateString();
   recommendedActivity: RecommendedActivityDto | undefined = {
@@ -227,40 +232,55 @@ export class TrainingPlanPage implements OnInit {
     await alert.present();
   }
 
-  hasLocation = false;
   @ViewChild(MapComponent) mapComponent!: MapComponent;
 
-  handleNewLocation(location: LatLng) {
-    if (this.recommendedActivity?.route?.distance) {
-      this.layers.push(marker(location, this.markerOptions));
-      this.routeService.getGeneratedRoute(location.lat, location.lng, this.recommendedActivity?.route?.distance).subscribe({
-        next: (e) => {
-          if (this.recommendedActivity?.route?.distance) {
-            this.recommendedActivity.route.distance = e.distance;
-          }
-          if (this.recommendedActivity?.route?.elevation) {
-            this.recommendedActivity.route.elevation = e.elevation;
-          }
-          let coords = polyline(convertPolylineToCoordinateList(e.polyline).map(x => latLng(x[0], x[1])));
-          this.layers.push(coords)
-          if (this.mapComponent['map']) {
-            const bounds = coords.getBounds();
-            this.mapComponent['map'].fitBounds(bounds, { padding: [50, 50] });
-          }
-        }
+
+  onLocationSelected(location: LatLng) {
+    if (this.userLocationMarker) return;
+
+    this.userLocationMarker = marker(location, this.markerOptions);
+
+    this.generateRouteFromLocation(location);
+  }
+
+  private generateRouteFromLocation(location: LatLng) {
+    this.routeService
+      .getGeneratedRoute(
+        location.lat,
+        location.lng,
+        this.recommendedActivity!.route!.distance
+      )
+      .subscribe(e => {
+
+        this.recommendedActivity!.route!.distance = e.distance;
+        this.recommendedActivity!.route!.elevation = e.elevation;
+
+        this.routeLine = polyline(
+          convertPolylineToCoordinateList(e.polyline)
+            .map(p => latLng(p[0], p[1]))
+        );
+
+        this.routeBounds = this.routeLine.getBounds();
+        this.rebuildLayers();
+
+        this.mapComponent?.map?.fitBounds(this.routeBounds, {
+          padding: [30, 30]
+        });
       });
+  }
+
+  private rebuildLayers() {
+    const layers: Layer[] = [];
+
+    if (this.userLocationMarker) {
+      layers.push(this.userLocationMarker);
     }
-  }
 
-  onNewLocationRegisterd(location: LatLng) {
-    if (this.hasLocation) return;
-    this.handleNewLocation(location);
-    this.hasLocation = true;
-  }
+    if (this.routeLine) {
+      layers.push(this.routeLine);
+    }
 
-  geoLocation(location: LatLng) {
-    this.handleNewLocation(location);
-    this.hasLocation = true;
+    this.layers = layers;
   }
 
   // ------- Weather -------
@@ -294,6 +314,47 @@ export class TrainingPlanPage implements OnInit {
 
     await modal.present();
   }
+
+async openMapModal() {
+  if (!this.routeBounds) return;
+
+  const modal = await this.modalCtrl.create({
+    component: MapModalComponent,
+    componentProps: {
+      layers: this.cloneLayersForModal(),
+      routeBounds: this.routeBounds
+    },
+    cssClass: 'fullscreen-map-modal',
+  });
+
+  await modal.present();
+}
+
+
+ private cloneLayersForModal(): Layer[] {
+   const cloned: Layer[] = [];
+
+   if (this.userLocationMarker) {
+     cloned.push(
+       marker(
+         this.userLocationMarker.getLatLng(),
+         this.markerOptions
+       )
+     );
+   }
+
+   if (this.routeLine) {
+     cloned.push(
+       polyline(
+         this.routeLine.getLatLngs() as LatLng[],
+         (this.routeLine as any).options
+       )
+     );
+   }
+
+   return cloned;
+ }
+
 
   protected readonly SessionType = SessionType;
   protected readonly formatDistance = formatDistance;
