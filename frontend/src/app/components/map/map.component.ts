@@ -27,7 +27,11 @@ export class MapComponent implements OnInit {
   options: MapOptions = {
     layers: [
       // NOTE: This layer is 'blurry' on HiDPI displays. To remidy this one can use a vector tileset (like https://protomaps.com) or use the detectRetina option below (this however makes the text in the images smaller)
-      tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: "Map data from <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>" }),
+      tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: "Map data from <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a>",
+        keepBuffer: 100,              // keep tiles outside viewport
+         }),
     ],
     zoomAnimation: true,
     zoomAnimationThreshold: 0,
