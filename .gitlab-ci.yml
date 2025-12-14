@@ -53,7 +53,6 @@ build-base-image:
     - echo "{\"auths\":{\"$CI_REGISTRY\":{\"auth\":\"$(printf "%s:%s" "${CI_REGISTRY_USER}" "${CI_REGISTRY_PASSWORD}" | base64 | tr -d '\n')\"},\"$CI_DEPENDENCY_PROXY_SERVER\":{\"auth\":\"$(printf "%s:%s" ${CI_DEPENDENCY_PROXY_USER} "${CI_DEPENDENCY_PROXY_PASSWORD}" | base64 | tr -d '\n')\"}}}" > /kaniko/.docker/config.json
     - /kaniko/executor --context "${CI_PROJECT_DIR}/backend" --dockerfile "${CI_PROJECT_DIR}/backend/Dockerfile.base" --destination "registry.reset.inso-w.at/$CI_PROJECT_PATH/base:python312"
   only:
-    - 83-create-python-and-java-docker-image
     - master
 
 # -------- BACKEND DOCKER IMAGE BUILD --------
@@ -71,7 +70,6 @@ backend-build-image:
     - frontend-build
     - build-base-image
   only:
-    - 83-create-python-and-java-docker-image
     - master
 
 # -------- DEPLOYMENT --------
