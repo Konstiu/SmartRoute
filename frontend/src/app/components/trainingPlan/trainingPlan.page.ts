@@ -22,6 +22,7 @@ import { ModalController } from '@ionic/angular';
 import { WeatherInfoComponent } from '../weather/weather.component';
 import { MapModalComponent } from '../map/mapModal.component'
 import { Polyline, Marker, LatLngBounds } from "leaflet";
+import { MAP_MARKER_COLORS, coloredMarker } from '../map/map-icon';
 
 @Component({
   selector: 'app-trainingplan',
@@ -212,14 +213,6 @@ export class TrainingPlanPage implements OnInit {
   routeService = inject(RouteService);
 
   alertController = inject(AlertController);
-  markerOptions = {
-    icon: icon({
-      ...Icon.Default.prototype.options,
-      iconUrl: 'assets/marker-icon.png',
-      iconRetinaUrl: 'assets/marker-icon-2x.png',
-      shadowUrl: 'assets/marker-shadow.png'
-    })
-  };
 
   async onGeolocationError(_error: GeolocationPositionError) {
 
@@ -238,7 +231,8 @@ export class TrainingPlanPage implements OnInit {
   onLocationSelected(location: LatLng) {
     if (this.userLocationMarker) return;
 
-    this.userLocationMarker = marker(location, this.markerOptions);
+    this.userLocationMarker = marker(location, {
+      icon: coloredMarker(MAP_MARKER_COLORS.start)});
 
     this.generateRouteFromLocation(location);
   }
@@ -344,8 +338,8 @@ async openMapModal() {
    if (this.userLocationMarker) {
      cloned.push(
        marker(
-         this.userLocationMarker.getLatLng(),
-         this.markerOptions
+         this.userLocationMarker.getLatLng(), {
+           icon: coloredMarker(MAP_MARKER_COLORS.start)}
        )
      );
    }
