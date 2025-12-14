@@ -132,7 +132,7 @@ export class MapComponent implements OnInit {
     );
   }
 
-  // -------- INTERACTION --------
+  // Interaction
   private disableInteraction(map: Map) {
     map.dragging.disable();
     map.scrollWheelZoom.disable();
