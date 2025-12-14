@@ -261,8 +261,6 @@ export class TrainingPlanPage implements OnInit {
         );
 
         this.routeBounds = this.routeLine.getBounds();
-
-        // 🔑 SINGLE SOURCE OF TRUTH
         this.rebuildLayers();
 
         this.mapComponent?.map?.fitBounds(this.routeBounds, {
@@ -318,12 +316,12 @@ export class TrainingPlanPage implements OnInit {
   }
 
 async openMapModal() {
-  if (!this.routeBounds) return; // optional guard
+  if (!this.routeBounds) return;
 
   const modal = await this.modalCtrl.create({
     component: MapModalComponent,
     componentProps: {
-      layers: [...this.layers],
+      layers: this.cloneLayersForModal(),
       routeBounds: this.routeBounds
     },
     cssClass: 'fullscreen-map-modal',
@@ -331,6 +329,32 @@ async openMapModal() {
 
   await modal.present();
 }
+
+
+ private cloneLayersForModal(): Layer[] {
+   const cloned: Layer[] = [];
+
+   if (this.userLocationMarker) {
+     cloned.push(
+       marker(
+         this.userLocationMarker.getLatLng(),
+         this.markerOptions
+       )
+     );
+   }
+
+   if (this.routeLine) {
+     cloned.push(
+       polyline(
+         this.routeLine.getLatLngs() as LatLng[],
+         (this.routeLine as any).options
+       )
+     );
+   }
+
+   return cloned;
+ }
+
 
   protected readonly SessionType = SessionType;
   protected readonly formatDistance = formatDistance;
