@@ -3,6 +3,7 @@ import { IonicModule, ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { LatLngBounds, LatLng, Layer, marker } from 'leaflet';
 import { MapComponent } from './map.component';
+import { MAP_MARKER_COLORS, coloredMarker } from './map-icon';
 
 @Component({
   standalone: true,
@@ -46,7 +47,8 @@ export class MapModalComponent {
   onPointAdded(point: LatLng) {
     this.addedPoints.push(point);
 
-    const m = marker(point);
+    const m = marker(point, {
+      icon: coloredMarker(MAP_MARKER_COLORS.added)});
     this.localLayers = [...this.localLayers, m];
   }
 
