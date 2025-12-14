@@ -35,7 +35,8 @@ public class ActivityServiceImpl implements ActivityService {
         }
 
         if (garminService.isGarminConnected(email)) {
-            garminService.syncActivities(user, count, null, null);
+            // TODO: HERE WE HAVE TO SET IT BACK TO NORMAL COUNT LATER: CURRENTLY JAVA HEAP BREAKS IF WE HAVE MORE THAN 10
+            garminService.syncActivities(user, Math.min(10, count), null, null);
         }
     }
 }
