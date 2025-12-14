@@ -229,7 +229,7 @@
                 <version>${jib-maven-plugin.version}</version>
                 <configuration>
                     <from>
-						<image>docker://java21-python312:local</image>
+						<image>registry.reset.inso-w.at/2025ws-ase-pr-group/25ws-ase-pr-inso-05/base:python312</image>
                     </from>
                     <container>
                         <ports>
