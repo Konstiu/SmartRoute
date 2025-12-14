@@ -230,6 +230,10 @@
                 <configuration>
                     <from>
 						<image>registry.reset.inso-w.at/2025ws-ase-pr-group/25ws-ase-pr-inso-05/base:python312</image>
+						<auth>
+							<username>${env.CI_REGISTRY_USER}</username>
+							<password>${env.CI_REGISTRY_PASSWORD}</password>
+						</auth>
                     </from>
                     <container>
                         <ports>
