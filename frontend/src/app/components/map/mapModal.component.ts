@@ -1,4 +1,4 @@
-import { Component, Input, ViewChild } from '@angular/core';
+import { Component, Input, ViewChild, Output, EventEmitter } from '@angular/core';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { LatLngBounds, LatLng, Layer, marker } from 'leaflet';
@@ -16,6 +16,7 @@ export class MapModalComponent {
 
   @Input() layers: any[] = [];
   @Input() routeBounds!: LatLngBounds;
+  @Output() confirmPoints = new EventEmitter<LatLng[]>();
 
   @ViewChild(MapComponent) mapComponent!: MapComponent;
 
@@ -36,7 +37,7 @@ export class MapModalComponent {
 
   toggleAddPointMode() {
     if (this.addPointMode) {
-      // CANCEL → remove unconfirmed points
+      // CANCEL -> remove unconfirmed points
       this.addedPoints = [];
       this.localLayers = [...this.baseLayers];
     }
@@ -93,4 +94,15 @@ export class MapModalComponent {
       addedPoints: this.addedPoints
     });
   }
+
+
+confirm() {
+  this.confirmPoints.emit([...this.addedPoints]);
+
+  // reset editor state
+  this.addedPoints = [];
+  this.addPointMode = false;
+  this.localLayers = [...this.baseLayers];
+}
+
 }

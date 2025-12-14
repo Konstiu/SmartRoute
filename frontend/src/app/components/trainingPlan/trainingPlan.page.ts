@@ -23,6 +23,9 @@ import { WeatherInfoComponent } from '../weather/weather.component';
 import { MapModalComponent } from '../map/mapModal.component'
 import { Polyline, Marker, LatLngBounds } from "leaflet";
 import { MAP_MARKER_COLORS, coloredMarker } from '../map/map-icon';
+import { StopsService } from 'src/services/add-stops.service';
+import { firstValueFrom } from 'rxjs';
+import { GeoJsonPosition, AddStopsRequest } from '../../dtos/add-stops'
 
 @Component({
   selector: 'app-trainingplan',
@@ -38,6 +41,7 @@ export class TrainingPlanPage implements OnInit {
   private routeLine: Polyline | null = null;
   private userLocationMarker: Marker | null = null;
   private routeBounds: LatLngBounds | null = null;
+  private stopsService = inject(StopsService);
 
   date: string = new Date().toLocaleDateString();
   recommendedActivity: RecommendedActivityDto | undefined = {
@@ -331,7 +335,6 @@ async openMapModal() {
 }
 
 
-
  private cloneLayersForModal(): Layer[] {
    const cloned: Layer[] = [];
 
@@ -356,13 +359,52 @@ async openMapModal() {
    return cloned;
  }
 
-handleAdditionalPoints(points: LatLng[]) {
-  console.log('Additional points from modal:', points);
+  handleAdditionalPoints(points: LatLng[]) {
+    if (!this.routeLine || points.length === 0) return;
 
-  // Example:
-  // this.routeService.generateRouteWithStops(points)
-  // this.updatePreviewRoute(...)
-}
+    const request: AddStopsRequest = {
+      originalRoute: this.routeLineToGeoJson(this.routeLine),
+      newPoints: points.map(p => this.toGeoJsonPosition(p))
+    };
+
+    this.stopsService.insertStops(request).subscribe({
+      next: (editedRoute) => {
+        const latLngs = this.geoJsonToLatLngs(editedRoute);
+
+        this.routeLine = polyline(latLngs);
+        this.routeBounds = this.routeLine.getBounds();
+
+        this.rebuildLayers();
+
+        this.mapComponent?.map?.fitBounds(this.routeBounds, {
+          padding: [30, 30]
+        });
+      },
+      error: err => {
+        console.error('Failed to insert stops', err);
+        // optional toast / alert
+      }
+    });
+  }
+
+  private toGeoJsonPosition(p: LatLng): GeoJsonPosition {
+    return {
+      latitude: p.lat,
+      longitude: p.lng,
+      altitude: null
+    };
+  }
+
+  private routeLineToGeoJson(route: Polyline): GeoJsonPosition[] {
+    return (route.getLatLngs() as LatLng[]).map(p =>
+      this.toGeoJsonPosition(p)
+    );
+  }
+
+  private geoJsonToLatLngs(route: GeoJsonPosition[]): LatLng[] {
+    return route.map(p => latLng(p.latitude, p.longitude));
+  }
+
 
 
 
