@@ -216,7 +216,15 @@ def main():
         }
 
         result = {"tokens": tokens, "activities": runs_with_details}
-        print(json.dumps(result, ensure_ascii=False))
+        with tempfile.NamedTemporaryFile(
+                mode="w", delete=False, dir="/tmp", suffix=".json"
+        ) as tmp:
+            json.dump(result, tmp, ensure_ascii=False)
+            result_path = tmp.name
+
+            # 🔹 Only a *small* JSON goes to stdout (Java reads this)
+        print(json.dumps({"ok": True, "result_file": result_path}))
+
 
     except Exception as e:
         error_info = {
