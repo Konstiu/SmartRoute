@@ -27,6 +27,11 @@
           </ion-card-title>
           <ion-card-title>
             Recommended Session: {{ recommendedActivity?.name }}
+            @if (latlngs !== null) {
+              <ion-button size="small" fill="outline" (click)="exportGpx()" style="margin-left: 8px;">
+                Export GPX
+              </ion-button>
+            }
           </ion-card-title>
         </ion-card-header>
         <ion-card-content>
