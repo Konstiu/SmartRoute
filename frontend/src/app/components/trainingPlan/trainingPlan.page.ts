@@ -84,6 +84,7 @@ export class TrainingPlanPage implements OnInit {
   };
   error: string | null = null;
   isLoading: boolean = true;
+  latlngs: LatLng[] | null = null;
 
   ngOnInit(): void {
     this.loadTrainingPlan();
@@ -242,6 +243,7 @@ export class TrainingPlanPage implements OnInit {
             this.recommendedActivity.route.elevation = e.elevation;
           }
           let coords = polyline(convertPolylineToCoordinateList(e.polyline).map(x => latLng(x[0], x[1])));
+          this.latlngs = coords.getLatLngs() as LatLng[];
           this.layers.push(coords)
           if (this.mapComponent['map']) {
             const bounds = coords.getBounds();
@@ -295,6 +297,55 @@ export class TrainingPlanPage implements OnInit {
     await modal.present();
   }
 
+  exportGpx() {
+    if (!this.latlngs || this.latlngs.length === 0) {
+      console.warn('No route to export (latlngs is null or empty).');
+      return;
+    }
+
+    const xmlString = this.generateGpxXml(this.latlngs);
+
+    const blob = new Blob([xmlString], { type: 'application/gpx+xml' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `route_${new Date().toISOString().slice(0, 10)}.gpx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  }
+
+  generateGpxXml(latlngs: LatLng[]): string {
+    const now = new Date().toISOString();
+    
+    const trackPoints = latlngs
+      .map(latlng => {
+        const lat = (latlng as any).lat;
+        const lon = (latlng as any).lng;
+        return `      <trkpt lat="${lat}" lon="${lon}">\n        <time>${now}</time>\n      </trkpt>`;
+      })
+      .join('\n');
+
+    const gpx = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<gpx version="1.1" creator="SmartRoute" xmlns="http://www.topografix.com/GPX/1/1">',
+      '  <metadata>',
+      `    <time>${now}</time>`,
+      '  </metadata>',
+      '  <trk>',
+      '    <name>Exported Route</name>',
+      '    <type>running</type>',
+      '    <trkseg>',
+      trackPoints,
+      '    </trkseg>',
+      '  </trk>',
+      '</gpx>'
+    ].join('\n');
+
+    return gpx;
+  }
+
   protected readonly SessionType = SessionType;
   protected readonly formatDistance = formatDistance;
   protected readonly formatPace = formatPace;
@@ -307,3 +358,5 @@ export class TrainingPlanPage implements OnInit {
   protected readonly getSeverityColor = getSeverityColor;
   protected readonly formatInjuryIndex = formatInjuryIndex;
 }
+
+
