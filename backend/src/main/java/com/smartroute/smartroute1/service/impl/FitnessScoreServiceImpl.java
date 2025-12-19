@@ -193,7 +193,9 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
             LocalDate.now()
         ).getYears() : 30;
 
-        int maxRecordedHr = (int) Math.round(activityRepository.getActivitiesByUser(user).stream().mapToDouble(Activity::getMaxHeartrate).max().orElse(-1.0));
+        int maxRecordedHr = (int) Math.round(activityRepository.getActivitiesByUser(user).stream().mapToDouble(
+            a -> a.getMaxHeartrate() == null ? -1.0 : a.getMaxHeartrate()
+        ).max().orElse(-1.0));
 
         return Math.max(Math.round(208 - .7f * age), maxRecordedHr);
     }
