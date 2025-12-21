@@ -66,6 +66,67 @@ public class GarminImportServiceImpl implements GarminImportService {
     private final GpxService gpxService;
     private final FitnessScoreService fitnessScoreService;
 
+    private static final Map<Integer, String> ACTIVITY_TYPE_NAMES = Map.<Integer, String>ofEntries(
+            // Running
+            Map.entry(1, "Run"), //Running
+            Map.entry(49, "Run"), // Trail Running
+            Map.entry(50, "Run"), //Treadmill Running
+
+            // Cycling
+            Map.entry(2, "Ride"), //Cycling
+            Map.entry(10, "Ride"), //Mountain Biking
+            Map.entry(11, "Ride"), //Road Cycling
+            Map.entry(17, "Ride"), //Indoor Cycling
+
+            // Swimming
+            Map.entry(5, "Swim"), //Swimming
+            Map.entry(28, "Swim"), //Open Water Swimming
+            Map.entry(31, "Swim"), //Lap Swimming
+
+            // Walking/Hiking
+            Map.entry(3, "Walk"), //Hiking
+            Map.entry(4, "Walk"), //Walking
+            Map.entry(9, "Walk"), //Other
+
+            // Fitness
+            Map.entry(13, "Strength Training"),
+            Map.entry(15, "Cardio Training"),
+            Map.entry(26, "Yoga"),
+            Map.entry(27, "Pilates"),
+            Map.entry(29, "Stand Up Paddleboarding"),
+
+            // Winter Sports
+            Map.entry(6, "Cross Country Skiing"),
+            Map.entry(7, "Alpine Skiing"),
+            Map.entry(8, "Snowboarding"),
+
+            // Water Sports
+            Map.entry(14, "Rowing"),
+            Map.entry(19, "Kayaking"),
+            Map.entry(37, "Sailing"),
+            Map.entry(39, "Surfing"),
+
+            // Other
+            Map.entry(12, "Transition"), // Triathlon transition
+            Map.entry(16, "Elliptical"),
+            Map.entry(18, "Golf"),
+            Map.entry(20, "Inline Skating"),
+            Map.entry(21, "Rock Climbing"),
+            Map.entry(22, "Hang Gliding"),
+            Map.entry(23, "Horseback Riding"),
+            Map.entry(24, "Driving"),
+            Map.entry(25, "Flying"),
+            Map.entry(30, "Motorcycling"),
+            Map.entry(32, "Mountaineering"),
+            Map.entry(33, "Multisport"),
+            Map.entry(34, "Paddling"),
+            Map.entry(35, "Diving"),
+            Map.entry(36, "Wakeboarding"),
+            Map.entry(38, "Windsurfing"),
+            Map.entry(40, "Fishing")
+    );
+
+
     @Override
     @Transactional
     public boolean isGarminConnected(String email) {
@@ -502,8 +563,17 @@ public class GarminImportServiceImpl implements GarminImportService {
             JsonNode metrics = metricPoint.get("metrics");
 
             // Extract values using the indices
-            double lat = metrics.get(latIdx).asDouble();
-            double lon = metrics.get(lonIdx).asDouble();
+            JsonNode latNode = metrics.get(latIdx);
+            JsonNode lonNode = metrics.get(lonIdx);
+
+            // Skip if lat/lon is null or missing
+            if (latNode == null || lonNode == null
+                    || latNode.isNull() || lonNode.isNull()) {
+                continue;
+            }
+
+            double lat = latNode.asDouble();
+            double lon = lonNode.asDouble();
 
             // Skip invalid points (lat/lon = 0 usually means no GPS signal)
             if (lat == 0.0 && lon == 0.0) {
@@ -511,7 +581,6 @@ public class GarminImportServiceImpl implements GarminImportService {
             }
 
             gpx.append("      <trkpt lat=\"").append(lat).append("\" lon=\"").append(lon).append("\">\n");
-
 
             // Add elevation if available
             if (eleIdx != null && !metrics.get(eleIdx).isNull()) {
@@ -521,7 +590,6 @@ public class GarminImportServiceImpl implements GarminImportService {
 
             // Add timestamp
             long timestamp = metrics.get(tsIdx).asLong();
-
             Instant pointTime = Instant.ofEpochMilli(timestamp);
             gpx.append("        <time>").append(pointTime.toString()).append("</time>\n");
 
@@ -544,6 +612,12 @@ public class GarminImportServiceImpl implements GarminImportService {
         gpx.append("    </trkseg>\n");
         gpx.append("  </trk>\n");
         gpx.append("</gpx>\n");
+
+
+        // Check if we have enough points
+        if (pointCount < 2) {
+            log.warn("Activity has insufficient GPS points ({}), may not be valid", pointCount);
+        }
 
         // since the id is not the same as the one strava provides
         //activityId = "garmin_ping_" + summary.path("activityId").asText(null);
@@ -589,8 +663,10 @@ public class GarminImportServiceImpl implements GarminImportService {
 
             } else {
                 Activity imported = gpxService.importStravaGpxFile(gpxStream, user.getEmail());
-                imported.setType("Run");
-                imported.setSportType("Run");
+                int typeId = summary.path("activityType").path("typeId").asInt();
+                String activityTypeName = ACTIVITY_TYPE_NAMES.getOrDefault(typeId, "Activity");
+                imported.setType(activityTypeName);
+                imported.setSportType(activityTypeName);
 
                 String startTimeGmt = summary.path("startTimeGMT").asText();
                 imported.setStartDate(LocalDateTime.parse(startTimeGmt, garminFormatter).atZone(ZoneId.of("UTC")).toInstant());
@@ -624,8 +700,10 @@ public class GarminImportServiceImpl implements GarminImportService {
 
         // Basic info
         activity.setName(summary.path("activityName").asText("Unnamed Activity"));
-        activity.setType("Run");
-        activity.setSportType("Run");
+        int typeId = summary.path("activityType").path("typeId").asInt();
+        String activityTypeName = ACTIVITY_TYPE_NAMES.getOrDefault(typeId, "Activity");
+        activity.setType(activityTypeName);
+        activity.setSportType(activityTypeName);
 
 
         DateTimeFormatter garminFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -742,7 +820,6 @@ public class GarminImportServiceImpl implements GarminImportService {
             storedActivity.setStravaId(storedActivity.getStravaId());
             storedActivity.setSufferScore(storedActivity.getSufferScore());
             storedActivity.setSportType(storedActivity.getSportType());
-
 
 
             saved = activityRepository.save(storedActivity);
