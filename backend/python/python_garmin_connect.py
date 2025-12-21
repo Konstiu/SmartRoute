@@ -21,10 +21,11 @@ def collect_last_runs(api: Garmin, target_count: int):
             break
 
         for act in activities:
-            if act.get("sportTypeId") == 1:  # Running activities
-                runs.append(act)
-                if len(runs) == target_count:
-                    break
+            # Since we want to import all activities we remove that filer:
+            #if act.get("sportTypeId") == 1:  # Running activities
+            runs.append(act)
+            if len(runs) == target_count:
+                break
         start += page_size
 
     return runs[:target_count]
