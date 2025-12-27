@@ -14,198 +14,204 @@ import lombok.Setter;
 @Getter
 @Setter
 public class RunClassificationDto {
+
     /**
-     * Duration of the run in seconds.
+     * duration
      */
     private Integer duration;
 
     /**
-     * Duration as a percentage of the user’s personal best over the last 20 runs.
+     * duration_pct_pb_20
      */
     private Double durationPb20;
 
     /**
-     * Distance of the run in meters.
+     * distance
      */
     private Double distance;
 
     /**
-     * Distance as a percentage of the user’s personal best over the last 20 runs.
+     * distance_pct_pb_20
      */
     private Double distancePb20;
 
     /**
-     * Average pace in meters per second.
+     * pace
      */
     private Double pace;
 
     /**
-     * Pace as a percentage of the user’s personal best over the last 20 runs.
+     * pace_pct_pb_20
      */
     private Double pacePb20;
 
     /**
-     * Total elevation gain during the run in meters.
+     * elevation_gain
      */
     private Double elevationGain;
 
     /**
-     * Computed session load value (must be greater than or equal to zero).
+     * session_load
      */
     private Double sessionLoad;
 
     /**
-     * Number of significant pace spikes detected during the run.
+     * num_pace_spikes
      */
     private Integer numPaceSpikes;
 
     /**
-     * Readiness score of the user prior to the run (range: 0–100).
+     * readiness_score
      */
     private Integer readinessScore;
 
     /**
-     * Consistency score derived from the user’s training history (range: 0–1).
+     * suffer_score
+     */
+    private Integer sufferScore;
+
+    /**
+     * consistency_score
      */
     private Double consistencyScore;
 
     /**
-     * Training Stress Balance (TSB) of the user at the time of the run.
+     * tsb
      */
     private Double tsb;
 
     /**
-     * Age of the user in years.
+     * age
      */
     private Integer age;
 
     /**
-     * Weight of the user in kilograms.
+     * weight
      */
     private Double weight;
 
     /**
-     * Height of the user in centimeters.
+     * height
      */
     private Integer height;
 
     /**
-     * Sex of the user.
+     * sex
      */
     private Sex sex;
 
     /**
-     * Experience level of the user.
+     * experience_level
      */
     private ExperienceLevel experienceLevel;
 
     /**
-     * Numeric injury index indicating injury risk or history.
+     * injury_index
      */
     private Double injuryIndex;
 
     /**
-     * Average heart rate during the run as a percentage of the user’s maximum HR.
+     * hr_avg
      */
     private Double hrAvg;
 
     /**
-     * Indicates whether the average heart rate value is missing.
+     * hr_avg_missing
      */
     private Boolean hrAvgMissing;
 
     /**
-     * Maximum heart rate during the run as a percentage of the user’s maximum HR.
+     * hr_max
      */
     private Double hrMax;
 
     /**
-     * Indicates whether the maximum heart rate value is missing.
+     * hr_max_missing
      */
     private Boolean hrMaxMissing;
 
     /**
-     * Time spent in heart rate zone 1 in seconds.
+     * zone1
      */
     private Integer zone1;
 
     /**
-     * Indicates whether HR zone 1 data is missing.
+     * zone1_missing
      */
     private Boolean zone1Missing;
 
     /**
-     * Time spent in heart rate zone 2 in seconds.
+     * zone2
      */
     private Integer zone2;
 
     /**
-     * Indicates whether HR zone 2 data is missing.
+     * zone2_missing
      */
     private Boolean zone2Missing;
 
     /**
-     * Time spent in heart rate zone 3 in seconds.
+     * zone3
      */
     private Integer zone3;
 
     /**
-     * Indicates whether HR zone 3 data is missing.
+     * zone3_missing
      */
     private Boolean zone3Missing;
 
     /**
-     * Time spent in heart rate zone 4 in seconds.
+     * zone4
      */
     private Integer zone4;
 
     /**
-     * Indicates whether HR zone 4 data is missing.
+     * zone4_missing
      */
     private Boolean zone4Missing;
 
     /**
-     * Time spent in heart rate zone 5 in seconds.
+     * zone5
      */
     private Integer zone5;
 
     /**
-     * Indicates whether HR zone 5 data is missing.
+     * zone5_missing
      */
     private Boolean zone5Missing;
 
     /**
-     * Number of significant heart rate spikes detected during the run.
+     * num_hr_spikes
      */
     private Integer numHrSpikes;
 
     /**
-     * Indicates whether the number of heart rate spikes is missing.
+     * num_hr_spikes_missing
      */
     private Boolean numHrSpikesMissing;
 
     /**
-     * Wind speed at 10 meters above ground in kilometers per hour during the run.
+     * windSpeed10m
      */
     private Double windSpeed10m;
 
     /**
-     * Ambient temperature at 2 meters above ground in degrees Celsius.
+     * temperature2m
      */
     private Double temperature2m;
 
     /**
-     * UV index during the run (range: 0–13).
+     * uv_index
      */
     private Integer uvIndex;
 
     /**
-     * Precipitation intensity during the run in millimeters per hour.
+     * precipitation
      */
     private Double precipitation;
 
     /**
-     * Snow depth during the run in centimeters.
+     * snowDepth
      */
     private Double snowDepth;
 }
