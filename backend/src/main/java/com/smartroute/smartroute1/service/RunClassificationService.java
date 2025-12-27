@@ -22,9 +22,10 @@ public interface RunClassificationService {
     /**
      * Takes information about runs from a csv files, parses them to a dto and classifies them.
      *
-     * @param csvPath the path to the file
+     * @param csvPath       the path to the file
+     * @param outputCsvPath the path the new file will be stored
      * @return the dto list with classification
      * @throws IOException if the input file could not be found
      */
-    List<RunClassificationResultDto> classifyCsv(Path csvPath) throws IOException;
+    Path classifyCsv(Path csvPath, Path outputCsvPath) throws IOException;
 }

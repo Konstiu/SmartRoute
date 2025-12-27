@@ -9,6 +9,7 @@ import com.smartroute.smartroute1.service.RunClassificationService;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -80,26 +81,29 @@ public class RunClassificationServiceImpl implements RunClassificationService {
     }
 
     @Override
-    public List<RunClassificationResultDto> classifyCsv(Path csvPath) throws IOException {
-        List<RunClassificationResultDto> results = new ArrayList<>();
+    public Path classifyCsv(Path csvPath, Path outputCsv) throws IOException {
 
-        try (BufferedReader reader = Files.newBufferedReader(csvPath)) {
+        try (BufferedReader reader = Files.newBufferedReader(csvPath);
+             BufferedWriter writer = Files.newBufferedWriter(outputCsv)) {
 
             String header = reader.readLine(); // skip header
             if (header == null) {
-                return results;
+                return outputCsv;
             }
+            writer.write(header + ",classification");
+            writer.newLine();
 
             String line;
             while ((line = reader.readLine()) != null) {
 
                 RunClassificationDto dto = parseRunLine(line);
+                RunClassificationResultDto result = classifyRun(dto);
 
-
-                results.add(this.classifyRun(dto));
+                writer.write(line + "," + result.getClassification().name());
+                writer.newLine();
             }
         }
-        return results;
+        return outputCsv;
     }
 
 
