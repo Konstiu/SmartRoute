@@ -13,8 +13,6 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 
 @Service
 public class RunClassificationServiceImpl implements RunClassificationService {
@@ -27,6 +25,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         double intensity = resolveIntensity(dto);
 
         Thresholds t = Thresholds.forExperience(dto.getExperienceLevel());
+        
 
         // EASY
         double easy = 0;
@@ -157,6 +156,36 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         return paceSpikes || hrSpikes;
     }
 
+    private double windPenalty(double windSpeed) {
+        if (windSpeed < 5) {
+            return 1.0;
+        }
+        if (windSpeed < 15) {
+            return 1.05;
+        }
+        return 1.10;
+    }
+
+    private double temperaturePenalty(double temp) {
+        if (temp < 5) {
+            return 0.97;
+        }
+        if (temp <= 20) {
+            return 1.0;
+        }
+        if (temp <= 30) {
+            return 1.05;
+        }
+        return 1.10;
+    }
+
+    private double surfacePenalty(Double snow, Double rain) {
+        if ((snow != null && snow > 1) || (rain != null && rain > 5)) {
+            return 1.10;
+        }
+        return 1.0;
+    }
+
     private RunClassificationDto parseRunLine(String line) {
 
         String[] c = line.split(",");
@@ -174,7 +203,6 @@ public class RunClassificationServiceImpl implements RunClassificationService {
                 parseDouble(c[i++]),           // session_load
                 parseInt(c[i++]),              // num_pace_spikes
                 parseInt(c[i++]),              // readiness_score
-                parseInt(c[i++]),              // suffer_score
                 parseDouble(c[i++]),           // consistency_score
                 parseDouble(c[i++]),           // tsb
                 parseInt(c[i++]),              // age
@@ -203,7 +231,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
                 parseDouble(c[i++]),           // temperature2m
                 parseInt(c[i++]),              // uv_index
                 parseDouble(c[i++]),           // precipitation
-                parseDouble(c[i++])            // snowDepth
+                parseDouble(c[i])            // snowDepth
         );
     }
 

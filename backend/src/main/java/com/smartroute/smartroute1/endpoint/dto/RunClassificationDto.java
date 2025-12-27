@@ -65,10 +65,6 @@ public class RunClassificationDto {
      */
     private Integer readinessScore;
 
-    /**
-     * suffer_score
-     */
-    private Integer sufferScore;
 
     /**
      * consistency_score
