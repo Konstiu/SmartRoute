@@ -10,11 +10,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class RunClassificationServiceImpl implements RunClassificationService {
 
-    @SuppressWarnings("checkstyle:NeedBraces")
     @Override
     public WorkoutType classifyRun(RunClassificationDto dto) {
 
-        double durationMin = dto.getDuration() / 60.0;
+
         double loadPerMin = normalizeLoad(dto);
         double intensity = resolveIntensity(dto);
 
@@ -57,6 +56,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         }
 
         // LONG
+        double durationMin = dto.getDuration() / 60.0;
         double longer = 0;
         if (durationMin >= 90) {
             longer += 4;
@@ -194,6 +194,17 @@ public class RunClassificationServiceImpl implements RunClassificationService {
                     t.tempoMinLoad = 8.0;
                     t.tempoMaxLoad = 14.0;
                     t.intervalPaceSpikes = 8;
+                }
+                // default is intermediate
+                default -> {
+                    t.easyMaxHr = 0.75;
+                    t.tempoMinHr = 0.82;
+                    t.tempoMaxHr = 0.88;
+                    t.intervalMinHr = 0.91;
+                    t.easyMaxLoad = 5.0;
+                    t.tempoMinLoad = 6.0;
+                    t.tempoMaxLoad = 10.0;
+                    t.intervalPaceSpikes = 6;
                 }
             }
             return t;
