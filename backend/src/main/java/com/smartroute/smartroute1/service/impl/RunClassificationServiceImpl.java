@@ -1,17 +1,25 @@
 package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.endpoint.dto.RunClassificationDto;
+import com.smartroute.smartroute1.endpoint.dto.RunClassificationResultDto;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.Sex;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.service.RunClassificationService;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+
 @Service
 public class RunClassificationServiceImpl implements RunClassificationService {
 
     @Override
-    public WorkoutType classifyRun(RunClassificationDto dto) {
+    public RunClassificationResultDto classifyRun(RunClassificationDto dto) {
 
 
         double loadPerMin = normalizeLoad(dto);
@@ -68,7 +76,30 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             longer += 2;
         }
 
-        return maxScore(easy, tempo, interval, longer);
+        return new RunClassificationResultDto(dto, maxScore(easy, tempo, interval, longer));
+    }
+
+    @Override
+    public List<RunClassificationResultDto> classifyCsv(Path csvPath) throws IOException {
+        List<RunClassificationResultDto> results = new ArrayList<>();
+
+        try (BufferedReader reader = Files.newBufferedReader(csvPath)) {
+
+            String header = reader.readLine(); // skip header
+            if (header == null) {
+                return results;
+            }
+
+            String line;
+            while ((line = reader.readLine()) != null) {
+
+                RunClassificationDto dto = parseRunLine(line);
+
+
+                results.add(this.classifyRun(dto));
+            }
+        }
+        return results;
     }
 
 
@@ -120,6 +151,68 @@ public class RunClassificationServiceImpl implements RunClassificationService {
                 && dto.getNumHrSpikes() >= 5;
 
         return paceSpikes || hrSpikes;
+    }
+
+    private RunClassificationDto parseRunLine(String line) {
+
+        String[] c = line.split(",");
+
+        int i = 0;
+
+        return new RunClassificationDto(
+                parseInt(c[i++]),              // duration
+                parseDouble(c[i++]),           // duration_pct_pb_20
+                parseDouble(c[i++]),           // distance
+                parseDouble(c[i++]),           // distance_pct_pb_20
+                parseDouble(c[i++]),           // pace
+                parseDouble(c[i++]),           // pace_pct_pb_20
+                parseDouble(c[i++]),           // elevation_gain
+                parseDouble(c[i++]),           // session_load
+                parseInt(c[i++]),              // num_pace_spikes
+                parseInt(c[i++]),              // readiness_score
+                parseInt(c[i++]),              // suffer_score
+                parseDouble(c[i++]),           // consistency_score
+                parseDouble(c[i++]),           // tsb
+                parseInt(c[i++]),              // age
+                parseDouble(c[i++]),           // weight
+                parseInt(c[i++]),              // height
+                Sex.valueOf(c[i++].trim()),    // sex
+                ExperienceLevel.valueOf(c[i++].trim()), // experience_level
+                parseDouble(c[i++]),           // injury_index
+                parseDouble(c[i++]),           // hr_avg
+                parseBoolean(c[i++]),          // hr_avg_missing
+                parseDouble(c[i++]),           // hr_max
+                parseBoolean(c[i++]),          // hr_max_missing
+                parseInt(c[i++]),              // zone1
+                parseBoolean(c[i++]),          // zone1_missing
+                parseInt(c[i++]),              // zone2
+                parseBoolean(c[i++]),          // zone2_missing
+                parseInt(c[i++]),              // zone3
+                parseBoolean(c[i++]),          // zone3_missing
+                parseInt(c[i++]),              // zone4
+                parseBoolean(c[i++]),          // zone4_missing
+                parseInt(c[i++]),              // zone5
+                parseBoolean(c[i++]),          // zone5_missing
+                parseInt(c[i++]),              // num_hr_spikes
+                parseBoolean(c[i++]),          // num_hr_spikes_missing
+                parseDouble(c[i++]),           // windSpeed10m
+                parseDouble(c[i++]),           // temperature2m
+                parseInt(c[i++]),              // uv_index
+                parseDouble(c[i++]),           // precipitation
+                parseDouble(c[i++])            // snowDepth
+        );
+    }
+
+    private Integer parseInt(String s) {
+        return s == null || s.isBlank() ? null : Integer.parseInt(s.trim());
+    }
+
+    private Double parseDouble(String s) {
+        return s == null || s.isBlank() ? null : Double.parseDouble(s.trim());
+    }
+
+    private Boolean parseBoolean(String s) {
+        return s == null || s.isBlank() ? Boolean.TRUE : Boolean.parseBoolean(s.trim());
     }
 
     private static class Thresholds {
