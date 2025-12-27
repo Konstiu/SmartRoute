@@ -25,7 +25,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         double intensity = resolveIntensity(dto);
 
         Thresholds t = Thresholds.forExperience(dto.getExperienceLevel());
-        
+
 
         // EASY
         double easy = 0;
@@ -53,7 +53,9 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
         // INTERVAL
         double interval = 0;
-        if (isIntervalLike(dto, t.intervalPaceSpikes)) {
+        boolean highInjuryRisk = dto.getInjuryIndex() != null && dto.getInjuryIndex() > 0.7;
+
+        if (!highInjuryRisk && isIntervalLike(dto, t.intervalPaceSpikes)) {
             interval += 4;
         }
         if (intensity >= t.intervalMinHr) {
@@ -74,6 +76,9 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         }
         if (durationMin > 120) {
             longer += 2;
+        }
+        if (dto.getReadinessScore() != null && dto.getReadinessScore() < 40) {
+            longer -= 1;
         }
 
         return new RunClassificationResultDto(dto, maxScore(easy, tempo, interval, longer));
@@ -121,18 +126,45 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
     private double resolveIntensity(RunClassificationDto dto) {
 
+        double baseIntensity;
+
         // Prefer HR if available
         if (Boolean.FALSE.equals(dto.getHrAvgMissing()) && dto.getHrAvg() != null) {
-            return normalizeHr(dto.getHrAvg(), dto.getSex());
+            baseIntensity = normalizeHr(dto.getHrAvg(), dto.getSex());
+        } else if (dto.getPacePb20() != null) {
+            baseIntensity = Math.min(1.0, dto.getPacePb20());
+        } else {
+            baseIntensity = 0.75;
         }
 
-        // Fallback to pace vs PB
-        if (dto.getPacePb20() != null) {
-            return Math.min(1.0, dto.getPacePb20());
-        }
+        // ---- Environment penalties ----
+        double envPenalty =
+                windPenalty(dto.getWindSpeed10m()) * temperaturePenalty(dto.getTemperature2m()) * uvPenalty(dto.getUvIndex());
 
-        // Last resort
-        return 0.75;
+        // ---- Readiness & injury gating ----
+        double readinessFactor = dto.getReadinessScore() != null
+                ? dto.getReadinessScore() / 100.0
+                : 0.75;
+
+        double injuryFactor = dto.getInjuryIndex() != null && dto.getInjuryIndex() > 0.6
+                ? 0.85
+                : 1.0;
+
+        return baseIntensity * envPenalty * readinessFactor * injuryFactor;
+    }
+
+
+    private double uvPenalty(Integer uv) {
+        if (uv == null) {
+            return 1.0;
+        }
+        if (uv < 5) {
+            return 1.0;
+        }
+        if (uv < 8) {
+            return 1.03;
+        }
+        return 1.06;
     }
 
     private double normalizeHr(double hrPctMax, Sex sex) {
@@ -143,8 +175,17 @@ public class RunClassificationServiceImpl implements RunClassificationService {
     }
 
     private double normalizeLoad(RunClassificationDto dto) {
+
         double weightFactor = 70.0 / Math.max(50.0, dto.getWeight());
-        return (dto.getSessionLoad() / (dto.getDuration() / 60.0)) * weightFactor;
+        double baseLoad = dto.getSessionLoad() / (dto.getDuration() / 60.0);
+
+        double surfacePenalty =
+                surfacePenalty(dto.getSnowDepth(), dto.getPrecipitation());
+
+        double windPenalty =
+                windPenalty(dto.getWindSpeed10m());
+
+        return baseLoad * weightFactor * surfacePenalty * windPenalty;
     }
 
     private boolean isIntervalLike(RunClassificationDto dto, int intervalPaceSpikes) {
