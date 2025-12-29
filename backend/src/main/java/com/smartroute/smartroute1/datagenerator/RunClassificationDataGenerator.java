@@ -16,7 +16,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
 
 @Component
 public class RunClassificationDataGenerator {
@@ -176,7 +180,6 @@ public class RunClassificationDataGenerator {
         int duration = (int) (distance * pace * 60);
 
 
-        double hrAvg = rand(0.7, 0.9) * athlete.maxHr();
         double[] base = new double[]{
                 type.zone5p(),
                 type.zone4p(),
@@ -204,6 +207,7 @@ public class RunClassificationDataGenerator {
         zoneTimes.put(4, (float) Math.round(distribution[1] * duration));
         zoneTimes.put(5, (float) Math.round(distribution[0] * duration));
         double elevation = rand(0, distance * 25) * type.elevationMultiplier();
+        double hrAvg = rand(0.7, 0.9) * athlete.maxHr();
         double hrMax = rand(hrAvg + 5, athlete.maxHr());
 
         double temperature = rand(-5, 30);
