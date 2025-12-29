@@ -20,6 +20,12 @@ import { RouteService } from 'src/services/route.service';
 import { convertPolylineToCoordinateList } from 'src/services/utils';
 import { ModalController } from '@ionic/angular';
 import { WeatherInfoComponent } from '../weather/weather.component';
+import { MapModalComponent } from '../map/mapModal.component'
+import { Polyline, Marker, LatLngBounds } from "leaflet";
+import { MAP_MARKER_COLORS, coloredMarker } from '../map/map-icon';
+import { StopsService } from 'src/services/add-stops.service';
+import { firstValueFrom } from 'rxjs';
+import { GeoJsonPosition, AddStopsRequest } from '../../dtos/add-stops'
 
 @Component({
   selector: 'app-trainingplan',
@@ -32,6 +38,10 @@ export class TrainingPlanPage implements OnInit {
 
   private readonly router: Router = inject(Router);
   private readonly service: TrainingPlanService = inject(TrainingPlanService);
+  private routeLine: Polyline | null = null;
+  private userLocationMarker: Marker | null = null;
+  private routeBounds: LatLngBounds | null = null;
+  private stopsService = inject(StopsService);
 
   date: string = new Date().toLocaleDateString();
   recommendedActivity: RecommendedActivityDto | undefined = {
@@ -207,14 +217,6 @@ export class TrainingPlanPage implements OnInit {
   routeService = inject(RouteService);
 
   alertController = inject(AlertController);
-  markerOptions = {
-    icon: icon({
-      ...Icon.Default.prototype.options,
-      iconUrl: 'assets/marker-icon.png',
-      iconRetinaUrl: 'assets/marker-icon-2x.png',
-      shadowUrl: 'assets/marker-shadow.png'
-    })
-  };
 
   async onGeolocationError(_error: GeolocationPositionError) {
 
@@ -227,40 +229,56 @@ export class TrainingPlanPage implements OnInit {
     await alert.present();
   }
 
-  hasLocation = false;
   @ViewChild(MapComponent) mapComponent!: MapComponent;
 
-  handleNewLocation(location: LatLng) {
-    if (this.recommendedActivity?.route?.distance) {
-      this.layers.push(marker(location, this.markerOptions));
-      this.routeService.getGeneratedRoute(location.lat, location.lng, this.recommendedActivity?.route?.distance).subscribe({
-        next: (e) => {
-          if (this.recommendedActivity?.route?.distance) {
-            this.recommendedActivity.route.distance = e.distance;
-          }
-          if (this.recommendedActivity?.route?.elevation) {
-            this.recommendedActivity.route.elevation = e.elevation;
-          }
-          let coords = polyline(convertPolylineToCoordinateList(e.polyline).map(x => latLng(x[0], x[1])));
-          this.layers.push(coords)
-          if (this.mapComponent['map']) {
-            const bounds = coords.getBounds();
-            this.mapComponent['map'].fitBounds(bounds, { padding: [50, 50] });
-          }
-        }
+
+  onLocationSelected(location: LatLng) {
+    if (this.userLocationMarker) return;
+
+    this.userLocationMarker = marker(location, {
+      icon: coloredMarker(MAP_MARKER_COLORS.start)});
+
+    this.generateRouteFromLocation(location);
+  }
+
+  private generateRouteFromLocation(location: LatLng) {
+    this.routeService
+      .getGeneratedRoute(
+        location.lat,
+        location.lng,
+        this.recommendedActivity!.route!.distance
+      )
+      .subscribe(e => {
+
+        this.recommendedActivity!.route!.distance = e.distance;
+        this.recommendedActivity!.route!.elevation = e.elevation;
+
+        this.routeLine = polyline(
+          convertPolylineToCoordinateList(e.polyline)
+            .map(p => latLng(p[0], p[1]))
+        );
+
+        this.routeBounds = this.routeLine.getBounds();
+        this.rebuildLayers();
+
+        this.mapComponent?.map?.fitBounds(this.routeBounds, {
+          padding: [30, 30]
+        });
       });
+  }
+
+  private rebuildLayers() {
+    const layers: Layer[] = [];
+
+    if (this.userLocationMarker) {
+      layers.push(this.userLocationMarker);
     }
-  }
 
-  onNewLocationRegisterd(location: LatLng) {
-    if (this.hasLocation) return;
-    this.handleNewLocation(location);
-    this.hasLocation = true;
-  }
+    if (this.routeLine) {
+      layers.push(this.routeLine);
+    }
 
-  geoLocation(location: LatLng) {
-    this.handleNewLocation(location);
-    this.hasLocation = true;
+    this.layers = layers;
   }
 
   // ------- Weather -------
@@ -294,6 +312,101 @@ export class TrainingPlanPage implements OnInit {
 
     await modal.present();
   }
+
+async openMapModal() {
+  const modal = await this.modalCtrl.create({
+    component: MapModalComponent,
+    componentProps: {
+      layers: this.cloneLayersForModal(),
+      routeBounds: this.routeBounds
+    },
+    cssClass: 'fullscreen-map-modal',
+    animated: false
+  });
+
+  modal.onDidDismiss().then(result => {
+    const addedPoints: LatLng[] = result.data?.addedPoints ?? [];
+    if (addedPoints.length) {
+      this.handleAdditionalPoints(addedPoints);
+    }
+  });
+
+  await modal.present();
+}
+
+
+ private cloneLayersForModal(): Layer[] {
+   const cloned: Layer[] = [];
+
+   if (this.userLocationMarker) {
+     cloned.push(
+       marker(
+         this.userLocationMarker.getLatLng(), {
+           icon: coloredMarker(MAP_MARKER_COLORS.start)}
+       )
+     );
+   }
+
+   if (this.routeLine) {
+     cloned.push(
+       polyline(
+         this.routeLine.getLatLngs() as LatLng[],
+         (this.routeLine as any).options
+       )
+     );
+   }
+
+   return cloned;
+ }
+
+  handleAdditionalPoints(points: LatLng[]) {
+    if (!this.routeLine || points.length === 0) return;
+
+    const request: AddStopsRequest = {
+      originalRoute: this.routeLineToGeoJson(this.routeLine),
+      newPoints: points.map(p => this.toGeoJsonPosition(p))
+    };
+
+    this.stopsService.insertStops(request).subscribe({
+      next: (editedRoute) => {
+        const latLngs = this.geoJsonToLatLngs(editedRoute);
+
+        this.routeLine = polyline(latLngs);
+        this.routeBounds = this.routeLine.getBounds();
+
+        this.rebuildLayers();
+
+        this.mapComponent?.map?.fitBounds(this.routeBounds, {
+          padding: [30, 30]
+        });
+      },
+      error: err => {
+        console.error('Failed to insert stops', err);
+        // optional toast / alert
+      }
+    });
+  }
+
+  private toGeoJsonPosition(p: LatLng): GeoJsonPosition {
+    return {
+      latitude: p.lat,
+      longitude: p.lng,
+      altitude: null
+    };
+  }
+
+  private routeLineToGeoJson(route: Polyline): GeoJsonPosition[] {
+    return (route.getLatLngs() as LatLng[]).map(p =>
+      this.toGeoJsonPosition(p)
+    );
+  }
+
+  private geoJsonToLatLngs(route: GeoJsonPosition[]): LatLng[] {
+    return route.map(p => latLng(p.latitude, p.longitude));
+  }
+
+
+
 
   protected readonly SessionType = SessionType;
   protected readonly formatDistance = formatDistance;

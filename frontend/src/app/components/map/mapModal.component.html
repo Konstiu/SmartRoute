@@ -1,0 +1,63 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Route</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="close()">Close</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content fullscreen>
+
+  <!-- Spinner overlay -->
+  <div class="map-loading" *ngIf="!isMapReady">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Centering route…</p>
+  </div>
+
+  <!-- Map -->
+  <app-map
+    [layers]="localLayers"
+    [interactive]="true"
+    [addPointMode]="addPointMode"
+    (pointAdded)="onPointAdded($event)">
+  </app-map>
+
+  <!-- Center FAB -->
+  <ion-fab
+    vertical="bottom"
+    horizontal="end"
+    slot="fixed"
+    *ngIf="isMapReady">
+    <ion-fab-button (click)="centerRoute()">
+      <ion-icon name="locate-outline"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+
+  <!-- LEFT STACKED FABs -->
+  <ion-fab vertical="bottom" horizontal="start" slot="fixed">
+
+    <!-- Confirm (only if points exist) -->
+    <ion-fab-button
+      *ngIf="addedPoints.length > 0"
+      color="success"
+      class="fab-confirm"
+      (click)="confirm()">
+      <ion-icon name="checkmark-outline"></ion-icon>
+    </ion-fab-button>
+
+    <!-- Add / Cancel -->
+    <ion-fab-button
+      [color]="addPointMode ? 'danger' : 'primary'"
+      (click)="toggleAddPointMode()">
+
+      <ion-icon
+        [name]="addPointMode ? 'close-outline' : 'add-outline'">
+      </ion-icon>
+
+    </ion-fab-button>
+
+  </ion-fab>
+
+
+</ion-content>
