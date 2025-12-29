@@ -2,9 +2,12 @@ package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.endpoint.dto.StravaStreamDto;
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.ActivityStream;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.enums.ActivityStreamSource;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.repository.ActivityRepository;
+import com.smartroute.smartroute1.repository.ActivityStreamRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
@@ -12,7 +15,6 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.scheduling.TaskScheduler;
@@ -22,10 +24,15 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,28 +46,29 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
     private final ActivityRepository activityRepository;
     private final TaskScheduler taskScheduler;
     private final UserRepository userRepository;
+    private final ActivityStreamRepository activityStreamRepository;
 
     @Override
-    public void fetchHeartRateDataForActivities(int maxBatchSize, List<Activity> activities, String token) {
-        LOGGER.trace("fetchHeartRateDataForActivities({},{},*token*)", maxBatchSize, activities);
+    public void processActivitiesInBatches(int maxBatchSize, List<Activity> activities, String token) {
+        LOGGER.trace("processActivitiesInBatches({},{},*token*)", maxBatchSize, activities);
 
         // Lists of activities with and without sufferScore are separated to immediately calculate fitnessScore for
         // all activities with the necessary data available.
 
         // Find running activities with strava sufferScore and missing sessionLoad and calculate sessionLoad
         List<Activity> activitiesWithStravaSufferScore = activities.stream()
-                .filter(a -> a.getSportType() != null && a.getSportType().equals("Run") && a.getSufferScore() != null && a.getSessionLoad() == null)
-                .toList();
+            .filter(a -> a.getSportType() != null && a.getSportType().equals("Run") && a.getSufferScore() != null && a.getSessionLoad() == null)
+            .toList();
         activitiesWithStravaSufferScore.forEach(a ->
-                processActivity(a, token)
+            processActivity(a, token)
         );
 
         // Find running activities without Strava sufferScore and missing sessionLoad, fetch heartrate stream if available
         // and calculate sessionLoad
         List<Activity> activitiesMissingSessionLoad = activities.stream()
-                .filter(a -> a.getSportType() != null && a.getSportType().equals("Run") && a.getSessionLoad() == null && a.getSufferScore() == null)
-                .sorted((a, b) -> b.getStartDate().compareTo(a.getStartDate()))
-                .toList();
+            .filter(a -> a.getSportType() != null && a.getSportType().equals("Run") && a.getSessionLoad() == null && a.getSufferScore() == null)
+            .sorted((a, b) -> b.getStartDate().compareTo(a.getStartDate()))
+            .toList();
 
         LOGGER.info("Calculate sessionLoad for {} activities", activitiesMissingSessionLoad.size());
         try {
@@ -71,8 +79,8 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
 
                 // Schedule fetching of batches every 5 minutes to avoid hitting Strava API limits
                 taskScheduler.schedule(
-                        () -> batch.forEach(activity -> processActivity(activity, token)),
-                        Instant.now().plus(Duration.ofMinutes(5L * batchNumber))
+                    () -> batch.forEach(activity -> processActivity(activity, token)),
+                    Instant.now().plus(Duration.ofMinutes(5L * batchNumber))
                 );
             }
         } catch (Exception ex) {
@@ -90,39 +98,69 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             boolean powerBasedCalculationPossible = activity.getAverageWatts() != null && user.getFtp() != null;
             boolean hasEnergy = activity.getKilojoules() != null;
 
-            // 1. If (Strava) sufferScore is present, use it
+            /*Fetch Strava activity stravaStreams
+            Never re-fetch stravaStreams
+             */
+            List<StravaStreamDto> stravaStreams;
+            if (activity.getActivityStream() == null) {
+                stravaStreams = fetchStreams(activity.getStravaId(), token);
+
+                // Extract stravaStreams, map to double list or null if not found and create an ActivityStream object
+                ActivityStream activityStream = createActivityStream(
+                    stravaStreams.stream().filter(s -> s.getType().equals("time")).findFirst().map(s -> s.getData().stream().map(f -> (double) f).toList()).orElse(null),
+                    stravaStreams.stream().filter(s -> s.getType().equals("distance")).findFirst().map(s -> s.getData().stream().map(f -> (double) f).toList()).orElse(null),
+                    stravaStreams.stream().filter(s -> s.getType().equals("heartrate")).findFirst().map(s -> s.getData().stream().map(f -> (double) f).toList()).orElse(null),
+                    ActivityStreamSource.STRAVA
+                );
+
+                activityStream = activityStreamRepository.save(activityStream);
+                activity.setActivityStream(activityStream);
+
+            } else if (activity.getActivityStream().getHeartrateStream() != null && activity.getActivityStream().getTimeStream() != null) {
+                // If stravaStreams are already stored decode time and heartrate streams and add to StravaStreamDto list
+                stravaStreams = new ArrayList<>();
+                stravaStreams.add(new StravaStreamDto(
+                        "time",
+                        toFloatList(decodeDoubleArray(activity.getActivityStream().getTimeStream())),
+                        null,
+                        -1,
+                        null
+                    )
+                );
+                stravaStreams.add(new StravaStreamDto(
+                        "heartrate",
+                        toFloatList(decodeDoubleArray(activity.getActivityStream().getTimeStream())),
+                        null,
+                        -1,
+                        null
+                    )
+                );
+            } else {
+                // Streams list is empty if no hr or time stream stored
+                stravaStreams = new ArrayList<>();
+            }
+
             if (hasSufferScore) {
+                // 1. If (Strava) sufferScore is present, use it
                 sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getSufferScore(), activity.getTotalElevationGain());
-            } else if (isStravaActivity) { // 2. Strava activity but no sufferScore available: fetch heartRate stream and manually calculate a sessionLoad
-                List<StravaStreamDto> streams = fetchStreams(activity.getStravaId(), token);
-                sessionLoad = fitnessScoreService.calculateSessionLoad(streams, activity);
-            } else if (powerBasedCalculationPossible) { // 3. Not a Strava activity: calculate based on power
+            } else if (isStravaActivity) {
+                // 2. Strava activity but no sufferScore available: fetch heartRate stream and manually calculate a sessionLoad
+                sessionLoad = fitnessScoreService.calculateSessionLoad(stravaStreams, activity);
+            } else if (powerBasedCalculationPossible) {
+                // 3. Not a Strava activity: calculate based on power
                 sessionLoad = fitnessScoreService.calculateSessionLoad(user.getFtp(), activity.getMovingTime(), activity.getAverageWatts(), activity.getTotalElevationGain());
-            } else if (hasEnergy && user.getWeight() != null) { // 4. No power information available: calculate based on energy and weight
+            } else if (hasEnergy && user.getWeight() != null) {
+                // 4. No power information available: calculate based on energy and weight
                 sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getKilojoules(), user.getWeight().floatValue(), activity.getTotalElevationGain());
-            } else { // 5. No energy information available: use distance and moving time
+            } else {
+                // 5. No energy information available: use distance and moving time
                 sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain());
             }
 
             activity.setSessionLoad(sessionLoad);
 
             List<Activity> storedActivities = activityRepository.findAllByUserAndStartDate(user, activity.getStartDate());
-            Activity storedActivity = null;
-            if (storedActivities.size() > 1) {
-                float newDistance = activity.getDistance();
-
-                for (Activity stored : storedActivities) {
-                    float storedDistance = stored.getDistance();
-                    float distanceDiff = Math.abs(storedDistance - newDistance);
-
-                    if (distanceDiff <= 1000) {
-                        storedActivity = stored;
-                        break;
-                    }
-                }
-            } else if (storedActivities.size() == 1) {
-                storedActivity = storedActivities.get(0);
-            }
+            Activity storedActivity = getStoredActivity(activity, storedActivities);
             if (storedActivity == null) {
                 activityRepository.save(activity);
             } else {
@@ -152,33 +190,80 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         }
     }
 
+    private Activity getStoredActivity(Activity activity, List<Activity> storedActivities) {
+        Activity storedActivity = null;
+        if (storedActivities.size() > 1) {
+            float newDistance = activity.getDistance();
+
+            for (Activity stored : storedActivities) {
+                float storedDistance = stored.getDistance();
+                float distanceDiff = Math.abs(storedDistance - newDistance);
+
+                if (distanceDiff <= 1000) {
+                    storedActivity = stored;
+                    break;
+                }
+            }
+        } else if (storedActivities.size() == 1) {
+            storedActivity = storedActivities.get(0);
+        }
+        return storedActivity;
+    }
+
     private List<StravaStreamDto> fetchStreams(Long activityId, String token) {
         LOGGER.trace("fetchStreams({}, *token*)", activityId);
         UriComponentsBuilder builder = UriComponentsBuilder
-                .fromUriString("https://www.strava.com/api/v3/activities/" + activityId + "/streams")
-                .queryParam("keys", "heartrate,time");
+            .fromUriString("https://www.strava.com/api/v3/activities/" + activityId + "/streams")
+            .queryParam("keys", "heartrate,distance,time");
 
         return webClient.get()
-                .uri(builder.build().toUri())
-                .headers(h -> h.setBearerAuth(token))
-                .retrieve()
-                .onStatus(HttpStatusCode::is4xxClientError, response ->
-                        response.bodyToMono(String.class)
-                                .defaultIfEmpty("")
-                                .flatMap(body -> Mono.error(
-                                        new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                                                "Strava API 4xx: " + body)))
-                )
-                .onStatus(HttpStatusCode::is5xxServerError, response ->
-                        response.bodyToMono(String.class)
-                                .defaultIfEmpty("")
-                                .flatMap(body -> Mono.error(
-                                        new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                                                "Strava API 5xx: " + body)))
-                )
-                .bodyToFlux(StravaStreamDto.class)
-                .collectList()
-                .block();
+            .uri(builder.build().toUri())
+            .headers(h -> h.setBearerAuth(token))
+            .retrieve()
+            .onStatus(HttpStatusCode::is4xxClientError, response ->
+                response.bodyToMono(String.class)
+                    .defaultIfEmpty("")
+                    .flatMap(body -> Mono.error(
+                        new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Strava API 4xx: " + body)))
+            )
+            .onStatus(HttpStatusCode::is5xxServerError, response ->
+                response.bodyToMono(String.class)
+                    .defaultIfEmpty("")
+                    .flatMap(body -> Mono.error(
+                        new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                            "Strava API 5xx: " + body)))
+            )
+            .bodyToFlux(StravaStreamDto.class)
+            .collectList()
+            .block();
+    }
+
+    @Override
+    public ActivityStream createActivityStream(List<Double> time, List<Double> distance, List<Double> heartRate, ActivityStreamSource source) {
+        ActivityStream stream = new ActivityStream();
+
+        stream.setTimeStream(
+            time == null ? null : encodeDoubleArray(
+                time.stream().mapToDouble(Double::doubleValue).toArray()
+            )
+        );
+
+        stream.setDistanceStream(
+            distance == null ? null : encodeDoubleArray(
+                distance.stream().mapToDouble(Double::doubleValue).toArray()
+            )
+        );
+
+        stream.setHeartrateStream(
+            heartRate == null ? null : encodeDoubleArray(
+                heartRate.stream().mapToDouble(Double::doubleValue).toArray()
+            )
+        );
+
+        stream.setSource(source);
+
+        return stream;
     }
 
     @Override
@@ -228,5 +313,353 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             List.of(WorkoutType.EASY_RUN, WorkoutType.TEMPO_RUN, WorkoutType.INTERVAL_RUN, WorkoutType.LONG_RUN),
             instant
         );
+    }
+
+    /**
+     * Configuration for spike detection behavior.
+     */
+    private static class SpikeConfig {
+        final double minChange;           // Minimum change to consider (bpm or m/s)
+        final double maxSpikeDuration;    // Max seconds for the change to occur
+        final double minSustainDuration;  // Must stay changed for at least this long
+        final double baselineWindow;      // Seconds to calculate baseline
+        final double noiseThreshold;      // Std devs for outlier filtering
+        final double minRateOfChange;     // Minimum rate of change per second
+        final boolean detectIncreases;    // true = detect increases, false = detect decreases
+
+        SpikeConfig(double minChange, double maxSpikeDuration, double minSustainDuration,
+                    double baselineWindow, double noiseThreshold, double minRateOfChange,
+                    boolean detectIncreases) {
+            this.minChange = minChange;
+            this.maxSpikeDuration = maxSpikeDuration;
+            this.minSustainDuration = minSustainDuration;
+            this.baselineWindow = baselineWindow;
+            this.noiseThreshold = noiseThreshold;
+            this.minRateOfChange = minRateOfChange;
+            this.detectIncreases = detectIncreases;
+        }
+
+        // Preset for HR spikes (sudden increases)
+        static SpikeConfig forHeartRate() {
+            return new SpikeConfig(
+                14.0,   // 14 bpm increase
+                15.0,   // within 15 seconds
+                3.0,    // sustained for 3 seconds
+                30.0,   // 30 second baseline
+                2.5,    // noise threshold
+                2,    // 2 bpm/second minimum
+                true    // detect increases
+            );
+        }
+
+        // Preset for pace spikes (sudden accelerations = speed increases)
+        static SpikeConfig forPace() {
+            return new SpikeConfig(
+                0.9,    // 0.9 m/s increase in speed
+                10.0,    // within 10 seconds
+                3.2,    // sustained for 3.2 seconds
+                16.0,   // 16 second baseline
+                2.5,    // noise threshold
+                0.2,    // 0.2 m/s per second minimum
+                true    // detect increases
+            );
+        }
+    }
+
+    /**
+     * Spike detection algorithm.
+     * Works for both HR spikes and pace spikes with appropriate configuration.
+     */
+    private int detectSpikesWithTime(double[] time, double[] data, SpikeConfig config) {
+        if (data == null || time == null || data.length != time.length || data.length < 5) {
+            return -1;
+        }
+
+        // Filter out single-point outliers
+        double[] filtered = filterOutliers(time, data, config.noiseThreshold);
+
+        int spikes = 0;
+        int i = 0;
+
+        while (i < filtered.length - 1) {
+            // Calculate baseline from recent window
+            double baseline = calculateBaseline(time, filtered, i, config.baselineWindow);
+
+            // Look ahead for potential spike
+            SpikeCandidate candidate = findSpikeCandidate(
+                time, filtered, i, baseline, config
+            );
+
+            if (candidate != null) {
+                // Verify the spike is sustained
+                int endIndex = getSustainEndIndex(time, filtered, candidate, config, baseline);
+                if (endIndex >= 0) {
+                    spikes++;
+                    i = endIndex; // Skip past this spike
+                    continue;
+                }
+            }
+
+            i++;
+        }
+
+        return spikes;
+    }
+
+    /**
+     * Filter out single-point outliers using median-based approach.
+     */
+    private double[] filterOutliers(double[] time, double[] data, double threshold) {
+        double[] filtered = new double[data.length];
+
+        for (int i = 0; i < data.length; i++) {
+            if (i < 2 || i >= data.length - 2) {
+                filtered[i] = data[i];
+                continue;
+            }
+
+            // Get 5-point window
+            double[] window = {data[i - 2], data[i - 1], data[i], data[i + 1], data[i + 2]};
+            double[] windowCopy = Arrays.copyOf(window, window.length);
+            Arrays.sort(windowCopy);
+            double median = windowCopy[2];
+
+            // Calculate MAD (Median Absolute Deviation)
+            double[] deviations = new double[5];
+            for (int j = 0; j < 5; j++) {
+                deviations[j] = Math.abs(window[j] - median);
+            }
+            Arrays.sort(deviations);
+            double mad = deviations[2] * 1.4826;
+
+            // If point is too far from median, replace with median
+            if (Math.abs(data[i] - median) > threshold * mad && mad > 0) {
+                filtered[i] = median;
+            } else {
+                filtered[i] = data[i];
+            }
+        }
+
+        return filtered;
+    }
+
+    /**
+     * Calculate baseline from recent history using median.
+     */
+    private double calculateBaseline(double[] time, double[] data, int currentIndex, double windowSec) {
+        if (currentIndex <= 0) {
+            return data[0];
+        }
+
+        int start = currentIndex - 1; // Start from previous point
+        while (start > 0 && time[currentIndex - 1] - time[start - 1] <= windowSec) {
+            start--;
+        }
+
+        List<Double> values = new ArrayList<>();
+        for (int i = start; i < currentIndex; i++) {
+            values.add(data[i]);
+        }
+
+        if (values.isEmpty()) {
+            return data[currentIndex - 1];
+        }
+
+        Collections.sort(values);
+        int mid = values.size() / 2;
+        return values.size() % 2 == 0
+            ? (values.get(mid - 1) + values.get(mid)) / 2.0
+            : values.get(mid);
+    }
+
+    /**
+     * Find a potential spike candidate starting from index.
+     */
+    private SpikeCandidate findSpikeCandidate(
+        double[] time, double[] data, int startIndex,
+        double baseline, SpikeConfig config
+    ) {
+        double extremeValue = data[startIndex];
+        int extremeIndex = startIndex;
+
+        // Look ahead within max duration
+        for (int i = startIndex + 1; i < data.length; i++) {
+            if (time[i] - time[startIndex] > config.maxSpikeDuration) {
+                break;
+            }
+
+            // Update extreme value based on detection direction
+            if (config.detectIncreases) {
+                if (data[i] > extremeValue) {
+                    extremeValue = data[i];
+                    extremeIndex = i;
+                }
+            } else {
+                if (data[i] < extremeValue) {
+                    extremeValue = data[i];
+                    extremeIndex = i;
+                }
+            }
+
+            // Check if we found a sufficient change
+            double change = config.detectIncreases
+                ? (extremeValue - baseline)
+                : (baseline - extremeValue);
+
+            if (change >= config.minChange) {
+                // Calculate rate of change per second
+                double duration = time[extremeIndex] - time[startIndex];
+                double rate = duration > 0 ? change / duration : 0;
+
+                // Must be steep enough
+                if (rate >= config.minRateOfChange) {
+                    return new SpikeCandidate(startIndex, extremeIndex, extremeValue, baseline, change);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Verify that changed value is sustained and return the end index of the sustained period.
+     * Returns -1 if not sustained.
+     */
+    private int getSustainEndIndex(
+        double[] time, double[] data, SpikeCandidate spike,
+        SpikeConfig config, double baseline
+    ) {
+        int sustainStart = spike.peakIndex;
+        double threshold = config.detectIncreases
+            ? baseline + (spike.change * 0.7)  // 70% above baseline
+            : baseline - (spike.change * 0.7); // 70% below baseline
+
+        int lastSustainedIndex = spike.peakIndex;
+        double sustainedTime = 0;
+
+        // Check how long value stays changed
+        for (int i = spike.peakIndex; i < data.length; i++) {
+            boolean isStillChanged = config.detectIncreases
+                ? (data[i] >= threshold)
+                : (data[i] <= threshold);
+
+            if (isStillChanged) {
+                sustainedTime = time[i] - time[sustainStart];
+                lastSustainedIndex = i;
+            } else {
+                break;
+            }
+        }
+
+        // Return end index if sustained long enough, otherwise -1
+        return sustainedTime >= config.minSustainDuration ? lastSustainedIndex : -1;
+    }
+
+    /**
+     * Data class to hold spike candidate information.
+     */
+    private static class SpikeCandidate {
+        int startIndex;
+        int peakIndex;
+        double peakValue;
+        double baseline;
+        double change;
+
+        SpikeCandidate(int startIndex, int peakIndex, double peakValue, double baseline, double change) {
+            this.startIndex = startIndex;
+            this.peakIndex = peakIndex;
+            this.peakValue = peakValue;
+            this.baseline = baseline;
+            this.change = change;
+        }
+    }
+
+    @Override
+    public int detectHeartRateSpikes(Activity activity) {
+        ActivityStream stream = activity.getActivityStream();
+        if (stream == null || stream.getHeartrateStream() == null || stream.getTimeStream() == null) {
+            return -1;
+        }
+
+        double[] hrArray = decodeDoubleArray(stream.getHeartrateStream());
+        double[] timeArray = decodeDoubleArray(stream.getTimeStream());
+
+        if (hrArray.length != timeArray.length) {
+            throw new IllegalStateException("HR and time arrays must match");
+        }
+
+        return detectSpikesWithTime(timeArray, hrArray, SpikeConfig.forHeartRate());
+    }
+
+    @Override
+    public int detectPaceSpikes(Activity activity) {
+        ActivityStream stream = activity.getActivityStream();
+        if (stream == null || stream.getDistanceStream() == null || stream.getTimeStream() == null) {
+            return -1;
+        }
+
+        double[] distanceArray = decodeDoubleArray(stream.getDistanceStream());
+        double[] timeArray = decodeDoubleArray(stream.getTimeStream());
+
+        if (distanceArray.length != timeArray.length) {
+            throw new IllegalStateException("Distance and time arrays must match");
+        }
+
+        // Compute smoothed speed (m/s) using rolling average to reduce GPS noise
+        double[] speed = computeSmoothedSpeed(distanceArray, timeArray, 5); // 5-point smoothing
+
+        return detectSpikesWithTime(timeArray, speed, SpikeConfig.forPace());
+    }
+
+    /**
+     * Compute smoothed speed to reduce GPS noise.
+     * Uses rolling average over windowSize points.
+     */
+    private double[] computeSmoothedSpeed(double[] distance, double[] time, int windowSize) {
+        double[] speed = new double[distance.length];
+
+        for (int i = 0; i < distance.length; i++) {
+            // Determine window bounds
+            int start = Math.max(0, i - windowSize / 2);
+            int end = Math.min(distance.length - 1, i + windowSize / 2);
+
+            // Calculate speed over window
+            double distDiff = distance[end] - distance[start];
+            double timeDiff = time[end] - time[start];
+
+            speed[i] = timeDiff > 0 ? distDiff / timeDiff : 0;
+        }
+
+        return speed;
+    }
+
+    // Helper method to encode double[] as byte[]
+    private byte[] encodeDoubleArray(double[] data) {
+        ByteBuffer buffer = ByteBuffer.allocate(data.length * Double.BYTES)
+            .order(ByteOrder.LITTLE_ENDIAN);
+        for (double v : data) {
+            buffer.putDouble(v);
+        }
+        return buffer.array();
+    }
+
+    // Helper method to decode byte[] as double[]
+    private double[] decodeDoubleArray(byte[] bytes) {
+        ByteBuffer buffer = ByteBuffer.wrap(bytes)
+            .order(ByteOrder.LITTLE_ENDIAN);
+        double[] data = new double[bytes.length / Double.BYTES];
+        for (int i = 0; i < data.length; i++) {
+            data[i] = buffer.getDouble();
+        }
+        return data;
+    }
+
+    // Helper method to create a List<Float> from double[]
+    private List<Float> toFloatList(double[] array) {
+        List<Float> list = new ArrayList<>(array.length);
+        for (double v : array) {
+            list.add((float) v);
+        }
+        return list;
     }
 }

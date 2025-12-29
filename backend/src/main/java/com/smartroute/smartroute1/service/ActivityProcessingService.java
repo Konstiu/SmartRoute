@@ -1,6 +1,8 @@
 package com.smartroute.smartroute1.service;
 
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.ActivityStream;
+import com.smartroute.smartroute1.entity.enums.ActivityStreamSource;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -20,7 +22,9 @@ public interface ActivityProcessingService {
      * @param activities   list of activities
      * @param token        Bearer token
      */
-    void fetchHeartRateDataForActivities(int maxBatchSize, List<Activity> activities, String token);
+    void processActivitiesInBatches(int maxBatchSize, List<Activity> activities, String token);
+
+    ActivityStream createActivityStream(List<Double> time, List<Double> distance, List<Double> heartRate, ActivityStreamSource source);
 
     /**
      * Retrieves all activities belonging to the user identified by the given email.
@@ -70,4 +74,24 @@ public interface ActivityProcessingService {
      * @return the last running activity before the specified date
      */
     Optional<Activity> getLastRunningActivityBeforeDate(String email, LocalDate date);
+
+    /**
+     * Detects heart rate spikes in a running activity.
+     *
+     * @param activity the activity to analyze
+     * @return the number of heart rate spikes detected, or -1 if the activity lacks
+     *         required data (missing streams, mismatched array lengths, or insufficient data points)
+     * @throws IllegalStateException if heart rate and time arrays have different lengths
+     */
+    int detectHeartRateSpikes(Activity activity);
+
+    /**
+     * Detects pace spikes (rapid accelerations) in a running activity.
+     *
+     * @param activity the activity to analyze
+     * @return the number of pace spikes detected, or -1 if the activity lacks
+     *         required data (missing streams, mismatched array lengths, or insufficient data points)
+     * @throws IllegalStateException if distance and time arrays have different lengths
+     */
+    int detectPaceSpikes(Activity activity);
 }

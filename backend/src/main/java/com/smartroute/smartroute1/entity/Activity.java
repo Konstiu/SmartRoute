@@ -11,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -59,6 +60,16 @@ public class Activity {
 
     private Float maxHeartrate;
 
+    private Integer timeZ1;
+
+    private Integer timeZ2;
+
+    private Integer timeZ3;
+
+    private Integer timeZ4;
+
+    private Integer timeZ5;
+
     private Float kilojoules;
 
     private Integer sufferScore;
@@ -74,6 +85,10 @@ public class Activity {
 
     @Enumerated(EnumType.STRING)
     private WorkoutType workoutType;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "activity_stream_id", unique = true)
+    private ActivityStream activityStream;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
