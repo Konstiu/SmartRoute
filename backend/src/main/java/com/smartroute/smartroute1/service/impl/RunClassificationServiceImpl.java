@@ -3,8 +3,8 @@ package com.smartroute.smartroute1.service.impl;
 import com.smartroute.smartroute1.endpoint.dto.RunClassificationDto;
 import com.smartroute.smartroute1.endpoint.dto.RunClassificationResultDto;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
+import com.smartroute.smartroute1.entity.enums.RunType;
 import com.smartroute.smartroute1.entity.enums.Sex;
-import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.service.RunClassificationService;
 import org.springframework.stereotype.Service;
 
@@ -111,17 +111,17 @@ public class RunClassificationServiceImpl implements RunClassificationService {
     }
 
 
-    private WorkoutType maxScore(double easy, double tempo, double interval, double longer) {
+    private RunType maxScore(double easy, double tempo, double interval, double longer) {
         if (interval >= tempo && interval >= easy && interval >= longer) {
-            return WorkoutType.INTERVAL_RUN;
+            return RunType.INTERVAL_RUN;
         }
         if (longer >= tempo && longer >= easy) {
-            return WorkoutType.LONG_RUN;
+            return RunType.LONG_RUN;
         }
         if (tempo >= easy) {
-            return WorkoutType.TEMPO_RUN;
+            return RunType.TEMPO_RUN;
         }
-        return WorkoutType.EASY_RUN;
+        return RunType.EASY_RUN;
     }
 
     private double resolveIntensity(RunClassificationDto dto) {

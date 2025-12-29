@@ -1,6 +1,6 @@
 package com.smartroute.smartroute1.endpoint.dto;
 
-import com.smartroute.smartroute1.entity.enums.WorkoutType;
+import com.smartroute.smartroute1.entity.enums.RunType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -8,5 +8,5 @@ import lombok.Data;
 @AllArgsConstructor
 public class RunClassificationResultDto {
     private RunClassificationDto run;
-    private WorkoutType classification;
+    private RunType classification;
 }
