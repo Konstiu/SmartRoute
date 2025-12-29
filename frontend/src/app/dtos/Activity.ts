@@ -1,3 +1,5 @@
+import {RunClassificationDto} from "./run-classification";
+
 export interface DetailedActivity {
   id: number;
   name: string;
@@ -16,6 +18,7 @@ export interface DetailedActivity {
   averageWatts: number | null;
   kilojoules: number | null;
   summaryPolyline: string|null;
+  runClassification: RunClassificationDto | null;
 }
 
 export interface Activity {
@@ -28,4 +31,5 @@ export interface Activity {
   startDateLocal: string;
   averageSpeed: number;
   averageHeartrate: number | null;
+  runClassification: RunClassificationDto | null;
 }

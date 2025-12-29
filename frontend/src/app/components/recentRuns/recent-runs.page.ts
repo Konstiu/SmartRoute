@@ -7,6 +7,7 @@ import {Router} from "@angular/router";
 import {ToastController} from '@ionic/angular';
 import {formatDistance, formatDuration, formatElevation, formatHeartRate, formatPace} from "../../util/formatters";
 import {ActivitySyncNotificationService} from "../../../services/ActivitySyncNotificationService";
+import {RunTypeLabel} from "../../dtos/run-classification";
 
 
 @Component({
@@ -47,6 +48,7 @@ export class RecentRunsPage implements OnInit {
           new Date(b.startDateLocal).getTime() - new Date(a.startDateLocal).getTime()
         );
         this.activities = data;
+        console.log(this.activities);
         this.isLoading = false;
         if (event) {
           event.target.complete();
@@ -178,6 +180,7 @@ export class RecentRunsPage implements OnInit {
 
   protected readonly formatElevation = formatElevation;
   protected readonly formatHeartRate = formatHeartRate;
+  runTypeLabel = RunTypeLabel;
   ngOnDestroy() {
     if (this.syncSubscription) {
       this.syncSubscription.unsubscribe();

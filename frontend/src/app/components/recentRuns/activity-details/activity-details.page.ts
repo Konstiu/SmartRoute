@@ -5,6 +5,7 @@ import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../../services/activities.service';
 import {DetailedActivity} from '../../../dtos/Activity';
 import * as L from 'leaflet';
+import {RunTypeLabel} from "../../../dtos/run-classification";
 
 @Component({
   selector: 'app-activity-detail',
@@ -224,4 +225,6 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
 
     return `${dateStr} at ${timeString}`;
   }
+
+  protected readonly runTypeLabel = RunTypeLabel;
 }

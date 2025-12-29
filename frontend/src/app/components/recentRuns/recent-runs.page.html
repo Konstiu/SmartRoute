@@ -52,9 +52,13 @@
           <span *ngIf="activity.averageHeartrate">
             <ion-icon name="heart-outline"></ion-icon> {{ formatHeartRate(activity.averageHeartrate) }}
           </span>
-
         </p>
       </ion-label>
+
+      @if (activity.runClassification?.runType) {
+        <ion-chip color="primary">{{ runTypeLabel[activity.runClassification!.runType] }}</ion-chip>
+      }
+
     </ion-item>
   </ion-list>
 
