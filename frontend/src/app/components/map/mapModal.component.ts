@@ -1,36 +1,17 @@
 import {Component, EventEmitter, Input, Output, ViewChild} from '@angular/core';
 import {ActionSheetController, IonicModule, ModalController} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
-import {LatLng, LatLngBounds, Layer, marker} from 'leaflet';
+import {LatLng, LatLngBounds, Layer, marker, polyline as leafletPolyline } from 'leaflet';
 import {MapComponent} from './map.component';
 import {coloredMarker, emojiMarker, MAP_MARKER_COLORS} from './map-icon';
 import {StopsService} from '../../../services/add-stops.service';
 import {ViennaPointDto} from '../../dtos/ViennaPointsDto';
-import {SanitarySettingsModalComponent} from './consider-fac/consider-fac.component';
+import {SanitarySettings, SanitarySettingsModalComponent} from './consider-fac/consider-fac.component';
+import {RouteWithFacilityDefaults} from "../../dtos/RouteWithFacilitiesDto";
+import {GeoJsonPosition} from "../../dtos/add-stops";
 
-export interface GeoJsonPosition {
-  latitude: number;
-  longitude: number;
-  altitude?: number | null;
-}
 
-export interface RouteWithFacilityDefaults {
-  originalRoute: GeoJsonPosition[];
-  includeToilets: boolean;
-  toiletIntervalMeters: number;
-  includeFountains: boolean;
-  fountainIntervalMeters: number;
-  maxFacilityDistance: number;
-}
 
-export interface SanitarySettings {
-  enabled: boolean;
-  includeToilets: boolean;
-  toiletIntervalMeters: number;
-  includeFountains: boolean;
-  fountainIntervalMeters: number;
-  maxFacilityDistance: number;
-}
 
 @Component({
   standalone: true,
@@ -81,6 +62,8 @@ export class MapModalComponent {
   ngOnInit() {
     this.baseLayers = [...this.layers];
     this.localLayers = [...this.layers];
+    const firstPolyline = this.baseLayers.find(l => (l as any).getLatLngs);
+    if (firstPolyline) (firstPolyline as any).__isRouteLayer = true;
   }
 
   // Computed properties for counts
@@ -143,14 +126,18 @@ export class MapModalComponent {
     }
 
     // Build the route configuration
+    const route = this.encodePolylineFromGeoJsonPositions(this.getRoutePoints(), 5); // 6 => 1e6
+    console.log(route);
+
     const routeConfig: RouteWithFacilityDefaults = {
-      originalRoute: this.getRoutePoints(),
+      originalRoute: route,
       includeToilets: this.sanitarySettings.includeToilets,
       toiletIntervalMeters: this.sanitarySettings.toiletIntervalMeters,
       includeFountains: this.sanitarySettings.includeFountains,
       fountainIntervalMeters: this.sanitarySettings.fountainIntervalMeters,
       maxFacilityDistance: this.sanitarySettings.maxFacilityDistance
     };
+
 
     // Emit the configuration so parent component can handle route recalculation
     //this.sanitarySettingsChanged.emit(routeConfig);
@@ -163,30 +150,25 @@ export class MapModalComponent {
   }
 
   getRoutePoints(): GeoJsonPosition[] {
-    // Extract route points from base layers
-    const routePoints: GeoJsonPosition[] = [];
+    const latlngs = this.extractRouteLatLngsFromLayers();
 
-    // If you have access to the original route data, use that
-    // Otherwise, extract from addedPoints or layers
-    this.addedPoints.forEach(point => {
-      routePoints.push({
-        latitude: point.lat,
-        longitude: point.lng,
-        altitude: null
-      });
-    });
-
-    return routePoints;
+    return latlngs.map(p => ({
+      latitude: p.lat,
+      longitude: p.lng,
+      altitude: null
+    }));
   }
+
 
   processRouteWithFacilities(config: RouteWithFacilityDefaults) {
     this.isLoadingFacilities = true;
 
     this.stopsService.addFacilitiesStops(config).subscribe(
       (updatedRoute) => {
-        console.log('Route updated with facilities:', updatedRoute);
+        //console.log('Route updated with facilities:', updatedRoute);
         // Update the map with the new route
         //this.updateRouteOnMap(updatedRoute);
+        this.updateRouteOnMap(updatedRoute.polyline);
         this.isLoadingFacilities = false;
       },
       (error) => {
@@ -411,4 +393,173 @@ export class MapModalComponent {
   considerSanitariFacilities() {
     this.openSanitarySettings();
   }
+
+
+  private extractRouteLatLngsFromLayers(): LatLng[] {
+    for (const l of this.baseLayers) {
+      // Case A: Leaflet Polyline (common)
+      if ((l as any).getLatLngs) {
+        const latlngs = (l as any).getLatLngs();
+
+        // Could be LatLng[] or nested arrays (MultiPolyline)
+        const flat = this.flattenLatLngs(latlngs);
+        if (flat.length > 1) return flat;
+      }
+
+      // Case B: Leaflet GeoJSON layer (also common)
+      if ((l as any).toGeoJSON) {
+        const gj = (l as any).toGeoJSON();
+        const coords = this.geoJsonLineStringToLatLngs(gj);
+        if (coords.length > 1) return coords;
+      }
+    }
+    return [];
+  }
+
+  private flattenLatLngs(input: any): LatLng[] {
+    if (!Array.isArray(input)) return [];
+
+    // Already flat LatLng[]
+    if (input.length && input[0] instanceof LatLng) {
+      return input as LatLng[];
+    }
+
+    // Replace flatMap with reduce
+    return input.reduce((acc: LatLng[], x: any) => {
+      acc.push(...this.flattenLatLngs(x));
+      return acc;
+    }, []);
+  }
+
+  private geoJsonLineStringToLatLngs(gj: any): LatLng[] {
+    // supports Feature / FeatureCollection, LineString / MultiLineString
+    const features = gj?.type === 'FeatureCollection' ? gj.features : [gj?.type === 'Feature' ? gj : null].filter(Boolean);
+
+    const out: LatLng[] = [];
+    for (const f of features) {
+      const g = f.geometry ?? f;
+      if (!g) continue;
+
+      if (g.type === 'LineString') {
+        for (const [lon, lat] of g.coordinates) out.push(new LatLng(lat, lon));
+      } else if (g.type === 'MultiLineString') {
+        for (const line of g.coordinates) {
+          for (const [lon, lat] of line) out.push(new LatLng(lat, lon));
+        }
+      }
+    }
+    return out;
+  }
+
+
+  private encodePolylineFromGeoJsonPositions(points: GeoJsonPosition[], precision = 6): string {
+    const factor = Math.pow(10, precision);
+    let out = '';
+    let prevLat = 0;
+    let prevLng = 0;
+
+    for (const p of points) {
+      const lat = Math.round(p.latitude * factor);
+      const lng = Math.round(p.longitude * factor);
+
+      out += this.encodeSignedVarint(lat - prevLat);
+      out += this.encodeSignedVarint(lng - prevLng);
+
+      prevLat = lat;
+      prevLng = lng;
+    }
+
+    return out;
+  }
+
+  private encodeSignedVarint(num: number): string {
+    let s = num << 1;
+    if (num < 0) s = ~s;
+    return this.encodeUnsignedVarint(s);
+  }
+
+  private encodeUnsignedVarint(num: number): string {
+    let out = '';
+    while (num >= 0x20) {
+      out += String.fromCharCode((0x20 | (num & 0x1f)) + 63);
+      num >>= 5;
+    }
+    out += String.fromCharCode(num + 63);
+    return out;
+  }
+
+  private updateRouteOnMap(encodedPolyline: string) {
+    // decode encoded polyline -> LatLng[]
+    const latlngs = this.decodePolylineToLatLngs(encodedPolyline, 6);
+    if (latlngs.length < 2) return;
+
+    // build new leaflet layer for the route
+    const newRouteLayer = leafletPolyline(latlngs);
+    (newRouteLayer as any).__isRouteLayer = true;
+
+    // replace old route layer inside baseLayers
+    const idx = this.baseLayers.findIndex(l => (l as any).__isRouteLayer);
+    if (idx >= 0) {
+      this.baseLayers[idx] = newRouteLayer;
+    } else {
+      // if we didn't tag it yet, replace "first polyline-like layer" as fallback
+      const fallback = this.baseLayers.findIndex(l => (l as any).getLatLngs);
+      if (fallback >= 0) this.baseLayers[fallback] = newRouteLayer;
+      else this.baseLayers.unshift(newRouteLayer);
+    }
+
+    // rebuild UI layers (keeps facility markers + added points)
+    this.rebuildLayers();
+
+    // update bounds + optionally recenter
+    this.routeBounds = new LatLngBounds(latlngs);
+    this.centerRoute();
+  }
+
+  private decodePolylineToLatLngs(poly: string, precision = 6): LatLng[] {
+    const factor = Math.pow(10, precision);
+    let index = 0;
+    let lat = 0;
+    let lng = 0;
+    const coords: LatLng[] = [];
+
+    while (index < poly.length) {
+      const dLat = this.decodeSignedVarint(poly, index);
+      index = dLat.nextIndex;
+      lat += dLat.value;
+
+      const dLng = this.decodeSignedVarint(poly, index);
+      index = dLng.nextIndex;
+      lng += dLng.value;
+
+      coords.push(new LatLng(lat / factor, lng / factor));
+    }
+    return coords;
+  }
+
+  private decodeSignedVarint(str: string, start: number): { value: number; nextIndex: number } {
+    const r = this.decodeUnsignedVarint(str, start);
+    let v = r.value;
+    const neg = v & 1;
+    v >>= 1;
+    return { value: neg ? ~v : v, nextIndex: r.nextIndex };
+  }
+
+  private decodeUnsignedVarint(str: string, start: number): { value: number; nextIndex: number } {
+    let result = 0;
+    let shift = 0;
+    let index = start;
+
+    while (index < str.length) {
+      const b = str.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+      if ((b & 0x20) === 0) break;
+    }
+
+    return { value: result, nextIndex: index };
+  }
+
+
+
 }
