@@ -286,6 +286,14 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
 
     @Override
     public ActivityStream createActivityStream(List<Double> time, List<Double> distance, List<Double> heartRate, ActivityStreamSource source) {
+        LOGGER.trace("createActivityStream({},{},{},{})", time, distance, heartRate, source);
+        // Check if all non-null lists have the same size. Return null otherwise.
+        List<List<?>> listOfLists = Arrays.asList(time, distance, heartRate);
+        if (listOfLists.stream().filter(Objects::nonNull).mapToLong(List::size).distinct().count() > 1) {
+            LOGGER.error("Failed to create ActivityStream: List sizes do not match");
+            return null;
+        }
+
         ActivityStream stream = new ActivityStream();
 
         stream.setTimeStream(
