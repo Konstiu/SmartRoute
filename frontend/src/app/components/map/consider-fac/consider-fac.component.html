@@ -1,0 +1,143 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Sanitary Facilities Settings</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">Cancel</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <!-- Enable/Disable Toggle -->
+  <ion-item lines="full">
+    <ion-label>
+      <h2>Consider Sanitary Facilities</h2>
+      <p>Include toilets and fountains in route planning</p>
+    </ion-label>
+    <ion-toggle [(ngModel)]="settings.enabled" slot="end"></ion-toggle>
+  </ion-item>
+
+  <div *ngIf="settings.enabled">
+    <!-- Toilet Settings Section -->
+    <ion-list-header>
+      <ion-label class="section-header">
+        <ion-icon name="restaurant-outline" slot="start"></ion-icon>
+        Toilet Settings
+      </ion-label>
+    </ion-list-header>
+
+    <ion-item>
+      <ion-label>Include Toilets</ion-label>
+      <ion-toggle [(ngModel)]="settings.includeToilets" slot="end"></ion-toggle>
+    </ion-item>
+
+    <ion-item *ngIf="settings.includeToilets" lines="none">
+      <ion-label position="stacked">
+        <strong>Toilet Interval</strong>
+        <p>Look for toilets every {{ formatDistance(settings.toiletIntervalMeters) }}</p>
+      </ion-label>
+    </ion-item>
+    <ion-item *ngIf="settings.includeToilets">
+      <ion-range
+        [(ngModel)]="settings.toiletIntervalMeters"
+        min="1000"
+        max="10000"
+        step="500"
+        pin="true"
+        color="primary">
+        <ion-label slot="start">1km</ion-label>
+        <ion-label slot="end">10km</ion-label>
+      </ion-range>
+    </ion-item>
+
+    <!-- Fountain Settings Section -->
+    <ion-list-header>
+      <ion-label class="section-header">
+        <ion-icon name="water-outline" slot="start"></ion-icon>
+        Water Fountain Settings
+      </ion-label>
+    </ion-list-header>
+
+    <ion-item>
+      <ion-label>Include Water Fountains</ion-label>
+      <ion-toggle [(ngModel)]="settings.includeFountains" slot="end"></ion-toggle>
+    </ion-item>
+
+    <ion-item *ngIf="settings.includeFountains" lines="none">
+      <ion-label position="stacked">
+        <strong>Fountain Interval</strong>
+        <p>Look for water fountains every {{ formatDistance(settings.fountainIntervalMeters) }}</p>
+      </ion-label>
+    </ion-item>
+    <ion-item *ngIf="settings.includeFountains">
+      <ion-range
+        [(ngModel)]="settings.fountainIntervalMeters"
+        min="500"
+        max="8000"
+        step="500"
+        pin="true"
+        color="secondary">
+        <ion-label slot="start">500m</ion-label>
+        <ion-label slot="end">8km</ion-label>
+      </ion-range>
+    </ion-item>
+
+    <!-- Search Settings Section -->
+    <ion-list-header>
+      <ion-label class="section-header">
+        <ion-icon name="search-outline" slot="start"></ion-icon>
+        Search Settings
+      </ion-label>
+    </ion-list-header>
+
+    <ion-item lines="none">
+      <ion-label position="stacked">
+        <strong>Max Detour Distance</strong>
+        <p>Maximum distance from route: {{ settings.maxFacilityDistance }}m</p>
+      </ion-label>
+    </ion-item>
+    <ion-item>
+      <ion-range
+        [(ngModel)]="settings.maxFacilityDistance"
+        min="50"
+        max="500"
+        step="25"
+        pin="true"
+        color="tertiary">
+        <ion-label slot="start">50m</ion-label>
+        <ion-label slot="end">500m</ion-label>
+      </ion-range>
+    </ion-item>
+
+    <ion-item lines="none">
+      <ion-text color="medium">
+        <p class="ion-text-wrap info-text">
+          <ion-icon name="information-circle-outline"></ion-icon>
+          Maximum distance from your route to search for facilities. Smaller values keep you closer to the original route, larger values provide more options.
+        </p>
+      </ion-text>
+    </ion-item>
+  </div>
+
+  <!-- Disabled State Info -->
+  <div *ngIf="!settings.enabled" class="disabled-info">
+    <ion-card>
+      <ion-card-content>
+        <ion-icon name="information-circle" color="medium"></ion-icon>
+        <p>Enable sanitary facilities to customize route planning with toilets and water fountains along your path.</p>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <ion-button
+      expand="block"
+      (click)="confirm()"
+      [disabled]="settings.enabled && !settings.includeToilets && !settings.includeFountains">
+      <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
+      Apply Settings
+    </ion-button>
+  </ion-toolbar>
+</ion-footer>

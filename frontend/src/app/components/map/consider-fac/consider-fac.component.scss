@@ -1,0 +1,120 @@
+ion-content {
+  --padding-top: 0;
+  --padding-bottom: 20px;
+}
+
+ion-list-header {
+  margin-top: 24px;
+  margin-bottom: 8px;
+  padding-left: 16px;
+
+  .section-header {
+    font-weight: 600;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    ion-icon {
+      font-size: 20px;
+    }
+  }
+}
+
+ion-item {
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --inner-padding-end: 0;
+
+  ion-label {
+    h2 {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    p {
+      color: var(--ion-color-medium);
+      font-size: 14px;
+      margin-top: 4px;
+    }
+
+    strong {
+      font-weight: 600;
+      font-size: 15px;
+    }
+  }
+}
+
+ion-range {
+  padding-top: 10px;
+  padding-bottom: 20px;
+
+  ion-label {
+    font-size: 12px;
+    color: var(--ion-color-medium);
+  }
+}
+
+.info-text {
+  font-size: 13px;
+  line-height: 1.5;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 0;
+
+  ion-icon {
+    font-size: 18px;
+    margin-top: 2px;
+    flex-shrink: 0;
+  }
+}
+
+.disabled-info {
+  margin-top: 30px;
+  padding: 0 16px;
+
+  ion-card {
+    margin: 0;
+    box-shadow: none;
+    border: 1px solid var(--ion-color-light-shade);
+
+    ion-card-content {
+      text-align: center;
+      padding: 24px;
+
+      ion-icon {
+        font-size: 48px;
+        margin-bottom: 12px;
+        opacity: 0.5;
+      }
+
+      p {
+        margin: 0;
+        color: var(--ion-color-medium);
+        line-height: 1.6;
+      }
+    }
+  }
+}
+
+ion-footer {
+  ion-toolbar {
+    --padding-top: 8px;
+    --padding-bottom: 8px;
+  }
+
+  ion-button {
+    margin: 0 16px;
+    font-weight: 600;
+
+    ion-icon {
+      margin-right: 8px;
+    }
+  }
+}
+
+// Add spacing between toggle groups
+ion-item:has(ion-toggle) {
+  margin-bottom: 8px;
+}

@@ -6,15 +6,12 @@
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
-
 <ion-content fullscreen>
-
   <!-- Spinner overlay -->
   <div class="map-loading" *ngIf="!isMapReady">
     <ion-spinner name="crescent"></ion-spinner>
     <p>Centering route…</p>
   </div>
-
   <!-- Map -->
   <app-map
     [layers]="localLayers"
@@ -22,7 +19,6 @@
     [addPointMode]="addPointMode"
     (pointAdded)="onPointAdded($event)">
   </app-map>
-
   <!-- Center FAB -->
   <ion-fab
     vertical="bottom"
@@ -33,10 +29,8 @@
       <ion-icon name="locate-outline"></ion-icon>
     </ion-fab-button>
   </ion-fab>
-
   <!-- LEFT STACKED FABs -->
   <ion-fab vertical="bottom" horizontal="start" slot="fixed">
-
     <!-- Confirm (only if points exist) -->
     <ion-fab-button
       *ngIf="addedPoints.length > 0"
@@ -45,19 +39,36 @@
       (click)="confirm()">
       <ion-icon name="checkmark-outline"></ion-icon>
     </ion-fab-button>
-
     <!-- Add / Cancel -->
     <ion-fab-button
       [color]="addPointMode ? 'danger' : 'primary'"
       (click)="toggleAddPointMode()">
-
       <ion-icon
         [name]="addPointMode ? 'close-outline' : 'add-outline'">
       </ion-icon>
-
     </ion-fab-button>
-
   </ion-fab>
-
-
+  <!-- Facilities Menu Button (Top Right) -->
+  <ion-fab vertical="top" horizontal="end" slot="fixed" *ngIf="isMapReady">
+    <ion-fab-button
+      (click)="openFacilitiesMenu()"
+      [color]="showFacilities ? 'tertiary' : 'light'"
+      size="small">
+      <ion-icon name="options-outline"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+  <!-- Sanitary Facilities Button (Top Right, below facilities menu) -->
+  <ion-fab vertical="top" horizontal="end" slot="fixed" *ngIf="isMapReady" style="margin-top: 60px;">
+    <ion-fab-button
+      (click)="openSanitarySettings()"
+      [color]="sanitarySettings.enabled ? 'secondary' : 'light'"
+      size="small">
+      <ion-icon name="water-outline"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+  <!-- Loading indicator for facilities -->
+  <div class="facilities-loading" *ngIf="isLoadingFacilities">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading facilities…</p>
+  </div>
 </ion-content>
