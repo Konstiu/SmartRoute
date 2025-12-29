@@ -9,6 +9,7 @@ import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.ActivityStreamRepository;
 import com.smartroute.smartroute1.service.FitnessScoreService;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
+import com.smartroute.smartroute1.util.Codec;
 import jakarta.transaction.Transactional;
 import okhttp3.mockwebserver.MockResponse;
 import org.junit.jupiter.api.Test;
@@ -186,6 +187,90 @@ class ActivityProcessingServiceTest extends BaseTest {
         assertEquals("middle", result.get().getName());
     }
 
+    // createActivityStream tests
+
+    @Test
+    void testCreateActivityStream_returnsCorrectly() {
+        List<Double> time = List.of(0.0, 1.0);
+        List<Double> distance = List.of(0.0, 3.0);
+        List<Double> heartRate = List.of(143.0, 144.0);
+        ActivityStreamSource source = ActivityStreamSource.SMART_ROUTE;
+
+        ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
+
+        assertAll(
+            () -> assertNotNull(as),
+            () -> assertEquals(source, as.getSource()),
+            () -> assertArrayEquals(Codec.encodeDoubleArray(time.stream().mapToDouble(Double::doubleValue).toArray()), as.getTimeStream()),
+            () -> assertArrayEquals(Codec.encodeDoubleArray(distance.stream().mapToDouble(Double::doubleValue).toArray()), as.getDistanceStream()),
+            () -> assertArrayEquals(Codec.encodeDoubleArray(heartRate.stream().mapToDouble(Double::doubleValue).toArray()), as.getHeartrateStream())
+        );
+    }
+
+    @Test
+    void testCreateActivityStream_WithAllStreamsNull_returnsCorrectly() {
+        List<Double> time = null;
+        List<Double> distance = null;
+        List<Double> heartRate = null;
+        ActivityStreamSource source = ActivityStreamSource.SMART_ROUTE;
+
+        ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
+
+        assertAll(
+            () -> assertNotNull(as),
+            () -> assertEquals(source, as.getSource()),
+            () -> assertNull(as.getTimeStream()),
+            () -> assertNull(as.getDistanceStream()),
+            () -> assertNull(as.getHeartrateStream())
+        );
+    }
+
+    @Test
+    void testCreateActivityStream_WithSomeStreamsNull_returnsCorrectly() {
+        List<Double> time = null;
+        List<Double> distance = null;
+        List<Double> heartRate = List.of(143.0, 144.0);
+        ActivityStreamSource source = ActivityStreamSource.SMART_ROUTE;
+
+        ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
+
+        assertAll(
+            () -> assertNotNull(as),
+            () -> assertEquals(source, as.getSource()),
+            () -> assertNull(as.getTimeStream()),
+            () -> assertNull(as.getDistanceStream()),
+            () -> assertArrayEquals(Codec.encodeDoubleArray(heartRate.stream().mapToDouble(Double::doubleValue).toArray()), as.getHeartrateStream())
+        );
+    }
+
+    @Test
+    void testCreateActivityStream_WithSizeMismatch_returnsNull() {
+        List<Double> time = List.of(0.0, 1.0, 2.0, 3.0);
+        List<Double> distance = List.of(0.0, 3.0);
+        List<Double> heartRate = List.of(143.0, 144.0);
+        ActivityStreamSource source = ActivityStreamSource.SMART_ROUTE;
+
+        ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
+
+        assertAll(
+            () -> assertNull(as)
+        );
+    }
+
+    @Test
+    void testCreateActivityStream_WithSizeMismatchAndNullStream_returnsNull() {
+        List<Double> time = List.of(0.0, 1.0, 2.0, 3.0);
+        List<Double> distance = List.of(0.0, 3.0);
+        List<Double> heartRate = null;
+        ActivityStreamSource source = ActivityStreamSource.SMART_ROUTE;
+
+        ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
+
+        assertAll(
+            () -> assertNull(as)
+        );
+    }
+
     // detectHeartRateSpikes tests
 
     @Test
@@ -225,7 +310,7 @@ class ActivityProcessingServiceTest extends BaseTest {
             null,
             hr,
             ActivityStreamSource.STRAVA
-        ); //TODO also test this method
+        );
 
         activityStreamRepository.save(as);
         a.setActivityStream(as);
