@@ -1,12 +1,14 @@
 package com.smartroute.smartroute1.datagenerator;
 
 import com.smartroute.smartroute1.endpoint.dto.RunClassificationDto;
+import com.smartroute.smartroute1.endpoint.dto.RunClassificationResultDto;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.RunType;
 import com.smartroute.smartroute1.entity.enums.RunTypeProfile;
 import com.smartroute.smartroute1.entity.enums.RunnerProfile;
 import com.smartroute.smartroute1.entity.enums.Sex;
-import com.smartroute.smartroute1.service.RunClassificationService;
+import com.smartroute.smartroute1.service.RunTrainingClassificationService;
+import com.smartroute.smartroute1.util.BoundedDirichletDistributor;
 import org.springframework.stereotype.Component;
 
 import java.io.BufferedWriter;
@@ -14,9 +16,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 @Component
 public class RunClassificationDataGenerator {
@@ -33,11 +33,17 @@ public class RunClassificationDataGenerator {
                     + "zone3,zone3_missing,zone4,zone4_missing,"
                     + "zone5,zone5_missing,num_hr_spikes,num_hr_spikes_missing,"
                     + "windSpeed10m,temperature2m,uv_index,precipitation,snowDepth";
+    private static final int K1 = 30;
+    private static final int K2 = 60;
+    private static final int K3 = 120;
+    private static final int K4 = 240;
+    private static final int K5 = 480;
+    private static final float TIME_MODIFIER = 75;
     private final Random random = new Random();
-    private final RunClassificationService runClassificationService;
+    private final RunTrainingClassificationService runTrainingClassificationService;
 
-    public RunClassificationDataGenerator(RunClassificationService runClassificationService) {
-        this.runClassificationService = runClassificationService;
+    public RunClassificationDataGenerator(RunTrainingClassificationService runTrainingClassificationService) {
+        this.runTrainingClassificationService = runTrainingClassificationService;
     }
 
     private static RunnerProfile runnerProfile(ExperienceLevel level) {
@@ -87,28 +93,49 @@ public class RunClassificationDataGenerator {
                     0.7,
                     0.6,
                     10,
-                    0
+                    0,
+                    0,
+                    0,
+                    0.1,
+                    0.55,
+                    0.45
             );
             case TEMPO_RUN -> new RunTypeProfile(
                     0.95,
                     0.8,
                     0.8,
                     35,
-                    1
+                    1,
+                    0.05,
+                    0.1,
+                    0.4,
+                    0.35,
+                    0.1
+
             );
             case INTERVAL_RUN -> new RunTypeProfile(
                     0.85,
                     0.5,
                     0.7,
                     60,
-                    6
+                    6,
+                    0.15,
+                    0.2,
+                    0.2,
+                    0.3,
+                    0.15
             );
             case LONG_RUN -> new RunTypeProfile(
                     1.10,
                     1.3,
                     1.1,
                     25,
-                    1
+                    1,
+                    0.02,
+                    0.03,
+                    0.15,
+                    0.6,
+                    0.2
             );
         };
     }
@@ -121,21 +148,21 @@ public class RunClassificationDataGenerator {
             w.write(CSV_HEADER);
             w.newLine();
 
-            List<RunClassificationDto> runs = new ArrayList<>();
+            List<RunClassificationResultDto> runs = new ArrayList<>();
             for (int i = 0; i < NUMBER_OF_RUNS; i++) {
                 runs.add(generate());
             }
 
-            for (RunClassificationDto r : runs) {
+            for (RunClassificationResultDto r : runs) {
                 w.write(toCsv(r));
                 w.newLine();
             }
         }
 
-        runClassificationService.classifyCsv(CSV_PATH, CSV_OUT_PATH);
+        //runTrainingClassificationService.classifyCsv(CSV_PATH, CSV_OUT_PATH);
     }
 
-    private RunClassificationDto generate() {
+    private RunClassificationResultDto generate() {
         ExperienceLevel exp = randomEnum(ExperienceLevel.class);
         RunType runType = randomEnum(RunType.class);
 
@@ -148,18 +175,38 @@ public class RunClassificationDataGenerator {
         double distance = rand(3.0, athlete.maxDistance()) * type.distanceMultiplier();
         int duration = (int) (distance * pace * 60);
 
-        double elevation = rand(0, distance * 25) * type.elevationMultiplier();
 
         double hrAvg = rand(0.7, 0.9) * athlete.maxHr();
+        double[] base = new double[]{
+                type.zone5p(),
+                type.zone4p(),
+                type.zone3p(),
+                type.zone2p(),
+                type.zone1p(),
+        };
+
+        double[] min = new double[5];
+        double[] max = new double[5];
+        for (int i = 0; i < 5; i++) {
+            min[i] = Math.max(0, base[i] - 0.1);
+            max[i] = Math.min(1, base[i] + 0.1);
+        }
+
+
+        BoundedDirichletDistributor distributor = new BoundedDirichletDistributor();
+        double[] distribution = distributor.distribute(base, min, max, 0.2);
+
+        Map<Integer, Float> zoneTimes = new HashMap<>();
+
+        zoneTimes.put(1, (float) Math.round(distribution[4] * duration));
+        zoneTimes.put(2, (float) Math.round(distribution[3] * duration));
+        zoneTimes.put(3, (float) Math.round(distribution[2] * duration));
+        zoneTimes.put(4, (float) Math.round(distribution[1] * duration));
+        zoneTimes.put(5, (float) Math.round(distribution[0] * duration));
+        double elevation = rand(0, distance * 25) * type.elevationMultiplier();
         double hrMax = rand(hrAvg + 5, athlete.maxHr());
 
-        int zone5 = runType == RunType.INTERVAL_RUN ? randInt(300, 900) : randInt(0, 200);
-        int zone4 = randInt(300, 1800);
-        int zone3 = randInt(600, 2400);
-        int zone2 = randInt(600, 3600);
-        int zone1 = Math.max(0, duration - (zone2 + zone3 + zone4 + zone5));
-
-        return new RunClassificationDto(
+        return new RunClassificationResultDto(new RunClassificationDto(
                 duration,
                 rand(0.7, 1.3),
                 distance,
@@ -167,8 +214,8 @@ public class RunClassificationDataGenerator {
                 pace,
                 rand(0.7, 1.3),
                 elevation,
-                duration * 0.8,
-                type.paceSpikes(),
+                (double) calculateTrimp(zoneTimes),
+                (int) Math.round(type.paceSpikes() * randDouble(1, 1.8) * (((double) duration / 3600))),
                 randInt(40, 90),
                 rand(0.3, 1.0),
                 rand(-20, 20),
@@ -182,62 +229,65 @@ public class RunClassificationDataGenerator {
                 false,
                 hrMax,
                 false,
-                zone1, false,
-                zone2, false,
-                zone3, false,
-                zone4, false,
-                zone5, false,
-                randInt(0, 5),
+                (int) (float) zoneTimes.get(1), false,
+                (int) (float) zoneTimes.get(2), false,
+                (int) (float) zoneTimes.get(3), false,
+                (int) (float) zoneTimes.get(4), false,
+                (int) (float) zoneTimes.get(5), false,
+                runType == RunType.INTERVAL_RUN ? randInt(5, 10) * (duration / 3600) : randInt(0, 2) * (duration / 3600),
                 false,
                 rand(0, 12),
                 rand(-5, 30),
                 randInt(0, 10),
                 rand(0, 5),
                 rand(0, 20)
-        );
+        ),
+                runType);
     }
 
-    private String toCsv(RunClassificationDto dto) {
+    private String toCsv(RunClassificationResultDto dto) {
         return String.join(",",
-                dto.getDuration().toString(),
-                dto.getDurationPb20().toString(),
-                dto.getDistance().toString(),
-                dto.getDistancePb20().toString(),
-                dto.getPace().toString(),
-                dto.getPacePb20().toString(),
-                dto.getElevationGain().toString(),
-                dto.getSessionLoad().toString(),
-                dto.getNumPaceSpikes().toString(),
-                dto.getReadinessScore().toString(),
-                dto.getConsistencyScore().toString(),
-                dto.getTsb().toString(),
-                dto.getAge().toString(),
-                dto.getWeight().toString(),
-                dto.getHeight().toString(),
-                dto.getSex().name(),
-                dto.getExperienceLevel().name(),
-                dto.getInjuryIndex().toString(),
-                dto.getHrAvg().toString(),
-                dto.getHrAvgMissing().toString(),
-                dto.getHrMax().toString(),
-                dto.getHrMaxMissing().toString(),
-                dto.getZone1().toString(),
-                dto.getZone1Missing().toString(),
-                dto.getZone2().toString(),
-                dto.getZone2Missing().toString(),
-                dto.getZone3().toString(),
-                dto.getZone3Missing().toString(),
-                dto.getZone4().toString(),
-                dto.getZone4Missing().toString(),
-                dto.getZone5().toString(),
-                dto.getZone5Missing().toString(),
-                dto.getNumHrSpikes().toString(),
-                dto.getNumHrSpikesMissing().toString(),
-                dto.getWindSpeed10m().toString(),
-                dto.getTemperature2m().toString(),
-                dto.getUvIndex().toString(),
-                dto.getPrecipitation().toString(),
-                dto.getSnowDepth().toString()
+                dto.getRun().getDuration().toString(),
+                dto.getRun().getDurationPb20().toString(),
+                dto.getRun().getDistance().toString(),
+                dto.getRun().getDistancePb20().toString(),
+                dto.getRun().getPace().toString(),
+                dto.getRun().getPacePb20().toString(),
+                dto.getRun().getElevationGain().toString(),
+                dto.getRun().getSessionLoad().toString(),
+                dto.getRun().getNumPaceSpikes().toString(),
+                dto.getRun().getReadinessScore().toString(),
+                dto.getRun().getConsistencyScore().toString(),
+                dto.getRun().getTsb().toString(),
+                dto.getRun().getAge().toString(),
+                dto.getRun().getWeight().toString(),
+                dto.getRun().getHeight().toString(),
+                dto.getRun().getSex().name(),
+                dto.getRun().getExperienceLevel().name(),
+                dto.getRun().getInjuryIndex().toString(),
+                dto.getRun().getHrAvg().toString(),
+                dto.getRun().getHrAvgMissing().toString(),
+                dto.getRun().getHrMax().toString(),
+                dto.getRun().getHrMaxMissing().toString(),
+                dto.getRun().getZone1().toString(),
+                dto.getRun().getZone1Missing().toString(),
+                dto.getRun().getZone2().toString(),
+                dto.getRun().getZone2Missing().toString(),
+                dto.getRun().getZone3().toString(),
+                dto.getRun().getZone3Missing().toString(),
+                dto.getRun().getZone4().toString(),
+                dto.getRun().getZone4Missing().toString(),
+                dto.getRun().getZone5().toString(),
+                dto.getRun().getZone5Missing().toString(),
+                dto.getRun().getNumHrSpikes().toString(),
+                dto.getRun().getNumHrSpikesMissing().toString(),
+                dto.getRun().getWindSpeed10m().toString(),
+                dto.getRun().getTemperature2m().toString(),
+                dto.getRun().getUvIndex().toString(),
+                dto.getRun().getPrecipitation().toString(),
+                dto.getRun().getSnowDepth().toString(),
+                dto.getClassification().name()
+
         );
     }
 
@@ -249,8 +299,37 @@ public class RunClassificationDataGenerator {
         return random.nextInt(max - min + 1) + min;
     }
 
+    private double randDouble(double min, double max) {
+        return random.nextDouble(max - min + 1) + min;
+    }
+
     private <T extends Enum<?>> T randomEnum(Class<T> e) {
         return e.getEnumConstants()[random.nextInt(e.getEnumConstants().length)];
+    }
+
+    private int calculateTrimp(Map<Integer, Float> timeInZones) {
+        float trimp = 0;
+        for (Map.Entry<Integer, Float> entry : timeInZones.entrySet()) {
+            float timeInZone = entry.getValue();
+            int coefficient = switch (entry.getKey()) {
+                case 1 -> K1;
+                case 2 -> K2;
+                case 3 -> K3;
+                case 4 -> K4;
+                case 5 -> K5;
+                default -> 0;
+            };
+
+            // Reduce weight for Zone 1 and 2 for shorter activities
+            float timeCoefficient = 1;
+            if (coefficient == K1 || coefficient == K2) {
+                timeCoefficient = Math.min(1, timeInZone / 60 / TIME_MODIFIER);
+            }
+
+            //TRIMP = Sum (K_i * TK_i * t_i), with t_i in hours
+            trimp += coefficient * timeCoefficient * (timeInZone / 3600);
+        }
+        return Math.round(trimp);
     }
 
 }
