@@ -16,198 +16,198 @@ import lombok.Setter;
 public class RunClassificationDto {
 
     /**
-     * duration
+     * duration.
      */
     private Integer duration;
 
     /**
-     * duration_pct_pb_20
+     * duration_pct_pb_20.
      */
     private Double durationPb20;
 
     /**
-     * distance
+     * distance.
      */
     private Double distance;
 
     /**
-     * distance_pct_pb_20
+     * distance_pct_pb_20.
      */
     private Double distancePb20;
 
     /**
-     * pace
+     * pace.
      */
     private Double pace;
 
     /**
-     * pace_pct_pb_20
+     * pace_pct_pb_20.
      */
     private Double pacePb20;
 
     /**
-     * elevation_gain
+     * elevation_gain.
      */
     private Double elevationGain;
 
     /**
-     * session_load
+     * session_load.
      */
     private Double sessionLoad;
 
     /**
-     * num_pace_spikes
+     * num_pace_spikes.
      */
     private Integer numPaceSpikes;
 
     /**
-     * readiness_score
+     * readiness_score.
      */
     private Integer readinessScore;
 
 
     /**
-     * consistency_score
+     * consistency_score.
      */
     private Double consistencyScore;
 
     /**
-     * tsb
+     * tsb.
      */
     private Double tsb;
 
     /**
-     * age
+     * age.
      */
     private Integer age;
 
     /**
-     * weight
+     * weight.
      */
     private Double weight;
 
     /**
-     * height
+     * height.
      */
     private Integer height;
 
     /**
-     * sex
+     * sex.
      */
     private Sex sex;
 
     /**
-     * experience_level
+     * experience_level.
      */
     private ExperienceLevel experienceLevel;
 
     /**
-     * injury_index
+     * injury_index.
      */
     private Double injuryIndex;
 
     /**
-     * hr_avg
+     * hr_avg.
      */
     private Double hrAvg;
 
     /**
-     * hr_avg_missing
+     * hr_avg_missing.
      */
     private Boolean hrAvgMissing;
 
     /**
-     * hr_max
+     * hr_max.
      */
     private Double hrMax;
 
     /**
-     * hr_max_missing
+     * hr_max_missing.
      */
     private Boolean hrMaxMissing;
 
     /**
-     * zone1
+     * zone1.
      */
     private Integer zone1;
 
     /**
-     * zone1_missing
+     * zone1_missing.
      */
     private Boolean zone1Missing;
 
     /**
-     * zone2
+     * zone2.
      */
     private Integer zone2;
 
     /**
-     * zone2_missing
+     * zone2_missing.
      */
     private Boolean zone2Missing;
 
     /**
-     * zone3
+     * zone3.
      */
     private Integer zone3;
 
     /**
-     * zone3_missing
+     * zone3_missing.
      */
     private Boolean zone3Missing;
 
     /**
-     * zone4
+     * zone4.
      */
     private Integer zone4;
 
     /**
-     * zone4_missing
+     * zone4_missing.
      */
     private Boolean zone4Missing;
 
     /**
-     * zone5
+     * zone5.
      */
     private Integer zone5;
 
     /**
-     * zone5_missing
+     * zone5_missing.
      */
     private Boolean zone5Missing;
 
     /**
-     * num_hr_spikes
+     * num_hr_spikes.
      */
     private Integer numHrSpikes;
 
     /**
-     * num_hr_spikes_missing
+     * num_hr_spikes_missing.
      */
     private Boolean numHrSpikesMissing;
 
     /**
-     * windSpeed10m
+     * windSpeed10m.
      */
     private Double windSpeed10m;
 
     /**
-     * temperature2m
+     * temperature2m.
      */
     private Double temperature2m;
 
     /**
-     * uv_index
+     * uv_index.
      */
     private Integer uvIndex;
 
     /**
-     * precipitation
+     * precipitation.
      */
     private Double precipitation;
 
     /**
-     * snowDepth
+     * snowDepth.
      */
     private Double snowDepth;
 }
