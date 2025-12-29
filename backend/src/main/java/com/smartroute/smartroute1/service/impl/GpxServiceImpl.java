@@ -259,6 +259,16 @@ public class GpxServiceImpl implements GpxService {
                 storedActivity.setElapsedTime(activity.getElapsedTime());
                 storedActivity.setMovingTime(activity.getMovingTime());
                 storedActivity.setMaxHeartrate(activity.getMaxHeartrate());
+
+                // Update time in zones only if it was not stored before
+                if (activity.getTimeZ1() != null && storedActivity.getTimeZ1() == null) {
+                    storedActivity.setTimeZ1(activity.getTimeZ1());
+                    storedActivity.setTimeZ2(activity.getTimeZ2());
+                    storedActivity.setTimeZ3(activity.getTimeZ3());
+                    storedActivity.setTimeZ4(activity.getTimeZ4());
+                    storedActivity.setTimeZ5(activity.getTimeZ5());
+                }
+
                 storedActivity.setExternalId(activity.getExternalId());
                 storedActivity.setSummaryPolyline(storedActivity.getSummaryPolyline());
                 storedActivity.setAverageWatts(storedActivity.getAverageWatts());
