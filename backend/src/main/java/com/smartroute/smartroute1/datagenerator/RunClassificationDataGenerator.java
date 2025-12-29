@@ -206,6 +206,8 @@ public class RunClassificationDataGenerator {
         double elevation = rand(0, distance * 25) * type.elevationMultiplier();
         double hrMax = rand(hrAvg + 5, athlete.maxHr());
 
+        double temperature = rand(-5, 30);
+
         return new RunClassificationResultDto(new RunClassificationDto(
                 duration,
                 rand(0.7, 1.3),
@@ -224,7 +226,7 @@ public class RunClassificationDataGenerator {
                 randInt(155, 195),
                 randomEnum(Sex.class),
                 exp,
-                athlete.injuryRiskFactor() * rand(0.1, 0.5),
+                randInt(0, 100) < 50 ? athlete.injuryRiskFactor() * rand(0.1, 0.5) : 0,
                 hrAvg,
                 false,
                 hrMax,
@@ -237,10 +239,10 @@ public class RunClassificationDataGenerator {
                 runType == RunType.INTERVAL_RUN ? randInt(5, 10) * (duration / 3600) : randInt(0, 2) * (duration / 3600),
                 false,
                 rand(0, 12),
-                rand(-5, 30),
+                temperature,
                 randInt(0, 10),
-                rand(0, 5),
-                rand(0, 20)
+                randInt(0, 100) < 20 ? rand(0, 5) : 0,
+                temperature < 1 ? rand(0, 20) : 0
         ),
                 runType);
     }
