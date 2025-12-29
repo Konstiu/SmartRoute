@@ -18,18 +18,73 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     Optional<Activity> findByStravaId(Long stravaId);
 
     @Query("""
-            SELECT COALESCE(SUM(a.sessionLoad), 0)
-            FROM Activity a
-            WHERE a.user = :user
-            AND a.type = :type
-            AND a.startDate >= :start AND a.startDate < :end
-            """)
+        SELECT COALESCE(SUM(a.sessionLoad), 0)
+        FROM Activity a
+        WHERE a.user = :user
+        AND a.type = :type
+        AND a.startDate >= :start AND a.startDate < :end
+        """)
     Integer sumSessionLoadForDay(
-            @Param("user") ApplicationUser user,
-            @Param("type") String type,
-            @Param("start") Instant start,
-            @Param("end") Instant end
+        @Param("user") ApplicationUser user,
+        @Param("type") String type,
+        @Param("start") Instant start,
+        @Param("end") Instant end
     );
+
+    @Query(value = """
+    SELECT COALESCE(MAX(moving_time), -1)
+    FROM (
+        SELECT a.moving_time
+        FROM activity a
+        WHERE a.user_id = :#{#user.id}
+        AND a.type = :type
+        ORDER BY a.start_date DESC
+        LIMIT 20
+    ) recent_activities
+    """, nativeQuery = true)
+    Integer findMaxDurationInLast20ActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
+
+    @Query(value = """
+    SELECT COALESCE(MAX(distance), -1)
+    FROM (
+        SELECT a.distance
+        FROM activity a
+        WHERE a.user_id = :#{#user.id}
+        AND a.type = :type
+        ORDER BY a.start_date DESC
+        LIMIT 20
+    ) recent_activities
+    """, nativeQuery = true)
+    Integer findMaxDistanceInLast20ActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
+
+    @Query(value = """
+    SELECT COALESCE(MAX(average_speed), -1)
+    FROM (
+        SELECT a.average_speed
+        FROM activity a
+        WHERE a.user_id = :#{#user.id}
+        AND a.type = :type
+        ORDER BY a.start_date DESC
+        LIMIT 20
+    ) recent_activities
+    """, nativeQuery = true)
+    Double findMaxPaceInLast20ActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
+
+    @Query("""
+    SELECT COALESCE(MAX(a.maxHeartrate), -1)
+    FROM Activity a
+    WHERE a.user = :user
+    AND a.type = :type
+    """)
+    Integer getMaxMaxHrInAllActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
+
+    @Query("""
+    SELECT COALESCE(MAX(a.averageHeartrate), -1)
+    FROM Activity a
+    WHERE a.user = :user
+    AND a.type = :type
+    """)
+    Integer getMaxAverageHrInAllActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
 
     List<Activity> findTop10ByUserAndTypeIsOrderByStartDateDesc(ApplicationUser user, String type, Pageable pageable);
 

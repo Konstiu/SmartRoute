@@ -11,7 +11,7 @@ import com.smartroute.smartroute1.repository.ActivityStreamRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
-import com.smartroute.smartroute1.service.RunClassificationService;
+import com.smartroute.smartroute1.util.Codec;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -96,7 +96,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
      * Calculates time in zones, sessionLoad
      *
      * @param activity the activity to process
-     * @param token the Strava API token to fetch Strava data
+     * @param token    the Strava API token to fetch Strava data
      */
     private void processActivity(Activity activity, String token) {
         try {
@@ -149,7 +149,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 stravaStreams = new ArrayList<>();
                 stravaStreams.add(new StravaStreamDto(
                         "time",
-                        toFloatList(decodeDoubleArray(activity.getActivityStream().getTimeStream())),
+                        Codec.toFloatList(Codec.decodeDoubleArray(activity.getActivityStream().getTimeStream())),
                         null,
                         -1,
                         null
@@ -157,7 +157,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 );
                 stravaStreams.add(new StravaStreamDto(
                         "heartrate",
-                        toFloatList(decodeDoubleArray(activity.getActivityStream().getTimeStream())),
+                        Codec.toFloatList(Codec.decodeDoubleArray(activity.getActivityStream().getTimeStream())),
                         null,
                         -1,
                         null
@@ -252,7 +252,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
      * Fetches Strava streams for an activity.
      *
      * @param activityId the id of the activity to fetch streams for
-     * @param token the Strava API token for the authenticated user
+     * @param token      the Strava API token for the authenticated user
      * @return a list of Strava streams
      */
     private List<StravaStreamDto> fetchStreams(Long activityId, String token) {
@@ -297,19 +297,19 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         ActivityStream stream = new ActivityStream();
 
         stream.setTimeStream(
-            time == null ? null : encodeDoubleArray(
+            time == null ? null : Codec.encodeDoubleArray(
                 time.stream().mapToDouble(Double::doubleValue).toArray()
             )
         );
 
         stream.setDistanceStream(
-            distance == null ? null : encodeDoubleArray(
+            distance == null ? null : Codec.encodeDoubleArray(
                 distance.stream().mapToDouble(Double::doubleValue).toArray()
             )
         );
 
         stream.setHeartrateStream(
-            heartRate == null ? null : encodeDoubleArray(
+            heartRate == null ? null : Codec.encodeDoubleArray(
                 heartRate.stream().mapToDouble(Double::doubleValue).toArray()
             )
         );
@@ -634,8 +634,8 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             return -1;
         }
 
-        double[] hrArray = decodeDoubleArray(stream.getHeartrateStream());
-        double[] timeArray = decodeDoubleArray(stream.getTimeStream());
+        double[] hrArray = Codec.decodeDoubleArray(stream.getHeartrateStream());
+        double[] timeArray = Codec.decodeDoubleArray(stream.getTimeStream());
 
         if (hrArray.length != timeArray.length) {
             throw new IllegalStateException("HR and time arrays must match");
@@ -651,8 +651,8 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             return -1;
         }
 
-        double[] distanceArray = decodeDoubleArray(stream.getDistanceStream());
-        double[] timeArray = decodeDoubleArray(stream.getTimeStream());
+        double[] distanceArray = Codec.decodeDoubleArray(stream.getDistanceStream());
+        double[] timeArray = Codec.decodeDoubleArray(stream.getTimeStream());
 
         if (distanceArray.length != timeArray.length) {
             throw new IllegalStateException("Distance and time arrays must match");
@@ -684,35 +684,5 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         }
 
         return speed;
-    }
-
-    // Helper method to encode double[] as byte[]
-    private byte[] encodeDoubleArray(double[] data) {
-        ByteBuffer buffer = ByteBuffer.allocate(data.length * Double.BYTES)
-            .order(ByteOrder.LITTLE_ENDIAN);
-        for (double v : data) {
-            buffer.putDouble(v);
-        }
-        return buffer.array();
-    }
-
-    // Helper method to decode byte[] as double[]
-    private double[] decodeDoubleArray(byte[] bytes) {
-        ByteBuffer buffer = ByteBuffer.wrap(bytes)
-            .order(ByteOrder.LITTLE_ENDIAN);
-        double[] data = new double[bytes.length / Double.BYTES];
-        for (int i = 0; i < data.length; i++) {
-            data[i] = buffer.getDouble();
-        }
-        return data;
-    }
-
-    // Helper method to create a List<Float> from double[]
-    private List<Float> toFloatList(double[] array) {
-        List<Float> list = new ArrayList<>(array.length);
-        for (double v : array) {
-            list.add((float) v);
-        }
-        return list;
     }
 }

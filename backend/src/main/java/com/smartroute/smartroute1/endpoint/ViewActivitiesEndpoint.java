@@ -2,18 +2,13 @@ package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.endpoint.dto.DetailedActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.ActivityDto;
+import com.smartroute.smartroute1.endpoint.dto.RunClassificationDecisionDto;
 import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
 import com.smartroute.smartroute1.entity.Activity;
-import com.smartroute.smartroute1.entity.ApplicationUser;
-import com.smartroute.smartroute1.entity.StravaAccount;
-import com.smartroute.smartroute1.repository.StravaAccountRepository;
-import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.ActivityService;
-import com.smartroute.smartroute1.service.GarminImportService;
-import com.smartroute.smartroute1.service.StravaService;
+import com.smartroute.smartroute1.service.RunClassificationService;
 import io.swagger.v3.oas.annotations.Operation;
-import jakarta.persistence.criteria.CriteriaBuilder;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +38,7 @@ public class ViewActivitiesEndpoint {
     private final StravaActivityMapper activityMapper;
     private final ActivityProcessingService activityProcessingService;
     private final ActivityService activityService;
+    private final RunClassificationService runClassificationService;
 
     @GetMapping()
     @ResponseStatus(HttpStatus.OK)
@@ -58,7 +54,8 @@ public class ViewActivitiesEndpoint {
         List<Activity> list = activityProcessingService.getActivities(auth.getName());
         List<ActivityDto> dtos = new ArrayList<>();
         for (Activity stravaActivity : list) {
-            dtos.add(activityMapper.toViewDto(stravaActivity));
+            RunClassificationDecisionDto runClassification = runClassificationService.classifyRun(stravaActivity.getId());
+            dtos.add(activityMapper.toViewDto(stravaActivity, runClassification));
         }
         return dtos;
     }
@@ -76,7 +73,10 @@ public class ViewActivitiesEndpoint {
         LOGGER.info("GET /api/v1/activities/{}", id);
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Activity activity = activityProcessingService.getActivity(auth.getName(), id);
-        return activityMapper.toDetailedViewDto(activity);
+        RunClassificationDecisionDto runClassification = null;
+        runClassification = runClassificationService.classifyRun(activity.getId());
+
+        return activityMapper.toDetailedViewDto(activity, runClassification);
     }
 
     @PostMapping("sync")
@@ -99,5 +99,19 @@ public class ViewActivitiesEndpoint {
         String email = auth.getName();
 
         activityService.synchronize(email, count);
+    }
+
+    @GetMapping("classification/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    @Secured("ROLE_USER")
+    @Operation(
+        summary = "Returns the run type classification",
+        description = """
+            Returns 
+            """
+    )
+    public RunClassificationDecisionDto getClassification(@PathVariable("id") Long id) {
+        LOGGER.info("GET /api/v1/strava/classification/{}", id);
+        return runClassificationService.classifyRun(id);
     }
 }

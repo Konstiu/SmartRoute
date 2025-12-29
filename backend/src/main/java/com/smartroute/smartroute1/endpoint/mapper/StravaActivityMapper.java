@@ -1,6 +1,7 @@
 package com.smartroute.smartroute1.endpoint.mapper;
 
 import com.smartroute.smartroute1.endpoint.dto.DetailedActivityDto;
+import com.smartroute.smartroute1.endpoint.dto.RunClassificationDecisionDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.ActivityDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
@@ -44,7 +45,7 @@ public interface StravaActivityMapper {
         return entity;
     }
 
-    default DetailedActivityDto toDetailedViewDto(Activity entity) {
+    default DetailedActivityDto toDetailedViewDto(Activity entity, RunClassificationDecisionDto runClassification) {
         DetailedActivityDto dto = new DetailedActivityDto();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
@@ -63,11 +64,12 @@ public interface StravaActivityMapper {
         dto.setAverageWatts(entity.getAverageWatts());
         dto.setKilojoules(entity.getKilojoules());
         dto.setSummaryPolyline(entity.getSummaryPolyline());
+        dto.setRunClassification(runClassification);
         return dto;
 
     }
 
-    default ActivityDto toViewDto(Activity entity) {
+    default ActivityDto toViewDto(Activity entity, RunClassificationDecisionDto runClassification) {
         ActivityDto dto = new ActivityDto();
         dto.setId(entity.getId());
         dto.setName(entity.getName());
@@ -79,6 +81,7 @@ public interface StravaActivityMapper {
         dto.setAverageSpeed(entity.getAverageSpeed());
         dto.setAverageHeartrate(entity.getAverageHeartrate());
         dto.setAverageWatts(entity.getAverageWatts());
+        dto.setRunClassification(runClassification);
         return dto;
 
     }
