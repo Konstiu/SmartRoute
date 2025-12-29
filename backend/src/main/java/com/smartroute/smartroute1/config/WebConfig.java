@@ -27,7 +27,7 @@ public class WebConfig implements WebMvcConfigurer {
 
                         Resource requestedResource = location.createRelative(resourcePath);
                         return requestedResource.exists() && requestedResource.isReadable() ? requestedResource
-                                : new ClassPathResource("/static/index.html");
+                                : null;
                     }
                 });
     }

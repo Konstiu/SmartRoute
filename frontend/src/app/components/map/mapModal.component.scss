@@ -48,3 +48,197 @@ ion-fab {
   }
 }
 
+.map-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--ion-background-color);
+  z-index: 9999;
+
+  ion-spinner {
+    margin-bottom: 16px;
+    transform: scale(1.5);
+  }
+
+  p {
+    margin: 0;
+    color: var(--ion-color-medium);
+    font-size: 14px;
+  }
+}
+
+.facilities-loading {
+  position: absolute;
+  top: 80px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--ion-background-color);
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+
+  ion-spinner {
+    transform: scale(0.8);
+  }
+
+  p {
+    margin: 0;
+    color: var(--ion-color-medium);
+    font-size: 12px;
+  }
+}
+
+.fab-confirm {
+  margin-bottom: 8px;
+}
+
+ion-fab[vertical="top"][horizontal="end"] {
+  top: 16px;
+  right: 16px;
+
+  ion-fab-button {
+    --box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  ion-fab-list {
+    ion-fab-button {
+      margin-top: 8px;
+    }
+  }
+}
+
+.facility-count {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--ion-color-danger);
+  color: white;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: bold;
+  min-width: 18px;
+  text-align: center;
+}
+
+/* === EMOJI MARKER STYLES === */
+.custom-marker {
+  background: transparent;
+  border: none;
+}
+
+.emoji-marker {
+  background: transparent;
+  border: none;
+}
+
+.emoji-marker-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  border: 2px solid white;
+}
+
+.emoji-marker-icon:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.4);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .emoji-marker-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+  }
+}
+
+/* Leaflet popup customization */
+.leaflet-popup-content-wrapper {
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.leaflet-popup-content {
+  margin: 12px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.leaflet-popup-tip {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.map-loading,
+.facilities-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 20px 30px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  ion-spinner {
+    margin-bottom: 10px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    color: #666;
+  }
+}
+
+.facilities-loading {
+  top: 20%;
+}
+
+// Stacked FABs in top right
+.top-right-fab-stack {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  ion-fab-button {
+    margin: 0;
+  }
+
+  .sanitary-button {
+    transition: all 0.3s ease;
+
+    &:hover {
+      transform: scale(1.05);
+    }
+  }
+}
+
+// Ensure fab-confirm button is positioned correctly
+.fab-confirm {
+  margin-bottom: 10px;
+}

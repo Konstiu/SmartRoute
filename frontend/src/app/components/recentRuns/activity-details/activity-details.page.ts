@@ -98,6 +98,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
       return;
     }
 
+    console.log(polyline)
     const coordinates = this.decodePolyline(polyline);
 
     if (coordinates.length > 0) {
@@ -111,6 +112,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
         lineJoin: 'round'
       }).addTo(this.map);
     }
+    console.log(coordinates)
 
 
     // Fit map to show all routes

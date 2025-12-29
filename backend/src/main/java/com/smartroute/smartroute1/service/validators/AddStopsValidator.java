@@ -25,9 +25,9 @@ public class AddStopsValidator {
             throw new ValidationException("Errors while validating route length:", errors);
         }
 
-        if (route.size() <= 2) {
-            errors.add("Route is too short");
-        }
+        //if (route.size() <= 2) {
+        //    errors.add("Route is too short");
+        //}
 
         if (!errors.isEmpty()) {
             throw new ValidationException("Errors while validating route length:", errors);
