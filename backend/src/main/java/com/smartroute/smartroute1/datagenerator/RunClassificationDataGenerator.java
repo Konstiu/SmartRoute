@@ -36,7 +36,7 @@ public class RunClassificationDataGenerator {
                     + "zone1,zone1_missing,zone2,zone2_missing,"
                     + "zone3,zone3_missing,zone4,zone4_missing,"
                     + "zone5,zone5_missing,num_hr_spikes,num_hr_spikes_missing,"
-                    + "windSpeed10m,temperature2m,uv_index,precipitation,snowDepth";
+                    + "windSpeed10m,temperature2m,uv_index,precipitation,snowDepth,run_type";
     private static final int K1 = 30;
     private static final int K2 = 60;
     private static final int K3 = 120;
