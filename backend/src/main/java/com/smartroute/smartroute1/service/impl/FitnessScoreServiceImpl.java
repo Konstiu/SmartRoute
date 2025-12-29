@@ -192,6 +192,11 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
     // Helper method to calculate time in zones from heart rate and time data
     private Map<Integer, Float> getTimeInZonesFromData(List<Float> heartRates, List<Float> timeStamps, List<AthleteZone> zones) {
         Map<Integer, Float> timeInZonesMap = new HashMap<>();
+        // initialize empty zones
+        for (int i = 1; i <= 5; i++) {
+            timeInZonesMap.put(i, 0f);
+        }
+
         for (int i = 0; i < heartRates.size() - 1; i++) {
             float hr = heartRates.get(i);
             float timeCurrent = timeStamps.get(i);
