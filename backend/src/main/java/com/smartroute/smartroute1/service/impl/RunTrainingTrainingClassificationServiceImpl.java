@@ -5,7 +5,7 @@ import com.smartroute.smartroute1.endpoint.dto.RunClassificationResultDto;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.RunType;
 import com.smartroute.smartroute1.entity.enums.Sex;
-import com.smartroute.smartroute1.service.RunClassificationService;
+import com.smartroute.smartroute1.service.RunTrainingClassificationService;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
@@ -15,7 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 @Service
-public class RunClassificationServiceImpl implements RunClassificationService {
+public class RunTrainingTrainingClassificationServiceImpl implements RunTrainingClassificationService {
 
     @Override
     public RunClassificationResultDto classifyRun(RunClassificationDto dto) {
@@ -29,58 +29,47 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
         // EASY
         double easy = 0;
+
         if (intensity < t.easyMaxHr) {
             easy += 3;
         }
         if (loadPerMin < t.easyMaxLoad) {
             easy += 2;
         }
-        if (dto.getConsistencyScore() != null && dto.getConsistencyScore() > 0.6) {
-            easy += 1;
-        }
 
         // TEMPO
-        double tempo = 0;
-        if (intensity >= t.tempoMinHr && intensity <= t.tempoMaxHr) {
-            tempo += 4;
-        }
-        if (loadPerMin >= t.tempoMinLoad && loadPerMin <= t.tempoMaxLoad) {
-            tempo += 2;
-        }
-        if (dto.getNumPaceSpikes() != null && dto.getNumPaceSpikes() <= 3) {
-            tempo += 1;
-        }
+        boolean tempoEligible =
+                intensity >= t.tempoMinHr
+                        && intensity <= t.tempoMaxHr
+                        && loadPerMin >= t.tempoMinLoad
+                        && loadPerMin <= t.tempoMaxLoad
+                        && dto.getNumPaceSpikes() != null
+                        && dto.getNumPaceSpikes() <= 3;
+
 
         // INTERVAL
-        double interval = 0;
-        boolean highInjuryRisk = dto.getInjuryIndex() != null && dto.getInjuryIndex() > 0.7;
 
-        if (!highInjuryRisk && isIntervalLike(dto, t.intervalPaceSpikes)) {
-            interval += 4;
-        }
-        if (intensity >= t.intervalMinHr) {
-            interval += 3;
-        }
-        if (dto.getPacePb20() != null && dto.getPacePb20() > 1.05) {
-            interval += 2;
-        }
+        boolean highInjuryRisk = dto.getInjuryIndex() != null && dto.getInjuryIndex() > 0.7;
+        double durationMin = dto.getDuration() / 60.0;
+
+        boolean intervalEligible =
+                !highInjuryRisk
+                        && durationMin >= 20
+                        && durationMin <= 75
+                        && intensity >= t.intervalMinHr
+                        && dto.getPacePb20() != null && dto.getPacePb20() < 0.95
+                        && isIntervalLike(dto, t.intervalPaceSpikes);
+
 
         // LONG
-        double durationMin = dto.getDuration() / 60.0;
-        double longer = 0;
-        if (durationMin >= 90) {
-            longer += 4;
-        }
-        if (intensity < t.tempoMinHr) {
-            longer += 2;
-        }
-        if (durationMin > 120) {
-            longer += 2;
-        }
-        if (dto.getReadinessScore() != null && dto.getReadinessScore() < 40) {
-            longer -= 1;
-        }
 
+        boolean longEligible =
+                durationMin >= 75
+                        && intensity < t.tempoMinHr;
+
+        double longer = longEligible ? 5 : -100;
+        double interval = intervalEligible ? 5 : -100;
+        double tempo = tempoEligible ? 5 : -100;
         return new RunClassificationResultDto(dto, maxScore(easy, tempo, interval, longer));
     }
 
@@ -112,16 +101,19 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
 
     private RunType maxScore(double easy, double tempo, double interval, double longer) {
-        if (interval >= tempo && interval >= easy && interval >= longer) {
+        if (interval >= 0) {
             return RunType.INTERVAL_RUN;
         }
-        if (longer >= tempo && longer >= easy) {
+        if (longer >= 0) {
             return RunType.LONG_RUN;
         }
-        if (tempo >= easy) {
+        if (tempo >= 0) {
             return RunType.TEMPO_RUN;
         }
-        return RunType.EASY_RUN;
+        if (easy > 0) {
+            return RunType.EASY_RUN;
+        }
+        return RunType.TEMPO_RUN;
     }
 
     private double resolveIntensity(RunClassificationDto dto) {
@@ -194,7 +186,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
                 && dto.getNumHrSpikes() != null
                 && dto.getNumHrSpikes() >= 5;
 
-        return paceSpikes || hrSpikes;
+        return paceSpikes && hrSpikes;
     }
 
     private double windPenalty(double windSpeed) {

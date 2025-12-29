@@ -2,13 +2,11 @@ package com.smartroute.smartroute1.service;
 
 import com.smartroute.smartroute1.endpoint.dto.RunClassificationDto;
 import com.smartroute.smartroute1.endpoint.dto.RunClassificationResultDto;
-import com.smartroute.smartroute1.entity.enums.WorkoutType;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.List;
 
-public interface RunClassificationService {
+public interface RunTrainingClassificationService {
     /**
      * A non trained model as a labelling basis to determine what type of run the user ran.
      *
