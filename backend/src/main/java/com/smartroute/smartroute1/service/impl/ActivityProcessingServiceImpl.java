@@ -11,6 +11,7 @@ import com.smartroute.smartroute1.repository.ActivityStreamRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
+import com.smartroute.smartroute1.service.RunClassificationService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -88,6 +91,13 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         }
     }
 
+    /**
+     * Processes imported activities.
+     * Calculates time in zones, sessionLoad
+     *
+     * @param activity the activity to process
+     * @param token the Strava API token to fetch Strava data
+     */
     private void processActivity(Activity activity, String token) {
         try {
             Integer sessionLoad;
@@ -98,12 +108,28 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             boolean powerBasedCalculationPossible = activity.getAverageWatts() != null && user.getFtp() != null;
             boolean hasEnergy = activity.getKilojoules() != null;
 
-            /*Fetch Strava activity stravaStreams
+            /*
+            Fetch Strava activity stravaStreams
             Never re-fetch stravaStreams
              */
             List<StravaStreamDto> stravaStreams;
             if (activity.getActivityStream() == null) {
                 stravaStreams = fetchStreams(activity.getStravaId(), token);
+
+                // Calculate time in hr-zones
+                Map<Integer, Float> timeInZones = fitnessScoreService.calculateTimeInZones(stravaStreams, user);
+
+                // Set time in hr-zones
+                timeInZones.forEach((zone, time) -> {
+                    switch (zone) {
+                        case 1 -> activity.setTimeZ1(Math.round(time));
+                        case 2 -> activity.setTimeZ2(Math.round(time));
+                        case 3 -> activity.setTimeZ3(Math.round(time));
+                        case 4 -> activity.setTimeZ4(Math.round(time));
+                        case 5 -> activity.setTimeZ5(Math.round(time));
+                        default -> throw new IllegalStateException("Unexpected value: " + zone);
+                    }
+                });
 
                 // Extract stravaStreams, map to double list or null if not found and create an ActivityStream object
                 ActivityStream activityStream = createActivityStream(
@@ -113,8 +139,10 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                     ActivityStreamSource.STRAVA
                 );
 
-                activityStream = activityStreamRepository.save(activityStream);
-                activity.setActivityStream(activityStream);
+                if (activityStream != null) {
+                    activityStream = activityStreamRepository.save(activityStream);
+                    activity.setActivityStream(activityStream);
+                }
 
             } else if (activity.getActivityStream().getHeartrateStream() != null && activity.getActivityStream().getTimeStream() != null) {
                 // If stravaStreams are already stored decode time and heartrate streams and add to StravaStreamDto list
@@ -144,7 +172,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 // 1. If (Strava) sufferScore is present, use it
                 sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getSufferScore(), activity.getTotalElevationGain());
             } else if (isStravaActivity) {
-                // 2. Strava activity but no sufferScore available: fetch heartRate stream and manually calculate a sessionLoad
+                // 2. Strava activity but no sufferScore available: use heartRate stream and manually calculate a sessionLoad
                 sessionLoad = fitnessScoreService.calculateSessionLoad(stravaStreams, activity);
             } else if (powerBasedCalculationPossible) {
                 // 3. Not a Strava activity: calculate based on power
@@ -174,6 +202,16 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 storedActivity.setElapsedTime(storedActivity.getElapsedTime());
                 storedActivity.setMovingTime(storedActivity.getMovingTime());
                 storedActivity.setMaxHeartrate(storedActivity.getMaxHeartrate());
+
+                // Update time in zones only if it was not stored before
+                if (activity.getTimeZ1() != null && storedActivity.getTimeZ1() == null) {
+                    storedActivity.setTimeZ1(activity.getTimeZ1());
+                    storedActivity.setTimeZ2(activity.getTimeZ2());
+                    storedActivity.setTimeZ3(activity.getTimeZ3());
+                    storedActivity.setTimeZ4(activity.getTimeZ4());
+                    storedActivity.setTimeZ5(activity.getTimeZ5());
+                }
+
                 storedActivity.setSummaryPolyline(storedActivity.getSummaryPolyline());
                 storedActivity.setAverageHeartrate(activity.getAverageHeartrate());
                 storedActivity.setAverageSpeed(activity.getAverageSpeed());
@@ -210,6 +248,13 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         return storedActivity;
     }
 
+    /**
+     * Fetches Strava streams for an activity.
+     *
+     * @param activityId the id of the activity to fetch streams for
+     * @param token the Strava API token for the authenticated user
+     * @return a list of Strava streams
+     */
     private List<StravaStreamDto> fetchStreams(Long activityId, String token) {
         LOGGER.trace("fetchStreams({}, *token*)", activityId);
         UriComponentsBuilder builder = UriComponentsBuilder

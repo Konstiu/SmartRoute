@@ -14,7 +14,7 @@ import java.util.Optional;
 public interface ActivityProcessingService {
     /**
      * Fetches the Strava heartRateStreams for the activities in the
-     * provided activities list, calculates the sessionLoad for each activity
+     * provided activities list, calculates the sessionLoad and time in hr-zones for each activity
      * and saves it to the activity.
      * To avoid hitting Strava API limits, activities are processed in batches.
      *

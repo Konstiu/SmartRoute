@@ -4,15 +4,19 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.ActivityStream;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.GarminAccount;
+import com.smartroute.smartroute1.entity.enums.ActivityStreamSource;
 import com.smartroute.smartroute1.exception.garmin.GarminAuthenticationException;
 import com.smartroute.smartroute1.exception.garmin.GarminException;
 import com.smartroute.smartroute1.exception.garmin.GarminNoDataException;
 import com.smartroute.smartroute1.exception.garmin.GarminScriptException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
+import com.smartroute.smartroute1.repository.ActivityStreamRepository;
 import com.smartroute.smartroute1.repository.GarminAccountRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
+import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
 import com.smartroute.smartroute1.service.GarminImportService;
 import com.smartroute.smartroute1.service.GpxService;
@@ -62,6 +66,8 @@ public class GarminImportServiceImpl implements GarminImportService {
     private final ActivityRepository activityRepository;
     private final GpxService gpxService;
     private final FitnessScoreService fitnessScoreService;
+    private final ActivityProcessingService activityProcessingService;
+    private final ActivityStreamRepository activityStreamRepository;
 
     @Override
     @Transactional
@@ -632,6 +638,33 @@ public class GarminImportServiceImpl implements GarminImportService {
                     timestamps,
                     activity
             );
+
+            // Calculate time in hr-zones
+            Map<Integer, Float> timeInZones = fitnessScoreService.calculateTimeInZones(heartRates, timestamps, user);
+
+            // Set time in hr-zones
+            timeInZones.forEach((zone, time) -> {
+                switch (zone) {
+                    case 1 -> activity.setTimeZ1(Math.round(time));
+                    case 2 -> activity.setTimeZ2(Math.round(time));
+                    case 3 -> activity.setTimeZ3(Math.round(time));
+                    case 4 -> activity.setTimeZ4(Math.round(time));
+                    case 5 -> activity.setTimeZ5(Math.round(time));
+                    default -> throw new IllegalStateException("Unexpected value: " + zone);
+                }
+            });
+
+            // Create activity streams
+            ActivityStream activityStream = activityProcessingService.createActivityStream(
+                timestamps.stream().mapToDouble(Float::doubleValue).boxed().toList(),
+                null,
+                heartRates.stream().mapToDouble(Float::doubleValue).boxed().toList(),
+                ActivityStreamSource.GARMIN);
+
+            if (activityStream != null) {
+                activityStreamRepository.save(activityStream);
+                activity.setActivityStream(activityStream);
+            }
 
             log.debug("Calculated session load using HR data (avg={}, max={}) for activity {}",
                     avgHr, maxHr, summary.path("activityId").asLong());
