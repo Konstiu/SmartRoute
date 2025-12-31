@@ -1,7 +1,7 @@
 import {Component, EventEmitter, Input, Output, ViewChild} from '@angular/core';
 import {ActionSheetController, IonicModule, ModalController} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
-import {LatLng, LatLngBounds, Layer, marker, polyline as leafletPolyline } from 'leaflet';
+import {LatLng, LatLngBounds, Layer, marker, polyline as leafletPolyline} from 'leaflet';
 import {MapComponent} from './map.component';
 import {coloredMarker, emojiMarker, MAP_MARKER_COLORS} from './map-icon';
 import {StopsService} from '../../../services/add-stops.service';
@@ -9,8 +9,6 @@ import {ViennaPointDto} from '../../dtos/ViennaPointsDto';
 import {SanitarySettings, SanitarySettingsModalComponent} from './consider-fac/consider-fac.component';
 import {RouteWithFacilityDefaults} from "../../dtos/RouteWithFacilitiesDto";
 import {GeoJsonPosition} from "../../dtos/add-stops";
-
-
 
 
 @Component({
@@ -57,7 +55,8 @@ export class MapModalComponent {
     private modalCtrl: ModalController,
     private actionSheetCtrl: ActionSheetController,
     private stopsService: StopsService
-  ) {}
+  ) {
+  }
 
   ngOnInit() {
     this.baseLayers = [...this.layers];
@@ -102,13 +101,13 @@ export class MapModalComponent {
     const modal = await this.modalCtrl.create({
       component: SanitarySettingsModalComponent,
       componentProps: {
-        settings: { ...this.sanitarySettings }
+        settings: {...this.sanitarySettings}
       }
     });
 
     await modal.present();
 
-    const { data, role } = await modal.onWillDismiss();
+    const {data, role} = await modal.onWillDismiss();
 
     if (role === 'confirm' && data) {
       this.sanitarySettings = data;
@@ -139,14 +138,7 @@ export class MapModalComponent {
     };
 
 
-    // Emit the configuration so parent component can handle route recalculation
-    //this.sanitarySettingsChanged.emit(routeConfig);
-
-    // Optionally show loading indicator
-    //this.isLoadingFacilities = true;
-
-    // You can also process it here if you prefer
-     this.processRouteWithFacilities(routeConfig);
+    this.processRouteWithFacilities(routeConfig);
   }
 
   getRoutePoints(): GeoJsonPosition[] {
@@ -314,7 +306,7 @@ export class MapModalComponent {
             const facilityType = facility.type.toLowerCase() as 'toilet' | 'fountain';
             const facilityMarkerInstance = marker(
               [lat, lon],
-              { icon: emojiMarker(facilityType) }
+              {icon: emojiMarker(facilityType)}
             );
 
             // Add popup with facility info
@@ -491,27 +483,29 @@ export class MapModalComponent {
   private updateRouteOnMap(encodedPolyline: string) {
     // decode encoded polyline -> LatLng[]
     const latlngs = this.decodePolylineToLatLngs(encodedPolyline, 6);
-    if (latlngs.length < 2) return;
+    if (latlngs.length < 2){ return;}
+    this.setRouteLayer(latlngs);
+  }
 
-    // build new leaflet layer for the route
-    const newRouteLayer = leafletPolyline(latlngs);
-    (newRouteLayer as any).__isRouteLayer = true;
+  private setRouteLayer(latlngs: LatLng[]) {
+    const newRoute = leafletPolyline(latlngs);
+    (newRoute as any).__isRouteLayer = true;
 
-    // replace old route layer inside baseLayers
+    // replace old route if exists
     const idx = this.baseLayers.findIndex(l => (l as any).__isRouteLayer);
     if (idx >= 0) {
-      this.baseLayers[idx] = newRouteLayer;
+      this.baseLayers[idx] = newRoute;
     } else {
-      // if we didn't tag it yet, replace "first polyline-like layer" as fallback
-      const fallback = this.baseLayers.findIndex(l => (l as any).getLatLngs);
-      if (fallback >= 0) this.baseLayers[fallback] = newRouteLayer;
-      else this.baseLayers.unshift(newRouteLayer);
+      // fallback: replace first polyline-like layer
+      const fallback = this.baseLayers.findIndex(l => typeof (l as any).getLatLngs === 'function');
+      if (fallback >= 0) this.baseLayers[fallback] = newRoute;
+      else this.baseLayers.unshift(newRoute);
     }
 
-    // rebuild UI layers (keeps facility markers + added points)
+    // now rebuild the final rendered layer list
     this.rebuildLayers();
 
-    // update bounds + optionally recenter
+    // update bounds and recenter
     this.routeBounds = new LatLngBounds(latlngs);
     this.centerRoute();
   }
@@ -542,7 +536,7 @@ export class MapModalComponent {
     let v = r.value;
     const neg = v & 1;
     v >>= 1;
-    return { value: neg ? ~v : v, nextIndex: r.nextIndex };
+    return {value: neg ? ~v : v, nextIndex: r.nextIndex};
   }
 
   private decodeUnsignedVarint(str: string, start: number): { value: number; nextIndex: number } {
@@ -557,9 +551,8 @@ export class MapModalComponent {
       if ((b & 0x20) === 0) break;
     }
 
-    return { value: result, nextIndex: index };
+    return {value: result, nextIndex: index};
   }
-
 
 
 }
