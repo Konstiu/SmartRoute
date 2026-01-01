@@ -1,4 +1,4 @@
-import { Component, Input, ViewChild, Output, EventEmitter } from '@angular/core';
+import { Component, Input, ViewChild } from '@angular/core';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { LatLngBounds, LatLng, Layer, marker } from 'leaflet';
@@ -18,7 +18,6 @@ export class MapModalComponent {
   @Input() routeBounds!: LatLngBounds;
   @Input() onConfirm!: (points: LatLng[]) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
 
-
   @ViewChild(MapComponent) mapComponent!: MapComponent;
 
   addPointMode = false;
@@ -26,57 +25,40 @@ export class MapModalComponent {
   localLayers: Layer[] = [];
   private baseLayers: Layer[] = [];
 
+  isMapReady = false; // initial "map is centered, show it"
+  isProcessing = false; // confirming points (backend call)
+  loadingMessage = 'Loading map…';
 
   constructor(private modalCtrl: ModalController) {}
 
   ngOnInit() {
-    // immutable snapshot of initial layers
     this.baseLayers = [...this.layers];
     this.localLayers = [...this.layers];
-  }
-
-
-  toggleAddPointMode() {
-    if (this.addPointMode) {
-      // CANCEL -> remove unconfirmed points
-      this.addedPoints = [];
-      this.localLayers = [...this.baseLayers];
-    }
-
-    this.addPointMode = !this.addPointMode;
-  }
-
-  onPointAdded(point: LatLng) {
-    this.addedPoints.push(point);
-
-    const m = marker(point, {
-      icon: coloredMarker(MAP_MARKER_COLORS.added)});
-    this.localLayers = [...this.localLayers, m];
   }
 
   ionViewDidEnter() {
     this.centerRouteInitially();
   }
 
-  isMapReady = false;
-
   private centerRouteInitially() {
+    this.isMapReady = false;
+    this.loadingMessage = 'Centering route…';
+
     requestAnimationFrame(() => {
       const map = this.mapComponent?.map;
       if (!map || !this.routeBounds) return;
 
       map.invalidateSize();
 
-      // Fit route immediately
       map.fitBounds(this.routeBounds, {
         padding: [50, 50],
         animate: false
       });
 
-      // Reveal map AFTER centering
+      // reveal map AFTER centering
       setTimeout(() => {
         this.isMapReady = true;
-      }, 50); // tiny delay ensures tiles settle
+      }, 80);
     });
   }
 
@@ -90,52 +72,79 @@ export class MapModalComponent {
     });
   }
 
+  toggleAddPointMode() {
+    // cancel -> remove unconfirmed points
+    if (this.addPointMode) {
+      this.addedPoints = [];
+      this.localLayers = [...this.baseLayers];
+    }
+
+    this.addPointMode = !this.addPointMode;
+  }
+
+  onPointAdded(point: LatLng) {
+    if (!this.addPointMode || this.isProcessing) return;
+
+    this.addedPoints.push(point);
+
+    const m = marker(point, {
+      icon: coloredMarker(MAP_MARKER_COLORS.added)
+    });
+
+    this.localLayers = [...this.localLayers, m];
+  }
+
   close() {
     this.modalCtrl.dismiss({
       addedPoints: this.addedPoints
     });
   }
 
+  async confirm() {
+    if (!this.onConfirm || this.addedPoints.length === 0 || this.isProcessing) return;
 
-async confirm() {
-  if (!this.onConfirm || this.addedPoints.length === 0) return;
+    const points = [...this.addedPoints];
 
-  const points = [...this.addedPoints];
+    this.isProcessing = true;
+    this.loadingMessage = 'Recalculating route…';
 
-  // optional: show spinner while updating
-  this.isMapReady = false;
+    try {
+      const { layers, bounds } = await this.onConfirm(points);
 
-  try {
-    // 1) call parent -> backend -> returns updated layers/bounds
-    const { layers, bounds } = await this.onConfirm(points);
+      // update modal immediately
+      this.baseLayers = [...layers];
+      this.localLayers = [...layers];
+      if (bounds) this.routeBounds = bounds;
 
-    // 2) update modal to reflect new route immediately
-    this.baseLayers = [...layers];
-    this.localLayers = [...layers];
-    this.routeBounds = bounds ?? this.routeBounds;
+      // reset editor state
+      this.addedPoints = [];
+      this.addPointMode = false;
 
-    // 3) reset editor state (points are now "committed")
-    this.addedPoints = [];
-    this.addPointMode = false;
+      // refit
+      this.loadingMessage = 'Centering route…';
 
-    // 4) refit map
-    requestAnimationFrame(() => {
-      const map = this.mapComponent?.map;
-      if (!map) return;
+      requestAnimationFrame(() => {
+        const map = this.mapComponent?.map;
+        if (!map) {
+          this.isProcessing = false;
+          return;
+        }
 
-      map.invalidateSize();
-      if (this.routeBounds) {
-        map.fitBounds(this.routeBounds, { padding: [50, 50], animate: true });
-      }
+        map.invalidateSize();
 
-      this.isMapReady = true;
-    });
+        if (this.routeBounds) {
+          map.fitBounds(this.routeBounds, { padding: [50, 50], animate: true });
+        }
 
-  } catch (e) {
-    console.error('Confirm failed', e);
-    this.isMapReady = true;
+        // small delay to avoid grey tile flash
+        setTimeout(() => {
+          this.isProcessing = false;
+        }, 120);
+      });
+
+    } catch (e) {
+      console.error('Confirm failed', e);
+      this.isProcessing = false;
+    }
   }
-}
-
-
 }
