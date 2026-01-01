@@ -16,15 +16,16 @@ spec:
       containers:
         - name: 25ws-ase-pr-inso-05-container
           image: registry.reset.inso-w.at/2025ws-ase-pr-group/25ws-ase-pr-inso-05:latest
+          workingDir: /app
           resources:
             requests:
-              memory: "256Mi"
-              cpu: "10m"
-              ephemeral-storage: "100Mi"
-            limits:
               memory: "512Mi"
+              cpu: "10m"
+              ephemeral-storage: "512Mi"
+            limits:
+              memory: "1Gi"
               cpu: "500m"
-              ephemeral-storage: "100Mi"
+              ephemeral-storage: "1000Mi"
           ports:
             - containerPort: 8080
           livenessProbe:
@@ -52,6 +53,8 @@ spec:
                 port: 8080
                 path: /health/prepareShutdown
           env:
+            - name: GARMIN_PYTHON_EXECUTABLE
+              value: "python3.12" 
             - name: STRAVA_CLIENT_ID
               valueFrom:
                 secretKeyRef:
