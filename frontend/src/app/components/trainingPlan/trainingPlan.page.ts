@@ -25,7 +25,8 @@ import { Polyline, Marker, LatLngBounds } from "leaflet";
 import { MAP_MARKER_COLORS, coloredMarker } from '../map/map-icon';
 import { StopsService } from 'src/services/add-stops.service';
 import { firstValueFrom } from 'rxjs';
-import { GeoJsonPosition, AddStopsRequest } from '../../dtos/add-stops'
+import { GeoJsonPosition, AddStopsRequest } from '../../dtos/add-stops';
+type RouteUpdate = { layers: Layer[]; bounds: LatLngBounds | null };
 
 @Component({
   selector: 'app-trainingplan',
@@ -320,15 +321,8 @@ async openMapModal() {
       layers: this.cloneLayersForModal(),
       routeBounds: this.routeBounds,
 
-      onConfirm: async (points: LatLng[]) => {
-        await this.handleAdditionalPoints(points);
-
-        // after backend updated routeLine + bounds + rebuildLayers()
-        return {
-          layers: this.cloneLayersForModal(),
-          bounds: this.routeBounds
-        };
-      }
+      // modal calls this, waits for backend, receives updated layers + bounds
+      onConfirm: (points: LatLng[]) => this.handleAdditionalPoints(points),
     },
     cssClass: 'fullscreen-map-modal',
     animated: false
@@ -336,6 +330,7 @@ async openMapModal() {
 
   await modal.present();
 }
+
 
 
  private cloneLayersForModal(): Layer[] {
@@ -362,26 +357,40 @@ async openMapModal() {
    return cloned;
  }
 
-  handleAdditionalPoints(points: LatLng[]) {
-    if (!this.routeLine || points.length === 0) return;
-
-    const request: AddStopsRequest = {
-      originalRoute: this.routeLineToGeoJson(this.routeLine),
-      newPoints: points.map(p => this.toGeoJsonPosition(p)),
-    };
-
-    this.stopsService.insertStops(request).subscribe(e => {
-        // 1) extract updated coordinates
-          this.routeLine = polyline(
-            convertPolylineToCoordinateList(e.polyline)
-              .map(p => latLng(p[0], p[1]))
-          );
-
-          this.routeBounds = this.routeLine.getBounds();
-          this.rebuildLayers();
-      },
-    );
+async handleAdditionalPoints(points: LatLng[]): Promise<RouteUpdate> {
+  if (!this.routeLine || points.length === 0) {
+    return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
   }
+
+  const request: AddStopsRequest = {
+    originalRoute: this.routeLineToGeoJson(this.routeLine),
+    newPoints: points.map(p => this.toGeoJsonPosition(p)),
+  };
+
+  // wait for backend response
+  const e = await firstValueFrom(this.stopsService.insertStops(request));
+
+  // rebuild routeLine from returned polyline
+  this.routeLine = polyline(
+    convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1]))
+  );
+
+  this.routeBounds = this.routeLine.getBounds();
+
+  // rebuild preview layers (new array reference)
+  this.rebuildLayers();
+
+  // force leaflet preview map redraw
+  requestAnimationFrame(() => {
+    const map = this.mapComponent?.map;
+    if (!map || !this.routeBounds) return;
+
+    map.invalidateSize();
+    map.fitBounds(this.routeBounds, { padding: [30, 30], animate: true });
+  });
+
+  return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
+}
 
   private toGeoJsonPosition(p: LatLng): GeoJsonPosition {
     return {
