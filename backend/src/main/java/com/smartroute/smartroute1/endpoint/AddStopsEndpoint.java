@@ -1,32 +1,40 @@
 package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.endpoint.dto.AddStopsDto;
+import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonDto;
 import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonPosition;
+import com.smartroute.smartroute1.endpoint.mapper.PolyLineMapper;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.AddStopsService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.annotation.security.PermitAll;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
-@RequestMapping("/api/stops")
-@RequiredArgsConstructor
+@RequestMapping("/api/v1/stops")
 public class AddStopsEndpoint {
     private final AddStopsService service;
+    private final PolyLineMapper polyLineMapper;
+
+    public AddStopsEndpoint(AddStopsService service, PolyLineMapper polyLineMapper) {
+        this.service = service;
+        this.polyLineMapper = polyLineMapper;
+    }
 
     @PostMapping("/insert")
     @PermitAll
     @Operation(summary = "Insert additional stops.",
             description = "Edit a given route to include multiple coordinates the user sets.")
-    public ResponseEntity<List<GeoJsonPosition>> addWaypoints(@RequestBody AddStopsDto addStopsDto) throws ValidationException {
-        List<GeoJsonPosition> editedRoute  = service.addWaypoints(addStopsDto.getOriginalRoute(), addStopsDto.getNewPoint());
-        return ResponseEntity.ok(editedRoute);
+    public ResponseEntity<String> addWaypoints(@RequestBody AddStopsDto addStopsDto) throws ValidationException {
+        GeoJsonDto editedRoute = service.addWaypoints(addStopsDto);
+        String response = "{\"bbox\":" + editedRoute.getBbox()
+                + ",\"polyline\":\"" + polyLineMapper.geoJsonGeometryLineStringToPolyline(editedRoute.getFeatures().getFirst().getGeometry()).replace("\\", "\\\\") + "\""
+                + ",\"distance\":" + editedRoute.getFeatures().getFirst().getProperties().getDistance()
+                + ",\"elevation\":" + editedRoute.getFeatures().getFirst().getProperties().getAscent() + "}";
+        return ResponseEntity.ok(response);
     }
 }

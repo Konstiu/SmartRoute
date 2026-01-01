@@ -1,5 +1,8 @@
 package com.smartroute.smartroute1.unittest;
 
+import com.smartroute.smartroute1.endpoint.AddStopsEndpoint;
+import com.smartroute.smartroute1.endpoint.dto.AddStopsDto;
+import com.smartroute.smartroute1.endpoint.dto.StopPointDto;
 import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonPosition;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.AddStopsService;
@@ -16,6 +19,8 @@ import java.util.List;
 public class AddStopsTest {
     @Autowired
     AddStopsService service;
+    @Autowired
+    AddStopsEndpoint endpoint;
 
     private final static GeoJsonPosition CORD1 = new GeoJsonPosition(48.245319, 16.300269, 0.0);
     private final static GeoJsonPosition CORD2 = new GeoJsonPosition(48.241755, 16.297835, 0.0);
@@ -40,6 +45,28 @@ public class AddStopsTest {
     private final static GeoJsonPosition C3G3 = new GeoJsonPosition(48.201805, 16.345101, 0.0); // schottenfeld
 
     private final static GeoJsonPosition C4G3 = new GeoJsonPosition(48.213613, 16.370182, 180.0);
+
+    @Test
+    void testEndpoint() throws ValidationException {
+        AddStopsDto dto = new AddStopsDto();
+        StopPointDto g1 = new StopPointDto(48.680095, 9.797653, null);
+        StopPointDto g2 = new StopPointDto(48.680177, 9.798067, null);
+        StopPointDto g3 = new StopPointDto(48.680139, 9.798127, null);
+
+        StopPointDto n1 = new StopPointDto(48.681554, 9.807873, null);
+
+        List<StopPointDto> geoList = new ArrayList<>();
+        geoList.add(g1);
+        geoList.add(g2);
+        geoList.add(g3);
+        dto.setOriginalRoute(geoList);
+
+        List<StopPointDto> nuList = new ArrayList<>();
+        nuList.add(n1);
+        dto.setNewPoints(nuList);
+
+        endpoint.addWaypoints(dto);
+    }
 
 //    @Test
 //    void testKeepLengthGpx3() throws ValidationException, IOException {

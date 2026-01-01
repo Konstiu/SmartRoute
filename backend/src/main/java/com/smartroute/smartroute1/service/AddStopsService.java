@@ -1,5 +1,7 @@
 package com.smartroute.smartroute1.service;
 
+import com.smartroute.smartroute1.endpoint.dto.AddStopsDto;
+import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonDto;
 import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonPosition;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.util.Coordinate;
@@ -24,12 +26,11 @@ public interface AddStopsService {
     /**
      * Computes optimal endpoints on original route, generates new route segments and stitches them together.
      *
-     * @param originalRoute the full list of {@link GeoJsonPosition} representing the existing route; must contain at least two points
-     * @param newPoints list of {@link GeoJsonPosition} that should be added to the rout
+     * @param addStopsDto representing the original route and the new points to be added.
      * @return a new list of {@link GeoJsonPosition} representing the updated route including the waypoint
      * @throws ValidationException if the input route is null, too short, or contains invalid data
      */
-    List<GeoJsonPosition> addWaypoints(List<GeoJsonPosition> originalRoute, List<GeoJsonPosition> newPoints) throws ValidationException;
+    GeoJsonDto addWaypoints(AddStopsDto addStopsDto) throws ValidationException;
 
     /**
      * Extracts a list of coordinates from a given .gpx file.
