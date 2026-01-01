@@ -318,17 +318,20 @@ async openMapModal() {
     component: MapModalComponent,
     componentProps: {
       layers: this.cloneLayersForModal(),
-      routeBounds: this.routeBounds
+      routeBounds: this.routeBounds,
+
+      onConfirm: async (points: LatLng[]) => {
+        await this.handleAdditionalPoints(points);
+
+        // after backend updated routeLine + bounds + rebuildLayers()
+        return {
+          layers: this.cloneLayersForModal(),
+          bounds: this.routeBounds
+        };
+      }
     },
     cssClass: 'fullscreen-map-modal',
     animated: false
-  });
-
-  modal.onDidDismiss().then(result => {
-    const addedPoints: LatLng[] = result.data?.addedPoints ?? [];
-    if (addedPoints.length) {
-      this.handleAdditionalPoints(addedPoints);
-    }
   });
 
   await modal.present();
@@ -364,27 +367,20 @@ async openMapModal() {
 
     const request: AddStopsRequest = {
       originalRoute: this.routeLineToGeoJson(this.routeLine),
-      newPoints: points.map(p => this.toGeoJsonPosition(p))
+      newPoints: points.map(p => this.toGeoJsonPosition(p)),
     };
 
-    this.stopsService.insertStops(request).subscribe({
-      next: (editedRoute) => {
-        const latLngs = this.geoJsonToLatLngs(editedRoute);
+    this.stopsService.insertStops(request).subscribe(e => {
+        // 1) extract updated coordinates
+          this.routeLine = polyline(
+            convertPolylineToCoordinateList(e.polyline)
+              .map(p => latLng(p[0], p[1]))
+          );
 
-        this.routeLine = polyline(latLngs);
-        this.routeBounds = this.routeLine.getBounds();
-
-        this.rebuildLayers();
-
-        this.mapComponent?.map?.fitBounds(this.routeBounds, {
-          padding: [30, 30]
-        });
+          this.routeBounds = this.routeLine.getBounds();
+          this.rebuildLayers();
       },
-      error: err => {
-        console.error('Failed to insert stops', err);
-        // optional toast / alert
-      }
-    });
+    );
   }
 
   private toGeoJsonPosition(p: LatLng): GeoJsonPosition {
@@ -404,8 +400,6 @@ async openMapModal() {
   private geoJsonToLatLngs(route: GeoJsonPosition[]): LatLng[] {
     return route.map(p => latLng(p.latitude, p.longitude));
   }
-
-
 
 
   protected readonly SessionType = SessionType;

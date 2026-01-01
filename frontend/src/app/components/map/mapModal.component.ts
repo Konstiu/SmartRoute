@@ -16,7 +16,8 @@ export class MapModalComponent {
 
   @Input() layers: any[] = [];
   @Input() routeBounds!: LatLngBounds;
-  @Output() confirmPoints = new EventEmitter<LatLng[]>();
+  @Input() onConfirm!: (points: LatLng[]) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
+
 
   @ViewChild(MapComponent) mapComponent!: MapComponent;
 
@@ -96,13 +97,45 @@ export class MapModalComponent {
   }
 
 
-confirm() {
-  this.confirmPoints.emit([...this.addedPoints]);
+async confirm() {
+  if (!this.onConfirm || this.addedPoints.length === 0) return;
 
-  // reset editor state
-  this.addedPoints = [];
-  this.addPointMode = false;
-  this.localLayers = [...this.baseLayers];
+  const points = [...this.addedPoints];
+
+  // optional: show spinner while updating
+  this.isMapReady = false;
+
+  try {
+    // 1) call parent -> backend -> returns updated layers/bounds
+    const { layers, bounds } = await this.onConfirm(points);
+
+    // 2) update modal to reflect new route immediately
+    this.baseLayers = [...layers];
+    this.localLayers = [...layers];
+    this.routeBounds = bounds ?? this.routeBounds;
+
+    // 3) reset editor state (points are now "committed")
+    this.addedPoints = [];
+    this.addPointMode = false;
+
+    // 4) refit map
+    requestAnimationFrame(() => {
+      const map = this.mapComponent?.map;
+      if (!map) return;
+
+      map.invalidateSize();
+      if (this.routeBounds) {
+        map.fitBounds(this.routeBounds, { padding: [50, 50], animate: true });
+      }
+
+      this.isMapReady = true;
+    });
+
+  } catch (e) {
+    console.error('Confirm failed', e);
+    this.isMapReady = true;
+  }
 }
+
 
 }
