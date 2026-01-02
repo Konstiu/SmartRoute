@@ -322,7 +322,7 @@ async openMapModal() {
       routeBounds: this.routeBounds,
 
       // modal calls this, waits for backend, receives updated layers + bounds
-      onConfirm: (points: LatLng[]) => this.handleAdditionalPoints(points),
+      onConfirm: (points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH') => this.handleAdditionalPoints(points, mode),
     },
     cssClass: 'fullscreen-map-modal',
     animated: false
@@ -357,7 +357,7 @@ async openMapModal() {
    return cloned;
  }
 
-async handleAdditionalPoints(points: LatLng[]): Promise<RouteUpdate> {
+async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH'): Promise<RouteUpdate> {
   if (!this.routeLine || points.length === 0) {
     return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
   }
@@ -368,7 +368,11 @@ async handleAdditionalPoints(points: LatLng[]): Promise<RouteUpdate> {
   };
 
   // wait for backend response
-  const e = await firstValueFrom(this.stopsService.insertStops(request));
+  const e = await firstValueFrom(
+    mode === 'KEEP_SHAPE'
+      ? this.stopsService.insertStops(request)
+      : this.stopsService.reshape(request)
+  );
 
   // rebuild routeLine from returned polyline
   this.routeLine = polyline(

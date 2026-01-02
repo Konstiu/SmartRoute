@@ -48,3 +48,16 @@ ion-fab {
   }
 }
 
+.mode-toggle {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5000;
+  width: min(420px, calc(100% - 24px));
+  background: var(--ion-background-color);
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
+}
+

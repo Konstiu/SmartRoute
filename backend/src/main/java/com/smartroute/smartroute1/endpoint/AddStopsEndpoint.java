@@ -37,4 +37,17 @@ public class AddStopsEndpoint {
                 + ",\"elevation\":" + editedRoute.getFeatures().getFirst().getProperties().getAscent() + "}";
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/reshape")
+    @PermitAll
+    @Operation(summary = "Reshape the route to include additional stops.",
+            description = "Reshape a given route to include multiple coordinates, without changing the original length too much.")
+    public ResponseEntity<String> reshape(@RequestBody AddStopsDto addStopsDto) throws ValidationException {
+        GeoJsonDto editedRoute = service.reshape(addStopsDto);
+        String response = "{\"bbox\":" + editedRoute.getBbox()
+                + ",\"polyline\":\"" + polyLineMapper.geoJsonGeometryLineStringToPolyline(editedRoute.getFeatures().getFirst().getGeometry()).replace("\\", "\\\\") + "\""
+                + ",\"distance\":" + editedRoute.getFeatures().getFirst().getProperties().getDistance()
+                + ",\"elevation\":" + editedRoute.getFeatures().getFirst().getProperties().getAscent() + "}";
+        return ResponseEntity.ok(response);
+    }
 }

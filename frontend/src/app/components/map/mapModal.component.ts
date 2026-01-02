@@ -1,14 +1,16 @@
 import { Component, Input, ViewChild } from '@angular/core';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms'
 import { LatLngBounds, LatLng, Layer, marker } from 'leaflet';
 import { MapComponent } from './map.component';
 import { MAP_MARKER_COLORS, coloredMarker } from './map-icon';
+type AddStopsMode = 'KEEP_SHAPE' | 'KEEP_LENGTH';
 
 @Component({
   standalone: true,
   selector: 'app-map-modal',
-  imports: [IonicModule, CommonModule, MapComponent],
+  imports: [IonicModule, CommonModule, MapComponent, FormsModule],
   templateUrl: './mapModal.component.html',
   styleUrls: ['./mapModal.component.scss']
 })
@@ -16,10 +18,10 @@ export class MapModalComponent {
 
   @Input() layers: any[] = [];
   @Input() routeBounds!: LatLngBounds;
-  @Input() onConfirm!: (points: LatLng[]) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
+  @Input() onConfirm!: (points: LatLng[], mode: AddStopsMode) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
 
   @ViewChild(MapComponent) mapComponent!: MapComponent;
-
+  mode: AddStopsMode = 'KEEP_SHAPE';
   addPointMode = false;
   addedPoints: LatLng[] = [];
   localLayers: Layer[] = [];
@@ -109,7 +111,7 @@ export class MapModalComponent {
     this.loadingMessage = 'Recalculating route…';
 
     try {
-      const { layers, bounds } = await this.onConfirm(points);
+      const { layers, bounds } = await this.onConfirm(points, this.mode);
 
       // update modal immediately
       this.baseLayers = [...layers];

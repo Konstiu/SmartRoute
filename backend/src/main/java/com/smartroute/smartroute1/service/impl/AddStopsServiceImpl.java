@@ -48,7 +48,6 @@ public class AddStopsServiceImpl implements AddStopsService {
                                GeoJsonPosition endCoordinate) {
     }
 
-    @Override
     public List<GeoJsonPosition> routeThroughPoint(GeoJsonPosition start, GeoJsonPosition via, GeoJsonPosition end) throws ValidationException {
 
         validator.validateCoordinates(start.getLatitude(), start.getLongitude());
@@ -259,7 +258,11 @@ public class AddStopsServiceImpl implements AddStopsService {
         return createGeoJsonDtoFromPolyline(updatedRoute);
     }
 
-    private List<GeoJsonPosition> toGeo(List<StopPointDto> stopList) {
+    private List<GeoJsonPosition> toGeo(List<StopPointDto> stopList) throws ValidationException {
+        if (stopList == null || stopList.isEmpty()) {
+            throw new ValidationException("StopList must have points.");
+        }
+
         List<GeoJsonPosition> geoList = new ArrayList<>();
         for (StopPointDto p : stopList) {
             GeoJsonPosition g = new GeoJsonPosition(p.getLatitude(), p.getLongitude(), p.getAltitude());
@@ -267,6 +270,20 @@ public class AddStopsServiceImpl implements AddStopsService {
         }
 
         return geoList;
+    }
+
+    private List<StopPointDto> toStopPoint(List<GeoJsonPosition> geoList) throws ValidationException {
+        if (geoList == null || geoList.isEmpty()) {
+            throw new ValidationException("GeoList must have points.");
+        }
+
+        List<StopPointDto> stopList = new ArrayList<>();
+        for (GeoJsonPosition p : geoList) {
+            StopPointDto g = new StopPointDto(p.getLatitude(), p.getLongitude(), p.getAltitude());
+            stopList.add(g);
+        }
+
+        return stopList;
     }
 
     private GeoJsonDto createGeoJsonDtoFromPolyline(List<GeoJsonPosition> polyline) {
@@ -514,33 +531,6 @@ public class AddStopsServiceImpl implements AddStopsService {
         return new ArrayList<>(detour.subList(startIdx, endIdx + 1));
     }
 
-    @Override
-    public List<GeoJsonPosition> gpxToPolyline(String pathname) throws IOException {
-        GPX gpx = GPX.read(Path.of(pathname));
-        List<WayPoint> points = gpx.tracks()
-                .flatMap(t -> t.segments())
-                .flatMap(s -> s.points())
-                .toList();
-
-        List<GeoJsonPosition> coords = points.stream()
-                .map(p -> new GeoJsonPosition(p.getLatitude().doubleValue(), p.getLongitude().doubleValue(), 0.0))
-                .toList();
-
-        LOGGER.trace("first coordinate: {}", coords.getFirst());
-        return coords;
-    }
-
-    @Override
-    public void createGpx(List<GeoJsonPosition> coordinates, String pathname) throws IOException {
-        GPX gpx = GPX.builder()
-                .addTrack(track -> track.addSegment(seg ->
-                        coordinates.forEach(c -> seg.addPoint(WayPoint.of(c.getLatitude(), c.getLongitude())))
-                ))
-                .build();
-
-        GPX.write(gpx, Path.of(pathname));
-    }
-
     // Haversine distance in meters between two lat/lon points.
     private static double haversine(GeoJsonPosition a, GeoJsonPosition b) {
         double lat1 = Math.toRadians(a.getLatitude());
@@ -593,17 +583,15 @@ public class AddStopsServiceImpl implements AddStopsService {
         double latProj = projY / EARTH_RADIUS_METERS;
         double lonProj = projX / (EARTH_RADIUS_METERS * Math.cos(phi0));
 
-        return new GeoJsonPosition(Math.toDegrees(latProj), Math.toDegrees(lonProj), 0.0); // altitude is not important here
+        return new GeoJsonPosition(Math.toDegrees(latProj), Math.toDegrees(lonProj), null); // altitude is not important here
     }
 
     @Override
-    public List<GeoJsonPosition> reshape(List<GeoJsonPosition> originalRoute, List<GeoJsonPosition> newPoints, double toleranceFactor) throws ValidationException {
-        if (originalRoute == null || originalRoute.size() < 2) {
-            throw new ValidationException("Original route must have at least 2 points.");
-        }
+    public GeoJsonDto reshape(AddStopsDto addStopsDto) throws ValidationException {
+        List<GeoJsonPosition> originalRoute = toGeo(addStopsDto.getOriginalRoute());
+        List<GeoJsonPosition> newPoints = toGeo(addStopsDto.getNewPoints());
 
-        validator.validateToleranceFactor(toleranceFactor);
-
+        final double toleranceFactor = 0.1;
         final int roundness = 10;
         final int seed = 1;
 
@@ -617,8 +605,7 @@ public class AddStopsServiceImpl implements AddStopsService {
 
         double baselineLength = computeLength(baseline);
         double originalLength = computeLength(originalRoute);
-        //double baseStitchedLength = computeLength(addWaypoints(originalRoute, newPoints));
-        double baseStitchedLength = 10; // @TODO
+        double baseStitchedLength = computeLength(addWaypoints(addStopsDto).getFeatures().getFirst().getGeometry().getCoordinates());
         double diff = baseStitchedLength - originalLength;
 
         final double minAllowed = originalLength * (1 - toleranceFactor);
@@ -632,7 +619,7 @@ public class AddStopsServiceImpl implements AddStopsService {
             );
 
             // Fallback: route with points inserted but no reshape
-            //return addWaypoints(originalRoute, newPoints); @TODO
+            return addWaypoints(addStopsDto);
         }
 
         final double minLoop = 400; // needed for ORS stability
@@ -650,22 +637,28 @@ public class AddStopsServiceImpl implements AddStopsService {
         List<GeoJsonPosition> bestRoute = null;
         double bestError = Double.MAX_VALUE;
 
-        List<GeoJsonPosition> candidate = new ArrayList<>();
+        GeoJsonDto candidate = new GeoJsonDto();
 
         for (int i = 0; i < maxIterations; i++) {
             double requested = (low + high) / 2.0;
 
             GeoJsonDto dto = orsService.generateRoundTrip(List.of(loopCenter), (int) requested, roundness, seed);
             List<GeoJsonPosition> loop = dto.getFeatures().getFirst().getGeometry().getCoordinates();
-            //candidate = addWaypoints(loop, required); @TODO
-            double length = computeLength(candidate);
+
+            AddStopsDto candidateStopsDto = new AddStopsDto(
+                    toStopPoint(loop),
+                    toStopPoint(newPoints)
+            );
+
+            candidate = addWaypoints(candidateStopsDto);
+            double length = computeLength(candidate.getFeatures().getFirst().getGeometry().getCoordinates());
 
             double error = Math.abs(length - originalLength);
 
             // keep best attempt
             if (error < bestError) {
                 bestError = error;
-                bestRoute = candidate;
+                bestRoute = candidate.getFeatures().getFirst().getGeometry().getCoordinates();
             }
 
             if (length < targetMin) {
@@ -676,7 +669,7 @@ public class AddStopsServiceImpl implements AddStopsService {
                 break; // success
             }
         }
-        return cleanRoute(candidate);
+        return createGeoJsonDtoFromPolyline(cleanRoute(candidate.getFeatures().getFirst().getGeometry().getCoordinates()));
     }
 
     private GeoJsonPosition computeCentroid(List<GeoJsonPosition> points) {
@@ -695,7 +688,7 @@ public class AddStopsServiceImpl implements AddStopsService {
         double latMid = sumLat / points.size();
         double lonMid = sumLon / points.size();
 
-        return new GeoJsonPosition(latMid, lonMid, 0.0);
+        return new GeoJsonPosition(latMid, lonMid, null);
     }
 
     private double computeLength(List<GeoJsonPosition> route) {
