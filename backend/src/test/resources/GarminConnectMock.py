@@ -7,6 +7,7 @@ from pathlib import Path
 from garminconnect import Garmin  # you can actually remove this import now
 import base64
 import traceback
+import time
 
 MOCK_ACTIVITY = {
     "activityId": 21013233687,
@@ -195,6 +196,9 @@ def main():
 
         runs_with_details = fetch_details_for_ids(None, runs)
 
+        now = int(time.time())
+        expires_at = now + 3600  # expires in 1 hour
+        refresh_expires_at = now + 2592000  # expires in 30 days
         tokens = {
             "oauth2_token.json": {
                 "scope": "DUMMY_SCOPE",
@@ -202,9 +206,9 @@ def main():
                 "token_type": "bearer",
                 "access_token": "dummy-token",
                 "expires_in": 99999,
-                "expires_at": 1764344707,
+                "expires_at": expires_at,
                 "refresh_token_expires_in": 2591999,
-                "refresh_token_expires_at": 1766837146
+                "refresh_token_expires_at": refresh_expires_at
             },
             "oauth1_token.json": {
                 "oauth_token": "dummy-token",
