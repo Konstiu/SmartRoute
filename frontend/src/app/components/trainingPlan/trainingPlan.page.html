@@ -25,10 +25,10 @@
           <ion-card-title>
             {{ date }}
           </ion-card-title>
-          <ion-card-title>
+          <ion-card-title style="display: flex; justify-content: space-between; align-items: center;">
             Recommended Session: {{ recommendedActivity?.name }}
             @if (latlngs !== null) {
-              <ion-button size="small" fill="outline" (click)="exportGpx()" style="margin-left: 8px;">
+              <ion-button  style="display: flex; justify-content: space-between; align-items: center;" size="small" fill="outline" (click)="exportGpx()">
                 Export GPX
               </ion-button>
             }
