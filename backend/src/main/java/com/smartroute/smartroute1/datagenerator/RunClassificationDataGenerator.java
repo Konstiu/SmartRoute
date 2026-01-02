@@ -212,43 +212,150 @@ public class RunClassificationDataGenerator {
 
         double temperature = rand(-5, 30);
 
+        //Here are some special cases than can occur randomly, to improve generalisation
+
+
+        // Hard and Short runs
+        if (random.nextDouble() < 0.03) {
+            distance = rand(0.8, 2.0);
+            pace = rand(3.0, 4.0);
+            duration = (int) (distance * pace * 60);
+            runType = RunType.INTERVAL_RUN;
+        }
+
+        int readinessScore = randInt(40, 90);
+
+        if (random.nextDouble() < 0.05) {
+            readinessScore = randInt(10, 30);
+            hrAvg *= rand(1.05, 1.15);
+            hrMax *= rand(1.05, 1.1);
+        }
+
+        //Randomize missing values
+
+        boolean hrAvgMissing = false;
+        boolean hrMaxMissing = false;
+        boolean[] zoneMissing = {false, false, false, false, false};
+
+        if (random.nextDouble() < 0.07) {
+            if (random.nextBoolean()) {
+                hrAvgMissing = true;
+                hrAvg = -1;
+            }
+            if (random.nextBoolean()) {
+                hrMaxMissing = true;
+                hrMax = -1;
+            }
+
+            int missingZone = randInt(1, 5);
+            zoneMissing[missingZone] = true;
+        }
+
+        //Extreme weather
+        if (temperature > 25) {
+            hrAvg *= 1.08;
+            hrMax *= 1.05;
+        }
+        // Noise
+        if (random.nextDouble() < 0.03) {
+            runType = randomEnum(RunType.class);
+        }
+
+        if (athlete.injuryRiskFactor() > 0.3) {
+            pace *= rand(1.05, 1.2);
+            hrAvg *= rand(1.05, 1.1);
+            distance *= rand(0.6, 0.85);
+        }
+
+        double snowDepth = temperature < 1 ? rand(0, 20) : 0;
+        int paceSpikes = type.paceSpikes();
+
+        if (snowDepth > 5) {
+            pace *= 1.15;
+            paceSpikes *= 0.5;
+        }
+
+        // High Weight != Unfit
+        double weight = rand(55, 100);
+        if (weight > 90 && pace < 5.0 && random.nextDouble() < 0.15) {
+            distance *= rand(0.6, 0.85);
+            hrAvg *= rand(1.05, 1.15);
+            hrMax *= rand(1.05, 1.1);
+            paceSpikes += randInt(2, 6);
+        }
+
+        //Treadmill runs
+        if (random.nextDouble() < 0.08) {
+            elevation = 0;
+            paceSpikes = randInt(0, 1);
+            hrAvg *= rand(1.05, 1.1);
+        }
+
+        //Downhill runs
+        if (random.nextDouble() < 0.03) {
+            pace *= rand(0.85, 0.95);
+            hrAvg *= rand(0.85, 0.95);
+            elevation *= rand(0.3, 0.6);
+        }
+
+        //Runs with someone else
+        if (random.nextDouble() < 0.06) {
+            paceSpikes += randInt(4, 8);
+            hrAvg *= rand(0.95, 1.0);
+            readinessScore = randInt(50, 80);
+        }
+        // Race runs
+        if (random.nextDouble() < 0.03) {
+            paceSpikes = randInt(0, 1);
+            hrAvg = athlete.maxHr() * rand(0.9, 0.95);
+            hrMax = athlete.maxHr();
+        }
+
+        // Trail runs
+        if (random.nextDouble() < 0.05) {
+            pace *= rand(1.1, 1.25);
+            hrAvg *= rand(1.05, 1.1);
+            elevation *= rand(1.2, 1.6);
+        }
+
         return new RunClassificationResultDto(new RunClassificationDto(
-                duration,
-                rand(0.7, 1.3),
-                distance,
-                rand(0.7, 1.3),
-                pace,
-                rand(0.7, 1.3),
-                elevation,
-                (double) calculateTrimp(zoneTimes),
-                (int) Math.round(type.paceSpikes() * randDouble(1, 1.8) * (((double) duration / 3600))),
-                randInt(40, 90),
-                rand(0.3, 1.0),
-                rand(-20, 20),
-                randInt(18, 60),
-                rand(55, 90),
-                randInt(155, 195),
-                randomEnum(Sex.class),
-                exp,
-                randInt(0, 100) < 50 ? athlete.injuryRiskFactor() * rand(0.1, 0.5) : 0,
-                hrAvg,
+                duration,               //duration
+                rand(0.7, 1.3),         //duration_pct_pb_20
+                distance,               //distance
+                rand(0.7, 1.3),         //distance_pct_pb_20
+                pace,                   // pace
+                rand(0.7, 1.3),         //pace_pct_pb_20
+                elevation,              //elevation gain
+                (double) calculateTrimp(zoneTimes), //Session load
+                (int) Math.round(paceSpikes * randDouble(1, 1.8) * (((double) duration / 3600))),   //num pace spikes
+                readinessScore,    // readiness score
+                rand(0.3, 1.0),     // consistency score
+                rand(-20, 20),      //tsb
+                randInt(18, 60),    //age
+                weight,       // weight
+                randInt(155, 195),  //height
+                randomEnum(Sex.class),  //sex
+                exp,       //experience level
+                randInt(0, 100) < 50 ? athlete.injuryRiskFactor() * rand(0.1, 0.5) : 0, //injury index
+                hrAvg,      //hr avg
+                hrAvgMissing,
+                hrMax,  //hr max
+                hrMaxMissing,
+                zoneMissing[0] ? -1 : (int) (float) zoneTimes.get(1), zoneMissing[0],   //zone 1
+                zoneMissing[1] ? -1 : (int) (float) zoneTimes.get(2), zoneMissing[1],   //zone 2
+                zoneMissing[2] ? -1 : (int) (float) zoneTimes.get(3), zoneMissing[2],   //zone 3
+                zoneMissing[3] ? -1 : (int) (float) zoneTimes.get(4), zoneMissing[3],   //zone 4
+                zoneMissing[4] ? -1 : (int) (float) zoneTimes.get(5), zoneMissing[4],   //zone 5
+                runType == RunType.INTERVAL_RUN ? randInt(5, 10) * (duration / 3600) : randInt(0, 2) * (duration / 3600),   // num hr spikes
                 false,
-                hrMax,
-                false,
-                (int) (float) zoneTimes.get(1), false,
-                (int) (float) zoneTimes.get(2), false,
-                (int) (float) zoneTimes.get(3), false,
-                (int) (float) zoneTimes.get(4), false,
-                (int) (float) zoneTimes.get(5), false,
-                runType == RunType.INTERVAL_RUN ? randInt(5, 10) * (duration / 3600) : randInt(0, 2) * (duration / 3600),
-                false,
-                rand(0, 12),
-                temperature,
-                randInt(0, 10),
-                randInt(0, 100) < 20 ? rand(0, 5) : 0,
-                temperature < 1 ? rand(0, 20) : 0
+                rand(0, 12),    //windspeed
+                temperature,    //temperature
+                randInt(0, 10), //uv index
+                randInt(0, 100) < 20 ? rand(0, 5) : 0, // precipitation
+                snowDepth //snowdepth
+
         ),
-                runType);
+                runType);   //runtype
     }
 
     private String toCsv(RunClassificationResultDto dto) {
