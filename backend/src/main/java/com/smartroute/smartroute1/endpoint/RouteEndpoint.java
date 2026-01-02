@@ -34,7 +34,7 @@ public class RouteEndpoint {
         GeoJsonDto route = openRouteServiceService.generateRoundTrip(coordinates, (int) length, 7, 0);
         return "{\"bbox\":" + route.getBbox()
                 + ",\"polyline\":\"" + polyLineMapper.geoJsonGeometryLineStringToPolyline(route.getFeatures().getFirst().getGeometry()).replace("\\", "\\\\") + "\""
-                + ",\"distance\":" + route.getFeatures().getFirst().getProperties().getDistance() * 1000
+                + ",\"distance\":" + route.getFeatures().getFirst().getProperties().getDistance()
                 + ",\"elevation\":" + route.getFeatures().getFirst().getProperties().getAscent() + "}";
     }
 }

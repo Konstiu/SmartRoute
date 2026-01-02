@@ -377,6 +377,12 @@ async handleAdditionalPoints(points: LatLng[]): Promise<RouteUpdate> {
 
   this.routeBounds = this.routeLine.getBounds();
 
+  // update the UI stats
+  if (this.recommendedActivity?.route) {
+    this.recommendedActivity.route.distance = e.distance;
+    //this.recommendedActivity.route.elevation = e.elevation; // @TODO add elevation
+  }
+
   // rebuild preview layers (new array reference)
   this.rebuildLayers();
 
