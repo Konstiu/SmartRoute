@@ -116,12 +116,14 @@ public class GpxServiceImpl implements GpxService {
                 double distance = Geoid.WGS84.distance(p1, p2).doubleValue();
 
                 // Calculate elevation gain in meters
-                Length e1 = p1.getElevation().orElseThrow();
-                Length e2 = p2.getElevation().orElseThrow();
-                double elevationDiff = e2.doubleValue() - e1.doubleValue();
+                Optional<Length> e1Opt = p1.getElevation();
+                Optional<Length> e2Opt = p2.getElevation();
 
-                if (elevationDiff > 0) {
-                    totalElevationGain += elevationDiff;
+                if (e1Opt.isPresent() && e2Opt.isPresent()) {
+                    double elevationDiff = e2Opt.get().doubleValue() - e1Opt.get().doubleValue();
+                    if (elevationDiff > 0) {
+                        totalElevationGain += elevationDiff;
+                    }
                 }
 
                 // Calculate time difference in seconds
