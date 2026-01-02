@@ -9,10 +9,14 @@ import { Globals } from "src/global/globals";
 export class StopsService {
   private readonly httpClient: HttpClient = inject(HttpClient);
   private readonly globals: Globals = inject(Globals);
-  private readonly baseUri: string = this.globals.backendUri + '/stops/insert';
+  private readonly baseUri: string = this.globals.backendUri + '/stops';
 
   insertStops(req: AddStopsRequest): Observable<GeneratedRouteDto> {
+    return this.httpClient.post<GeneratedRouteDto>(this.baseUri + '/insert', req)
+  }
+
+  reshape(req: AddStopsRequest): Observable<GeneratedRouteDto> {
     console.log("AddStopsRequest payload:", JSON.stringify(req));
-    return this.httpClient.post<GeneratedRouteDto>(this.baseUri, req)
+    return this.httpClient.post<GeneratedRouteDto>(this.baseUri + '/reshape', req);
   }
 }

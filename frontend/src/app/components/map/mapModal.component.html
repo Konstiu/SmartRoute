@@ -23,6 +23,18 @@
     (pointAdded)="onPointAdded($event)">
   </app-map>
 
+  <!-- Add points toggle -->
+  <div class="mode-toggle" *ngIf="isMapReady">
+    <ion-segment [(ngModel)]="mode" [disabled]="addPointMode">
+      <ion-segment-button value="KEEP_SHAPE">
+        <ion-label>Fast insert</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="KEEP_LENGTH">
+        <ion-label>Keep length</ion-label>
+      </ion-segment-button>
+    </ion-segment>
+  </div>
+
   <!-- Center FAB -->
   <ion-fab
     vertical="bottom"
@@ -37,7 +49,7 @@
   <!-- LEFT STACKED FABs -->
   <ion-fab vertical="bottom" horizontal="start" slot="fixed">
 
-    <!-- Confirm (only if points exist) -->
+    <!-- Confirm -->
     <ion-fab-button
       *ngIf="addedPoints.length > 0"
       color="success"
