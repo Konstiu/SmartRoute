@@ -1,10 +1,10 @@
-// Create: src/app/pages/login/login.page.ts
 import {Component} from '@angular/core';
 import {CommonModule} from '@angular/common';
-import {FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators} from '@angular/forms';
+import {FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
 import {IonicModule, LoadingController, ToastController} from '@ionic/angular';
 import {Router} from '@angular/router';
 import {AuthService} from '../../../services/auth.service';
+import {PushNotificationService} from '../../../services/push-notification.service'
 
 @Component({
   selector: 'app-login',
@@ -27,7 +27,8 @@ export class LoginPage {
     private router: Router,
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private pushNotificationService: PushNotificationService
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -49,6 +50,7 @@ export class LoginPage {
       next: async () => {
         await loading.dismiss();
         this.showToast('Login successful!', 'success');
+        await this.pushNotificationService.autoInitialize();
         this.redirectBasedOnRole();
       },
       error: async (error) => {
@@ -57,10 +59,6 @@ export class LoginPage {
         this.showToast(message, 'danger');
       }
     });
-  }
-
-  private redirectBasedOnRole() {
-    this.router.navigate(['/tabs/trainingPlan']);
   }
 
   togglePasswordVisibility() {
@@ -73,6 +71,10 @@ export class LoginPage {
 
   goToPasswordReset() {
     this.router.navigate(['/request-password-reset']);
+  }
+
+  private redirectBasedOnRole() {
+    this.router.navigate(['/tabs/trainingPlan']);
   }
 
   private async showToast(message: string, color: string) {

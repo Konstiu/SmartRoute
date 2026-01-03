@@ -8,7 +8,7 @@ export class Globals {
 
 
   private findBackendUrl(): string {
-    return 'http://192.168.0.189:8080/api/v1';
+    return 'https://backend.unterweger.tech/api/v1';
 
     if (Capacitor.isNativePlatform()){
       // return the deployment right now because when we are on the native phone capacitor, we need to know where the backend is.
