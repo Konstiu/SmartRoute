@@ -6,6 +6,10 @@ public class BoundedDirichletDistributor {
 
 
     private static double rand(double min, double max) {
+        if (min == max) {
+            return min;
+        }
+
         return ThreadLocalRandom.current().nextDouble(min, max);
     }
 
