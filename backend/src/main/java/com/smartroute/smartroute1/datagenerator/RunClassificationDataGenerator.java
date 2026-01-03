@@ -245,9 +245,9 @@ public class RunClassificationDataGenerator {
                 hrMaxMissing = true;
                 hrMax = -1;
             }
-
-            int missingZone = randInt(0, 4);
-            zoneMissing[missingZone] = true;
+            if (random.nextBoolean()) {
+                zoneMissing = new boolean[]{true, true, true, true, true};
+            }
         }
         double temperature = rand(-5, 30);
         //Extreme weather
