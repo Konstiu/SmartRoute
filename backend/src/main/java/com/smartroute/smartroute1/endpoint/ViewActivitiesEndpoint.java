@@ -3,8 +3,10 @@ package com.smartroute.smartroute1.endpoint;
 import com.smartroute.smartroute1.endpoint.dto.DetailedActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.ActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.RunClassificationDecisionDto;
+import com.smartroute.smartroute1.endpoint.mapper.RunClassificationMapper;
 import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.RunClassificationDecision;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.ActivityService;
 import com.smartroute.smartroute1.service.RunClassificationService;
@@ -39,6 +41,7 @@ public class ViewActivitiesEndpoint {
     private final ActivityProcessingService activityProcessingService;
     private final ActivityService activityService;
     private final RunClassificationService runClassificationService;
+    private final RunClassificationMapper runClassificationMapper;
 
     @GetMapping()
     @ResponseStatus(HttpStatus.OK)
@@ -54,7 +57,13 @@ public class ViewActivitiesEndpoint {
         List<Activity> list = activityProcessingService.getActivities(auth.getName());
         List<ActivityDto> dtos = new ArrayList<>();
         for (Activity stravaActivity : list) {
-            RunClassificationDecisionDto runClassification = runClassificationService.classifyRun(stravaActivity.getId());
+            RunClassificationDecision decision = stravaActivity.getRunTypeClassification();
+            RunClassificationDecisionDto runClassification;
+            if (decision == null) {
+                runClassification = runClassificationService.classifyRun(stravaActivity.getId());
+            } else {
+                runClassification = runClassificationMapper.entityToDto(decision);
+            }
             dtos.add(activityMapper.toViewDto(stravaActivity, runClassification));
         }
         return dtos;
@@ -73,9 +82,14 @@ public class ViewActivitiesEndpoint {
         LOGGER.info("GET /api/v1/activities/{}", id);
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         Activity activity = activityProcessingService.getActivity(auth.getName(), id);
-        RunClassificationDecisionDto runClassification = null;
-        runClassification = runClassificationService.classifyRun(activity.getId());
 
+        RunClassificationDecision decision = activity.getRunTypeClassification();
+        RunClassificationDecisionDto runClassification;
+        if (decision == null) {
+            runClassification = runClassificationService.classifyRun(activity.getId());
+        } else {
+            runClassification = runClassificationMapper.entityToDto(decision);
+        }
         return activityMapper.toDetailedViewDto(activity, runClassification);
     }
 
