@@ -267,19 +267,19 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         ApplicationUser user = activity.getUser();
 
         // TODO exclude activity from query? (to allow > 100%) - compare with model data generator; last 20 vs last 20 before activity?
-        int maxDuration = activityRepository.findMaxDurationInLast20ActivitiesByUserAndType(user, "Run");
+        int maxDuration = activityRepository.findTop3AvgDurationInLast20ActivitiesByUserAndType(user, "Run");
 
         if (maxDuration == -1) {
             return 1.00;
         }
-        return activity.getDistance() / maxDuration;
+        return (double) activity.getMovingTime() / maxDuration;
     }
 
     private double getDistancePercentageRelativeToPbLast20Runs(Activity activity) {
         ApplicationUser user = activity.getUser();
 
         // TODO exclude activity from query? (to allow > 100%) - compare with model data generator; last 20 vs last 20 before activity?
-        int maxDistance = activityRepository.findMaxDistanceInLast20ActivitiesByUserAndType(user, "Run");
+        int maxDistance = activityRepository.findTop3AvgDistanceInLast20ActivitiesByUserAndType(user, "Run");
 
         if (maxDistance == -1) {
             return 1.00;
@@ -291,12 +291,12 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         ApplicationUser user = activity.getUser();
 
         // TODO exclude activity from query? (to allow > 100%) - compare with model data generator; last 20 vs last 20 before activity?
-        double maxPace = activityRepository.findMaxPaceInLast20ActivitiesByUserAndType(user, "Run");
+        double maxPace = activityRepository.findTop3AvgPaceInLast20ActivitiesByUserAndType(user, "Run");
 
         if (maxPace == -1) {
             return 1.00;
         }
-        return activity.getDistance() / maxPace;
+        return activity.getAverageSpeed() / maxPace;
     }
 
     private double getMaxHrPercentageRelativeToAllRuns(Activity activity) {
