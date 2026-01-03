@@ -67,6 +67,8 @@ public class ApplicationUser {
     @ToString.Exclude
     private Set<Weekday> activeWeekdays = new HashSet<>();
 
+    private ClassificationCorrectionMap correctionMap = new ClassificationCorrectionMap();
+
     public ApplicationUser() {
     }
 

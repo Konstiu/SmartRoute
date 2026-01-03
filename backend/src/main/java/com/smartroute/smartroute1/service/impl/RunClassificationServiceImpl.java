@@ -58,8 +58,8 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
     public RunClassificationServiceImpl(ActivityRepository activityRepository, ActivityProcessingService activityProcessingService, ReadinessScoreService readinessScoreService, ConsistencyAnalyzerService consistencyAnalyzerService,
                                         InjuryAwareTrainingService injuryAwareTrainingService,
-                                        FatigueAndOverloadService fatigueAndOverloadService, WeatherService weatherService,  RunClassificationMapper mapper, RunClassificationDecisionRepository runClassificationDecisionRepository)
-        throws IOException, JAXBException, SAXException, ParserConfigurationException {
+                                        FatigueAndOverloadService fatigueAndOverloadService, WeatherService weatherService, RunClassificationMapper mapper, RunClassificationDecisionRepository runClassificationDecisionRepository)
+            throws IOException, JAXBException, SAXException, ParserConfigurationException {
         this.activityRepository = activityRepository;
         this.activityProcessingService = activityProcessingService;
         this.readinessScoreService = readinessScoreService;
@@ -68,8 +68,8 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         this.runClassificationDecisionRepository = runClassificationDecisionRepository;
 
         this.evaluator = new LoadingModelEvaluatorBuilder()
-            .load(new ClassPathResource("models/run_classifier.pmml").getInputStream())
-            .build();
+                .load(new ClassPathResource("models/run_classifier.pmml").getInputStream())
+                .build();
         this.evaluator.verify();
 
         this.targetFields = evaluator.getTargetFields();
@@ -77,6 +77,27 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         this.fatigueAndOverloadService = fatigueAndOverloadService;
         this.injuryAwareTrainingService = injuryAwareTrainingService;
         this.weatherService = weatherService;
+    }
+
+    private static RunClassificationDecisionDto getRunClassificationDecisionDto(Object targetValue, Map<RunType, Double> probabilities) {
+        if (targetValue == null) {
+            throw new IllegalStateException("PMML did not return a prediction");
+        }
+
+        if (!(targetValue instanceof Integer label)) {
+            throw new IllegalStateException("PMML did not return an integer");
+        }
+
+        RunClassificationDecisionDto dto = new RunClassificationDecisionDto();
+        dto.setRunType(switch (label) {
+            case 0 -> RunType.EASY_RUN;
+            case 1 -> RunType.TEMPO_RUN;
+            case 2 -> RunType.INTERVAL_RUN;
+            case 3 -> RunType.LONG_RUN;
+            default -> throw new IllegalStateException("PMML did return an invalid value");
+        });
+        dto.setProbabilities(probabilities);
+        return dto;
     }
 
     @Override
@@ -90,6 +111,8 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
         // Classify the run
         RunClassificationDecisionDto dto = evaluate(activity);
+        ApplicationUser user = activity.getUser();
+        dto = addUserBias(dto, user);
 
         // Save classification
         RunClassificationDecision decision = mapper.dtoToEntity(dto);
@@ -139,7 +162,8 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
             case "consistency_score" -> getConsistencyScoreBeforeActivity(activity);
 
-            case "tsb" -> fatigueAndOverloadService.tsbOn(user, activity.getStartDate().atZone(ZoneOffset.UTC).toLocalDate());
+            case "tsb" ->
+                    fatigueAndOverloadService.tsbOn(user, activity.getStartDate().atZone(ZoneOffset.UTC).toLocalDate());
 
             // User data
             case "age" -> Period.between(user.getBirthdate(), LocalDate.now()).getYears();
@@ -158,7 +182,8 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             case "hr_avg" -> activity.getMaxHeartrate() != null ? getMaxHrPercentageRelativeToAllRuns(activity) : -1;
             case "hr_avg_missing" -> activity.getMaxHeartrate() != null ? 0 : 1;
 
-            case "hr_max" -> activity.getAverageHeartrate() != null ? getMaxAverageHrPercentageRelativeToAllRuns(activity) : -1;
+            case "hr_max" ->
+                    activity.getAverageHeartrate() != null ? getMaxAverageHrPercentageRelativeToAllRuns(activity) : -1;
             case "hr_max_missing" -> activity.getAverageHeartrate() != null ? 0 : 1;
 
             case "zone1" -> activity.getTimeZ1() != null ? activity.getTimeZ1() : 0;
@@ -221,33 +246,12 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             }
 
             double probability = ((Number) value).doubleValue();
-            RunType workoutType = mapProbabilityField(fieldName);
 
+            RunType workoutType = mapProbabilityField(fieldName);
             probabilities.put(workoutType, probability);
         }
 
         return getRunClassificationDecisionDto(targetValue, probabilities);
-    }
-
-    private static RunClassificationDecisionDto getRunClassificationDecisionDto(Object targetValue, Map<RunType, Double> probabilities) {
-        if (targetValue == null) {
-            throw new IllegalStateException("PMML did not return a prediction");
-        }
-
-        if (!(targetValue instanceof Integer label)) {
-            throw new IllegalStateException("PMML did not return an integer");
-        }
-
-        RunClassificationDecisionDto dto = new RunClassificationDecisionDto();
-        dto.setRunType(switch (label) {
-            case 0 -> RunType.EASY_RUN;
-            case 1 -> RunType.TEMPO_RUN;
-            case 2 -> RunType.INTERVAL_RUN;
-            case 3 -> RunType.LONG_RUN;
-            default -> throw new IllegalStateException("PMML did return an invalid value");
-        });
-        dto.setProbabilities(probabilities);
-        return dto;
     }
 
     private RunType mapProbabilityField(String fieldName) {
@@ -335,5 +339,52 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             return 1.00;
         }
         return activity.getAverageHeartrate() / maxAvgHr;
+    }
+
+    private RunClassificationDecisionDto addUserBias(RunClassificationDecisionDto dto, ApplicationUser user) {
+        RunType runType = dto.getRunType();
+        Map<RunType, Double> map = dto.getProbabilities();
+        switch (runType) {
+            case EASY_RUN -> {
+                map.replace(RunType.TEMPO_RUN,
+                        map.get(RunType.TEMPO_RUN) + user.getCorrectionMap().getEasyToTempo());
+                map.replace(RunType.INTERVAL_RUN,
+                        map.get(RunType.INTERVAL_RUN) + user.getCorrectionMap().getEasyToInterval());
+                map.replace(RunType.LONG_RUN,
+                        map.get(RunType.LONG_RUN) + user.getCorrectionMap().getEasyToLong());
+            }
+            case TEMPO_RUN -> {
+                map.replace(RunType.EASY_RUN,
+                        map.get(RunType.EASY_RUN) + user.getCorrectionMap().getTempoToEasy());
+                map.replace(RunType.INTERVAL_RUN,
+                        map.get(RunType.INTERVAL_RUN) + user.getCorrectionMap().getTempoToInterval());
+                map.replace(RunType.LONG_RUN,
+                        map.get(RunType.LONG_RUN) + user.getCorrectionMap().getTempoToLong());
+            }
+            case INTERVAL_RUN -> {
+                map.replace(RunType.EASY_RUN,
+                        map.get(RunType.EASY_RUN) + user.getCorrectionMap().getIntervalToEasy());
+                map.replace(RunType.TEMPO_RUN,
+                        map.get(RunType.TEMPO_RUN) + user.getCorrectionMap().getIntervalToTempo());
+                map.replace(RunType.LONG_RUN,
+                        map.get(RunType.LONG_RUN) + user.getCorrectionMap().getIntervalToLong());
+            }
+            case LONG_RUN -> {
+                map.replace(RunType.EASY_RUN,
+                        map.get(RunType.EASY_RUN) + user.getCorrectionMap().getLongToEasy());
+                map.replace(RunType.TEMPO_RUN,
+                        map.get(RunType.TEMPO_RUN) + user.getCorrectionMap().getLongToTempo());
+                map.replace(RunType.INTERVAL_RUN,
+                        map.get(RunType.INTERVAL_RUN) + user.getCorrectionMap().getLongToInterval());
+            }
+            default -> throw new IllegalStateException("Unknown run type: " + runType);
+        }
+        RunType winner = map.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .orElseThrow()
+                .getKey();
+
+        
+        return new RunClassificationDecisionDto(winner, map);
     }
 }
