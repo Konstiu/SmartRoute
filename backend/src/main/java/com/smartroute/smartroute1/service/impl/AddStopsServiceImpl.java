@@ -75,15 +75,11 @@ public class AddStopsServiceImpl implements AddStopsService {
 
         // Compute the return path via to end, avoiding the forward corridor
         GeoJsonDto returnDto = orsService.generateRouteAvoidingPolygon(List.of(via, end), avoidPolygon);
-        //List<GeoJsonPosition> returnPath = extractPolyline(returnDto);
-        List<GeoJsonPosition> returnPath = returnDto.getFeatures().getFirst().getGeometry().getCoordinates();
-
-        // fallback: allow ORS to route without avoidance
-        if (returnPath.isEmpty()) {
-            //returnPath = extractPolyline(orsService.generateRoute(List.of(via, end)));
-            GeoJsonDto fallbackDto = orsService.generateRoute(List.of(via, end));
-            returnPath = fallbackDto.getFeatures().getFirst().getGeometry().getCoordinates();
+        // fallback
+        if (returnDto == null) {
+            returnDto = orsService.generateRoute(List.of(via, end));
         }
+        List<GeoJsonPosition> returnPath = returnDto.getFeatures().getFirst().getGeometry().getCoordinates();
 
         // Combine: forwardPath + returnPath (trim duplicate via point)
         List<GeoJsonPosition> result = new ArrayList<>(forwardPath);
@@ -272,7 +268,7 @@ public class AddStopsServiceImpl implements AddStopsService {
         return geoList;
     }
 
-    private List<StopPointDto> toStopPoint(List<GeoJsonPosition> geoList) throws ValidationException {
+    public List<StopPointDto> toStopPoint(List<GeoJsonPosition> geoList) throws ValidationException {
         if (geoList == null || geoList.isEmpty()) {
             throw new ValidationException("GeoList must have points.");
         }
@@ -632,7 +628,7 @@ public class AddStopsServiceImpl implements AddStopsService {
         double low = Math.max(minLoop, (originalLength - diff) * 0.5);
         double high = (originalLength - diff) * (1 + toleranceFactor) * 2;
 
-        final int maxIterations = 3;
+        final int maxIterations = 2;
 
         List<GeoJsonPosition> bestRoute = null;
         double bestError = Double.MAX_VALUE;
@@ -640,10 +636,12 @@ public class AddStopsServiceImpl implements AddStopsService {
         GeoJsonDto candidate = new GeoJsonDto();
 
         for (int i = 0; i < maxIterations; i++) {
-            double requested = (low + high) / 2.0;
+            double requested = (low + high) / 3.0; // more aggressive than 2.0 to favour routes that are shorter than too long
 
-            GeoJsonDto dto = orsService.generateRoundTrip(List.of(loopCenter), (int) requested, roundness, seed);
+            GeoJsonDto dto = orsService.generateRoundTrip(List.of(originalRoute.getFirst()), (int) requested, roundness, seed);
+            //GeoJsonDto dto = orsService.generateRoundTrip(List.of(loopCenter), (int) requested, roundness, seed);
             List<GeoJsonPosition> loop = dto.getFeatures().getFirst().getGeometry().getCoordinates();
+            //loop = rotateToStart(loop, originalRoute.getFirst());
 
             AddStopsDto candidateStopsDto = new AddStopsDto(
                     toStopPoint(loop),
@@ -669,8 +667,49 @@ public class AddStopsServiceImpl implements AddStopsService {
                 break; // success
             }
         }
-        return createGeoJsonDtoFromPolyline(cleanRoute(candidate.getFeatures().getFirst().getGeometry().getCoordinates()));
+        //return createGeoJsonDtoFromPolyline(cleanRoute(rotateToStart(bestRoute, originalRoute.getFirst())));
+        return createGeoJsonDtoFromPolyline(cleanRoute(bestRoute));
     }
+
+    private List<GeoJsonPosition> rotateToStart(List<GeoJsonPosition> coords, GeoJsonPosition start) {
+        if (coords == null || coords.size() < 2) {
+            return coords;
+        }
+
+        // 1) If loop is closed, drop the duplicated last point for rotation
+        boolean isClosed = haversine(coords.getFirst(), coords.getLast()) < 1.0; // 1m tolerance
+        List<GeoJsonPosition> open = isClosed ? coords.subList(0, coords.size() - 1) : coords;
+
+        if (open.isEmpty()) {
+            return coords;
+        }
+
+        // 2) Find closest point in the open list
+        int bestIdx = 0;
+        double bestD = Double.MAX_VALUE;
+        for (int i = 0; i < open.size(); i++) {
+            double d = haversine(open.get(i), start);
+            if (d < bestD) {
+                bestD = d;
+                bestIdx = i;
+            }
+        }
+
+        // 3) Rotate: [bestIdx..end] + [0..bestIdx-1]
+        List<GeoJsonPosition> rotated = new ArrayList<>(open.size() + 1);
+        rotated.addAll(open.subList(bestIdx, open.size()));
+        rotated.addAll(open.subList(0, bestIdx));
+
+        // 4) Snap start exactly at the beginning (keeps anchor stable)
+        rotated.set(0, start);
+
+        // 5) Close the loop by adding start as LAST only once
+        rotated.add(start);
+
+        return rotated;
+    }
+
+
 
     private GeoJsonPosition computeCentroid(List<GeoJsonPosition> points) {
         if (points == null || points.isEmpty()) {
