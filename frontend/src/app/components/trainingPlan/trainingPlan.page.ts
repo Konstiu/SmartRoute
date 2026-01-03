@@ -43,6 +43,7 @@ export class TrainingPlanPage implements OnInit {
   private userLocationMarker: Marker | null = null;
   private routeBounds: LatLngBounds | null = null;
   private stopsService = inject(StopsService);
+  private committedStops: LatLng[] = [];
 
   date: string = new Date().toLocaleDateString();
   recommendedActivity: RecommendedActivityDto | undefined = {
@@ -243,6 +244,8 @@ export class TrainingPlanPage implements OnInit {
   }
 
   private generateRouteFromLocation(location: LatLng) {
+    this.committedStops = [];
+
     this.routeService
       .getGeneratedRoute(
         location.lat,
@@ -320,6 +323,7 @@ async openMapModal() {
     componentProps: {
       layers: this.cloneLayersForModal(),
       routeBounds: this.routeBounds,
+      committedStops: this.committedStops,
 
       // modal calls this, waits for backend, receives updated layers + bounds
       onConfirm: (points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH') => this.handleAdditionalPoints(points, mode),
@@ -362,9 +366,11 @@ async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH
     return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
   }
 
+  this.committedStops = this.addUniqueStops(this.committedStops, points);
+
   const request: AddStopsRequest = {
     originalRoute: this.routeLineToGeoJson(this.routeLine),
-    newPoints: points.map(p => this.toGeoJsonPosition(p)),
+    newPoints: (mode === 'KEEP_LENGTH' ? this.committedStops : points).map(p => this.toGeoJsonPosition(p)),
   };
 
   // wait for backend response
@@ -419,6 +425,17 @@ async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH
   private geoJsonToLatLngs(route: GeoJsonPosition[]): LatLng[] {
     return route.map(p => latLng(p.latitude, p.longitude));
   }
+
+ private addUniqueStops(existing: LatLng[], incoming: LatLng[], epsMeters = 5): LatLng[] {
+   const isNear = (a: LatLng, b: LatLng) => a.distanceTo(b) <= epsMeters;
+
+   const out = [...existing];
+   for (const p of incoming) {
+     if (!out.some(x => isNear(x, p))) out.push(p);
+   }
+   return out;
+ }
+
 
 
   protected readonly SessionType = SessionType;

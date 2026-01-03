@@ -19,6 +19,7 @@ export class MapModalComponent {
   @Input() layers: any[] = [];
   @Input() routeBounds!: LatLngBounds;
   @Input() onConfirm!: (points: LatLng[], mode: AddStopsMode) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
+  @Input() committedStops: LatLng[] = [];
 
   @ViewChild(MapComponent) mapComponent!: MapComponent;
   mode: AddStopsMode = 'KEEP_SHAPE';
@@ -35,7 +36,13 @@ export class MapModalComponent {
 
   ngOnInit() {
     this.baseLayers = [...this.layers];
-    this.localLayers = [...this.layers];
+
+    const stopMarkers = this.committedStops.map(p =>
+      marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.added) })
+    );
+
+    this.baseLayers = [...this.baseLayers, ...stopMarkers];
+    this.localLayers = [...this.baseLayers];
   }
 
   ionViewDidEnter() {
