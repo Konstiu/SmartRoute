@@ -75,19 +75,44 @@ export class RecentRunsPage implements OnInit {
     this.isLoading = true;
     this.error = null;
 
-    this.activitiesService.refreshActivities(10)
-      .subscribe({
-        next: async () => {
-          this.loadActivities(event);
+    this.activitiesService.syncWithValidation(10).subscribe({
+      next: async ({ outcome }) => {
+        this.isLoading = false;
+        event.target.complete();
+
+        if (outcome.kind === 'success') {
+          this.loadActivities();
           await this.showToast("Activities synchronized successfully.", "success");
-        },
-        error: err => {
-          console.error('Error fetching activities:', err);
-          this.error = 'Failed to load activities. Please try again.';
-          this.isLoading = false;
-          event.target.complete();
+          return;
         }
-      })
+
+        if (outcome.kind === 'running') {
+          await this.showToast("Sync is still running. Please check again shortly.", "warning");
+          return;
+        }
+
+        if (outcome.kind === 'failed') {
+          await this.showToast(
+            outcome.message ? `Sync failed: ${outcome.message}` : "Sync failed. Please retry.",
+            "danger"
+          );
+          return;
+        }
+
+        // unknown
+        await this.showToast(
+          "Connection interrupted. We couldn't confirm the sync. Please check again or retry if needed.",
+          "warning"
+        );
+      },
+      error: async (err) => {
+        console.error('Sync failed:', err);
+        this.error = 'Failed to sync activities. Please try again.';
+        this.isLoading = false;
+        event.target.complete();
+        await this.showToast("Sync failed. Please try again.", "danger");
+      }
+    });
   }
 
   private async showToast(message: string, color: "success" | "warning" | "danger") {
