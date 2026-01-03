@@ -31,19 +31,19 @@ import {SubscriptionStatus} from "../dtos/pushNotificationsDto/PushNotifications
         <div class="button-group">
           <button class="btn btn-primary"
                   (click)="subscribe()"
-                  [disabled]="loading || isSubscribed">
-            {{ isSubscribed ? '✅ Already Subscribed' : '📱 Subscribe to Notifications' }}
+                  [disabled]="loading">
+            📱 Force Re-Subscribe
           </button>
 
           <button class="btn btn-success"
                   (click)="sendTestNotification()"
-                  [disabled]="loading || !isSubscribed">
+                  [disabled]="loading">
             🧪 Send Test Notification
           </button>
 
           <button class="btn btn-info"
                   (click)="sendQuickTest()"
-                  [disabled]="loading || !isSubscribed">
+                  [disabled]="loading">
             ⚡ Quick Test
           </button>
 
@@ -55,7 +55,7 @@ import {SubscriptionStatus} from "../dtos/pushNotificationsDto/PushNotifications
 
           <button class="btn btn-danger"
                   (click)="unsubscribe()"
-                  [disabled]="loading || !isSubscribed">
+                  [disabled]="loading">
             🔕 Unsubscribe
           </button>
         </div>
@@ -70,12 +70,17 @@ import {SubscriptionStatus} from "../dtos/pushNotificationsDto/PushNotifications
         <div class="instructions">
           <h3>Testing Instructions:</h3>
           <ol>
-            <li>Click "Subscribe to Notifications" to enable push notifications</li>
-            <li>Grant permission when prompted by your browser/device</li>
-            <li>Click "Send Test Notification" to test the integration</li>
-            <li>Check if you receive the notification</li>
+            <li><strong>Auto-subscribe is enabled</strong> - notifications should be enabled automatically</li>
+            <li>Use "Force Re-Subscribe" if you need to manually re-register</li>
+            <li>Click "Send Test Notification" to test with custom message</li>
+            <li>Click "Quick Test" for a fast test notification</li>
+            <li>Use "Check Status" to verify backend subscription status</li>
             <li>On mobile, try backgrounding the app to test background notifications</li>
           </ol>
+
+          <div class="tip">
+            💡 <strong>Tip:</strong> All buttons work regardless of subscription status for testing purposes
+          </div>
         </div>
       </div>
     </div>
@@ -113,6 +118,18 @@ import {SubscriptionStatus} from "../dtos/pushNotificationsDto/PushNotifications
       border-radius: 8px;
       margin-bottom: 20px;
       font-size: 14px;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .status-message.success {
@@ -188,6 +205,7 @@ import {SubscriptionStatus} from "../dtos/pushNotificationsDto/PushNotifications
 
     .btn-success:hover:not(:disabled) {
       background: #218838;
+      transform: translateY(-2px);
     }
 
     .btn-info {
@@ -196,6 +214,7 @@ import {SubscriptionStatus} from "../dtos/pushNotificationsDto/PushNotifications
 
     .btn-info:hover:not(:disabled) {
       background: #138496;
+      transform: translateY(-2px);
     }
 
     .btn-warning {
@@ -205,6 +224,7 @@ import {SubscriptionStatus} from "../dtos/pushNotificationsDto/PushNotifications
 
     .btn-warning:hover:not(:disabled) {
       background: #e0a800;
+      transform: translateY(-2px);
     }
 
     .btn-danger {
@@ -213,6 +233,7 @@ import {SubscriptionStatus} from "../dtos/pushNotificationsDto/PushNotifications
 
     .btn-danger:hover:not(:disabled) {
       background: #c82333;
+      transform: translateY(-2px);
     }
 
     .loading {
@@ -261,6 +282,15 @@ import {SubscriptionStatus} from "../dtos/pushNotificationsDto/PushNotifications
     .instructions li {
       margin-bottom: 8px;
     }
+
+    .tip {
+      margin-top: 15px;
+      padding: 10px;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: 6px;
+      color: #856404;
+      font-size: 14px;
+    }
   `]
 })
 export class PushNotificationTestComponent implements OnInit {
@@ -280,6 +310,9 @@ export class PushNotificationTestComponent implements OnInit {
     // Listen to subscription status changes
     this.pushService.subscriptionStatus$.subscribe(status => {
       this.isSubscribed = status;
+      if (status) {
+        this.showStatus('✅ Connected and ready to receive notifications', 'success');
+      }
     });
 
     // Start listening to notifications
@@ -294,31 +327,28 @@ export class PushNotificationTestComponent implements OnInit {
   }
 
   async subscribe() {
-    this.loading = false;
-    this.statusMessage = 'Subscribing to notifications...';
+    this.loading = true;
+    this.statusMessage = 'Force re-subscribing...';
     this.statusType = 'info';
 
     try {
       const success = await this.pushService.subscribeToNotifications();
 
       if (success) {
-        this.statusMessage = '✅ Successfully subscribed to push notifications!';
-        this.statusType = 'success';
+        this.showStatus('✅ Successfully re-subscribed to push notifications!', 'success');
         this.isSubscribed = true;
       } else {
-        this.statusMessage = '❌ Failed to subscribe. Please check console for details.';
-        this.statusType = 'error';
+        this.showStatus('❌ Failed to subscribe. Check console for details.', 'error');
       }
     } catch (error) {
-      this.statusMessage = '❌ Error: ' + error;
-      this.statusType = 'error';
+      this.showStatus('❌ Error: ' + error, 'error');
     } finally {
       this.loading = false;
     }
   }
 
   sendTestNotification() {
-    this.loading = false;
+    this.loading = true;
     this.statusMessage = 'Sending test notification...';
     this.statusType = 'info';
 
@@ -328,69 +358,59 @@ export class PushNotificationTestComponent implements OnInit {
     ).subscribe({
       next: (response) => {
         console.log('Test notification response:', response);
-        this.statusMessage = '✅ Test notification sent! Check your notifications.';
-        this.statusType = 'success';
+        this.showStatus('✅ Test notification sent! Check your notifications.', 'success');
         this.loading = false;
       },
       error: (error) => {
         console.error('Test notification error:', error);
-        this.statusMessage = '❌ Failed to send test notification: ' +
-          (error.error?.error || error.message);
-        this.statusType = 'error';
+        this.showStatus('❌ Failed to send: ' + (error.error?.error || error.message), 'error');
         this.loading = false;
       }
     });
   }
 
   sendQuickTest() {
-    this.loading = false;
+    this.loading = true;
     this.statusMessage = 'Sending quick test...';
     this.statusType = 'info';
 
     this.pushService.sendQuickTest().subscribe({
       next: (response) => {
         console.log('Quick test response:', response);
-        this.statusMessage = '✅ Quick test sent! Check your notifications.';
-        this.statusType = 'success';
+        this.showStatus('✅ Quick test sent! Check your notifications.', 'success');
         this.loading = false;
       },
       error: (error) => {
         console.error('Quick test error:', error);
-        this.statusMessage = '❌ Quick test failed: ' +
-          (error.error?.error || error.message);
-        this.statusType = 'error';
+        this.showStatus('❌ Quick test failed: ' + (error.error?.error || error.message), 'error');
         this.loading = false;
       }
     });
   }
 
   checkStatus() {
-    this.loading = false;
+    this.loading = true;
     this.statusMessage = 'Checking subscription status...';
     this.statusType = 'info';
 
     this.pushService.checkSubscriptionStatus().subscribe({
-      next: (response:SubscriptionStatus) => {
+      next: (response: SubscriptionStatus) => {
         console.log('Status check response:', response);
-        this.statusMessage = '✅ Status: ' +
-          (response.subscribed ? 'Subscribed' : 'Not subscribed');
-        this.statusType = 'success';
-        console.log(this.loading +  " test123");
+        const status = response.subscribed ? '✅ Subscribed' : '❌ Not subscribed';
+        const message = response.message ? ` - ${response.message}` : '';
+        this.showStatus(`${status}${message}`, response.subscribed ? 'success' : 'error');
         this.loading = false;
-        console.log(this.loading);
-        },
+      },
       error: (error) => {
         console.error('Status check error:', error);
-        this.statusMessage = '❌ Could not check status: ' +
-          (error.error?.error || error.message);
-        this.statusType = 'error';
+        this.showStatus('❌ Could not check status: ' + (error.error?.error || error.message), 'error');
         this.loading = false;
       }
     });
   }
 
   async unsubscribe() {
-    this.loading = false;
+    this.loading = true;
     this.statusMessage = 'Unsubscribing...';
     this.statusType = 'info';
 
@@ -398,18 +418,20 @@ export class PushNotificationTestComponent implements OnInit {
       const success = await this.pushService.unsubscribe();
 
       if (success) {
-        this.statusMessage = '✅ Successfully unsubscribed from notifications.';
-        this.statusType = 'success';
+        this.showStatus('✅ Successfully unsubscribed from notifications.', 'success');
         this.isSubscribed = false;
       } else {
-        this.statusMessage = '❌ Failed to unsubscribe.';
-        this.statusType = 'error';
+        this.showStatus('❌ Failed to unsubscribe.', 'error');
       }
     } catch (error) {
-      this.statusMessage = '❌ Error unsubscribing: ' + error;
-      this.statusType = 'error';
+      this.showStatus('❌ Error unsubscribing: ' + error, 'error');
     } finally {
       this.loading = false;
     }
+  }
+
+  private showStatus(message: string, type: 'success' | 'error' | 'info') {
+    this.statusMessage = message;
+    this.statusType = type;
   }
 }

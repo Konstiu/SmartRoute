@@ -163,8 +163,7 @@ public class PushNotificationEndpoint {
     public ResponseEntity<?> checkSubscriptionStatus(@AuthenticationPrincipal ApplicationUser user) {
         try {
             // You'll need to add this method to your service
-            // boolean hasSubscriptions = pushNotificationService.hasSubscriptions(user);
-
+            //boolean hasSubscriptions = pushNotificationService.hasSubscriptions(user);
             return ResponseEntity.ok(Map.of(
                     "subscribed", true, // Replace with actual check
                     "message", "Subscription status retrieved"

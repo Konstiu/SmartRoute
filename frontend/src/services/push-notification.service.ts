@@ -19,11 +19,39 @@ export class PushNotificationService {
   private subscriptionStatus = new BehaviorSubject<boolean>(false);
   public subscriptionStatus$ = this.subscriptionStatus.asObservable();
 
+  // Track if listeners are already registered (to prevent duplicates)
+  private nativeListenersRegistered = false;
+
   constructor(
     private swPush: SwPush,
     private http: HttpClient,
     private globals: Globals
-  ) {}
+  ) {
+    // Don't auto-initialize - wait for explicit call after login
+    // this.autoInitialize();
+  }
+
+  /**
+   * Automatically initialize push notifications on service startup
+   * ALWAYS attempts to subscribe without checking first
+   */
+  async autoInitialize() {
+    console.log('🚀 Force auto-subscribing to push notifications...');
+
+    try {
+      // ALWAYS try to subscribe - skip the check
+      const success = await this.subscribeToNotifications();
+
+      if (success) {
+        console.log('✅ Automatically subscribed to push notifications');
+      } else {
+        console.log('⚠️ Automatic subscription failed - will retry on next launch');
+      }
+    } catch (error) {
+      console.warn('Auto-initialization failed:', error);
+      // Fail silently - don't break the app
+    }
+  }
 
   /**
    * Main method to subscribe to push notifications
@@ -47,6 +75,12 @@ export class PushNotificationService {
    */
   private async initNativePush(): Promise<boolean> {
     try {
+      // Register listeners BEFORE requesting permissions (only once)
+      if (!this.nativeListenersRegistered) {
+        this.registerNativeListeners();
+        this.nativeListenersRegistered = true;
+      }
+
       // Request permission
       const result = await PushNotifications.requestPermissions();
 
@@ -58,53 +92,59 @@ export class PushNotificationService {
       // Register for push
       await PushNotifications.register();
 
-      // Listen for registration token
-      PushNotifications.addListener('registration', (token: Token) => {
-        console.log('FCM Token received:', token.value);
-
-        // Send FCM token to backend
-        this.http.post(`${this.globals.backendUri}/notifications/subscribe-native`, {
-          token: token.value,
-          platform: Capacitor.getPlatform()
-        }).subscribe({
-          next: (response) => {
-            console.log('Native subscription saved:', response);
-            this.subscriptionStatus.next(true);
-          },
-          error: (err) => {
-            console.error('Failed to save native subscription:', err);
-            this.subscriptionStatus.next(false);
-          }
-        });
-      });
-
-      // Listen for registration errors
-      PushNotifications.addListener('registrationError', (error: any) => {
-        console.error('Registration error:', error);
-        this.subscriptionStatus.next(false);
-      });
-
-      // Listen for incoming notifications (foreground)
-      PushNotifications.addListener('pushNotificationReceived',
-        (notification: PushNotificationSchema) => {
-          console.log('Notification received (foreground):', notification);
-          // You can show a custom notification UI here
-        }
-      );
-
-      // Listen for notification tap (background)
-      PushNotifications.addListener('pushNotificationActionPerformed',
-        (action: ActionPerformed) => {
-          console.log('Notification action performed:', action);
-          // Handle notification tap - navigate to specific screen
-        }
-      );
-
+      // Return true immediately - the 'registration' listener will handle the backend call
       return true;
     } catch (error) {
       console.error('Native push initialization error:', error);
       return false;
     }
+  }
+
+  /**
+   * Register native push notification listeners
+   */
+  private registerNativeListeners(): void {
+    // Listen for registration token
+    PushNotifications.addListener('registration', (token: Token) => {
+      console.log('FCM Token received:', token.value);
+
+      // Send FCM token to backend
+      this.http.post(`${this.globals.backendUri}/notifications/subscribe-native`, {
+        token: token.value,
+        platform: Capacitor.getPlatform()
+      }).subscribe({
+        next: (response) => {
+          console.log('Native subscription saved:', response);
+          this.subscriptionStatus.next(true);
+        },
+        error: (err) => {
+          console.error('Failed to save native subscription:', err);
+          this.subscriptionStatus.next(false);
+        }
+      });
+    });
+
+    // Listen for registration errors
+    PushNotifications.addListener('registrationError', (error: any) => {
+      console.error('Registration error:', error);
+      this.subscriptionStatus.next(false);
+    });
+
+    // Listen for incoming notifications (foreground)
+    PushNotifications.addListener('pushNotificationReceived',
+      (notification: PushNotificationSchema) => {
+        console.log('Notification received (foreground):', notification);
+        // You can show a custom notification UI here
+      }
+    );
+
+    // Listen for notification tap (background)
+    PushNotifications.addListener('pushNotificationActionPerformed',
+      (action: ActionPerformed) => {
+        console.log('Notification action performed:', action);
+        // Handle notification tap - navigate to specific screen
+      }
+    );
   }
 
   /**
@@ -117,11 +157,25 @@ export class PushNotificationService {
         return false;
       }
 
+      // Check if already subscribed
+      const existingSub = await this.swPush.subscription.pipe().toPromise();
+      if (existingSub) {
+        console.log('Already subscribed to web push');
+        this.subscriptionStatus.next(true);
+
+        // Set up message listeners
+        this.listenToNotifications();
+        return true;
+      }
+
       const subscription = await this.swPush.requestSubscription({
         serverPublicKey: this.globals.vapidPublicKey
       });
 
       console.log('Web push subscription created:', subscription);
+
+      // Set up message listeners
+      this.listenToNotifications();
 
       // Send subscription to backend
       return new Promise((resolve) => {
@@ -174,12 +228,15 @@ export class PushNotificationService {
   async unsubscribe(): Promise<boolean> {
     try {
       if (Capacitor.isNativePlatform()) {
-        // For native, you might want to call a backend endpoint to remove the token
+        // Remove all listeners
         await PushNotifications.removeAllListeners();
+        this.nativeListenersRegistered = false;
         this.subscriptionStatus.next(false);
         return true;
       } else {
+        // For web, unsubscribe from service worker
         await this.swPush.unsubscribe();
+
         console.log('Unsubscribed from web push');
         this.subscriptionStatus.next(false);
         return true;
@@ -194,12 +251,20 @@ export class PushNotificationService {
    * Check if user is currently subscribed
    */
   async isSubscribed(): Promise<boolean> {
-    if (Capacitor.isNativePlatform()) {
-      const result = await PushNotifications.checkPermissions();
-      return result.receive === 'granted';
-    } else {
-      return this.swPush.isEnabled &&
-        (this.swPush.subscription) !== null;
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const result = await PushNotifications.checkPermissions();
+        return result.receive === 'granted';
+      } else {
+        if (!this.swPush.isEnabled) {
+          return false;
+        }
+        const sub = await this.swPush.subscription.pipe().toPromise();
+        return sub !== null;
+      }
+    } catch (error) {
+      console.error('Error checking subscription status:', error);
+      return false;
     }
   }
 
