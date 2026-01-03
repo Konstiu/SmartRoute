@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import {map, Observable} from 'rxjs';
 import {DetailedActivity, Activity} from '../app/dtos/Activity';
 import {Globals} from "../global/globals";
+import {RunClassificationDto} from "../app/dtos/run-classification";
 
 @Injectable({
   providedIn: 'root'
@@ -70,5 +71,15 @@ export class ActivitiesService {
   getActivityById(id:number): Observable<DetailedActivity>{
     const url = `${this.userUri}/${id}`;
     return this.httpClient.get<DetailedActivity>(url);
+  }
+
+  /**
+   * Returns the run type classification for the selected run.
+   *
+   * @param id the activity id
+   */
+  getClassification(id:number): Observable<RunClassificationDto>{
+    const url = `${this.userUri}/classification/${id}`;
+    return this.httpClient.get<RunClassificationDto>(url);
   }
 }

@@ -1,10 +1,11 @@
 package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.endpoint.dto.DetailedActivityDto;
-import com.smartroute.smartroute1.endpoint.dto.StravaActivityDto;
 import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
+import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.GpxService;
+import com.smartroute.smartroute1.service.RunClassificationService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,6 +31,7 @@ public class GpxEndpoint {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final GpxService gpxService;
     private final StravaActivityMapper stravaActivityMapper;
+    private final RunClassificationService runClassificationService;
 
     @Secured("ROLE_USER")
     @PostMapping("import-strava")
@@ -42,8 +44,10 @@ public class GpxEndpoint {
         }
         for (MultipartFile file : files) {
             try (InputStream is = file.getInputStream()) {
+                Activity activity = gpxService.importStravaGpxFile(is, email);
                 DetailedActivityDto dto = stravaActivityMapper.toDetailedViewDto(
-                    gpxService.importStravaGpxFile(is, email)
+                    activity,
+                    runClassificationService.classifyRun(activity.getId())
                 );
                 dtos.add(dto);
             }

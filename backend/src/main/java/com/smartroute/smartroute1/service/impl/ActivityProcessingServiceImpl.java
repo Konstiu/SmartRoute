@@ -11,6 +11,7 @@ import com.smartroute.smartroute1.repository.ActivityStreamRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
+import com.smartroute.smartroute1.util.Codec;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -88,6 +91,13 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         }
     }
 
+    /**
+     * Processes imported activities.
+     * Calculates time in zones, sessionLoad
+     *
+     * @param activity the activity to process
+     * @param token    the Strava API token to fetch Strava data
+     */
     private void processActivity(Activity activity, String token) {
         try {
             Integer sessionLoad;
@@ -98,12 +108,28 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             boolean powerBasedCalculationPossible = activity.getAverageWatts() != null && user.getFtp() != null;
             boolean hasEnergy = activity.getKilojoules() != null;
 
-            /*Fetch Strava activity stravaStreams
+            /*
+            Fetch Strava activity stravaStreams
             Never re-fetch stravaStreams
              */
             List<StravaStreamDto> stravaStreams;
             if (activity.getActivityStream() == null) {
                 stravaStreams = fetchStreams(activity.getStravaId(), token);
+
+                // Calculate time in hr-zones
+                Map<Integer, Float> timeInZones = fitnessScoreService.calculateTimeInZones(stravaStreams, user);
+
+                // Set time in hr-zones
+                timeInZones.forEach((zone, time) -> {
+                    switch (zone) {
+                        case 1 -> activity.setTimeZ1(Math.round(time));
+                        case 2 -> activity.setTimeZ2(Math.round(time));
+                        case 3 -> activity.setTimeZ3(Math.round(time));
+                        case 4 -> activity.setTimeZ4(Math.round(time));
+                        case 5 -> activity.setTimeZ5(Math.round(time));
+                        default -> throw new IllegalStateException("Unexpected value: " + zone);
+                    }
+                });
 
                 // Extract stravaStreams, map to double list or null if not found and create an ActivityStream object
                 ActivityStream activityStream = createActivityStream(
@@ -113,15 +139,17 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                     ActivityStreamSource.STRAVA
                 );
 
-                activityStream = activityStreamRepository.save(activityStream);
-                activity.setActivityStream(activityStream);
+                if (activityStream != null) {
+                    activityStream = activityStreamRepository.save(activityStream);
+                    activity.setActivityStream(activityStream);
+                }
 
             } else if (activity.getActivityStream().getHeartrateStream() != null && activity.getActivityStream().getTimeStream() != null) {
                 // If stravaStreams are already stored decode time and heartrate streams and add to StravaStreamDto list
                 stravaStreams = new ArrayList<>();
                 stravaStreams.add(new StravaStreamDto(
                         "time",
-                        toFloatList(decodeDoubleArray(activity.getActivityStream().getTimeStream())),
+                        Codec.toFloatList(Codec.decodeDoubleArray(activity.getActivityStream().getTimeStream())),
                         null,
                         -1,
                         null
@@ -129,7 +157,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 );
                 stravaStreams.add(new StravaStreamDto(
                         "heartrate",
-                        toFloatList(decodeDoubleArray(activity.getActivityStream().getTimeStream())),
+                        Codec.toFloatList(Codec.decodeDoubleArray(activity.getActivityStream().getTimeStream())),
                         null,
                         -1,
                         null
@@ -144,7 +172,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 // 1. If (Strava) sufferScore is present, use it
                 sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getSufferScore(), activity.getTotalElevationGain());
             } else if (isStravaActivity) {
-                // 2. Strava activity but no sufferScore available: fetch heartRate stream and manually calculate a sessionLoad
+                // 2. Strava activity but no sufferScore available: use heartRate stream and manually calculate a sessionLoad
                 sessionLoad = fitnessScoreService.calculateSessionLoad(stravaStreams, activity);
             } else if (powerBasedCalculationPossible) {
                 // 3. Not a Strava activity: calculate based on power
@@ -174,6 +202,16 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 storedActivity.setElapsedTime(storedActivity.getElapsedTime());
                 storedActivity.setMovingTime(storedActivity.getMovingTime());
                 storedActivity.setMaxHeartrate(storedActivity.getMaxHeartrate());
+
+                // Update time in zones only if it was not stored before
+                if (activity.getTimeZ1() != null && storedActivity.getTimeZ1() == null) {
+                    storedActivity.setTimeZ1(activity.getTimeZ1());
+                    storedActivity.setTimeZ2(activity.getTimeZ2());
+                    storedActivity.setTimeZ3(activity.getTimeZ3());
+                    storedActivity.setTimeZ4(activity.getTimeZ4());
+                    storedActivity.setTimeZ5(activity.getTimeZ5());
+                }
+
                 storedActivity.setSummaryPolyline(storedActivity.getSummaryPolyline());
                 storedActivity.setAverageHeartrate(activity.getAverageHeartrate());
                 storedActivity.setAverageSpeed(activity.getAverageSpeed());
@@ -210,6 +248,13 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         return storedActivity;
     }
 
+    /**
+     * Fetches Strava streams for an activity.
+     *
+     * @param activityId the id of the activity to fetch streams for
+     * @param token      the Strava API token for the authenticated user
+     * @return a list of Strava streams
+     */
     private List<StravaStreamDto> fetchStreams(Long activityId, String token) {
         LOGGER.trace("fetchStreams({}, *token*)", activityId);
         UriComponentsBuilder builder = UriComponentsBuilder
@@ -241,22 +286,30 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
 
     @Override
     public ActivityStream createActivityStream(List<Double> time, List<Double> distance, List<Double> heartRate, ActivityStreamSource source) {
+        LOGGER.trace("createActivityStream({},{},{},{})", time, distance, heartRate, source);
+        // Check if all non-null lists have the same size. Return null otherwise.
+        List<List<?>> listOfLists = Arrays.asList(time, distance, heartRate);
+        if (listOfLists.stream().filter(Objects::nonNull).mapToLong(List::size).distinct().count() > 1) {
+            LOGGER.error("Failed to create ActivityStream: List sizes do not match");
+            return null;
+        }
+
         ActivityStream stream = new ActivityStream();
 
         stream.setTimeStream(
-            time == null ? null : encodeDoubleArray(
+            time == null ? null : Codec.encodeDoubleArray(
                 time.stream().mapToDouble(Double::doubleValue).toArray()
             )
         );
 
         stream.setDistanceStream(
-            distance == null ? null : encodeDoubleArray(
+            distance == null ? null : Codec.encodeDoubleArray(
                 distance.stream().mapToDouble(Double::doubleValue).toArray()
             )
         );
 
         stream.setHeartrateStream(
-            heartRate == null ? null : encodeDoubleArray(
+            heartRate == null ? null : Codec.encodeDoubleArray(
                 heartRate.stream().mapToDouble(Double::doubleValue).toArray()
             )
         );
@@ -581,8 +634,8 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             return -1;
         }
 
-        double[] hrArray = decodeDoubleArray(stream.getHeartrateStream());
-        double[] timeArray = decodeDoubleArray(stream.getTimeStream());
+        double[] hrArray = Codec.decodeDoubleArray(stream.getHeartrateStream());
+        double[] timeArray = Codec.decodeDoubleArray(stream.getTimeStream());
 
         if (hrArray.length != timeArray.length) {
             throw new IllegalStateException("HR and time arrays must match");
@@ -598,8 +651,8 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             return -1;
         }
 
-        double[] distanceArray = decodeDoubleArray(stream.getDistanceStream());
-        double[] timeArray = decodeDoubleArray(stream.getTimeStream());
+        double[] distanceArray = Codec.decodeDoubleArray(stream.getDistanceStream());
+        double[] timeArray = Codec.decodeDoubleArray(stream.getTimeStream());
 
         if (distanceArray.length != timeArray.length) {
             throw new IllegalStateException("Distance and time arrays must match");
@@ -631,35 +684,5 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         }
 
         return speed;
-    }
-
-    // Helper method to encode double[] as byte[]
-    private byte[] encodeDoubleArray(double[] data) {
-        ByteBuffer buffer = ByteBuffer.allocate(data.length * Double.BYTES)
-            .order(ByteOrder.LITTLE_ENDIAN);
-        for (double v : data) {
-            buffer.putDouble(v);
-        }
-        return buffer.array();
-    }
-
-    // Helper method to decode byte[] as double[]
-    private double[] decodeDoubleArray(byte[] bytes) {
-        ByteBuffer buffer = ByteBuffer.wrap(bytes)
-            .order(ByteOrder.LITTLE_ENDIAN);
-        double[] data = new double[bytes.length / Double.BYTES];
-        for (int i = 0; i < data.length; i++) {
-            data[i] = buffer.getDouble();
-        }
-        return data;
-    }
-
-    // Helper method to create a List<Float> from double[]
-    private List<Float> toFloatList(double[] array) {
-        List<Float> list = new ArrayList<>(array.length);
-        for (double v : array) {
-            list.add((float) v);
-        }
-        return list;
     }
 }

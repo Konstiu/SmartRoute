@@ -9,6 +9,7 @@ import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.ActivityStreamRepository;
 import com.smartroute.smartroute1.service.FitnessScoreService;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
+import com.smartroute.smartroute1.util.Codec;
 import jakarta.transaction.Transactional;
 import okhttp3.mockwebserver.MockResponse;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.time.LocalDate;
 import java.util.Optional;
+import java.util.Random;
 import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -74,6 +76,8 @@ class ActivityProcessingServiceTest extends BaseTest {
         activityRepository.deleteAll();
         activityStreamRepository.deleteAll();
         activityRepository.flush();
+        activityStreamRepository.flush();
+
         ApplicationUser user = userRepository.findAll().getFirst();
         Activity act1 = getStravaActivity();
         act1.setUser(user);
@@ -183,6 +187,90 @@ class ActivityProcessingServiceTest extends BaseTest {
         assertEquals("middle", result.get().getName());
     }
 
+    // createActivityStream tests
+
+    @Test
+    void testCreateActivityStream_returnsCorrectly() {
+        List<Double> time = List.of(0.0, 1.0);
+        List<Double> distance = List.of(0.0, 3.0);
+        List<Double> heartRate = List.of(143.0, 144.0);
+        ActivityStreamSource source = ActivityStreamSource.SMART_ROUTE;
+
+        ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
+
+        assertAll(
+            () -> assertNotNull(as),
+            () -> assertEquals(source, as.getSource()),
+            () -> assertArrayEquals(Codec.encodeDoubleArray(time.stream().mapToDouble(Double::doubleValue).toArray()), as.getTimeStream()),
+            () -> assertArrayEquals(Codec.encodeDoubleArray(distance.stream().mapToDouble(Double::doubleValue).toArray()), as.getDistanceStream()),
+            () -> assertArrayEquals(Codec.encodeDoubleArray(heartRate.stream().mapToDouble(Double::doubleValue).toArray()), as.getHeartrateStream())
+        );
+    }
+
+    @Test
+    void testCreateActivityStream_WithAllStreamsNull_returnsCorrectly() {
+        List<Double> time = null;
+        List<Double> distance = null;
+        List<Double> heartRate = null;
+        ActivityStreamSource source = ActivityStreamSource.SMART_ROUTE;
+
+        ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
+
+        assertAll(
+            () -> assertNotNull(as),
+            () -> assertEquals(source, as.getSource()),
+            () -> assertNull(as.getTimeStream()),
+            () -> assertNull(as.getDistanceStream()),
+            () -> assertNull(as.getHeartrateStream())
+        );
+    }
+
+    @Test
+    void testCreateActivityStream_WithSomeStreamsNull_returnsCorrectly() {
+        List<Double> time = null;
+        List<Double> distance = null;
+        List<Double> heartRate = List.of(143.0, 144.0);
+        ActivityStreamSource source = ActivityStreamSource.SMART_ROUTE;
+
+        ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
+
+        assertAll(
+            () -> assertNotNull(as),
+            () -> assertEquals(source, as.getSource()),
+            () -> assertNull(as.getTimeStream()),
+            () -> assertNull(as.getDistanceStream()),
+            () -> assertArrayEquals(Codec.encodeDoubleArray(heartRate.stream().mapToDouble(Double::doubleValue).toArray()), as.getHeartrateStream())
+        );
+    }
+
+    @Test
+    void testCreateActivityStream_WithSizeMismatch_returnsNull() {
+        List<Double> time = List.of(0.0, 1.0, 2.0, 3.0);
+        List<Double> distance = List.of(0.0, 3.0);
+        List<Double> heartRate = List.of(143.0, 144.0);
+        ActivityStreamSource source = ActivityStreamSource.SMART_ROUTE;
+
+        ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
+
+        assertAll(
+            () -> assertNull(as)
+        );
+    }
+
+    @Test
+    void testCreateActivityStream_WithSizeMismatchAndNullStream_returnsNull() {
+        List<Double> time = List.of(0.0, 1.0, 2.0, 3.0);
+        List<Double> distance = List.of(0.0, 3.0);
+        List<Double> heartRate = null;
+        ActivityStreamSource source = ActivityStreamSource.SMART_ROUTE;
+
+        ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
+
+        assertAll(
+            () -> assertNull(as)
+        );
+    }
+
     // detectHeartRateSpikes tests
 
     @Test
@@ -222,7 +310,62 @@ class ActivityProcessingServiceTest extends BaseTest {
             null,
             hr,
             ActivityStreamSource.STRAVA
-        ); //TODO also test this method
+        );
+
+        activityStreamRepository.save(as);
+        a.setActivityStream(as);
+        activityRepository.save(a);
+
+        int hrSpikes = activityProcessingService.detectHeartRateSpikes(a);
+
+        assertEquals(1, hrSpikes);
+    }
+
+    @Test
+    void testDetectHeartRateSpikes_With1SpikeAndIrregularTimeStream_returnsCorrectly() {
+        activityRepository.deleteAll();
+        activityRepository.flush();
+
+        Activity a = getStravaActivity();
+
+        List<Double> time = new ArrayList<>();
+        double t = 0;
+        Random random = new Random(42);
+
+        for (int i = 0; i < 60; i++) {
+            t += 0.8 + random.nextDouble() * 0.6; // Random interval between 0.8 and 1.4 seconds
+            if (i == 15 || i == 35) {
+                t += 2.0; // Occasional larger gap
+            }
+            time.add(t);
+        }
+
+        List<Double> hr = List.of(
+            // steady state
+            140.0, 141.0, 140.0, 141.0, 140.0,
+            141.0, 140.0, 141.0, 140.0, 141.0,
+            140.0, 141.0, 140.0, 141.0, 140.0,
+            141.0, 140.0, 141.0, 140.0, 141.0,
+
+            // sharp spike (interval)
+            160.0, 165.0, 170.0, 168.0, 165.0,
+
+            // recovery
+            150.0, 148.0, 146.0, 145.0, 144.0,
+            143.0, 142.0, 141.0, 140.0, 141.0,
+            140.0, 141.0, 140.0, 141.0, 140.0,
+            141.0, 140.0, 141.0, 140.0, 141.0,
+            140.0, 141.0, 140.0, 141.0, 140.0,
+            141.0, 140.0, 141.0, 140.0, 141.0,
+            141.0, 140.0, 141.0, 140.0, 141.0
+        );
+
+        ActivityStream as = activityProcessingService.createActivityStream(
+            time,
+            null,
+            hr,
+            ActivityStreamSource.STRAVA
+        );
 
         activityStreamRepository.save(as);
         a.setActivityStream(as);
@@ -451,12 +594,11 @@ class ActivityProcessingServiceTest extends BaseTest {
         activityRepository.flush();
 
         Activity a = getStravaActivity();
-        ActivityStream as = activityProcessingService.createActivityStream(
-            List.of(1.0),
-            List.of(1.0),
-            List.of(1.0, 1.0),
-            ActivityStreamSource.STRAVA
-        );
+        ActivityStream as = new ActivityStream();
+        as.setTimeStream(new byte[111111111]);
+        as.setDistanceStream(new byte[1]);
+        as.setHeartrateStream(new byte[1]);
+        as.setSource(ActivityStreamSource.STRAVA);
 
         activityStreamRepository.save(as);
         a.setActivityStream(as);
@@ -1273,12 +1415,12 @@ class ActivityProcessingServiceTest extends BaseTest {
         activityRepository.flush();
 
         Activity a = getStravaActivity();
-        ActivityStream as = activityProcessingService.createActivityStream(
-            List.of(1.0),
-            List.of(1.0, 2.0),
-            List.of(1.0),
-            ActivityStreamSource.STRAVA
-        );
+
+        ActivityStream as = new ActivityStream();
+        as.setTimeStream(new byte[111111111]);
+        as.setDistanceStream(new byte[1]);
+        as.setHeartrateStream(new byte[1]);
+        as.setSource(ActivityStreamSource.STRAVA);
 
         activityStreamRepository.save(as);
         a.setActivityStream(as);

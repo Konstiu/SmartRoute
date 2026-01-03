@@ -14,7 +14,7 @@ import java.util.Optional;
 public interface ActivityProcessingService {
     /**
      * Fetches the Strava heartRateStreams for the activities in the
-     * provided activities list, calculates the sessionLoad for each activity
+     * provided activities list, calculates the sessionLoad and time in hr-zones for each activity
      * and saves it to the activity.
      * To avoid hitting Strava API limits, activities are processed in batches.
      *
@@ -24,6 +24,16 @@ public interface ActivityProcessingService {
      */
     void processActivitiesInBatches(int maxBatchSize, List<Activity> activities, String token);
 
+
+    /**
+     * Creates a new ActivityStream.
+     *
+     * @param time the time stream
+     * @param distance the distance stream
+     * @param heartRate the heartrate stream
+     * @param source the source of the streams
+     * @return a new ActivityStream or null if the stream sizes do not match
+     */
     ActivityStream createActivityStream(List<Double> time, List<Double> distance, List<Double> heartRate, ActivityStreamSource source);
 
     /**
