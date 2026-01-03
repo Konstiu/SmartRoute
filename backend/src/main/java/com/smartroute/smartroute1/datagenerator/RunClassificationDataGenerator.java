@@ -22,6 +22,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 
+/**
+ * A datagenerator that creates runs ideal for training the RunClassifier model.
+ * <p>
+ * Normally this would not be part of the entire JavaSpring lifecycle and is only here for the sake of the LVA
+ * Therefore it is also not tested and not normally executed
+ */
 @Component
 public class RunClassificationDataGenerator {
     private static final int NUMBER_OF_RUNS = 10000;
@@ -29,14 +35,14 @@ public class RunClassificationDataGenerator {
     private static final Path CSV_OUT_PATH = Paths.get("backend", "target", "RunDataset_Labelled.csv");
     private static final String CSV_HEADER =
             "duration,duration_pct_pb_20,distance,distance_pct_pb_20,"
-                    + "pace,pace_pct_pb_20,elevation_gain,session_load,"
-                    + "num_pace_spikes,readiness_score,consistency_score,tsb,"
-                    + "age,weight,height,sex,experience_level,injury_index,"
-                    + "hr_avg,hr_avg_missing,hr_max,hr_max_missing,"
-                    + "zone1,zone1_missing,zone2,zone2_missing,"
-                    + "zone3,zone3_missing,zone4,zone4_missing,"
-                    + "zone5,zone5_missing,num_hr_spikes,num_hr_spikes_missing,"
-                    + "windSpeed10m,temperature2m,uv_index,precipitation,snowDepth,run_type";
+            + "pace,pace_pct_pb_20,elevation_gain,session_load,"
+            + "num_pace_spikes,readiness_score,consistency_score,tsb,"
+            + "age,weight,height,sex,experience_level,injury_index,"
+            + "hr_avg,hr_avg_missing,hr_max,hr_max_missing,"
+            + "zone1,zone1_missing,zone2,zone2_missing,"
+            + "zone3,zone3_missing,zone4,zone4_missing,"
+            + "zone5,zone5_missing,num_hr_spikes,num_hr_spikes_missing,"
+            + "windSpeed10m,temperature2m,uv_index,precipitation,snowDepth,run_type";
     private static final int K1 = 30;
     private static final int K2 = 60;
     private static final int K3 = 120;
