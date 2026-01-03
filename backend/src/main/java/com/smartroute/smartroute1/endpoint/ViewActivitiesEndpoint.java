@@ -93,7 +93,7 @@ public class ViewActivitiesEndpoint {
                     Use GET /api/v1/activities to fetch updated activities afterwards.
                     """
     )
-    public void synchronize(@RequestBody Integer count) {
+    public void synchronize(@RequestBody Integer count) throws Exception {
         LOGGER.info("POST /api/v1/activities/sync/");
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = auth.getName();

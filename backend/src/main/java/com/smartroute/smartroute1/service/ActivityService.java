@@ -7,5 +7,5 @@ public interface ActivityService {
      * @param email the user's email address
      * @param count the maximum of activities to fetch
      */
-    void synchronize(String email, int count);
+    void synchronize(String email, int count) throws Exception;
 }
