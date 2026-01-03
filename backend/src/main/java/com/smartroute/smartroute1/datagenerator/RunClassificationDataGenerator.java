@@ -24,7 +24,7 @@ import java.util.Random;
 
 @Component
 public class RunClassificationDataGenerator {
-    private static final int NUMBER_OF_RUNS = 8000;
+    private static final int NUMBER_OF_RUNS = 10000;
     private static final Path CSV_PATH = Paths.get("backend", "target", "RunDataset.csv");
     private static final Path CSV_OUT_PATH = Paths.get("backend", "target", "RunDataset_Labelled.csv");
     private static final String CSV_HEADER =
@@ -97,7 +97,7 @@ public class RunClassificationDataGenerator {
                     0.7,
                     0.6,
                     10,
-                    0,
+                    1,
                     0,
                     0,
                     0.1,
@@ -109,7 +109,7 @@ public class RunClassificationDataGenerator {
                     0.8,
                     0.8,
                     35,
-                    1,
+                    2,
                     0.05,
                     0.1,
                     0.4,
@@ -134,7 +134,7 @@ public class RunClassificationDataGenerator {
                     1.3,
                     1.1,
                     25,
-                    1,
+                    3,
                     0.02,
                     0.03,
                     0.15,
@@ -206,11 +206,10 @@ public class RunClassificationDataGenerator {
         zoneTimes.put(3, (float) Math.round(distribution[2] * duration));
         zoneTimes.put(4, (float) Math.round(distribution[1] * duration));
         zoneTimes.put(5, (float) Math.round(distribution[0] * duration));
-        double elevation = rand(0, distance * 25) * type.elevationMultiplier();
+
         double hrAvg = rand(0.7, 0.9) * athlete.maxHr();
         double hrMax = rand(hrAvg + 5, athlete.maxHr());
 
-        double temperature = rand(-5, 30);
 
         //Here are some special cases than can occur randomly, to improve generalisation
 
@@ -247,10 +246,10 @@ public class RunClassificationDataGenerator {
                 hrMax = -1;
             }
 
-            int missingZone = randInt(1, 5);
+            int missingZone = randInt(0, 4);
             zoneMissing[missingZone] = true;
         }
-
+        double temperature = rand(-5, 30);
         //Extreme weather
         if (temperature > 25) {
             hrAvg *= 1.08;
@@ -267,9 +266,12 @@ public class RunClassificationDataGenerator {
             distance *= rand(0.6, 0.85);
         }
 
+
+        double elevation = rand(0, distance * 25) * type.elevationMultiplier();
         double snowDepth = temperature < 1 ? rand(0, 20) : 0;
         int paceSpikes = type.paceSpikes();
 
+        // Snow run
         if (snowDepth > 5) {
             pace *= 1.15;
             paceSpikes *= 0.5;
@@ -284,7 +286,7 @@ public class RunClassificationDataGenerator {
             paceSpikes += randInt(2, 6);
         }
 
-        //Treadmill runs
+        // Treadmill runs
         if (random.nextDouble() < 0.08) {
             elevation = 0;
             paceSpikes = randInt(0, 1);
@@ -298,7 +300,7 @@ public class RunClassificationDataGenerator {
             elevation *= rand(0.3, 0.6);
         }
 
-        //Runs with someone else
+        // Runs with someone else
         if (random.nextDouble() < 0.06) {
             paceSpikes += randInt(4, 8);
             hrAvg *= rand(0.95, 1.0);
@@ -313,6 +315,7 @@ public class RunClassificationDataGenerator {
 
         // Trail runs
         if (random.nextDouble() < 0.05) {
+            paceSpikes += randInt(2, 6);
             pace *= rand(1.1, 1.25);
             hrAvg *= rand(1.05, 1.1);
             elevation *= rand(1.2, 1.6);
@@ -320,14 +323,17 @@ public class RunClassificationDataGenerator {
 
         return new RunClassificationResultDto(new RunClassificationDto(
                 duration,               //duration
-                rand(0.7, 1.3),         //duration_pct_pb_20
+                runType == RunType.LONG_RUN ? rand(0.8, 1.5) :
+                        runType == RunType.EASY_RUN ? rand(0.2, 0.5) : rand(0.4, 0.9),         //duration_pct_pb_20
                 distance,               //distance
-                rand(0.7, 1.3),         //distance_pct_pb_20
+                runType == RunType.LONG_RUN ? rand(0.8, 1.5) :
+                        runType == RunType.EASY_RUN ? rand(0.2, 0.5) : rand(0.4, 0.9),         //distance_pct_pb_20
                 pace,                   // pace
-                rand(0.7, 1.3),         //pace_pct_pb_20
+                runType == RunType.TEMPO_RUN ? rand(0.8, 1.5) :
+                        runType == RunType.EASY_RUN ? rand(0.5, 0.8) : rand(0.65, 0.9),         //pace_pct_pb_20
                 elevation,              //elevation gain
                 (double) calculateTrimp(zoneTimes), //Session load
-                (int) Math.round(paceSpikes * randDouble(1, 1.8) * (((double) duration / 3600))),   //num pace spikes
+                (int) Math.round(paceSpikes * randDouble(0.5, 2) * (((double) duration / 3600))),   //num pace spikes
                 readinessScore,    // readiness score
                 rand(0.3, 1.0),     // consistency score
                 rand(-20, 20),      //tsb
