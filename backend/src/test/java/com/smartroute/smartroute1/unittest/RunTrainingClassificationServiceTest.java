@@ -18,7 +18,6 @@ import java.io.BufferedWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.Assert.assertEquals;
 
 @SpringBootTest
 @ActiveProfiles({"test", "generateData"})
@@ -112,7 +111,7 @@ public class RunTrainingClassificationServiceTest {
 
             Path result = runTrainingClassificationService.classifyCsv(input, output);
 
-            assertEquals(output, result);
+            Assertions.assertEquals(output, result);
 
             Mockito.verify(writer).write(Mockito.contains("classification"));
             Mockito.verify(writer, Mockito.atLeastOnce())
