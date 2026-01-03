@@ -32,58 +32,73 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     );
 
     @Query(value = """
-    SELECT COALESCE(MAX(moving_time), -1)
-    FROM (
-        SELECT a.moving_time
-        FROM activity a
-        WHERE a.user_id = :#{#user.id}
-        AND a.type = :type
-        ORDER BY a.start_date DESC
-        LIMIT 20
-    ) recent_activities
-    """, nativeQuery = true)
-    Integer findMaxDurationInLast20ActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
+        SELECT COALESCE(AVG(moving_time), -1)
+        FROM (
+            SELECT moving_time
+            FROM (
+                SELECT a.moving_time
+                FROM activity a
+                WHERE a.user_id = :#{#user.id}
+                    AND a.type = :type
+                ORDER BY a.start_date DESC
+                LIMIT 20
+            ) last_20
+            ORDER BY moving_time DESC
+            LIMIT 3
+        ) top_3
+        """, nativeQuery = true)
+    Integer findTop3AvgDurationInLast20ActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
 
     @Query(value = """
-    SELECT COALESCE(MAX(distance), -1)
-    FROM (
-        SELECT a.distance
-        FROM activity a
-        WHERE a.user_id = :#{#user.id}
-        AND a.type = :type
-        ORDER BY a.start_date DESC
-        LIMIT 20
-    ) recent_activities
-    """, nativeQuery = true)
-    Integer findMaxDistanceInLast20ActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
+        SELECT COALESCE(AVG(distance), -1)
+        FROM (
+            SELECT distance
+            FROM (
+                SELECT a.distance
+                FROM activity a
+                WHERE a.user_id = :#{#user.id}
+                    AND a.type = :type
+                ORDER BY a.start_date DESC
+                LIMIT 20
+            ) last_20
+            ORDER BY distance DESC
+            LIMIT 3
+        ) top_3
+        """, nativeQuery = true)
+    Integer findTop3AvgDistanceInLast20ActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
 
     @Query(value = """
-    SELECT COALESCE(MAX(average_speed), -1)
-    FROM (
-        SELECT a.average_speed
-        FROM activity a
-        WHERE a.user_id = :#{#user.id}
-        AND a.type = :type
-        ORDER BY a.start_date DESC
-        LIMIT 20
-    ) recent_activities
-    """, nativeQuery = true)
-    Double findMaxPaceInLast20ActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
+        SELECT COALESCE(AVG(average_speed), -1)
+        FROM (
+            SELECT average_speed
+            FROM (
+                SELECT a.average_speed
+                FROM activity a
+                WHERE a.user_id = :#{#user.id}
+                    AND a.type = :type
+                ORDER BY a.start_date DESC
+                LIMIT 20
+            ) last_20
+            ORDER BY average_speed DESC
+            LIMIT 3
+        ) top_3
+        """, nativeQuery = true)
+    Double findTop3AvgPaceInLast20ActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
 
     @Query("""
-    SELECT COALESCE(MAX(a.maxHeartrate), -1)
-    FROM Activity a
-    WHERE a.user = :user
-    AND a.type = :type
-    """)
+        SELECT COALESCE(MAX(a.maxHeartrate), -1)
+        FROM Activity a
+        WHERE a.user = :user
+        AND a.type = :type
+        """)
     Integer getMaxMaxHrInAllActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
 
     @Query("""
-    SELECT COALESCE(MAX(a.averageHeartrate), -1)
-    FROM Activity a
-    WHERE a.user = :user
-    AND a.type = :type
-    """)
+        SELECT COALESCE(MAX(a.averageHeartrate), -1)
+        FROM Activity a
+        WHERE a.user = :user
+        AND a.type = :type
+        """)
     Integer getMaxAverageHrInAllActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
 
     List<Activity> findTop10ByUserAndTypeIsOrderByStartDateDesc(ApplicationUser user, String type, Pageable pageable);

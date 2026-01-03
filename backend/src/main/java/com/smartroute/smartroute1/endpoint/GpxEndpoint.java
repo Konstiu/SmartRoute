@@ -1,8 +1,11 @@
 package com.smartroute.smartroute1.endpoint;
 
 import com.smartroute.smartroute1.endpoint.dto.DetailedActivityDto;
+import com.smartroute.smartroute1.endpoint.dto.RunClassificationDecisionDto;
+import com.smartroute.smartroute1.endpoint.mapper.RunClassificationMapper;
 import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.RunClassificationDecision;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.GpxService;
 import com.smartroute.smartroute1.service.RunClassificationService;
@@ -32,6 +35,7 @@ public class GpxEndpoint {
     private final GpxService gpxService;
     private final StravaActivityMapper stravaActivityMapper;
     private final RunClassificationService runClassificationService;
+    private final RunClassificationMapper runClassificationMapper;
 
     @Secured("ROLE_USER")
     @PostMapping("import-strava")
@@ -45,9 +49,18 @@ public class GpxEndpoint {
         for (MultipartFile file : files) {
             try (InputStream is = file.getInputStream()) {
                 Activity activity = gpxService.importStravaGpxFile(is, email);
+
+                RunClassificationDecision decision = activity.getRunTypeClassification();
+                RunClassificationDecisionDto runClassification;
+                if (decision == null) {
+                    runClassification = runClassificationService.classifyRun(activity.getId());
+                } else {
+                    runClassification = runClassificationMapper.entityToDto(decision);
+                }
+
                 DetailedActivityDto dto = stravaActivityMapper.toDetailedViewDto(
                     activity,
-                    runClassificationService.classifyRun(activity.getId())
+                    runClassification
                 );
                 dtos.add(dto);
             }

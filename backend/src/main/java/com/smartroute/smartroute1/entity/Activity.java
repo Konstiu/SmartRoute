@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.entity;
 
+import com.smartroute.smartroute1.endpoint.dto.RunClassificationDecisionDto;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -85,6 +86,10 @@ public class Activity {
 
     @Enumerated(EnumType.STRING)
     private WorkoutType workoutType;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "run_type_classification")
+    private RunClassificationDecision runTypeClassification;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "activity_stream_id", unique = true)

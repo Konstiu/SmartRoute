@@ -2,10 +2,13 @@ package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.endpoint.dto.ConsistencyScoreResultDto;
 import com.smartroute.smartroute1.endpoint.dto.RunClassificationDecisionDto;
+import com.smartroute.smartroute1.endpoint.mapper.RunClassificationMapper;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.RunClassificationDecision;
 import com.smartroute.smartroute1.entity.enums.RunType;
 import com.smartroute.smartroute1.repository.ActivityRepository;
+import com.smartroute.smartroute1.repository.RunClassificationDecisionRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import com.smartroute.smartroute1.service.FatigueAndOverloadService;
@@ -50,15 +53,19 @@ public class RunClassificationServiceImpl implements RunClassificationService {
     private final List<TargetField> targetFields;
     private final List<OutputField> outputFields;
     private final WeatherService weatherService;
+    private final RunClassificationMapper mapper;
+    private final RunClassificationDecisionRepository runClassificationDecisionRepository;
 
     public RunClassificationServiceImpl(ActivityRepository activityRepository, ActivityProcessingService activityProcessingService, ReadinessScoreService readinessScoreService, ConsistencyAnalyzerService consistencyAnalyzerService,
                                         InjuryAwareTrainingService injuryAwareTrainingService,
-                                        FatigueAndOverloadService fatigueAndOverloadService, WeatherService weatherService)
+                                        FatigueAndOverloadService fatigueAndOverloadService, WeatherService weatherService,  RunClassificationMapper mapper, RunClassificationDecisionRepository runClassificationDecisionRepository)
         throws IOException, JAXBException, SAXException, ParserConfigurationException {
         this.activityRepository = activityRepository;
         this.activityProcessingService = activityProcessingService;
         this.readinessScoreService = readinessScoreService;
         this.consistencyAnalyzerService = consistencyAnalyzerService;
+        this.mapper = mapper;
+        this.runClassificationDecisionRepository = runClassificationDecisionRepository;
 
         this.evaluator = new LoadingModelEvaluatorBuilder()
             .load(new ClassPathResource("models/run_classifier.pmml").getInputStream())
@@ -81,7 +88,16 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             return null;
         }
 
-        return evaluate(activity);
+        // Classify the run
+        RunClassificationDecisionDto dto = evaluate(activity);
+
+        // Save classification
+        RunClassificationDecision decision = mapper.dtoToEntity(dto);
+        runClassificationDecisionRepository.save(decision);
+        activity.setRunTypeClassification(decision);
+        activityRepository.save(activity);
+
+        return dto;
     }
 
     private Map<String, FieldValue> buildFeatureMap(Activity activity) {
@@ -267,19 +283,19 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         ApplicationUser user = activity.getUser();
 
         // TODO exclude activity from query? (to allow > 100%) - compare with model data generator; last 20 vs last 20 before activity?
-        int maxDuration = activityRepository.findMaxDurationInLast20ActivitiesByUserAndType(user, "Run");
+        int maxDuration = activityRepository.findTop3AvgDurationInLast20ActivitiesByUserAndType(user, "Run");
 
         if (maxDuration == -1) {
             return 1.00;
         }
-        return activity.getDistance() / maxDuration;
+        return (double) activity.getMovingTime() / maxDuration;
     }
 
     private double getDistancePercentageRelativeToPbLast20Runs(Activity activity) {
         ApplicationUser user = activity.getUser();
 
         // TODO exclude activity from query? (to allow > 100%) - compare with model data generator; last 20 vs last 20 before activity?
-        int maxDistance = activityRepository.findMaxDistanceInLast20ActivitiesByUserAndType(user, "Run");
+        int maxDistance = activityRepository.findTop3AvgDistanceInLast20ActivitiesByUserAndType(user, "Run");
 
         if (maxDistance == -1) {
             return 1.00;
@@ -291,12 +307,12 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         ApplicationUser user = activity.getUser();
 
         // TODO exclude activity from query? (to allow > 100%) - compare with model data generator; last 20 vs last 20 before activity?
-        double maxPace = activityRepository.findMaxPaceInLast20ActivitiesByUserAndType(user, "Run");
+        double maxPace = activityRepository.findTop3AvgPaceInLast20ActivitiesByUserAndType(user, "Run");
 
         if (maxPace == -1) {
             return 1.00;
         }
-        return activity.getDistance() / maxPace;
+        return activity.getAverageSpeed() / maxPace;
     }
 
     private double getMaxHrPercentageRelativeToAllRuns(Activity activity) {
