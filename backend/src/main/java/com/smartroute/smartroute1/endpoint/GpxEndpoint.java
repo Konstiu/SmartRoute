@@ -52,7 +52,7 @@ public class GpxEndpoint {
 
                 RunClassificationDecision decision = activity.getRunTypeClassification();
                 RunClassificationDecisionDto runClassification;
-                if (decision == null) {
+                if (activity.getSportType().equals("Run") && decision == null) {
                     runClassification = runClassificationService.classifyRun(activity.getId());
                 } else {
                     runClassification = runClassificationMapper.entityToDto(decision);
