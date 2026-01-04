@@ -32,58 +32,52 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     );
 
     @Query(value = """
-        SELECT COALESCE(AVG(moving_time), -1)
+        SELECT moving_time
         FROM (
-            SELECT moving_time
-            FROM (
-                SELECT a.moving_time
-                FROM activity a
-                WHERE a.user_id = :#{#user.id}
-                    AND a.type = :type
-                ORDER BY a.start_date DESC
-                LIMIT 20
-            ) last_20
-            ORDER BY moving_time DESC
-            LIMIT 3
-        ) top_3
+            SELECT a.moving_time
+            FROM activity a
+            WHERE a.user_id = :#{#user.id}
+                AND a.type = :type
+                AND a.start_date < CAST(:activityDate AS TIMESTAMP)
+                AND a.start_date >= DATEADD('WEEK', -8, CAST(:activityDate AS TIMESTAMP))
+            ORDER BY a.start_date DESC
+            LIMIT 20
+        ) last_20
+        ORDER BY moving_time ASC
         """, nativeQuery = true)
-    Integer findTop3AvgDurationInLast20ActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
+    List<Integer> getDurationsInLast20ActivitiesBeforeActivityByUserAndTypeAsc(@Param("user") ApplicationUser user, @Param("type") String type, @Param("activityDate") Instant activityDate);
 
     @Query(value = """
-        SELECT COALESCE(AVG(distance), -1)
+        SELECT distance
         FROM (
-            SELECT distance
-            FROM (
-                SELECT a.distance
-                FROM activity a
-                WHERE a.user_id = :#{#user.id}
-                    AND a.type = :type
-                ORDER BY a.start_date DESC
-                LIMIT 20
-            ) last_20
-            ORDER BY distance DESC
-            LIMIT 3
-        ) top_3
+            SELECT a.distance
+            FROM activity a
+            WHERE a.user_id = :#{#user.id}
+                AND a.type = :type
+                AND a.start_date < CAST(:activityDate AS TIMESTAMP)
+                AND a.start_date >= DATEADD('WEEK', -8, CAST(:activityDate AS TIMESTAMP))
+            ORDER BY a.start_date DESC
+            LIMIT 20
+        ) last_20
+        ORDER BY distance ASC
         """, nativeQuery = true)
-    Integer findTop3AvgDistanceInLast20ActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
+    List<Integer> getDistancesInLast20ActivitiesBeforeActivityByUserAndTypeAsc(@Param("user") ApplicationUser user, @Param("type") String type, @Param("activityDate") Instant activityDate);
 
     @Query(value = """
-        SELECT COALESCE(AVG(average_speed), -1)
+        SELECT average_speed
         FROM (
-            SELECT average_speed
-            FROM (
-                SELECT a.average_speed
-                FROM activity a
-                WHERE a.user_id = :#{#user.id}
-                    AND a.type = :type
-                ORDER BY a.start_date DESC
-                LIMIT 20
-            ) last_20
-            ORDER BY average_speed DESC
-            LIMIT 3
-        ) top_3
+            SELECT a.average_speed
+            FROM activity a
+            WHERE a.user_id = :#{#user.id}
+                AND a.type = :type
+                AND a.start_date < CAST(:activityDate AS TIMESTAMP)
+                AND a.start_date >= DATEADD('WEEK', -8, CAST(:activityDate AS TIMESTAMP))
+            ORDER BY a.start_date DESC
+            LIMIT 20
+        ) last_20
+        ORDER BY average_speed ASC
         """, nativeQuery = true)
-    Double findTop3AvgPaceInLast20ActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
+    List<Double> getPacesInLast20ActivitiesBeforeActivityByUserAndTypeAsc(@Param("user") ApplicationUser user, @Param("type") String type, @Param("activityDate") Instant activityDate);
 
     @Query("""
         SELECT COALESCE(MAX(a.maxHeartrate), -1)

@@ -59,7 +59,7 @@ public class ViewActivitiesEndpoint {
         for (Activity stravaActivity : list) {
             RunClassificationDecision decision = stravaActivity.getRunTypeClassification();
             RunClassificationDecisionDto runClassification;
-            if (decision == null) {
+            if (stravaActivity.getSportType().equals("Run") && decision == null) {
                 runClassification = runClassificationService.classifyRun(stravaActivity.getId());
             } else {
                 runClassification = runClassificationMapper.entityToDto(decision);
@@ -85,7 +85,7 @@ public class ViewActivitiesEndpoint {
 
         RunClassificationDecision decision = activity.getRunTypeClassification();
         RunClassificationDecisionDto runClassification;
-        if (decision == null) {
+        if (activity.getSportType().equals("Run") && decision == null) {
             runClassification = runClassificationService.classifyRun(activity.getId());
         } else {
             runClassification = runClassificationMapper.entityToDto(decision);
