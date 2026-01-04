@@ -175,12 +175,12 @@ public class WeatherValidator {
         // Parse the requested timestamp
         LocalDateTime requested = LocalDateTime.parse(timeUtc);
 
-        LocalDate today = LocalDate.now(ZoneOffset.UTC);
+        LocalDate today = LocalDate.now(ZoneOffset.UTC).minusMonths(3);
         LocalDate requestedDay = requested.toLocalDate();
 
-        // Past days are not allowed
+        // API-limitation: max 3 months in the past
         if (requestedDay.isBefore(today)) {
-            errors.add("Cannot request weather for days in the past.");
+            errors.add("Cannot request weather for days more than 3 months in the past.");
         }
 
         // Only up to 3 days ahead can be fetched

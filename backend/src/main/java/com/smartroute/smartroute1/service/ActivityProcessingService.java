@@ -25,6 +25,8 @@ public interface ActivityProcessingService {
     void processActivitiesInBatches(int maxBatchSize, List<Activity> activities, String token);
 
 
+    void fetchWeatherForActivity(Activity activity);
+
     /**
      * Creates a new ActivityStream.
      *
