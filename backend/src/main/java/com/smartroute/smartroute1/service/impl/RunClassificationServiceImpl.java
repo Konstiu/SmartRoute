@@ -61,14 +61,13 @@ public class RunClassificationServiceImpl implements RunClassificationService {
     private final Evaluator evaluator;
     private final List<TargetField> targetFields;
     private final List<OutputField> outputFields;
-    private final WeatherService weatherService;
     private final RunClassificationMapper mapper;
     private final RunClassificationDecisionRepository runClassificationDecisionRepository;
 
     public RunClassificationServiceImpl(ActivityRepository activityRepository, ActivityProcessingService activityProcessingService, ReadinessScoreService readinessScoreService, ConsistencyAnalyzerService consistencyAnalyzerService,
                                         InjuryAwareTrainingService injuryAwareTrainingService,
-                                        FatigueAndOverloadService fatigueAndOverloadService, WeatherService weatherService, RunClassificationMapper mapper, RunClassificationDecisionRepository runClassificationDecisionRepository)
-            throws IOException, JAXBException, SAXException, ParserConfigurationException {
+                                        FatigueAndOverloadService fatigueAndOverloadService,  RunClassificationMapper mapper, RunClassificationDecisionRepository runClassificationDecisionRepository)
+        throws IOException, JAXBException, SAXException, ParserConfigurationException {
         this.activityRepository = activityRepository;
         this.activityProcessingService = activityProcessingService;
         this.readinessScoreService = readinessScoreService;
@@ -85,7 +84,6 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         this.outputFields = evaluator.getOutputFields();
         this.fatigueAndOverloadService = fatigueAndOverloadService;
         this.injuryAwareTrainingService = injuryAwareTrainingService;
-        this.weatherService = weatherService;
     }
 
     private static RunClassificationDecisionDto getRunClassificationDecisionDto(Object targetValue, Map<RunType, Double> probabilities) {
@@ -283,17 +281,11 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             case "num_hr_spikes_missing" -> activityProcessingService.detectHeartRateSpikes(activity) != -1 ? 0 : 1;
 
             // Weather data
-            // TODO cannot fetch past weather -> store in activity or ignore weather?
-            /*
-            case "windSpeed10m" -> weatherService.getWeatherAtTime(activity.getSummaryPolyline())
-            windSpeed10m, temperature2m, uv_index, precipitation, snowDepth,
-             */
-
-            case "windSpeed10m" -> 0;
-            case "temperature2m" -> 0;
+            case "windSpeed10m" -> activity.getWeather() == null ? 0 : activity.getWeather().getWindSpeed10m();
+            case "temperature2m" -> activity.getWeather() == null ? 0 : activity.getWeather().getTemperature2m();
             case "uv_index" -> 0;
-            case "precipitation" -> 0;
-            case "snowDepth" -> 0;
+            case "precipitation" -> activity.getWeather() == null ? 0 : activity.getWeather().getPrecipitation();
+            case "snowDepth" -> activity.getWeather() == null ? 0 : activity.getWeather().getSnowDepth();
 
             default -> null;
         };
