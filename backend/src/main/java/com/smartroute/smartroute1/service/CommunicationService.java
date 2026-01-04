@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.service;
 
+import com.smartroute.smartroute1.endpoint.dto.KeysDto;
 import com.smartroute.smartroute1.endpoint.dto.OneTimePreKeyDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 
@@ -39,4 +40,13 @@ public interface CommunicationService {
      * @return the count of one-time pre-keys
      */
     long countOneTimePreKeys(String email);
+
+    /**
+     * Retrieves the communication keys of a friend for a user.
+     *
+     * @param friendEmail the email of the friend
+     * @param userEmail the email of the user requesting the keys
+     * @return the KeysDto containing the friend's communication keys
+     */
+    KeysDto getKeysOfFriend(String friendEmail, String userEmail);
 }

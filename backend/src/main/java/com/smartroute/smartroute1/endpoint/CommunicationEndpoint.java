@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.endpoint;
 
+import com.smartroute.smartroute1.endpoint.dto.KeysDto;
 import com.smartroute.smartroute1.endpoint.dto.UploadIdentityDto;
 import com.smartroute.smartroute1.endpoint.dto.UploadOneTimePreKeysDto;
 import com.smartroute.smartroute1.endpoint.dto.UploadPreKeyDto;
@@ -15,6 +16,7 @@ import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -71,6 +73,15 @@ public class CommunicationEndpoint {
         LOGGER.info("POST /api/v1/communication/upload-one-time-pre-keys");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         communicationService.uploadOneTimePreKeys(authentication.getName(), uploadOneTimePreKeysDto.getOneTimePreKeys());
+    }
+
+    @GetMapping("/keys-of-friend/{friendEmail}")
+    @Secured("ROLE_USER")
+    @Operation(summary = "Get keys of friend", description = "A user can get the communication keys of a friend")
+    public KeysDto getKeysOfFriend(@PathVariable("friendEmail") String friendEmail) {
+        LOGGER.info("GET /api/v1/communication/keys-of-friend/{}", friendEmail);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return communicationService.getKeysOfFriend(friendEmail, authentication.getName());
     }
 
 }

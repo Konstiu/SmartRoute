@@ -1,6 +1,7 @@
 package com.smartroute.smartroute1.integrationtest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.smartroute.smartroute1.endpoint.dto.KeysDto;
 import com.smartroute.smartroute1.endpoint.dto.UserDetailDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.service.CommunicationService;
@@ -161,6 +162,57 @@ public class CommunicationEndpointTest {
         mockMvc.perform(put("/api/v1/communication/upload-one-time-pre-keys")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "requester@example.com")
+    void getKeysOfFriend_withRoleUser_returnsKeysWithoutOneTimePreKey() throws Exception {
+        KeysDto keys = new KeysDto();
+        keys.setIdentityKey("IDK");
+        keys.setSignedPreKey("SPK");
+        keys.setSignedPreKeySignature("SIG");
+        keys.setOneTimePreKey(null);
+
+        when(communicationService.getKeysOfFriend(eq("friend@example.com"), eq("requester@example.com"))).thenReturn(keys);
+
+        mockMvc.perform(get("/api/v1/communication/keys-of-friend/{friendEmail}", "friend@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.identityKey").value("IDK"))
+                .andExpect(jsonPath("$.signedPreKey").value("SPK"))
+                .andExpect(jsonPath("$.signedPreKeySignature").value("SIG"))
+                .andExpect(jsonPath("$.oneTimePreKey").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(username = "requester2@example.com")
+    void getKeysOfFriend_withRoleUser_returnsKeysWithOneTimePreKey() throws Exception {
+        KeysDto keys = new KeysDto();
+        keys.setIdentityKey("IDK2");
+        keys.setSignedPreKey("SPK2");
+        keys.setSignedPreKeySignature("SIG2");
+
+        // use DTO for oneTimePreKey
+        com.smartroute.smartroute1.endpoint.dto.OneTimePreKeyDto ot = new com.smartroute.smartroute1.endpoint.dto.OneTimePreKeyDto();
+        ot.setUuid(UUID.randomUUID());
+        ot.setPublicKey("OTPK2");
+        keys.setOneTimePreKey(ot);
+
+        when(communicationService.getKeysOfFriend(eq("friend2@example.com"), eq("requester2@example.com"))).thenReturn(keys);
+
+        mockMvc.perform(get("/api/v1/communication/keys-of-friend/{friendEmail}", "friend2@example.com"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.identityKey").value("IDK2"))
+                .andExpect(jsonPath("$.signedPreKey").value("SPK2"))
+                .andExpect(jsonPath("$.signedPreKeySignature").value("SIG2"))
+                .andExpect(jsonPath("$.oneTimePreKey.publicKey").value("OTPK2"));
+    }
+
+    @Test
+    void getKeysOfFriend_withoutRole_forbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/communication/keys-of-friend/{friendEmail}", "friend@example.com"))
                 .andExpect(status().isForbidden());
     }
 

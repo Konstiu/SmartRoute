@@ -1,16 +1,19 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.smartroute.smartroute1.endpoint.dto.KeysDto;
 import com.smartroute.smartroute1.endpoint.dto.OneTimePreKeyDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.PreKey;
 import com.smartroute.smartroute1.repository.PreKeyRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.CommunicationService;
+import com.smartroute.smartroute1.service.FriendshipService;
 import com.smartroute.smartroute1.service.UserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.lang.invoke.MethodHandles;
@@ -24,6 +27,7 @@ public class CommunicationServiceImpl implements CommunicationService {
     private final UserService userService;
     private final UserRepository userRepository;
     private final PreKeyRepository preKeyRepository;
+    private final FriendshipService friendshipService;
 
     private static final int MAX_ONE_TIME_PRE_KEYS = 150;
 
@@ -84,9 +88,38 @@ public class CommunicationServiceImpl implements CommunicationService {
     }
 
     @Override
+    @Transactional
     public long countOneTimePreKeys(String email) {
         LOGGER.trace("countOneTimePreKeys({})", email);
         ApplicationUser user = userService.findApplicationUserByEmail(email);
         return preKeyRepository.countByUserId(user.getId());
+    }
+
+    @Override
+    @Transactional
+    public KeysDto getKeysOfFriend(String friendEmail, String userEmail) {
+        LOGGER.trace("getKeysOfFriend({}, {})", friendEmail, userEmail);
+        boolean areFriends = friendshipService.areFriends(userEmail, friendEmail);
+        if (!areFriends) {
+            throw new AccessDeniedException("You are not allowed to access this friend");
+        }
+        ApplicationUser friend = userService.findApplicationUserByEmail(friendEmail);
+        KeysDto keysDto = new KeysDto();
+        keysDto.setIdentityKey(friend.getPublicIdentityKey());
+        keysDto.setSignedPreKey(friend.getPublicPreKey());
+        keysDto.setSignedPreKeySignature(friend.getPreKeySignature());
+
+        PreKey oneTimePreKey = preKeyRepository.findFirstByUserIdOrderByIdAsc(friend.getId()).orElse(null);
+
+        if (oneTimePreKey != null) {
+            OneTimePreKeyDto oneTimePreKeyDto = new OneTimePreKeyDto();
+            oneTimePreKeyDto.setUuid(oneTimePreKey.getUuid());
+            oneTimePreKeyDto.setPublicKey(oneTimePreKey.getPublicKey());
+            keysDto.setOneTimePreKey(oneTimePreKeyDto);
+            preKeyRepository.delete(oneTimePreKey);
+        } else {
+            keysDto.setOneTimePreKey(null);
+        }
+        return keysDto;
     }
 }
