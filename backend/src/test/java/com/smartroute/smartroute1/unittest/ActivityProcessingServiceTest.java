@@ -12,9 +12,12 @@ import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.util.Codec;
 import jakarta.transaction.Transactional;
 import okhttp3.mockwebserver.MockResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -40,7 +43,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     private FitnessScoreService fitnessScoreService;
     @MockitoBean
     private TaskScheduler taskScheduler;
-    @Autowired
+    @SpyBean
     private ActivityProcessingService activityProcessingService;
     @Autowired
     private ActivityRepository activityRepository;
@@ -71,6 +74,11 @@ class ActivityProcessingServiceTest extends BaseTest {
         return activity;
     }
 
+    @BeforeEach
+    void setup() {
+        doNothing().when(activityProcessingService).fetchWeatherForActivity(Mockito.any()); //Avoid API calls in testing
+    }
+
     @Test
     void testProcessActivitiesInBatches_setsSessionLoad() {
         activityRepository.deleteAll();
@@ -89,14 +97,14 @@ class ActivityProcessingServiceTest extends BaseTest {
         act2.setStravaId(2L);
 
         List<Activity> activities = List.of(
-            act1,
-            act2
+                act1,
+                act2
         );
 
         activityRepository.saveAll(activities);
 
         when(fitnessScoreService.calculateSessionLoad(any(), any()))
-            .thenReturn(123);
+                .thenReturn(123);
 
         doAnswer(invocation -> {
             Runnable task = invocation.getArgument(0);
@@ -105,17 +113,17 @@ class ActivityProcessingServiceTest extends BaseTest {
         }).when(taskScheduler).schedule(any(Runnable.class), any(Instant.class));
 
         mockApiServer.enqueue(
-            new MockResponse()
-                .setResponseCode(200)
-                .setHeader("Content-Type", "application/json")
-                .setBody("[{\"type\": \"heartrate\", \"data\": [150,151,152], \"original_size\": 3}]")
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("[{\"type\": \"heartrate\", \"data\": [150,151,152], \"original_size\": 3}]")
         );
 
         mockApiServer.enqueue(
-            new MockResponse()
-                .setResponseCode(200)
-                .setHeader("Content-Type", "application/json")
-                .setBody("[{\"type\": \"heartrate\", \"data\": [130,131,132], \"original_size\": 3}]")
+                new MockResponse()
+                        .setResponseCode(200)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("[{\"type\": \"heartrate\", \"data\": [130,131,132], \"original_size\": 3}]")
         );
 
         activityProcessingService.processActivitiesInBatches(1, activities, "token");
@@ -123,9 +131,9 @@ class ActivityProcessingServiceTest extends BaseTest {
         List<Activity> activitiesWithSessionLoad = activityRepository.findByUser(user);
 
         assertAll(
-            () -> assertEquals(2, activitiesWithSessionLoad.size()),
-            () -> assertEquals(123, activitiesWithSessionLoad.get(0).getSessionLoad()),
-            () -> assertEquals(123, activitiesWithSessionLoad.get(1).getSessionLoad())
+                () -> assertEquals(2, activitiesWithSessionLoad.size()),
+                () -> assertEquals(123, activitiesWithSessionLoad.get(0).getSessionLoad()),
+                () -> assertEquals(123, activitiesWithSessionLoad.get(1).getSessionLoad())
         );
     }
 
@@ -138,20 +146,20 @@ class ActivityProcessingServiceTest extends BaseTest {
         act2.setUser(user);
 
         List<Activity> activities = List.of(
-            act1,
-            act2
+                act1,
+                act2
         );
 
         activityRepository.saveAll(activities);
 
         when(fitnessScoreService.calculateSessionLoad(any(), any()))
-            .thenReturn(123);
+                .thenReturn(123);
 
         activityProcessingService.processActivitiesInBatches(1, activities, "token");
 
 
         verify(taskScheduler, times(2))
-            .schedule(any(Runnable.class), any(Instant.class));
+                .schedule(any(Runnable.class), any(Instant.class));
     }
 
     @Test
@@ -199,11 +207,11 @@ class ActivityProcessingServiceTest extends BaseTest {
         ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
 
         assertAll(
-            () -> assertNotNull(as),
-            () -> assertEquals(source, as.getSource()),
-            () -> assertArrayEquals(Codec.encodeDoubleArray(time.stream().mapToDouble(Double::doubleValue).toArray()), as.getTimeStream()),
-            () -> assertArrayEquals(Codec.encodeDoubleArray(distance.stream().mapToDouble(Double::doubleValue).toArray()), as.getDistanceStream()),
-            () -> assertArrayEquals(Codec.encodeDoubleArray(heartRate.stream().mapToDouble(Double::doubleValue).toArray()), as.getHeartrateStream())
+                () -> assertNotNull(as),
+                () -> assertEquals(source, as.getSource()),
+                () -> assertArrayEquals(Codec.encodeDoubleArray(time.stream().mapToDouble(Double::doubleValue).toArray()), as.getTimeStream()),
+                () -> assertArrayEquals(Codec.encodeDoubleArray(distance.stream().mapToDouble(Double::doubleValue).toArray()), as.getDistanceStream()),
+                () -> assertArrayEquals(Codec.encodeDoubleArray(heartRate.stream().mapToDouble(Double::doubleValue).toArray()), as.getHeartrateStream())
         );
     }
 
@@ -217,11 +225,11 @@ class ActivityProcessingServiceTest extends BaseTest {
         ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
 
         assertAll(
-            () -> assertNotNull(as),
-            () -> assertEquals(source, as.getSource()),
-            () -> assertNull(as.getTimeStream()),
-            () -> assertNull(as.getDistanceStream()),
-            () -> assertNull(as.getHeartrateStream())
+                () -> assertNotNull(as),
+                () -> assertEquals(source, as.getSource()),
+                () -> assertNull(as.getTimeStream()),
+                () -> assertNull(as.getDistanceStream()),
+                () -> assertNull(as.getHeartrateStream())
         );
     }
 
@@ -235,11 +243,11 @@ class ActivityProcessingServiceTest extends BaseTest {
         ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
 
         assertAll(
-            () -> assertNotNull(as),
-            () -> assertEquals(source, as.getSource()),
-            () -> assertNull(as.getTimeStream()),
-            () -> assertNull(as.getDistanceStream()),
-            () -> assertArrayEquals(Codec.encodeDoubleArray(heartRate.stream().mapToDouble(Double::doubleValue).toArray()), as.getHeartrateStream())
+                () -> assertNotNull(as),
+                () -> assertEquals(source, as.getSource()),
+                () -> assertNull(as.getTimeStream()),
+                () -> assertNull(as.getDistanceStream()),
+                () -> assertArrayEquals(Codec.encodeDoubleArray(heartRate.stream().mapToDouble(Double::doubleValue).toArray()), as.getHeartrateStream())
         );
     }
 
@@ -253,7 +261,7 @@ class ActivityProcessingServiceTest extends BaseTest {
         ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
 
         assertAll(
-            () -> assertNull(as)
+                () -> assertNull(as)
         );
     }
 
@@ -267,7 +275,7 @@ class ActivityProcessingServiceTest extends BaseTest {
         ActivityStream as = activityProcessingService.createActivityStream(time, distance, heartRate, source);
 
         assertAll(
-            () -> assertNull(as)
+                () -> assertNull(as)
         );
     }
 
@@ -281,35 +289,35 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 60)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> hr = List.of(
-            // steady state
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
+                // steady state
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
 
-            // sharp spike (interval)
-            160.0, 165.0, 170.0, 168.0, 165.0,
+                // sharp spike (interval)
+                160.0, 165.0, 170.0, 168.0, 165.0,
 
-            // recovery
-            150.0, 148.0, 146.0, 145.0, 144.0,
-            143.0, 142.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            141.0, 140.0, 141.0, 140.0, 141.0
+                // recovery
+                150.0, 148.0, 146.0, 145.0, 144.0,
+                143.0, 142.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                141.0, 140.0, 141.0, 140.0, 141.0
         );
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            null,
-            hr,
-            ActivityStreamSource.STRAVA
+                time,
+                null,
+                hr,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -341,30 +349,30 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         List<Double> hr = List.of(
-            // steady state
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
+                // steady state
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
 
-            // sharp spike (interval)
-            160.0, 165.0, 170.0, 168.0, 165.0,
+                // sharp spike (interval)
+                160.0, 165.0, 170.0, 168.0, 165.0,
 
-            // recovery
-            150.0, 148.0, 146.0, 145.0, 144.0,
-            143.0, 142.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            141.0, 140.0, 141.0, 140.0, 141.0
+                // recovery
+                150.0, 148.0, 146.0, 145.0, 144.0,
+                143.0, 142.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                141.0, 140.0, 141.0, 140.0, 141.0
         );
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            null,
-            hr,
-            ActivityStreamSource.STRAVA
+                time,
+                null,
+                hr,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -384,31 +392,31 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 60)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> hr = List.of(
-            // steady state
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 142.0,
-            144.0, 144.0, 145.0, 144.0, 146.0,
-            150.0, 148.0, 146.0, 145.0, 144.0,
-            143.0, 142.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            141.0, 140.0, 141.0, 140.0, 141.0
+                // steady state
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 142.0,
+                144.0, 144.0, 145.0, 144.0, 146.0,
+                150.0, 148.0, 146.0, 145.0, 144.0,
+                143.0, 142.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                141.0, 140.0, 141.0, 140.0, 141.0
         );
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            null,
-            hr,
-            ActivityStreamSource.STRAVA
+                time,
+                null,
+                hr,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -428,37 +436,37 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 60)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> hr = List.of(
-            // steady state
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 142.0,
-            144.0, 144.0, 145.0, 144.0, 146.0,
-            150.0, 148.0, 146.0, 145.0, 144.0,
-            143.0, 142.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0,
+                // steady state
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 142.0,
+                144.0, 144.0, 145.0, 144.0, 146.0,
+                150.0, 148.0, 146.0, 145.0, 144.0,
+                143.0, 142.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0,
 
-            //single outlier
-            170.0,
+                //single outlier
+                170.0,
 
-            //steady state
-            141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            141.0, 140.0, 141.0, 140.0, 141.0
+                //steady state
+                141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                141.0, 140.0, 141.0, 140.0, 141.0
         );
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            null,
-            hr,
-            ActivityStreamSource.STRAVA
+                time,
+                null,
+                hr,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -478,39 +486,39 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 60)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> hr = List.of(
-            // steady state
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
+                // steady state
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
 
-            // sharp spike
-            160.0, 165.0, 170.0, 168.0, 165.0,
+                // sharp spike
+                160.0, 165.0, 170.0, 168.0, 165.0,
 
-            // recovery
-            150.0, 148.0, 146.0, 145.0, 144.0,
-            143.0, 142.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 142.0, 142.0, 143.0,
-            142.0, 143.0, 145.0, 146.0, 149.0,
+                // recovery
+                150.0, 148.0, 146.0, 145.0, 144.0,
+                143.0, 142.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 142.0, 142.0, 143.0,
+                142.0, 143.0, 145.0, 146.0, 149.0,
 
-            // sharp spike
-            157.0, 164.0, 165.0, 166.0, 165.0,
+                // sharp spike
+                157.0, 164.0, 165.0, 166.0, 165.0,
 
-            //recovery
-            156.0, 155.0, 155.0, 152.0, 151.0,
-            151.0, 150.0, 148.0, 148.0, 147.0
+                //recovery
+                156.0, 155.0, 155.0, 152.0, 151.0,
+                151.0, 150.0, 148.0, 148.0, 147.0
         );
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            null,
-            hr,
-            ActivityStreamSource.STRAVA
+                time,
+                null,
+                hr,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -529,10 +537,10 @@ class ActivityProcessingServiceTest extends BaseTest {
 
         Activity a = getStravaActivity();
         ActivityStream as = activityProcessingService.createActivityStream(
-            List.of(),
-            List.of(),
-            List.of(),
-            ActivityStreamSource.STRAVA
+                List.of(),
+                List.of(),
+                List.of(),
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -551,10 +559,10 @@ class ActivityProcessingServiceTest extends BaseTest {
 
         Activity a = getStravaActivity();
         ActivityStream as = activityProcessingService.createActivityStream(
-            null,
-            List.of(1.0),
-            List.of(1.0),
-            ActivityStreamSource.STRAVA
+                null,
+                List.of(1.0),
+                List.of(1.0),
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -573,10 +581,10 @@ class ActivityProcessingServiceTest extends BaseTest {
 
         Activity a = getStravaActivity();
         ActivityStream as = activityProcessingService.createActivityStream(
-            List.of(1.0),
-            List.of(1.0),
-            null,
-            ActivityStreamSource.STRAVA
+                List.of(1.0),
+                List.of(1.0),
+                null,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -615,52 +623,52 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 120)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> hr = List.of(
-            // steady state
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
+                // steady state
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
 
-            // spike 1
-            150.0, 158.0, 165.0, 167.0, 165.0,
-            163.0, 160.0, 158.0, 155.0, 150.0,
+                // spike 1
+                150.0, 158.0, 165.0, 167.0, 165.0,
+                163.0, 160.0, 158.0, 155.0, 150.0,
 
-            // brief recovery
-            145.0, 142.0, 141.0, 140.0, 141.0,
-            144.0, 142.0, 141.0, 140.0, 141.0,
+                // brief recovery
+                145.0, 142.0, 141.0, 140.0, 141.0,
+                144.0, 142.0, 141.0, 140.0, 141.0,
 
-            // spike 2
-            148.0, 155.0, 162.0, 168.0, 170.0,
-            169.0, 167.0, 165.0, 162.0, 158.0,
+                // spike 2
+                148.0, 155.0, 162.0, 168.0, 170.0,
+                169.0, 167.0, 165.0, 162.0, 158.0,
 
-            // brief recovery
-            150.0, 145.0, 142.0, 141.0, 140.0,
-            143.0, 142.0, 142.0, 141.0, 140.0,
+                // brief recovery
+                150.0, 145.0, 142.0, 141.0, 140.0,
+                143.0, 142.0, 142.0, 141.0, 140.0,
 
-            // spike 3
-            147.0, 154.0, 160.0, 166.0, 168.0,
-            167.0, 165.0, 162.0, 158.0, 155.0,
+                // spike 3
+                147.0, 154.0, 160.0, 166.0, 168.0,
+                167.0, 165.0, 162.0, 158.0, 155.0,
 
-            // final recovery
-            150.0, 148.0, 145.0, 143.0, 142.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            141.0, 140.0, 141.0, 140.0, 141.0
+                // final recovery
+                150.0, 148.0, 145.0, 143.0, 142.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                141.0, 140.0, 141.0, 140.0, 141.0
         );
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time, null, hr, ActivityStreamSource.STRAVA
+                time, null, hr, ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -680,9 +688,9 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 120)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         // Gradual increase from 140 to 170 over 2 minutes (not a spike)
         List<Double> hr = new ArrayList<>();
@@ -699,7 +707,7 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time, null, hr, ActivityStreamSource.STRAVA
+                time, null, hr, ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -719,33 +727,33 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 60)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> hr = List.of(
-            // steady state
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
+                // steady state
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
 
-            // brief unsustained spike (only 2 seconds elevated)
-            160.0, 165.0,
+                // brief unsustained spike (only 2 seconds elevated)
+                160.0, 165.0,
 
-            // immediate drop back
-            142.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            141.0, 140.0, 141.0, 140.0, 141.0
+                // immediate drop back
+                142.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                141.0, 140.0, 141.0, 140.0, 141.0
         );
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time, null, hr, ActivityStreamSource.STRAVA
+                time, null, hr, ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -765,35 +773,35 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 75)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> hr = List.of(
-            // steady state with scattered outliers
-            140.0, 141.0, 190.0, 141.0, 140.0,  // outlier at position 2
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 200.0, 140.0, 141.0, 140.0,  // outlier at position 11
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
+                // steady state with scattered outliers
+                140.0, 141.0, 190.0, 141.0, 140.0,  // outlier at position 2
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 200.0, 140.0, 141.0, 140.0,  // outlier at position 11
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
 
-            // real spike
-            150.0, 158.0, 165.0, 170.0, 168.0,
-            165.0, 163.0, 160.0, 155.0, 150.0,
+                // real spike
+                150.0, 158.0, 165.0, 170.0, 168.0,
+                165.0, 163.0, 160.0, 155.0, 150.0,
 
-            // recovery with outlier
-            145.0, 142.0, 195.0, 140.0, 141.0,  // outlier at position 37
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            140.0, 141.0, 140.0, 141.0, 140.0,
-            141.0, 140.0, 141.0, 140.0, 141.0,
-            141.0, 140.0, 141.0, 140.0, 141.0
+                // recovery with outlier
+                145.0, 142.0, 195.0, 140.0, 141.0,  // outlier at position 37
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                140.0, 141.0, 140.0, 141.0, 140.0,
+                141.0, 140.0, 141.0, 140.0, 141.0,
+                141.0, 140.0, 141.0, 140.0, 141.0
         );
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time, null, hr, ActivityStreamSource.STRAVA
+                time, null, hr, ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -814,9 +822,9 @@ class ActivityProcessingServiceTest extends BaseTest {
 
         // 30-minute run with 5-minute intervals
         List<Double> time = IntStream.rangeClosed(1, 1800)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> hr = new ArrayList<>();
 
@@ -826,7 +834,11 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         // 5-10 min: spike to interval pace (165-170 bpm) - SPIKE 1
-        hr.add(140.0); hr.add(150.0); hr.add(160.0); hr.add(168.0); hr.add(170.0);
+        hr.add(140.0);
+        hr.add(150.0);
+        hr.add(160.0);
+        hr.add(168.0);
+        hr.add(170.0);
         for (int i = 0; i < 295; i++) {
             hr.add(168.0 + (i % 4 - 1.5));
         }
@@ -837,7 +849,11 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         // 12-17 min: spike to interval pace - SPIKE 2
-        hr.add(140.0); hr.add(152.0); hr.add(162.0); hr.add(167.0); hr.add(170.0);
+        hr.add(140.0);
+        hr.add(152.0);
+        hr.add(162.0);
+        hr.add(167.0);
+        hr.add(170.0);
         for (int i = 0; i < 295; i++) {
             hr.add(168.0 + (i % 4 - 1.5));
         }
@@ -848,7 +864,11 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         // 19-24 min: spike to interval pace - SPIKE 3
-        hr.add(138.0); hr.add(148.0); hr.add(158.0); hr.add(165.0); hr.add(170.0);
+        hr.add(138.0);
+        hr.add(148.0);
+        hr.add(158.0);
+        hr.add(165.0);
+        hr.add(170.0);
         for (int i = 0; i < 295; i++) {
             hr.add(168.0 + (i % 4 - 1.5));
         }
@@ -859,7 +879,7 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time, null, hr, ActivityStreamSource.STRAVA
+                time, null, hr, ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -880,9 +900,9 @@ class ActivityProcessingServiceTest extends BaseTest {
 
         // 20-minute tempo run - steady increase to tempo, hold, then decrease
         List<Double> time = IntStream.rangeClosed(1, 1200)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> hr = new ArrayList<>();
 
@@ -902,7 +922,7 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time, null, hr, ActivityStreamSource.STRAVA
+                time, null, hr, ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -922,9 +942,9 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 600)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> hr = new ArrayList<>();
 
@@ -936,8 +956,16 @@ class ActivityProcessingServiceTest extends BaseTest {
             }
 
             // Hill climb - sharp spike (10 seconds)
-            hr.add(142.0); hr.add(150.0); hr.add(158.0); hr.add(165.0); hr.add(172.0);
-            hr.add(175.0); hr.add(177.0); hr.add(178.0); hr.add(178.0); hr.add(178.0);
+            hr.add(142.0);
+            hr.add(150.0);
+            hr.add(158.0);
+            hr.add(165.0);
+            hr.add(172.0);
+            hr.add(175.0);
+            hr.add(177.0);
+            hr.add(178.0);
+            hr.add(178.0);
+            hr.add(178.0);
 
             // Sustained at top (20 seconds)
             for (int i = 0; i < 20; i++) {
@@ -956,7 +984,7 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time, null, hr, ActivityStreamSource.STRAVA
+                time, null, hr, ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -977,9 +1005,9 @@ class ActivityProcessingServiceTest extends BaseTest {
 
         // 60-minute long run with 3 surges
         List<Double> time = IntStream.rangeClosed(1, 3600)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> hr = new ArrayList<>();
 
@@ -1028,7 +1056,7 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time, null, hr, ActivityStreamSource.STRAVA
+                time, null, hr, ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1052,7 +1080,7 @@ class ActivityProcessingServiceTest extends BaseTest {
         List<Double> hr = List.of(140.0, 141.0, 160.0, 165.0, 142.0);
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time, null, hr, ActivityStreamSource.STRAVA
+                time, null, hr, ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1077,7 +1105,7 @@ class ActivityProcessingServiceTest extends BaseTest {
         List<Double> hr = List.of(140.0, 165.0, 142.0);
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time, null, hr, ActivityStreamSource.STRAVA
+                time, null, hr, ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1097,9 +1125,9 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 100)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         // Flat line at 150 bpm
         List<Double> hr = new ArrayList<>();
@@ -1108,7 +1136,7 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time, null, hr, ActivityStreamSource.STRAVA
+                time, null, hr, ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1128,9 +1156,9 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 200)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         // Staircase: increases 2 bpm every 30 seconds (too gradual)
         List<Double> hr = new ArrayList<>();
@@ -1139,7 +1167,7 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time, null, hr, ActivityStreamSource.STRAVA
+                time, null, hr, ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1161,9 +1189,9 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 60)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> distance = new ArrayList<>();
         double dist = 0;
@@ -1187,10 +1215,10 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            distance,
-            null,
-            ActivityStreamSource.STRAVA
+                time,
+                distance,
+                null,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1210,25 +1238,25 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 60)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> distance = new ArrayList<>();
         double dist = 0;
 
         // Gradual pace increase from 3.0 to 4.0 m/s over 60 seconds (not a spike)
         for (int i = 0; i < 60; i++) {
-            double speed = 3.0 + (i / 60.0) * 1.0;
+            double speed = 3.0 + (i / 60.0);
             dist += speed;
             distance.add(dist);
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            distance,
-            null,
-            ActivityStreamSource.STRAVA
+                time,
+                distance,
+                null,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1248,9 +1276,9 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 60)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> distance = new ArrayList<>();
         double dist = 0;
@@ -1267,10 +1295,10 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            distance,
-            null,
-            ActivityStreamSource.STRAVA
+                time,
+                distance,
+                null,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1290,9 +1318,9 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 90)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> distance = new ArrayList<>();
         double dist = 0;
@@ -1328,10 +1356,10 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            distance,
-            null,
-            ActivityStreamSource.STRAVA
+                time,
+                distance,
+                null,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1350,10 +1378,10 @@ class ActivityProcessingServiceTest extends BaseTest {
 
         Activity a = getStravaActivity();
         ActivityStream as = activityProcessingService.createActivityStream(
-            List.of(),
-            List.of(),
-            List.of(),
-            ActivityStreamSource.STRAVA
+                List.of(),
+                List.of(),
+                List.of(),
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1372,10 +1400,10 @@ class ActivityProcessingServiceTest extends BaseTest {
 
         Activity a = getStravaActivity();
         ActivityStream as = activityProcessingService.createActivityStream(
-            null,
-            List.of(1.0),
-            List.of(1.0),
-            ActivityStreamSource.STRAVA
+                null,
+                List.of(1.0),
+                List.of(1.0),
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1394,10 +1422,10 @@ class ActivityProcessingServiceTest extends BaseTest {
 
         Activity a = getStravaActivity();
         ActivityStream as = activityProcessingService.createActivityStream(
-            List.of(1.0),
-            null,
-            List.of(1.0),
-            ActivityStreamSource.STRAVA
+                List.of(1.0),
+                null,
+                List.of(1.0),
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1437,9 +1465,9 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 120)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> distance = new ArrayList<>();
         double dist = 0;
@@ -1487,10 +1515,10 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            distance,
-            null,
-            ActivityStreamSource.STRAVA
+                time,
+                distance,
+                null,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1510,9 +1538,9 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 60)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> distance = new ArrayList<>();
         double dist = 0;
@@ -1536,10 +1564,10 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            distance,
-            null,
-            ActivityStreamSource.STRAVA
+                time,
+                distance,
+                null,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1598,10 +1626,10 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            distance,
-            null,
-            ActivityStreamSource.STRAVA
+                time,
+                distance,
+                null,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1622,9 +1650,9 @@ class ActivityProcessingServiceTest extends BaseTest {
 
         // 15-minute progression run: gradually increase from 3.0 to 4.5 m/s
         List<Double> time = IntStream.rangeClosed(1, 900)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> distance = new ArrayList<>();
         double dist = 0;
@@ -1637,10 +1665,10 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            distance,
-            null,
-            ActivityStreamSource.STRAVA
+                time,
+                distance,
+                null,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1664,10 +1692,10 @@ class ActivityProcessingServiceTest extends BaseTest {
         List<Double> distance = List.of(3.0, 6.0, 10.0, 15.0, 18.0);
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            distance,
-            null,
-            ActivityStreamSource.STRAVA
+                time,
+                distance,
+                null,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1692,10 +1720,10 @@ class ActivityProcessingServiceTest extends BaseTest {
         List<Double> distance = List.of(3.0, 7.0, 10.0);
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            distance,
-            null,
-            ActivityStreamSource.STRAVA
+                time,
+                distance,
+                null,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1715,9 +1743,9 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 100)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> distance = new ArrayList<>();
         double dist = 0;
@@ -1729,10 +1757,10 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            distance,
-            null,
-            ActivityStreamSource.STRAVA
+                time,
+                distance,
+                null,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1752,9 +1780,9 @@ class ActivityProcessingServiceTest extends BaseTest {
         Activity a = getStravaActivity();
 
         List<Double> time = IntStream.rangeClosed(1, 80)
-            .mapToDouble(i -> i)
-            .boxed()
-            .toList();
+                .mapToDouble(i -> i)
+                .boxed()
+                .toList();
 
         List<Double> distance = new ArrayList<>();
         double dist = 0;
@@ -1775,10 +1803,10 @@ class ActivityProcessingServiceTest extends BaseTest {
         }
 
         ActivityStream as = activityProcessingService.createActivityStream(
-            time,
-            distance,
-            null,
-            ActivityStreamSource.STRAVA
+                time,
+                distance,
+                null,
+                ActivityStreamSource.STRAVA
         );
 
         activityStreamRepository.save(as);
@@ -1789,7 +1817,6 @@ class ActivityProcessingServiceTest extends BaseTest {
 
         assertEquals(1, paceSpikes); // Only the real spike, outliers filtered
     }
-
 
 
     @Test
@@ -1841,9 +1868,9 @@ class ActivityProcessingServiceTest extends BaseTest {
         List<Activity> result = activityProcessingService.getLastActivities(user.getEmail(), 2);
 
         assertAll(
-            () -> assertEquals(2, result.size()),
-            () -> assertEquals("a3", result.get(0).getName()),
-            () -> assertEquals("a2", result.get(1).getName())
+                () -> assertEquals(2, result.size()),
+                () -> assertEquals("a3", result.get(0).getName()),
+                () -> assertEquals("a2", result.get(1).getName())
         );
     }
 
@@ -1864,8 +1891,8 @@ class ActivityProcessingServiceTest extends BaseTest {
         List<Activity> result = activityProcessingService.getLastActivities(user.getEmail(), 5);
 
         assertAll(
-            () -> assertEquals(1, result.size()),
-            () -> assertEquals("only1", result.get(0).getName())
+                () -> assertEquals(1, result.size()),
+                () -> assertEquals("only1", result.get(0).getName())
         );
     }
 

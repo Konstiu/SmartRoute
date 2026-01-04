@@ -1,21 +1,28 @@
 package com.smartroute.smartroute1.integrationtest;
 
 import com.smartroute.smartroute1.basetest.BaseTest;
+import com.smartroute.smartroute1.service.ActivityProcessingService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.InputStream;
 
 import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.Mockito.doNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -25,10 +32,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 public class GpxEndpointTest extends BaseTest {
 
+    private static final String GPX_IMPORT_URI = "/api/v1/gpx/import-strava";
     @Autowired
     private MockMvc mockMvc;
+    @SpyBean
+    private ActivityProcessingService activityService;
 
-    private static final String GPX_IMPORT_URI = "/api/v1/gpx/import-strava";
+
+    @BeforeEach
+    void setup() {
+        doNothing().when(activityService).fetchWeatherForActivity(Mockito.any()); //Avoid API calls in testing
+    }
 
     @Test
     @WithMockUser(username = "email0@smartroute.com")
@@ -62,14 +76,14 @@ public class GpxEndpointTest extends BaseTest {
     @WithMockUser(username = "email0@smartroute.com")
     void importStravaGpx_shouldReturnUnprocessableEntity_whenInvalidGpxFileUploaded() throws Exception {
         String invalidGpx = """
-            <gpx version="1.1" creator="Test" xmlns="http://www.topografix.com/GPX/1/1">
-              <trk>
-                <trkseg>
-                  <trkpt lat="abc" lon="11.5"></trkpt>
-                </trkseg>
-              </trk>
-            </gpx>
-            """;
+                <gpx version="1.1" creator="Test" xmlns="http://www.topografix.com/GPX/1/1">
+                  <trk>
+                    <trkseg>
+                      <trkpt lat="abc" lon="11.5"></trkpt>
+                    </trkseg>
+                  </trk>
+                </gpx>
+                """;
         MockMultipartFile invalidFile = new MockMultipartFile("files", "invalid.gpx", "application/gpx+xml", invalidGpx.getBytes());
 
         mockMvc.perform(multipart(GPX_IMPORT_URI)

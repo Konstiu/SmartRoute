@@ -7,7 +7,6 @@ import com.smartroute.smartroute1.entity.enums.RunType;
 import com.smartroute.smartroute1.entity.enums.RunTypeProfile;
 import com.smartroute.smartroute1.entity.enums.RunnerProfile;
 import com.smartroute.smartroute1.entity.enums.Sex;
-import com.smartroute.smartroute1.service.RunTrainingClassificationService;
 import com.smartroute.smartroute1.util.BoundedDirichletDistributor;
 import org.springframework.stereotype.Component;
 
@@ -23,7 +22,7 @@ import java.util.Map;
 import java.util.Random;
 
 /**
- * A datagenerator that creates runs ideal for training the RunClassifier model.
+ * A data generator that creates runs ideal for training the RunClassifier model.
  *
  * <p>Normally this would not be part of the entire JavaSpring lifecycle and is only here for the sake of the LVA
  * Therefore it is also not tested and not normally executed
@@ -32,7 +31,6 @@ import java.util.Random;
 public class RunClassificationDataGenerator {
     private static final int NUMBER_OF_RUNS = 10000;
     private static final Path CSV_PATH = Paths.get("backend", "target", "RunDataset.csv");
-    private static final Path CSV_OUT_PATH = Paths.get("backend", "target", "RunDataset_Labelled.csv");
     private static final String CSV_HEADER =
             "duration,duration_pct_pb_20,distance,distance_pct_pb_20,"
                     + "pace,pace_pct_pb_20,elevation_gain,session_load,"
@@ -50,11 +48,6 @@ public class RunClassificationDataGenerator {
     private static final int K5 = 480;
     private static final float TIME_MODIFIER = 75;
     private final Random random = new Random();
-    private final RunTrainingClassificationService runTrainingClassificationService;
-
-    public RunClassificationDataGenerator(RunTrainingClassificationService runTrainingClassificationService) {
-        this.runTrainingClassificationService = runTrainingClassificationService;
-    }
 
     private static RunnerProfile runnerProfile(ExperienceLevel level) {
         return switch (level) {
@@ -169,7 +162,6 @@ public class RunClassificationDataGenerator {
             }
         }
 
-        //runTrainingClassificationService.classifyCsv(CSV_PATH, CSV_OUT_PATH);
     }
 
     private RunClassificationResultDto generate() {
@@ -360,11 +352,11 @@ public class RunClassificationDataGenerator {
                 zoneMissing[4] ? -1 : (int) (float) zoneTimes.get(5), zoneMissing[4],   //zone 5
                 runType == RunType.INTERVAL_RUN ? randInt(5, 10) * (duration / 3600) : randInt(0, 2) * (duration / 3600),   // num hr spikes
                 false,
-                rand(0, 12),    //windspeed
+                rand(0, 12),    //winds peed
                 temperature,    //temperature
                 randInt(0, 10), //uv index
                 randInt(0, 100) < 20 ? rand(0, 5) : 0, // precipitation
-                snowDepth //snowdepth
+                snowDepth //snow depth
 
         ),
                 runType);   //runtype
