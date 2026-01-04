@@ -7,7 +7,7 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Friendship;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.FriendshipService;
-import com.smartroute.smartroute1.service.impl.PushNotificationServiceImpl;
+import com.smartroute.smartroute1.service.PushNotificationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -34,11 +34,11 @@ import java.util.Map;
 )
 public class PushNotificationEndpoint {
 
-    private final PushNotificationServiceImpl pushNotificationService;
+    private final PushNotificationService pushNotificationService;
     private final UserRepository userRepository;
     private final FriendshipService friendshipService;
 
-    public PushNotificationEndpoint(PushNotificationServiceImpl pushNotificationService, UserRepository userRepository, FriendshipService friendshipService) {
+    public PushNotificationEndpoint(PushNotificationService pushNotificationService, UserRepository userRepository, FriendshipService friendshipService) {
         this.pushNotificationService = pushNotificationService;
         this.userRepository = userRepository;
         this.friendshipService = friendshipService;
