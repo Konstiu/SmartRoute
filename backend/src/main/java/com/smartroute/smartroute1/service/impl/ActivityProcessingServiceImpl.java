@@ -247,6 +247,10 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                     .withZoneSameInstant(ZoneId.of("UTC")).withMinute(0).withSecond(0).withNano(0);
                 String utcTimeStr = utcDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
 
+                if (utcDateTime.isBefore(LocalDate.now().minusDays(90).atStartOfDay(ZoneId.systemDefault()))) {
+                    return;
+                }
+
                 WeatherResponse weather = weatherService.getWeatherAtTime(startLatLng.lat, startLatLng.lng, utcTimeStr);
                 activity.setWeather(weather);
             }

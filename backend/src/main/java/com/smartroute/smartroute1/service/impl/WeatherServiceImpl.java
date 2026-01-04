@@ -13,6 +13,7 @@ import com.smartroute.smartroute1.repository.WeatherRepository;
 import com.smartroute.smartroute1.service.WeatherService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.jpmml.model.temporals.DateTime;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
@@ -76,7 +77,12 @@ public class WeatherServiceImpl implements WeatherService {
 
         // Fetch new data
         LOGGER.trace("Weather not cached, calling open-meteo");
-        importHourlyWeather(latitude, longitude);
+        if (DateTime.parse(timeUtc).getDateTime().isBefore(LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0))) {
+            String timeStr = DateTime.parse(timeUtc).getDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            importPastHourlyWeather(latitude, longitude, timeStr);
+        } else {
+            importHourlyWeather(latitude, longitude);
+        }
 
         // Load from repository
         return weatherRepository.getByTimeAndLatitudeAndLongitude(timeUtc, latitude, longitude);
@@ -86,7 +92,7 @@ public class WeatherServiceImpl implements WeatherService {
     private void importHourlyWeather(double latitude, double longitude) throws ValidationException {
         validator.validateCoordinates(latitude, longitude);
 
-        String url = buildUrl(latitude, longitude);
+        String url = buildUrl(latitude, longitude, null);
         LOGGER.trace("Calling Open-Meteo API with URL: {}", url);
 
         JsonNode root = fetchWeatherData(url);
@@ -147,8 +153,80 @@ public class WeatherServiceImpl implements WeatherService {
         weatherRepository.saveAll(entities);
     }
 
+    // Stores weather data from a specific day in the past.
+    private void importPastHourlyWeather(double latitude, double longitude, String timeUtc) throws ValidationException {
+        validator.validateCoordinates(latitude, longitude);
+
+        String url = buildUrl(latitude, longitude, timeUtc);
+        LOGGER.trace("Calling Open-Meteo API with URL: {}", url);
+
+        JsonNode root = fetchWeatherData(url);
+
+        JsonNode hourly = root.path("hourly");
+
+        List<String> time = extractStringList(hourly);
+        List<Double> temperature = extractDoubleList(hourly, "temperature_2m");
+        List<Double> precipitation = extractDoubleList(hourly, "precipitation");
+        List<Double> windSpeed = extractDoubleList(hourly, "wind_speed_10m");
+        List<Double> humidity = extractDoubleList(hourly, "relative_humidity_2m");
+        List<Double> radiation = extractDoubleList(hourly, "shortwave_radiation");
+        List<Double> dewPoint = extractDoubleList(hourly, "dew_point_2m");
+        List<Double> surfacePressure = extractDoubleList(hourly, "surface_pressure");
+        List<Double> directRadiation = extractDoubleList(hourly, "direct_radiation");
+        List<Double> diffuseRadiation = extractDoubleList(hourly, "diffuse_radiation");
+        List<Double> snowDepth = extractDoubleList(hourly, "snow_depth");
+
+        List<WeatherResponse> entities = new ArrayList<>();
+
+        LocalDate fetchedAt = LocalDate.now(ZoneOffset.UTC);
+        LocalDate nowUtc = fetchedAt;
+        LocalDate cutoff = nowUtc.plusDays(3); // keep only the next 72 hours
+
+        for (int i = 0; i < time.size(); i++) {
+            LocalDate entryTime = LocalDate.parse(time.get(i), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
+            // Skip anything beyond the 3-day window
+            if (entryTime.isAfter(cutoff)) {
+                continue;
+            }
+
+            WeatherDto dto = new WeatherDto(
+                time.get(i),
+                temperature.get(i),
+                windSpeed.get(i),
+                precipitation.get(i),
+                humidity.get(i),
+                radiation.get(i),
+                directRadiation.get(i),
+                diffuseRadiation.get(i),
+                surfacePressure.get(i),
+                dewPoint.get(i),
+                snowDepth.get(i)
+            );
+
+            // Check if existing entry in DB
+            WeatherResponse entity = weatherRepository.getByTimeAndLatitudeAndLongitude(time.get(i), latitude, longitude);
+
+            // Map the dto into entity (create new if null)
+            entity = weatherMapper.toEntity(dto, entity, latitude, longitude);
+
+            // assign fetch timestamp
+            entity.setForecastGeneratedAt(fetchedAt);
+
+            entities.add(entity);
+        }
+
+        weatherRepository.saveAll(entities);
+    }
+
     // Build url for open-meteo.
-    private String buildUrl(double latitude, double longitude) {
+    private String buildUrl(double latitude, double longitude, String timeUtc) {
+        if (timeUtc != null) {
+            return "https://api.open-meteo.com/v1/forecast?latitude=" + latitude
+                + "&longitude=" + longitude
+                + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation,snow_depth"
+                + "&start_date=" + timeUtc
+                + "&end_date=" + timeUtc;
+        }
         return "https://api.open-meteo.com/v1/forecast?latitude=" + latitude
                 + "&longitude=" + longitude
                 + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation,snow_depth";
