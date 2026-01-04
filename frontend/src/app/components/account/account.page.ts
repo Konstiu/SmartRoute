@@ -100,8 +100,4 @@ export class AccountPage implements OnInit {
   delete() {
     this.userService.deleteAccount();
   }
-
-  protected enableNotifications() {
-    this.router.navigate(['/abc123'])
-  }
 }

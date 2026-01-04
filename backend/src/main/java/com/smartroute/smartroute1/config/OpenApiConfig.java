@@ -16,7 +16,8 @@ import org.springframework.context.annotation.Configuration;
                 title = "SMARTRoute Documentation",
                 version = "v1",
                 contact = @Contact(
-                        email = "tbd"
+                        name = "SmartRoute Team",
+                        email = "konstantin.unterweger@gmail.com, e12514056@student.tuwien.ac.at, e12216466@student.tuwien.ac.at, e12223229@student.tuwien.ac.at, e12216445@student.tuwien.ac.at, e11825345@student.tuwien.ac.at"
                 )
         ),
         security = @SecurityRequirement(name = "bearerAuth")
