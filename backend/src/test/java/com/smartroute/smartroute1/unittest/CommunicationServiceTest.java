@@ -1,9 +1,13 @@
 package com.smartroute.smartroute1.unittest;
 
+import com.smartroute.smartroute1.endpoint.dto.KeysDto;
 import com.smartroute.smartroute1.endpoint.dto.OneTimePreKeyDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.Friendship;
 import com.smartroute.smartroute1.entity.PreKey;
+import com.smartroute.smartroute1.entity.enums.FriendshipStatus;
 import com.smartroute.smartroute1.exception.NotFoundException;
+import com.smartroute.smartroute1.repository.FriendshipRepository;
 import com.smartroute.smartroute1.repository.PreKeyRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.CommunicationService;
@@ -12,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.List;
 import java.util.UUID;
@@ -31,6 +36,9 @@ class CommunicationServiceTest {
 
     @Autowired
     private PreKeyRepository preKeyRepository;
+
+    @Autowired
+    private FriendshipRepository friendshipRepository;
 
     @Test
     void uploadIdentityKey_withExistingUser_shouldSetPublicKeyAndReturnUser() {
@@ -175,6 +183,86 @@ class CommunicationServiceTest {
 
         // assert
         assertEquals(2, count);
+    }
+
+    @Test
+    void getKeysOfFriend_whenNotFriends_shouldThrowAccessDenied() {
+        ApplicationUser user = new ApplicationUser("userA@example.com", "pw", "User", "A");
+        ApplicationUser friend = new ApplicationUser("friendB@example.com", "pw", "Friend", "B");
+        userRepository.save(user);
+        userRepository.save(friend);
+
+        assertThrows(AccessDeniedException.class,
+            () -> communicationService.getKeysOfFriend(friend.getEmail(), user.getEmail()));
+    }
+
+    @Test
+    void getKeysOfFriend_whenFriends_andNoPreKey_shouldReturnKeysDtoWithNullOneTimePreKey() {
+        // arrange
+        ApplicationUser user = new ApplicationUser("userC@example.com", "pw", "User", "C");
+        ApplicationUser friend = new ApplicationUser("friendD@example.com", "pw", "Friend", "D");
+        userRepository.save(user);
+        userRepository.save(friend);
+
+        Friendship f = new Friendship();
+        f.setSender(user);
+        f.setReceiver(friend);
+        f.setStatus(FriendshipStatus.ACCEPTED);
+        friendshipRepository.save(f);
+
+        // set friend's keys
+        friend.setPublicIdentityKey("IDENTITY_KEY_D");
+        friend.setPublicPreKey("SIGNED_PREKEY_D");
+        friend.setPreKeySignature("SIGNATURE_D");
+        userRepository.save(friend);
+
+        // act
+        KeysDto keys = communicationService.getKeysOfFriend(friend.getEmail(), user.getEmail());
+
+        // assert
+        assertNotNull(keys);
+        assertEquals("IDENTITY_KEY_D", keys.getIdentityKey());
+        assertEquals("SIGNED_PREKEY_D", keys.getSignedPreKey());
+        assertEquals("SIGNATURE_D", keys.getSignedPreKeySignature());
+        assertNull(keys.getOneTimePreKey(), "No one-time pre-key should be returned");
+    }
+
+    @Test
+    void getKeysOfFriend_withOneTimePreKey_returnsKeyAndDeletesIt() {
+        // arrange
+        ApplicationUser user = new ApplicationUser("userE@example.com", "pw", "User", "E");
+        ApplicationUser friend = new ApplicationUser("friendF@example.com", "pw", "Friend", "F");
+        userRepository.save(user);
+        userRepository.save(friend);
+
+        Friendship f = new Friendship();
+        f.setSender(user);
+        f.setReceiver(friend);
+        f.setStatus(FriendshipStatus.ACCEPTED);
+        friendshipRepository.save(f);
+
+        // set friend's keys
+        friend.setPublicIdentityKey("IDENTITY_KEY_F");
+        friend.setPublicPreKey("SIGNED_PREKEY_F");
+        friend.setPreKeySignature("SIGNATURE_F");
+        userRepository.save(friend);
+
+        PreKey preKey = new PreKey();
+        preKey.setUuid(UUID.randomUUID());
+        preKey.setPublicKey("ONE_TIME_F");
+        preKey.setUser(friend);
+        preKeyRepository.save(preKey);
+
+        // act
+        KeysDto keys = communicationService.getKeysOfFriend(friend.getEmail(), user.getEmail());
+
+        // assert
+        assertNotNull(keys);
+        assertEquals("ONE_TIME_F", keys.getOneTimePreKey().getPublicKey());
+
+        // ensure prekey was deleted
+        long remaining = preKeyRepository.countByUserId(friend.getId());
+        assertEquals(0, remaining, "One-time pre-key should have been deleted after retrieval");
     }
 
 }
