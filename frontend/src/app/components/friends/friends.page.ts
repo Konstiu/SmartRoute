@@ -1,8 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { IonicModule, AlertController, ToastController, PopoverController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FriendInfoDto, FriendRequestDto, FriendshipDetailDto } from 'src/app/dtos/friendship';
 import { FriendshipService } from 'src/services/friendship.service';
+import { PushNotificationService } from 'src/services/push-notification.service';
+import { UserService } from 'src/services/user.service';
 import { AuthService } from 'src/services/auth.service';
 
 @Component({
@@ -22,7 +24,12 @@ export class FriendsPage implements OnInit {
     private friendshipService: FriendshipService,
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
-    private popoverCtrl: PopoverController
+    private popoverCtrl: PopoverController,
+    private cdr: ChangeDetectorRef,
+    private pushService: PushNotificationService,
+    private userService: UserService,
+    private toastController: ToastController,
+
   ) {}
 
   ngOnInit(): void {
@@ -33,6 +40,7 @@ export class FriendsPage implements OnInit {
     this.friendshipService.getFriends().subscribe({
       next: (result) => {
         this.friendships = result;
+        this.cdr.detectChanges();
       },
       error: (err) => {
         console.error('Error fetching friends:', err);
@@ -67,13 +75,13 @@ export class FriendsPage implements OnInit {
 
   getFriendsDto(): FriendInfoDto[] {
     const myEmail = this.authService.getUserEmail();
-    return this.friendships.map(friendship => 
+    return this.friendships.map(friendship =>
       friendship.sender.email !== myEmail ? friendship.sender : friendship.receiver
     );
   }
 
   async showRemoveFriendDialog(friend: FriendInfoDto) {
-    const friendship = this.friendships.find(f => 
+    const friendship = this.friendships.find(f =>
       f.sender.email === friend.email || f.receiver.email === friend.email
     );
     if (!friendship) return;
@@ -224,7 +232,7 @@ export class FriendsPage implements OnInit {
       ]
     });
 
-    await alert.present();  
+    await alert.present();
   }
 
   cancelRequest(request: FriendshipDetailDto) {
@@ -304,6 +312,47 @@ export class FriendsPage implements OnInit {
         await toast.present();
       }
     });
+  }
+
+  alertFriends() {
+    this.userService.getUserData()
+      .subscribe({
+        next: user => {
+          const name = user.firstname ?? 'A friend';
+
+          this.pushService
+            .sendTestNotification(
+              '!!ALERT!!',
+              `${name} needs your attention.`
+            )
+            .subscribe({
+              next: () => {
+                this.showToast('Notification sent successfully', 'success');
+              },
+              error: () => {
+                this.showToast('Failed to send notification', 'danger');
+              }
+            });
+        }
+      });
+  }
+
+
+
+  private async showToast(message: string, color: string = 'primary', duration: number = 2000) {
+    const toast = await this.toastController.create({
+      message: message,
+      duration: duration,
+      position: 'top',
+      color: color,
+      buttons: [
+        {
+          text: 'Dismiss',
+          role: 'cancel'
+        }
+      ]
+    });
+    await toast.present();
   }
 
 }

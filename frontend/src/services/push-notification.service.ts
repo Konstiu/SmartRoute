@@ -35,17 +35,12 @@ export class PushNotificationService {
    * ALWAYS attempts to subscribe without checking first
    */
   async autoInitialize() {
-    console.log('🚀 Force auto-subscribing to push notifications...');
+    console.log('Force auto-subscribing to push notifications...');
 
     try {
       // ALWAYS try to subscribe - skip the check
       const success = await this.subscribeToNotifications();
 
-      if (success) {
-        console.log('✅ Automatically subscribed to push notifications');
-      } else {
-        console.log('⚠️ Automatic subscription failed - will retry on next launch');
-      }
     } catch (error) {
       console.warn('Auto-initialization failed:', error);
       // Fail silently - don't break the app
@@ -205,75 +200,17 @@ export class PushNotificationService {
   }
 
   /**
-   * Unsubscribe from push notifications
-   */
-  async unsubscribe(): Promise<boolean> {
-    try {
-      if (Capacitor.isNativePlatform()) {
-        // Remove all listeners
-        await PushNotifications.removeAllListeners();
-        this.nativeListenersRegistered = false;
-        this.subscriptionStatus.next(false);
-        return true;
-      } else {
-        // For web, unsubscribe from service worker
-        await this.swPush.unsubscribe();
-
-        console.log('Unsubscribed from web push');
-        this.subscriptionStatus.next(false);
-        return true;
-      }
-    } catch (error) {
-      console.error('Failed to unsubscribe:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Check if user is currently subscribed
-   */
-  async isSubscribed(): Promise<boolean> {
-    try {
-      if (Capacitor.isNativePlatform()) {
-        const result = await PushNotifications.checkPermissions();
-        return result.receive === 'granted';
-      } else {
-        if (!this.swPush.isEnabled) {
-          return false;
-        }
-        return true;
-      }
-    } catch (error) {
-      console.error('Error checking subscription status:', error);
-      return false;
-    }
-  }
-
-  /**
-   * TEST METHOD: Send test notification to current user
+   * Send notification to all friend
    */
   sendTestNotification(title?: string, body?: string): Observable<any> {
     const payload = {
       title: title || 'Test Notification',
-      body: body || 'This is a test notification! 🎉'
+      body: body || 'This is a test notification!'
     };
 
-    return this.http.post(`${this.globals.backendUri}/notifications/test/me`, payload);
+    return this.http.post(`${this.globals.backendUri}/notifications/friend`, payload);
   }
 
-  /**
-   * TEST METHOD: Quick test notification
-   */
-  sendQuickTest(): Observable<any> {
-    return this.http.get(`${this.globals.backendUri}/notifications/test/quick`);
-  }
-
-  /**
-   * Check subscription status from backend
-   */
-  checkSubscriptionStatus(): Observable<any> {
-    return this.http.get(`${this.globals.backendUri}/notifications/status`);
-  }
 
   /**
    * Get current platform
