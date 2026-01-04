@@ -46,6 +46,11 @@ import java.util.Map;
 
 @Service
 public class RunClassificationServiceImpl implements RunClassificationService {
+    // Baselines used when the user has not enough recorded runs ( <= MIN_HISTORY) before the activity to classify
+    private static final int MIN_HISTORY = 3;
+    private static final int DISTANCE_BASELINE = 24000; // 24km
+    private static final double DURATION_BASELINE = 3600 * 3.0; // 3h
+    private static final double PACE_BASELINE = 4.5; // 4.5 m/s
     private final ActivityRepository activityRepository;
     private final ActivityProcessingService activityProcessingService;
     private final ReadinessScoreService readinessScoreService;
@@ -58,12 +63,6 @@ public class RunClassificationServiceImpl implements RunClassificationService {
     private final WeatherService weatherService;
     private final RunClassificationMapper mapper;
     private final RunClassificationDecisionRepository runClassificationDecisionRepository;
-
-    // Baselines used when the user has not enough recorded runs ( <= MIN_HISTORY) before the activity to classify
-    private static final int MIN_HISTORY = 3;
-    private static final int DISTANCE_BASELINE = 24000; // 24km
-    private static final double DURATION_BASELINE = 3600 * 3.0; // 3h
-    private static final double PACE_BASELINE = 4.5; // 4.5 m/s
 
     public RunClassificationServiceImpl(ActivityRepository activityRepository, ActivityProcessingService activityProcessingService, ReadinessScoreService readinessScoreService, ConsistencyAnalyzerService consistencyAnalyzerService,
                                         InjuryAwareTrainingService injuryAwareTrainingService,
@@ -98,13 +97,13 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         }
 
         RunClassificationDecisionDto dto = new RunClassificationDecisionDto();
-        dto.setRunType(switch (label) {
-            case 0 -> RunType.EASY_RUN;
-            case 1 -> RunType.TEMPO_RUN;
-            case 2 -> RunType.INTERVAL_RUN;
-            case 3 -> RunType.LONG_RUN;
+        switch (label) {
+            case 0 -> dto.setRunType(RunType.EASY_RUN);
+            case 1 -> dto.setRunType(RunType.TEMPO_RUN);
+            case 2 -> dto.setRunType(RunType.INTERVAL_RUN);
+            case 3 -> dto.setRunType(RunType.LONG_RUN);
             default -> throw new IllegalStateException("PMML did return an invalid value");
-        });
+        }
         dto.setProbabilities(probabilities);
         return dto;
     }
@@ -313,7 +312,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
         List<Integer> durations = activityRepository.getDurationsInLast20ActivitiesBeforeActivityByUserAndTypeAsc(user, "Run", activity.getStartDate());
 
-        double baseline = switch(user.getExperienceLevel()) {
+        double baseline = switch (user.getExperienceLevel()) {
             case ExperienceLevel.BEGINNER -> DURATION_BASELINE * .2;
             case ExperienceLevel.CASUAL -> DURATION_BASELINE * .4;
             case ExperienceLevel.INTERMEDIATE -> DURATION_BASELINE * .6;
@@ -340,13 +339,15 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
         List<Integer> distances = activityRepository.getDistancesInLast20ActivitiesBeforeActivityByUserAndTypeAsc(user, "Run", activity.getStartDate());
 
-        double baseline = switch(user.getExperienceLevel()) {
-            case ExperienceLevel.BEGINNER -> DISTANCE_BASELINE * .2;
-            case ExperienceLevel.CASUAL -> DISTANCE_BASELINE * .4;
-            case ExperienceLevel.INTERMEDIATE -> DISTANCE_BASELINE * .6;
-            case ExperienceLevel.ADVANCED -> DISTANCE_BASELINE * .8;
-            default -> DISTANCE_BASELINE;
-        };
+        double baseline;
+        switch (user.getExperienceLevel()) {
+            case ExperienceLevel.BEGINNER -> baseline = DISTANCE_BASELINE * .2;
+            case ExperienceLevel.CASUAL -> baseline = DISTANCE_BASELINE * .4;
+            case ExperienceLevel.INTERMEDIATE -> baseline = DISTANCE_BASELINE * .6;
+            case ExperienceLevel.ADVANCED -> baseline = DISTANCE_BASELINE * .8;
+            default -> baseline = DISTANCE_BASELINE;
+        }
+
 
         if (distances.isEmpty()) {
             return activity.getDistance() / baseline;
@@ -367,7 +368,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
         List<Double> paces = activityRepository.getPacesInLast20ActivitiesBeforeActivityByUserAndTypeAsc(user, "Run", activity.getStartDate());
 
-        double baseline = switch(user.getExperienceLevel()) {
+        double baseline = switch (user.getExperienceLevel()) {
             case ExperienceLevel.BEGINNER -> PACE_BASELINE * .55;
             case ExperienceLevel.CASUAL -> PACE_BASELINE * .65;
             case ExperienceLevel.INTERMEDIATE -> PACE_BASELINE * .75;
