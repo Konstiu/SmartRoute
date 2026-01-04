@@ -1,13 +1,14 @@
-import {Component, inject, OnInit, OnDestroy} from '@angular/core';
-import {IonicModule} from '@ionic/angular';
+import {Component, inject, OnInit} from '@angular/core';
+import {IonicModule, ModalController} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../services/activities.service';
 import {Activity} from '../../dtos/Activity';
 import {Router} from "@angular/router";
 import {ToastController} from '@ionic/angular';
-import {formatDistance, formatDuration, formatElevation, formatHeartRate, formatPace} from "../../util/formatters";
+import {formatElevation, formatHeartRate} from "../../util/formatters";
 import {ActivitySyncNotificationService} from "../../../services/ActivitySyncNotificationService";
 import {RunTypeLabel} from "../../dtos/run-classification";
+import {ChangeClassificationComponent} from "./change-classification/change-classification.component";
 
 
 @Component({
@@ -26,10 +27,12 @@ export class RecentRunsPage implements OnInit {
   constructor(private stravaService: ActivitiesService,
               private router: Router,
               private syncNotificationService: ActivitySyncNotificationService
-  ) {}
+  ) {
+  }
 
   private activitiesService: ActivitiesService = inject(ActivitiesService);
   private toastCtrl: ToastController = inject(ToastController);
+  private modalController: ModalController = inject(ModalController);
 
   ngOnInit() {
     this.loadActivities();
@@ -170,6 +173,24 @@ export class RecentRunsPage implements OnInit {
     return icons[sportType] || icons['default'];
   }
 
+  async editClassification(activity: Activity) {
+    console.log("activity");
+    const modal = await this.modalController.create({
+      component: ChangeClassificationComponent,
+      componentProps: {
+        activityId: activity.id,
+        dto: {...activity.runClassification}
+      }
+    });
+
+    await modal.present();
+
+    const {data} = await modal.onWillDismiss();
+    if (data?.updatedClassification) {
+      activity.runClassification = data.updatedClassification;
+    }
+  }
+
   openActivity(activity: Activity) {
     this.router.navigate(['/activity/', activity.id]);
   }
@@ -181,6 +202,7 @@ export class RecentRunsPage implements OnInit {
   protected readonly formatElevation = formatElevation;
   protected readonly formatHeartRate = formatHeartRate;
   runTypeLabel = RunTypeLabel;
+
   ngOnDestroy() {
     if (this.syncSubscription) {
       this.syncSubscription.unsubscribe();

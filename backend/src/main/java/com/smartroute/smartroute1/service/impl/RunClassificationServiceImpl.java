@@ -131,11 +131,16 @@ public class RunClassificationServiceImpl implements RunClassificationService {
     }
 
     @Override
+    @Transactional
     public void correctRun(Long activityId, RunType runType) {
         Activity activity = activityRepository.findById(activityId).orElseThrow();
         RunType modelRunType = activity.getRunTypeClassification().getRunType();
         ApplicationUser user = activity.getUser();
         ClassificationCorrectionMap map = user.getCorrectionMap();
+        if (map == null) {
+            map = new ClassificationCorrectionMap();
+            user.setCorrectionMap(map);
+        }
         if (runType.equals(modelRunType)) {
             return;
         }

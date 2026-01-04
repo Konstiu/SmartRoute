@@ -1,9 +1,9 @@
 import {inject, Injectable} from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import {map, Observable} from 'rxjs';
+import {HttpClient} from '@angular/common/http';
+import {Observable} from 'rxjs';
 import {DetailedActivity, Activity} from '../app/dtos/Activity';
 import {Globals} from "../global/globals";
-import {RunClassificationDto} from "../app/dtos/run-classification";
+import {RunClassificationDto, RunType} from "../app/dtos/run-classification";
 
 @Injectable({
   providedIn: 'root'
@@ -17,7 +17,8 @@ export class ActivitiesService {
   private readonly COOLDOWN_MS = 5 * 60 * 1000;
 
   // eslint-disable-next-line @angular-eslint/prefer-inject
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {
+  }
 
 
   /**
@@ -68,18 +69,22 @@ export class ActivitiesService {
   /**
    * Fetch one single activity by its id.
    */
-  getActivityById(id:number): Observable<DetailedActivity>{
+  getActivityById(id: number): Observable<DetailedActivity> {
     const url = `${this.userUri}/${id}`;
     return this.httpClient.get<DetailedActivity>(url);
   }
 
   /**
-   * Returns the run type classification for the selected run.
+   * Updates the run type classification for the selected run.
    *
    * @param id the activity id
+   * @param runType the updated run type
    */
-  getClassification(id:number): Observable<RunClassificationDto>{
-    const url = `${this.userUri}/classification/${id}`;
-    return this.httpClient.get<RunClassificationDto>(url);
+  updateClassification(id: number, runType: RunType): Observable<void> {
+    const url = `${this.userUri}/classification/correction/${id}`;
+    return this.httpClient.post<void>(url, JSON.stringify(runType),
+      {
+        headers: { 'Content-Type': 'application/json' }
+      });
   }
 }
