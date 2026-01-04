@@ -6,7 +6,10 @@ import com.smartroute.smartroute1.endpoint.mapper.RunClassificationMapper;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.RunClassificationDecision;
+import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.RunType;
+import com.smartroute.smartroute1.exception.CannotCalculateConsistencyScoreException;
+import com.smartroute.smartroute1.exception.InsufficientTrainingDataException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.RunClassificationDecisionRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
@@ -55,6 +58,12 @@ public class RunClassificationServiceImpl implements RunClassificationService {
     private final WeatherService weatherService;
     private final RunClassificationMapper mapper;
     private final RunClassificationDecisionRepository runClassificationDecisionRepository;
+
+    // Baselines used when the user has not enough recorded runs ( <= MIN_HISTORY) before the activity to classify
+    private static final int MIN_HISTORY = 3;
+    private static final int DISTANCE_BASELINE = 24000; // 24km
+    private static final double DURATION_BASELINE = 3600 * 3.0; // 3h
+    private static final double PACE_BASELINE = 4.5; // 4.5 m/s
 
     public RunClassificationServiceImpl(ActivityRepository activityRepository, ActivityProcessingService activityProcessingService, ReadinessScoreService readinessScoreService, ConsistencyAnalyzerService consistencyAnalyzerService,
                                         InjuryAwareTrainingService injuryAwareTrainingService,
@@ -121,13 +130,13 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         return switch (fieldName) {
             // Activity data
             case "duration" -> activity.getMovingTime();
-            case "duration_pct_pb_20" -> getDurationPercentageRelativeToPbLast20Runs(activity);
+            case "duration_pct_pb_20" -> getDurationPercentageRelativeToPersonalUpperEffortLast20Runs(activity);
 
             case "distance" -> activity.getDistance();
-            case "distance_pct_pb_20" -> getDistancePercentageRelativeToPbLast20Runs(activity);
+            case "distance_pct_pb_20" -> getDistancePercentageRelativeToPersonalUpperEffortLast20Runs(activity);
 
             case "pace" -> activity.getAverageSpeed();
-            case "pace_pct_pb_20" -> getPacePercentageRelativeToPbLast20Runs(activity);
+            case "pace_pct_pb_20" -> getPacePercentageRelativeToPersonalUpperEffortLast20Runs(activity);
 
             case "elevation_gain" -> activity.getTotalElevationGain();
 
@@ -139,7 +148,15 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
             case "consistency_score" -> getConsistencyScoreBeforeActivity(activity);
 
-            case "tsb" -> fatigueAndOverloadService.tsbOn(user, activity.getStartDate().atZone(ZoneOffset.UTC).toLocalDate());
+            case "tsb" -> {
+                double tsbValue;
+                try {
+                    tsbValue = fatigueAndOverloadService.tsbOn(user, activity.getStartDate().atZone(ZoneOffset.UTC).toLocalDate());
+                } catch (InsufficientTrainingDataException e) {
+                    tsbValue = 0;
+                }
+                yield tsbValue;
+            }
 
             // User data
             case "age" -> Period.between(user.getBirthdate(), LocalDate.now()).getYears();
@@ -269,50 +286,104 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
     private double getConsistencyScoreBeforeActivity(Activity activity) {
         ApplicationUser user = activity.getUser();
-        ConsistencyScoreResultDto result = consistencyAnalyzerService.computeScore(user, activity.getStartDate().minus(14, ChronoUnit.DAYS), activity.getStartDate(), user.getActiveWeekdays().size());
+        ConsistencyScoreResultDto result;
+        try {
+            result = consistencyAnalyzerService.computeScore(user, activity.getStartDate().minus(14, ChronoUnit.DAYS), activity.getStartDate(), user.getActiveWeekdays().size());
+        } catch (CannotCalculateConsistencyScoreException e) {
+            result = new ConsistencyScoreResultDto(0.5, 0.5, 0.5);
+        }
 
         return result.getFinalScore();
     }
 
     private int getReadinessScoreBeforeActivity(Activity activity) {
         ApplicationUser user = activity.getUser();
-        return readinessScoreService.calculateReadinessScore(user, activity.getStartDate().atZone(ZoneOffset.UTC).toLocalDate());
+        try {
+            return readinessScoreService.calculateReadinessScore(user, activity.getStartDate().atZone(ZoneOffset.UTC).toLocalDate());
+        } catch (InsufficientTrainingDataException e) {
+            return 50;
+        }
     }
 
-    private double getDurationPercentageRelativeToPbLast20Runs(Activity activity) {
+    private double getDurationPercentageRelativeToPersonalUpperEffortLast20Runs(Activity activity) {
         ApplicationUser user = activity.getUser();
 
-        // TODO exclude activity from query? (to allow > 100%) - compare with model data generator; last 20 vs last 20 before activity?
-        int maxDuration = activityRepository.findTop3AvgDurationInLast20ActivitiesByUserAndType(user, "Run");
+        List<Integer> durations = activityRepository.getDurationsInLast20ActivitiesBeforeActivityByUserAndTypeAsc(user, "Run", activity.getStartDate());
 
-        if (maxDuration == -1) {
-            return 1.00;
+        double baseline = switch(user.getExperienceLevel()) {
+            case ExperienceLevel.BEGINNER -> DURATION_BASELINE * .2;
+            case ExperienceLevel.CASUAL -> DURATION_BASELINE * .4;
+            case ExperienceLevel.INTERMEDIATE -> DURATION_BASELINE * .6;
+            case ExperienceLevel.ADVANCED -> DURATION_BASELINE * .8;
+            default -> DURATION_BASELINE;
+        };
+
+        if (durations.isEmpty()) {
+            return activity.getMovingTime() / baseline;
         }
-        return (double) activity.getMovingTime() / maxDuration;
+
+        int index = (int) Math.ceil(durations.size() * 0.8) - 1;
+        index = Math.clamp(index, 0, durations.size() - 1);
+
+        int personalNormalUpperDuration = durations.get(index);
+
+        double weight = Math.min(1.0, durations.size() / (double) MIN_HISTORY);
+
+        return activity.getMovingTime() / (baseline * (1 - weight) + personalNormalUpperDuration * weight);
     }
 
-    private double getDistancePercentageRelativeToPbLast20Runs(Activity activity) {
+    private double getDistancePercentageRelativeToPersonalUpperEffortLast20Runs(Activity activity) {
         ApplicationUser user = activity.getUser();
 
-        // TODO exclude activity from query? (to allow > 100%) - compare with model data generator; last 20 vs last 20 before activity?
-        int maxDistance = activityRepository.findTop3AvgDistanceInLast20ActivitiesByUserAndType(user, "Run");
+        List<Integer> distances = activityRepository.getDistancesInLast20ActivitiesBeforeActivityByUserAndTypeAsc(user, "Run", activity.getStartDate());
 
-        if (maxDistance == -1) {
-            return 1.00;
+        double baseline = switch(user.getExperienceLevel()) {
+            case ExperienceLevel.BEGINNER -> DISTANCE_BASELINE * .2;
+            case ExperienceLevel.CASUAL -> DISTANCE_BASELINE * .4;
+            case ExperienceLevel.INTERMEDIATE -> DISTANCE_BASELINE * .6;
+            case ExperienceLevel.ADVANCED -> DISTANCE_BASELINE * .8;
+            default -> DISTANCE_BASELINE;
+        };
+
+        if (distances.isEmpty()) {
+            return activity.getDistance() / baseline;
         }
-        return activity.getDistance() / maxDistance;
+
+        int index = (int) Math.ceil(distances.size() * 0.8) - 1;
+        index = Math.clamp(index, 0, distances.size() - 1);
+
+        double personalNormalUpperDistance = distances.get(index);
+
+        double weight = Math.min(1.0, distances.size() / (double) MIN_HISTORY);
+
+        return activity.getDistance() / (baseline * (1 - weight) + personalNormalUpperDistance * weight);
     }
 
-    private double getPacePercentageRelativeToPbLast20Runs(Activity activity) {
+    private double getPacePercentageRelativeToPersonalUpperEffortLast20Runs(Activity activity) {
         ApplicationUser user = activity.getUser();
 
-        // TODO exclude activity from query? (to allow > 100%) - compare with model data generator; last 20 vs last 20 before activity?
-        double maxPace = activityRepository.findTop3AvgPaceInLast20ActivitiesByUserAndType(user, "Run");
+        List<Double> paces = activityRepository.getPacesInLast20ActivitiesBeforeActivityByUserAndTypeAsc(user, "Run", activity.getStartDate());
 
-        if (maxPace == -1) {
-            return 1.00;
+        double baseline = switch(user.getExperienceLevel()) {
+            case ExperienceLevel.BEGINNER -> PACE_BASELINE * .55;
+            case ExperienceLevel.CASUAL -> PACE_BASELINE * .65;
+            case ExperienceLevel.INTERMEDIATE -> PACE_BASELINE * .75;
+            case ExperienceLevel.ADVANCED -> PACE_BASELINE * .85;
+            default -> PACE_BASELINE;
+        };
+
+        if (paces.isEmpty()) {
+            return activity.getAverageSpeed() / baseline;
         }
-        return activity.getAverageSpeed() / maxPace;
+
+        int index = (int) Math.ceil(paces.size() * 0.8) - 1;
+        index = Math.clamp(index, 0, paces.size() - 1);
+
+        double personalNormalUpperPace = paces.get(index);
+
+        double weight = Math.min(1.0, paces.size() / (double) MIN_HISTORY);
+
+        return activity.getAverageSpeed() / (baseline * (1 - weight) + personalNormalUpperPace * weight);
     }
 
     private double getMaxHrPercentageRelativeToAllRuns(Activity activity) {
@@ -321,7 +392,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         double maxHr = activityRepository.getMaxMaxHrInAllActivitiesByUserAndType(user, "Run");
 
         if (maxHr == -1) {
-            return 1.00;
+            return 0.85;
         }
         return activity.getMaxHeartrate() / maxHr;
     }
@@ -332,7 +403,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         double maxAvgHr = activityRepository.getMaxAverageHrInAllActivitiesByUserAndType(user, "Run");
 
         if (maxAvgHr == -1) {
-            return 1.00;
+            return 0.75;
         }
         return activity.getAverageHeartrate() / maxAvgHr;
     }
