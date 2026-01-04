@@ -4,13 +4,16 @@ import com.smartroute.smartroute1.endpoint.dto.StravaStreamDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ActivityStream;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.ActivityStreamSource;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
+import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.ActivityStreamRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
+import com.smartroute.smartroute1.service.WeatherService;
 import com.smartroute.smartroute1.util.Codec;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -24,11 +27,15 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
+import com.google.maps.internal.PolylineEncoding;
+import com.google.maps.model.LatLng;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -48,6 +55,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
     private final TaskScheduler taskScheduler;
     private final UserRepository userRepository;
     private final ActivityStreamRepository activityStreamRepository;
+    private final WeatherService weatherService;
 
     @Override
     public void processActivitiesInBatches(int maxBatchSize, List<Activity> activities, String token) {
@@ -105,6 +113,9 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             boolean isStravaActivity = activity.getStravaId() != null;
             boolean powerBasedCalculationPossible = activity.getAverageWatts() != null && user.getFtp() != null;
             boolean hasEnergy = activity.getKilojoules() != null;
+
+            // Fetch weather data
+            fetchWeatherForActivity(activity);
 
             /*
             Fetch Strava activity stravaStreams
@@ -223,6 +234,24 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             LOGGER.debug("Saved sessionLoad {} for activity {}", sessionLoad, activity.getId());
         } catch (Exception ex) {
             LOGGER.error("Failed fetching heartRate data for activity {}", activity.getId(), ex);
+        }
+    }
+
+    @Override
+    public void fetchWeatherForActivity(Activity activity) {
+        try {
+            if (activity.getSummaryPolyline() != null && activity.getStartDate() != null) {
+                LatLng startLatLng = PolylineEncoding.decode(activity.getSummaryPolyline()).getFirst();
+                ZonedDateTime utcDateTime = activity.getStartDate()
+                    .atZone(ZoneId.systemDefault())
+                    .withZoneSameInstant(ZoneId.of("UTC")).withMinute(0).withSecond(0).withNano(0);
+                String utcTimeStr = utcDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
+
+                WeatherResponse weather = weatherService.getWeatherAtTime(startLatLng.lat, startLatLng.lng, utcTimeStr);
+                activity.setWeather(weather);
+            }
+        } catch (ValidationException e) {
+            LOGGER.error("Failed to process activity {}: {}", activity, e.getMessage());
         }
     }
 

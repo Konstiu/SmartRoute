@@ -1,8 +1,11 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.google.maps.internal.PolylineEncoding;
+import com.google.maps.model.LatLng;
 import com.smartroute.smartroute1.entity.ActivityStream;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.ActivityStreamSource;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
@@ -11,6 +14,7 @@ import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
 import com.smartroute.smartroute1.service.GpxService;
 import com.smartroute.smartroute1.service.UserService;
+import com.smartroute.smartroute1.service.WeatherService;
 import io.jenetics.jpx.Length;
 import io.jenetics.jpx.Metadata;
 import io.jenetics.jpx.WayPoint;
@@ -203,6 +207,9 @@ public class GpxServiceImpl implements GpxService {
 
             // Calculate time in hr-zones
             Map<Integer, Float> timeInZones = fitnessScoreService.calculateTimeInZones(heartRates, timestamps, user);
+
+            // Fetch weather data
+            activityProcessingService.fetchWeatherForActivity(activity);
 
             // Set time in hr-zones
             timeInZones.forEach((zone, time) -> {

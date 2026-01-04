@@ -764,6 +764,9 @@ public class GarminImportServiceImpl implements GarminImportService {
                     activity
             );
 
+            // Fetch weather data
+            activityProcessingService.fetchWeatherForActivity(activity);
+
             // Calculate time in hr-zones
             Map<Integer, Float> timeInZones = fitnessScoreService.calculateTimeInZones(heartRates, timestamps, user);
 

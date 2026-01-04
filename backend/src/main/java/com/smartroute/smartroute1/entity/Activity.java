@@ -83,6 +83,9 @@ public class Activity {
 
     private Integer satisfactionScore;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    private WeatherResponse weather;
+
     @Enumerated(EnumType.STRING)
     private WorkoutType workoutType;
 
