@@ -1,15 +1,15 @@
-import { Injectable } from '@angular/core';
-import { SwPush } from '@angular/service-worker';
-import { HttpClient } from '@angular/common/http';
-import { Globals } from '../global/globals';
-import { Capacitor } from '@capacitor/core';
+import {Injectable} from '@angular/core';
+import {SwPush} from '@angular/service-worker';
+import {HttpClient} from '@angular/common/http';
+import {Globals} from '../global/globals';
+import {Capacitor} from '@capacitor/core';
 import {
   PushNotifications,
   Token,
   PushNotificationSchema,
   ActionPerformed
 } from '@capacitor/push-notifications';
-import { Observable, BehaviorSubject } from 'rxjs';
+import {Observable, BehaviorSubject} from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
@@ -17,7 +17,6 @@ import { Observable, BehaviorSubject } from 'rxjs';
 export class PushNotificationService {
 
   private subscriptionStatus = new BehaviorSubject<boolean>(false);
-  public subscriptionStatus$ = this.subscriptionStatus.asObservable();
 
   // Track if listeners are already registered (to prevent duplicates)
   private nativeListenersRegistered = false;
@@ -156,24 +155,9 @@ export class PushNotificationService {
         console.warn('Service Worker is not enabled');
         return false;
       }
-
-      // Check if already subscribed
-      const existingSub = await this.swPush.subscription.pipe().toPromise();
-      if (existingSub) {
-        console.log('Already subscribed to web push');
-        this.subscriptionStatus.next(true);
-
-        // Set up message listeners
-        this.listenToNotifications();
-        return true;
-      }
-
       const subscription = await this.swPush.requestSubscription({
         serverPublicKey: this.globals.vapidPublicKey
       });
-
-      console.log('Web push subscription created:', subscription);
-
       // Set up message listeners
       this.listenToNotifications();
 
@@ -182,7 +166,6 @@ export class PushNotificationService {
         this.http.post(`${this.globals.backendUri}/notifications/subscribe`, subscription)
           .subscribe({
             next: (response) => {
-              console.log('Web subscription saved to backend:', response);
               this.subscriptionStatus.next(true);
               resolve(true);
             },
@@ -207,14 +190,13 @@ export class PushNotificationService {
       // Listen for incoming messages
       this.swPush.messages.subscribe(
         (notification: any) => {
-          console.log('Received web notification:', notification);
           // Handle notification payload
         }
       );
 
       // Listen for notification clicks
       this.swPush.notificationClicks.subscribe(
-        ({ action, notification }) => {
+        ({action, notification}) => {
           console.log('Web notification clicked:', action, notification);
           // Navigate to relevant page
         }
@@ -259,8 +241,7 @@ export class PushNotificationService {
         if (!this.swPush.isEnabled) {
           return false;
         }
-        const sub = await this.swPush.subscription.pipe().toPromise();
-        return sub !== null;
+        return true;
       }
     } catch (error) {
       console.error('Error checking subscription status:', error);

@@ -50,8 +50,7 @@ export class LoginPage {
       next: async () => {
         await loading.dismiss();
         this.showToast('Login successful!', 'success');
-        await this.pushNotificationService.autoInitialize();
-        this.redirectBasedOnRole();
+        await this.redirectBasedOnRole();
       },
       error: async (error) => {
         await loading.dismiss();
@@ -73,9 +72,11 @@ export class LoginPage {
     this.router.navigate(['/request-password-reset']);
   }
 
-  private redirectBasedOnRole() {
-    this.router.navigate(['/tabs/trainingPlan']);
-  }
+  private async redirectBasedOnRole() {
+    await this.router.navigate(['/tabs/trainingPlan']);
+    this.pushNotificationService.autoInitialize().catch(err => {
+      console.error('Push notification setup failed:', err);
+    });  }
 
   private async showToast(message: string, color: string) {
     const toast = await this.toastCtrl.create({
