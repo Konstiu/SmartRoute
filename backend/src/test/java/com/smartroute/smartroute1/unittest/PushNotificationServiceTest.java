@@ -13,6 +13,7 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.PushSubscription;
 import com.smartroute.smartroute1.repository.*;
 import com.smartroute.smartroute1.service.PushNotificationService;
+import nl.martijndwars.webpush.Encoding;
 import nl.martijndwars.webpush.Notification;
 import nl.martijndwars.webpush.PushService;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,7 +50,7 @@ import static org.mockito.Mockito.*;
         "vapid.subject=mailto:test@example.com"
 })
 @ActiveProfiles({"test", "generateData"})
-class PushNotificationServiceImplIntegrationTest {
+class PushNotificationServiceTest {
 
     @Autowired
     private PushNotificationService pushNotificationService;
@@ -315,7 +316,7 @@ class PushNotificationServiceImplIntegrationTest {
         pushNotificationService.subscribe(webSubscriptionDto, testUser);
 
         IOException exception = new IOException("410 Gone");
-        doThrow(exception).when(webPushService).send(any(Notification.class));
+        doThrow(exception).when(webPushService).send(any(Notification.class), eq(Encoding.AES128GCM));
 
         // Act
         pushNotificationService.sendToUser(testUser, "Test Title", "Test Body");
@@ -331,7 +332,7 @@ class PushNotificationServiceImplIntegrationTest {
         pushNotificationService.subscribe(webSubscriptionDto, testUser);
 
         IOException exception = new IOException("404 Not Found");
-        doThrow(exception).when(webPushService).send(any(Notification.class));
+        doThrow(exception).when(webPushService).send(any(Notification.class), eq(Encoding.AES128GCM));
 
         // Act
         pushNotificationService.sendToUser(testUser, "Test Title", "Test Body");
@@ -376,7 +377,7 @@ class PushNotificationServiceImplIntegrationTest {
         pushNotificationService.sendToUser(testUser, "Test Title", "Test Body");
 
         // Assert - should send twice (once per subscription)
-        verify(webPushService, times(2)).send(any(Notification.class));
+        verify(webPushService, times(2)).send(any(nl.martijndwars.webpush.Notification.class), eq(Encoding.AES128GCM));
     }
 
     @Test
@@ -390,7 +391,7 @@ class PushNotificationServiceImplIntegrationTest {
                 pushNotificationService.sendToUser(testUser, "", "")
         );
 
-        verify(webPushService, times(1)).send(any(Notification.class));
+        verify(webPushService, times(1)).send(any(nl.martijndwars.webpush.Notification.class), eq(Encoding.AES128GCM));
     }
 
     @Test
@@ -407,7 +408,7 @@ class PushNotificationServiceImplIntegrationTest {
                 pushNotificationService.sendToUser(testUser, title, body)
         );
 
-        verify(webPushService, times(1)).send(any(Notification.class));
+        verify(webPushService, times(1)).send(any(nl.martijndwars.webpush.Notification.class), eq(Encoding.AES128GCM));
     }
 
     // ==================== Send Notification Tests (Native Push) ====================
@@ -453,7 +454,7 @@ class PushNotificationServiceImplIntegrationTest {
             pushNotificationService.sendToUser(testUser, "Test Title", "Test Body");
 
             // Assert
-            verify(webPushService, times(1)).send(any(Notification.class));
+            verify(webPushService, times(1)).send(any(nl.martijndwars.webpush.Notification.class), eq(Encoding.AES128GCM));
             verify(mockMessaging, times(1)).send(any(Message.class));
         }
     }
