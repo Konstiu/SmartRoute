@@ -11,6 +11,7 @@ import com.smartroute.smartroute1.entity.PushSubscription;
 import com.smartroute.smartroute1.repository.PushSubscriptionRepository;
 import com.smartroute.smartroute1.service.PushNotificationService;
 import lombok.extern.slf4j.Slf4j;
+import nl.martijndwars.webpush.Encoding;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import nl.martijndwars.webpush.PushService;
 import org.jose4j.lang.JoseException;
@@ -137,8 +138,7 @@ public class PushNotificationServiceImpl implements PushNotificationService {
 
             nl.martijndwars.webpush.Notification notification =
                     new nl.martijndwars.webpush.Notification(subscription, payload);
-            webPushService.send(notification);
-
+            webPushService.send(notification, Encoding.AES128GCM);
         } catch (GeneralSecurityException | IOException | JoseException e) {
             if (e.getMessage() != null
                     && (e.getMessage().contains("410") || e.getMessage().contains("404"))) {

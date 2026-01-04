@@ -17,7 +17,7 @@
   <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
-  
+
   <div class="friends-container">
     @if (outgoingRequests.length > 0) {
       <h3 class="section-title">Pending Requests</h3>
@@ -99,5 +99,10 @@
         </ion-card>
       }
     }
+    <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+      <ion-fab-button color="danger" (click)="alertFriends()">
+        <ion-icon name="alert"></ion-icon>
+      </ion-fab-button>
+    </ion-fab>
   </div>
 </ion-content>

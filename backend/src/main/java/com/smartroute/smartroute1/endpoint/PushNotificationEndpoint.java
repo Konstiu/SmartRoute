@@ -114,7 +114,13 @@ public class PushNotificationEndpoint {
         String body = payload.getBody();
         List<Friendship> l = friendshipService.getFriends(user.getEmail());
         //l.forEach(e -> log.info(e.getReceiver().getEmail()));
-        l.forEach(e -> pushNotificationService.sendToUser(e.getReceiver(), title, body));
+        l.forEach(e -> {
+            var targetUser =
+                    e.getSender().getId().equals(user.getId())
+                            ? e.getReceiver()
+                            : e.getSender();
+            pushNotificationService.sendToUser(targetUser, title, body);
+        });
 
         return ResponseEntity.ok(Map.of(
                 "message", "Notification sent successfully",
