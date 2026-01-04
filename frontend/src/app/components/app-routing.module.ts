@@ -10,11 +10,6 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
-    path:'abc123',
-    loadComponent: () => import('./test').then(m=> m.PushNotificationTestComponent),
-  },
-
-  {
     path: 'register',
     loadComponent: () => import('./register/register.page').then(m => m.RegisterPage),
   },
