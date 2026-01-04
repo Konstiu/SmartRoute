@@ -7,6 +7,8 @@ import com.smartroute.smartroute1.entity.AthleteZone;
 import com.smartroute.smartroute1.entity.RunClassificationDecision;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.RunType;
+import com.smartroute.smartroute1.entity.enums.Sex;
+import com.smartroute.smartroute1.entity.enums.Weekday;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.AthleteZoneRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
@@ -14,17 +16,22 @@ import com.smartroute.smartroute1.service.FitnessScoreService;
 import com.smartroute.smartroute1.service.RunClassificationService;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -53,11 +60,30 @@ class RunClassificationServiceTest {
     @BeforeEach
     void setUp() {
         activityRepository.deleteAll();
+
+        if (userRepository.findUserByEmail("a@b") == null) {
+            ApplicationUser user = new ApplicationUser();
+            user.setSex(Sex.MALE);
+            user.setHeight(123);
+            user.setWeight(BigDecimal.valueOf(67));
+            user.setFtp(250);
+            user.setExperienceLevel(ExperienceLevel.BEGINNER);
+            user.setFirstname("a");
+            user.setLastname("b");
+            user.setEmail("a@b");
+            user.setPassword("aaaa");
+            HashSet<Weekday> set = new HashSet<>();
+            set.add(Weekday.MONDAY);
+            user.setActiveWeekdays(set);
+            user.setBirthdate(LocalDate.now().minusYears(30));
+            userRepository.save(user);
+        }
+
         setupUserAndZones();
     }
 
     void setupUserAndZones() {
-        ApplicationUser user = userRepository.findAll().getFirst();
+        ApplicationUser user = userRepository.getByEmail("a@b");
         user.setExperienceLevel(ExperienceLevel.BEGINNER);
         userRepository.save(user);
 
@@ -180,7 +206,7 @@ class RunClassificationServiceTest {
     }
 
     Activity saveActivity(Activity activity) {
-        ApplicationUser user = userRepository.findAll().getFirst();
+        ApplicationUser user = userRepository.getByEmail("a@b");
 
         activity.setUser(user);
         return activityRepository.save(activity);
