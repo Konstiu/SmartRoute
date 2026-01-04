@@ -14,6 +14,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.MapKeyColumn;
 import jakarta.persistence.MapKeyEnumerated;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -34,11 +35,16 @@ public class RunClassificationDecision {
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(
-        name = "run_classification_probabilities",
-        joinColumns = @JoinColumn(name = "decision_id")
+            name = "run_classification_probabilities",
+            joinColumns = @JoinColumn(name = "decision_id")
     )
     @MapKeyEnumerated(EnumType.STRING)
     @MapKeyColumn(name = "run_type")
     @Column(name = "probability")
     private Map<RunType, Double> probabilities;
+
+    public RunClassificationDecision(Map<RunType, Double> probabilities, RunType runType) {
+        this.probabilities = probabilities;
+        this.runType = runType;
+    }
 }

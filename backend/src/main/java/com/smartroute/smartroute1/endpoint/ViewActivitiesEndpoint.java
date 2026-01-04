@@ -7,6 +7,7 @@ import com.smartroute.smartroute1.endpoint.mapper.RunClassificationMapper;
 import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.RunClassificationDecision;
+import com.smartroute.smartroute1.entity.enums.RunType;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.ActivityService;
 import com.smartroute.smartroute1.service.RunClassificationService;
@@ -119,13 +120,28 @@ public class ViewActivitiesEndpoint {
     @ResponseStatus(HttpStatus.OK)
     @Secured("ROLE_USER")
     @Operation(
-        summary = "Returns the run type classification",
-        description = """
-            Returns 
-            """
+            summary = "Returns the run type classification",
+            description = """
+                    Returns 
+                    """
     )
     public RunClassificationDecisionDto getClassification(@PathVariable("id") Long id) {
         LOGGER.info("GET /api/v1/strava/classification/{}", id);
         return runClassificationService.classifyRun(id);
     }
+
+    @PostMapping("classification/correct/{id}")
+    @ResponseStatus(HttpStatus.OK)
+    @Secured("ROLE_USER")
+    @Operation(
+            summary = "Updates the RuntypeClassification",
+            description = """
+                    Returns 
+                    """
+    )
+    public void correctClassification(@PathVariable("id") Long id, @RequestBody RunType runType) {
+        LOGGER.info("POST /api/v1/strava/classification/correct/{}", id);
+        runClassificationService.correctRun(id, runType);
+    }
+
 }

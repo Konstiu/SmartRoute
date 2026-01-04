@@ -4,6 +4,7 @@ import com.smartroute.smartroute1.endpoint.dto.RunClassificationDecisionDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.AthleteZone;
+import com.smartroute.smartroute1.entity.RunClassificationDecision;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.RunType;
 import com.smartroute.smartroute1.repository.ActivityRepository;
@@ -20,7 +21,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -194,13 +197,13 @@ class RunClassificationServiceTest {
         Activity saved = activityRepository.getReferenceById(activity.getId());
 
         assertAll(
-            () -> assertNotNull(dto),
-            () -> assertNotNull(saved.getRunTypeClassification()),
-            () -> Assertions.assertEquals(dto.getRunType(), saved.getRunTypeClassification().getRunType()),
-            () -> assertEquals(dto.getProbabilities().get(RunType.EASY_RUN), saved.getRunTypeClassification().getProbabilities().get(RunType.EASY_RUN)),
-            () -> assertEquals(dto.getProbabilities().get(RunType.INTERVAL_RUN), saved.getRunTypeClassification().getProbabilities().get(RunType.INTERVAL_RUN)),
-            () -> assertEquals(dto.getProbabilities().get(RunType.LONG_RUN), saved.getRunTypeClassification().getProbabilities().get(RunType.LONG_RUN)),
-            () -> assertEquals(dto.getProbabilities().get(RunType.TEMPO_RUN), saved.getRunTypeClassification().getProbabilities().get(RunType.TEMPO_RUN))
+                () -> assertNotNull(dto),
+                () -> assertNotNull(saved.getRunTypeClassification()),
+                () -> Assertions.assertEquals(dto.getRunType(), saved.getRunTypeClassification().getRunType()),
+                () -> assertEquals(dto.getProbabilities().get(RunType.EASY_RUN), saved.getRunTypeClassification().getProbabilities().get(RunType.EASY_RUN)),
+                () -> assertEquals(dto.getProbabilities().get(RunType.INTERVAL_RUN), saved.getRunTypeClassification().getProbabilities().get(RunType.INTERVAL_RUN)),
+                () -> assertEquals(dto.getProbabilities().get(RunType.LONG_RUN), saved.getRunTypeClassification().getProbabilities().get(RunType.LONG_RUN)),
+                () -> assertEquals(dto.getProbabilities().get(RunType.TEMPO_RUN), saved.getRunTypeClassification().getProbabilities().get(RunType.TEMPO_RUN))
         );
     }
 
@@ -222,18 +225,18 @@ class RunClassificationServiceTest {
     @Test
     void testClassifyRun_withTempoRunAndEasyRunsAsBaseline_classifiesAsTempoRun() {
         List<Activity> previousRuns = List.of(
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER)
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER)
         );
         previousRuns.forEach(this::saveActivity);
 
@@ -243,8 +246,8 @@ class RunClassificationServiceTest {
         RunClassificationDecisionDto dto = service.classifyRun(tempoRun.getId());
 
         assertAll(
-            () -> assertNotNull(dto),
-            () -> assertEquals(RunType.TEMPO_RUN, dto.getRunType())
+                () -> assertNotNull(dto),
+                () -> assertEquals(RunType.TEMPO_RUN, dto.getRunType())
         );
     }
 
@@ -260,9 +263,9 @@ class RunClassificationServiceTest {
         RunClassificationDecisionDto dto = service.classifyRun(activity.getId());
 
         assertAll(
-            () -> assertNotNull(dto),
-            () -> assertNotNull(dto.getRunType()),
-            () -> assertNotNull(dto.getRunType())
+                () -> assertNotNull(dto),
+                () -> assertNotNull(dto.getRunType()),
+                () -> assertNotNull(dto.getRunType())
         );
     }
 
@@ -281,26 +284,26 @@ class RunClassificationServiceTest {
     void testClassifyRun_classificationAdaptsToImprovingUser() {
         // Baseline
         List<Activity> previousRuns = List.of(
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER)
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER)
         );
         previousRuns.forEach(this::saveActivity);
 
@@ -311,19 +314,19 @@ class RunClassificationServiceTest {
 
         // User starts improving
         previousRuns = List.of(
-            getTemplateRun(7000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(8000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(9000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(13000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(9000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(9000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(12000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(14000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(14000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(19000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(19000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(14000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
-            getTemplateRun(18000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER)
+                getTemplateRun(7000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(8000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(9000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(13000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(9000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(9000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(12000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(14000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(14000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(19000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(19000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(14000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER),
+                getTemplateRun(18000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER)
         );
         previousRuns.forEach(this::saveActivity);
 
@@ -334,8 +337,66 @@ class RunClassificationServiceTest {
         RunClassificationDecisionDto benchmarkRun2dto = service.classifyRun(benchmarkRun2.getId());
 
         assertAll(
-            () -> assertTrue(benchmarkRun1dto.getProbabilities().get(RunType.LONG_RUN) > benchmarkRun2dto.getProbabilities().get(RunType.LONG_RUN)),
-            () -> assertNotEquals(RunType.LONG_RUN, benchmarkRun2dto.getRunType())
+                () -> assertTrue(benchmarkRun1dto.getProbabilities().get(RunType.LONG_RUN) > benchmarkRun2dto.getProbabilities().get(RunType.LONG_RUN)),
+                () -> assertNotEquals(RunType.LONG_RUN, benchmarkRun2dto.getRunType())
+        );
+    }
+
+    @Test
+    public void test_WhenCorrectRun_UpdatesMapSuccessfully() {
+        Activity activity = getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER);
+        activity.setRunTypeClassification(new RunClassificationDecision(new HashMap<>(), RunType.EASY_RUN));
+        activity = saveActivity(activity);
+        Long activityId = activity.getId();
+
+        service.correctRun(activityId, RunType.LONG_RUN);
+
+        Activity result = activityRepository.findById(activityId).get();
+
+        assertAll(
+                () -> assertEquals(0.01, result.getUser().getCorrectionMap().getEasyToLong()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getEasyToInterval()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getEasyToTempo()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getLongToTempo()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getLongToInterval()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getLongToEasy()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getIntervalToTempo()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getIntervalToEasy()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getIntervalToLong()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getTempoToLong()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getTempoToInterval()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getTempoToEasy()),
+                () -> assertEquals(RunType.LONG_RUN, result.getRunTypeClassification().getRunType())
+        );
+
+
+    }
+
+    @Test
+    public void test_WhenCorrectRunWithSameRunType_ThenNoChange() {
+        Activity activity = getTemplateRun(5000, 0, RunType.EASY_RUN, ExperienceLevel.BEGINNER);
+        activity.setRunTypeClassification(new RunClassificationDecision(new HashMap<>(), RunType.EASY_RUN));
+        activity = saveActivity(activity);
+        Long activityId = activity.getId();
+
+        service.correctRun(activityId, RunType.EASY_RUN);
+
+        Activity result = activityRepository.findById(activityId).get();
+
+        assertAll(
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getEasyToLong()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getEasyToInterval()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getEasyToTempo()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getLongToTempo()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getLongToInterval()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getLongToEasy()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getIntervalToTempo()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getIntervalToEasy()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getIntervalToLong()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getTempoToLong()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getTempoToInterval()),
+                () -> assertEquals(0, result.getUser().getCorrectionMap().getTempoToEasy()),
+                () -> assertEquals(RunType.EASY_RUN, result.getRunTypeClassification().getRunType())
         );
     }
 

@@ -5,6 +5,7 @@ import com.smartroute.smartroute1.endpoint.dto.RunClassificationDecisionDto;
 import com.smartroute.smartroute1.endpoint.mapper.RunClassificationMapper;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.ClassificationCorrectionMap;
 import com.smartroute.smartroute1.entity.RunClassificationDecision;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.RunType;
@@ -129,6 +130,68 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         activityRepository.save(activity);
 
         return dto;
+    }
+
+    @Override
+    public void correctRun(Long activityId, RunType runType) {
+        Activity activity = activityRepository.findById(activityId).orElseThrow();
+        RunType modelRunType = activity.getRunTypeClassification().getRunType();
+        ApplicationUser user = activity.getUser();
+        ClassificationCorrectionMap map = user.getCorrectionMap();
+        if (runType.equals(modelRunType)) {
+            return;
+        }
+
+        switch (modelRunType) {
+            case RunType.EASY_RUN -> {
+                switch (runType) {
+                    case RunType.TEMPO_RUN -> {
+                        map.setEasyToTempo(map.getEasyToTempo() + 1);
+
+                    }
+                    case RunType.INTERVAL_RUN -> {
+                        map.setEasyToInterval(map.getEasyToInterval() + 1);
+
+                    }
+                    case RunType.LONG_RUN -> {
+                        map.setEasyToLong(map.getEasyToLong() + 1);
+                    }
+                    default -> throw new IllegalStateException("User did return an invalid value");
+                }
+            }
+
+            case RunType.TEMPO_RUN -> {
+                switch (runType) {
+                    case RunType.EASY_RUN -> map.setTempoToEasy(map.getTempoToEasy() + 1);
+                    case RunType.INTERVAL_RUN -> map.setTempoToInterval(map.getTempoToInterval() + 1);
+                    case RunType.LONG_RUN -> map.setTempoToLong(map.getTempoToLong() + 1);
+                    default -> throw new IllegalStateException("User did return an invalid value");
+                }
+            }
+
+            case RunType.INTERVAL_RUN -> {
+                switch (runType) {
+                    case RunType.EASY_RUN -> map.setIntervalToEasy(map.getIntervalToEasy() + 1);
+                    case RunType.TEMPO_RUN -> map.setIntervalToTempo(map.getIntervalToTempo() + 1);
+                    case RunType.LONG_RUN -> map.setIntervalToLong(map.getIntervalToLong() + 1);
+                    default -> throw new IllegalStateException("User did return an invalid value");
+                }
+            }
+
+            case RunType.LONG_RUN -> {
+                switch (runType) {
+                    case RunType.EASY_RUN -> map.setLongToEasy(map.getLongToEasy() + 1);
+                    case RunType.TEMPO_RUN -> map.setLongToTempo(map.getLongToTempo() + 1);
+                    case RunType.INTERVAL_RUN -> map.setLongToInterval(map.getLongToInterval() + 1);
+                    default -> throw new IllegalStateException("User did return an invalid value");
+                }
+            }
+            default -> throw new IllegalStateException("PMML did return an invalid value");
+        }
+
+        activity.getRunTypeClassification().setRunType(runType);
+
+
     }
 
     private Map<String, FieldValue> buildFeatureMap(Activity activity) {
