@@ -83,7 +83,8 @@ public class Activity {
 
     private Integer satisfactionScore;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "weather_id")
     private WeatherResponse weather;
 
     @Enumerated(EnumType.STRING)
