@@ -1,8 +1,5 @@
 package com.smartroute.smartroute1.service.impl;
 
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.firebase.FirebaseApp;
-import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
@@ -12,6 +9,8 @@ import com.smartroute.smartroute1.endpoint.dto.subscription.SubscriptionDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.PushSubscription;
 import com.smartroute.smartroute1.repository.PushSubscriptionRepository;
+import com.smartroute.smartroute1.service.PushNotificationService;
+import lombok.extern.slf4j.Slf4j;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import nl.martijndwars.webpush.PushService;
 import org.jose4j.lang.JoseException;
@@ -23,10 +22,12 @@ import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.security.Security;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
 @Service
-public class PushNotificationServiceImpl {
+@Slf4j
+public class PushNotificationServiceImpl implements PushNotificationService {
 
     private final PushSubscriptionRepository subscriptionRepository;
     private final PushService webPushService;
@@ -36,8 +37,8 @@ public class PushNotificationServiceImpl {
             @Value("${vapid.public.key}") String publicKey,
             @Value("${vapid.private.key}") String privateKey,
             @Value("${vapid.subject}") String subject,
-            @Value("${firebase.service.account.path:#{null}}") Resource firebaseConfig) // ← Make optional
-            throws GeneralSecurityException, IOException {
+            @Value("${firebase.service.account.path:#{null}}") Resource firebaseConfig)
+            throws GeneralSecurityException {
 
         this.subscriptionRepository = subscriptionRepository;
 
@@ -47,6 +48,7 @@ public class PushNotificationServiceImpl {
 
         this.webPushService = new PushService(publicKey, privateKey, subject);
 
+        // TODO: Still need to do the native push and subscribe:
         // Initialize Firebase
         //        if (FirebaseApp.getApps().isEmpty()) {
         //            FirebaseOptions options = FirebaseOptions.builder()
@@ -56,7 +58,7 @@ public class PushNotificationServiceImpl {
         //        }
     }
 
-    // Subscribe web push
+    @Override
     public void subscribe(SubscriptionDto subscriptionDto, ApplicationUser user) {
         PushSubscription subscription = new PushSubscription();
         subscription.setUser(user);
@@ -64,10 +66,21 @@ public class PushNotificationServiceImpl {
         subscription.setEndpoint(subscriptionDto.getEndpoint());
         subscription.setP256dh(subscriptionDto.getKeys().getP256dh());
         subscription.setAuth(subscriptionDto.getKeys().getAuth());
+
+        List<PushSubscription> l = subscriptionRepository.findPushSubscriptionByUser(user);
+        for (PushSubscription pushSubscription : l) {
+            if (Objects.equals(pushSubscription.getP256dh(), subscription.getP256dh())
+                    && Objects.equals(pushSubscription.getPlatform(), subscription.getPlatform())
+                    && Objects.equals(pushSubscription.getEndpoint(), subscription.getEndpoint())
+                    && Objects.equals(pushSubscription.getAuth(), subscription.getAuth())) {
+                return;
+            }
+        }
+
         subscriptionRepository.save(subscription);
     }
 
-    // Subscribe native push
+    @Override
     public void subscribeNative(NativeSubscriptionDto dto, ApplicationUser user) {
         PushSubscription subscription = new PushSubscription();
         subscription.setUser(user);
@@ -76,8 +89,9 @@ public class PushNotificationServiceImpl {
         subscriptionRepository.save(subscription);
     }
 
-    // Send to specific user (works for both web and native)
-    public void senDtoUser(ApplicationUser user, String title, String body) {
+    @Override
+    public void sendToUser(ApplicationUser user, String title, String body) {
+        log.trace("sendToUser, {}, {}, {}", user, title, body);
         List<PushSubscription> subscriptions = subscriptionRepository.findPushSubscriptionByUser(user);
 
         for (PushSubscription sub : subscriptions) {
@@ -91,6 +105,7 @@ public class PushNotificationServiceImpl {
 
     // Send to all users
     public void sendNotificationToAll(String title, String body) {
+        log.trace("sendNotificationToAll, {}, {}", title, body);
         List<PushSubscription> subscriptions = subscriptionRepository.findAll();
 
         for (PushSubscription sub : subscriptions) {
@@ -104,6 +119,7 @@ public class PushNotificationServiceImpl {
 
     // Web Push
     private void sendWebPush(PushSubscription sub, String title, String body) {
+        log.trace("sendWebPush, {}, {}, {}", sub, title, body);
         String payload = String.format(
                 "{\"notification\":{\"title\":\"%s\",\"body\":\"%s\"}}",
                 title, body
@@ -128,7 +144,7 @@ public class PushNotificationServiceImpl {
                     && (e.getMessage().contains("410") || e.getMessage().contains("404"))) {
                 subscriptionRepository.delete(sub);
             }
-            System.err.println("Error sending web push: " + e.getMessage());
+            log.error("Error sending web push: {}", e.getMessage());
         } catch (ExecutionException | InterruptedException e) {
             throw new RuntimeException(e);
         }
@@ -136,6 +152,7 @@ public class PushNotificationServiceImpl {
 
     // Native Push (FCM)
     private void sendNativePush(PushSubscription sub, String title, String body) {
+        log.trace("sendNativePush, {}, {}, {}", sub, title, body);
         try {
             Message message = Message.builder()
                     .setToken(sub.getFcmToken())
@@ -146,7 +163,7 @@ public class PushNotificationServiceImpl {
                     .build();
 
             String response = FirebaseMessaging.getInstance().send(message);
-            System.out.println("Successfully sent FCM message: " + response);
+            log.trace("Successfully sent FCM message: {}", response);
 
         } catch (FirebaseMessagingException e) {
             String errorCode = String.valueOf(e.getErrorCode());
@@ -155,7 +172,7 @@ public class PushNotificationServiceImpl {
                     || "UNREGISTERED".equals(errorCode)) {
                 subscriptionRepository.delete(sub);
             }
-            System.err.println("Error sending FCM: " + e.getMessage());
+            log.error("Error sending FCM: {}", e.getMessage());
         }
     }
 }
