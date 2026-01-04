@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Register all your Java exceptions here to map them into meaningful HTTP
+ * Register all your Java exceptions here to map them into meaningful HTTP.
  * exceptions
  * If you have special cases which are only important for specific endpoints,
  * use ResponseStatusExceptions
@@ -120,6 +120,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     /**
      * Handles {@link ValidationException} and other {@link ErrorListException}-based exceptions
      * by returning an HTTP 422 (Unprocessable Entity) response.
+     *
      * <p>
      * This is used for custom business validation errors where the request structure is valid,
      * but its content violates domain-specific rules.

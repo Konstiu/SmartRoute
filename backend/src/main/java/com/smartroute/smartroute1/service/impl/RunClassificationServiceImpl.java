@@ -66,8 +66,8 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
     public RunClassificationServiceImpl(ActivityRepository activityRepository, ActivityProcessingService activityProcessingService, ReadinessScoreService readinessScoreService, ConsistencyAnalyzerService consistencyAnalyzerService,
                                         InjuryAwareTrainingService injuryAwareTrainingService,
-                                        FatigueAndOverloadService fatigueAndOverloadService,  RunClassificationMapper mapper, RunClassificationDecisionRepository runClassificationDecisionRepository)
-        throws IOException, JAXBException, SAXException, ParserConfigurationException {
+                                        FatigueAndOverloadService fatigueAndOverloadService, RunClassificationMapper mapper, RunClassificationDecisionRepository runClassificationDecisionRepository)
+            throws IOException, JAXBException, SAXException, ParserConfigurationException {
         this.activityRepository = activityRepository;
         this.activityProcessingService = activityProcessingService;
         this.readinessScoreService = readinessScoreService;

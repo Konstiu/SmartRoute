@@ -19,7 +19,6 @@ public interface RunClassificationService {
      * Apply a users manual correction to a run prediction and update the correction map.
      *
      * @param activityId id of the run to update
-     * @return the new result dto
      */
     void correctRun(Long activityId, RunType runType);
 }
