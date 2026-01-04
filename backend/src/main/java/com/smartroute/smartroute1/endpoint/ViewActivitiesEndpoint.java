@@ -122,7 +122,7 @@ public class ViewActivitiesEndpoint {
     @Operation(
             summary = "Returns the run type classification",
             description = """
-                    Returns 
+                    Returns the run type classification and the probabilities for each run type.
                     """
     )
     public RunClassificationDecisionDto getClassification(@PathVariable("id") Long id) {
@@ -130,13 +130,13 @@ public class ViewActivitiesEndpoint {
         return runClassificationService.classifyRun(id);
     }
 
-    @PostMapping("classification/correct/{id}")
+    @PostMapping("classification/correction/{id}")
     @ResponseStatus(HttpStatus.OK)
     @Secured("ROLE_USER")
     @Operation(
             summary = "Updates the RuntypeClassification",
             description = """
-                    Returns 
+                    Corrects the classification of a run and updates the correction map for the user.
                     """
     )
     public void correctClassification(@PathVariable("id") Long id, @RequestBody RunType runType) {

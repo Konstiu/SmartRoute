@@ -1,11 +1,12 @@
 import {Component, OnInit, AfterViewInit, ViewChild, ElementRef} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
-import {IonicModule} from '@ionic/angular';
+import {IonicModule, ModalController} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../../services/activities.service';
-import {DetailedActivity} from '../../../dtos/Activity';
+import {Activity, DetailedActivity} from '../../../dtos/Activity';
 import * as L from 'leaflet';
 import {RunTypeLabel} from "../../../dtos/run-classification";
+import {ChangeClassificationComponent} from "../change-classification/change-classification.component";
 
 @Component({
   selector: 'app-activity-detail',
@@ -25,6 +26,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
   constructor(
     private route: ActivatedRoute,
     private stravaService: ActivitiesService,
+    private modalController: ModalController,
   ) {
   }
 
@@ -60,6 +62,24 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
         this.isLoading = false;
       }
     });
+  }
+
+  async editClassification(activity: Activity) {
+    console.log("activity");
+    const modal = await this.modalController.create({
+      component: ChangeClassificationComponent,
+      componentProps: {
+        activityId: activity.id,
+        dto: {...activity.runClassification}
+      }
+    });
+
+    await modal.present();
+
+    const {data} = await modal.onWillDismiss();
+    if (data?.updatedClassification) {
+      activity.runClassification = data.updatedClassification;
+    }
   }
 
   initMap() {
@@ -168,7 +188,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
     return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
-  formatDistance(dist: number) : string{
+  formatDistance(dist: number): string {
     dist = dist / 1000; // convert meters to km
     return dist.toFixed(2)
   }
@@ -199,7 +219,6 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
     return icons[sportType] || icons['default'];
   }
 
-
   formatDate(dateString: string): string {
     const cleanString = dateString.replace('Z', '');
     const date = new Date(cleanString);
@@ -215,7 +234,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
 
     if (diffDays === 1) return `Today at ${timeString}`;
     if (diffDays === 2) return `Yesterday at ${timeString}`;
-    if (diffDays < 8) return `${diffDays-1} days ago at ${timeString}`;
+    if (diffDays < 8) return `${diffDays - 1} days ago at ${timeString}`;
 
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'short',

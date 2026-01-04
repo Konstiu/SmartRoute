@@ -41,7 +41,11 @@
                     <ion-card-title>
                       {{ activity.name }}
                       @if (activity.runClassification?.runType) {
-                        <ion-chip color="primary">{{ runTypeLabel[activity.runClassification!.runType] }}</ion-chip>
+                        <ion-chip
+                          (click)="editClassification(activity)"
+                          color="primary">
+                          {{ runTypeLabel[activity.runClassification!.runType] }}
+                        </ion-chip>
                       }
                     </ion-card-title>
                     <ion-card-subtitle>
