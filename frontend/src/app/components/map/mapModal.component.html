@@ -8,6 +8,7 @@
 </ion-header>
 
 <ion-content>
+  <div class="modal-frame" [class.editing]="addPointMode" [attr.data-mode]="mode">
 
   <!-- Spinner overlay -->
   <div class="map-loading" *ngIf="!isMapReady">
@@ -112,4 +113,5 @@
 
   </ion-fab>
 
+  </div>
 </ion-content>
