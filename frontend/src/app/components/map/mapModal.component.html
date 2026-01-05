@@ -8,7 +8,7 @@
 </ion-header>
 
 <ion-content>
-  <div class="modal-frame" [class.editing]="addPointMode" [attr.data-mode]="mode">
+  <div class="modal-frame" [class.editing]="addPointMode">
 
   <!-- Spinner overlay -->
   <div class="map-loading" *ngIf="!isMapReady">
@@ -68,24 +68,12 @@
       class="stops-chip"
       [color]="remainingStops === 0 ? 'warning' : 'medium'">
       <ion-icon name="flag-outline"></ion-icon>
-      <ion-label>{{ totalStops }}/3 stops</ion-label>
+      <ion-label>{{ totalStops }}/2 stops</ion-label>
     </ion-chip>
-
-    <!-- Mode toggle (only when adding stops) -->
-    <ion-fab-button
-      *ngIf="isMapReady && isEditingStops"
-      class="fab-mode"
-      [color]="mode === 'KEEP_SHAPE' ? 'tertiary' : 'secondary'"
-      (click)="toggleMode()"
-      [disabled]="isProcessing">
-
-      <!-- Icon changes with mode -->
-      <ion-icon [name]="mode === 'KEEP_SHAPE' ? 'flash-outline' : 'resize-outline'"></ion-icon>
-    </ion-fab-button>
 
     <!-- Confirm -->
     <ion-fab-button
-      *ngIf="addedPoints.length > 0"
+      *ngIf="isMapReady && isEditingStops"
       color="success"
       class="fab-confirm"
       [disabled]="isProcessing"
@@ -93,13 +81,14 @@
       <ion-icon name="checkmark-outline"></ion-icon>
     </ion-fab-button>
 
+
     <!-- Add -->
     <ion-fab-button
       [color]="isEditingStops ? 'danger' : 'primary'"
       [disabled]="!isEditingStops && remainingStops === 0"
       (click)="onAddCancelClick()">
       <ion-icon
-        [name]="isEditingStops ? 'close-outline' : 'add-outline'">
+        [name]="isEditingStops ? 'close-outline' : 'location-outline'">
       </ion-icon>
     </ion-fab-button>
 

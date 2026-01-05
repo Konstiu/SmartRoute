@@ -9,8 +9,6 @@ import { GeocodingService, GeocodeResult } from 'src/services/geocoding.service'
 import { ActionSheetController } from '@ionic/angular';
 import { NgZone } from '@angular/core';
 
-type AddStopsMode = 'KEEP_SHAPE' | 'KEEP_LENGTH';
-
 @Component({
   standalone: true,
   selector: 'app-map-modal',
@@ -19,11 +17,11 @@ type AddStopsMode = 'KEEP_SHAPE' | 'KEEP_LENGTH';
   styleUrls: ['./mapModal.component.scss']
 })
 export class MapModalComponent {
-  private static readonly MAX_STOPS = 3;
+  private static readonly MAX_STOPS = 2;
 
   @Input() layers: any[] = [];
   @Input() routeBounds!: LatLngBounds;
-  @Input() onConfirm!: (points: LatLng[], mode: AddStopsMode) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
+  @Input() onConfirm!: (points: LatLng[]) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
   @Input() committedStops: LatLng[] = []; // stops already confirmed for this route
   @Input() originalLayers!: Layer[];
   @Input() originalBounds!: LatLngBounds;
@@ -32,10 +30,8 @@ export class MapModalComponent {
 
   @ViewChild(MapComponent) mapComponent!: MapComponent;
 
-  mode: AddStopsMode = 'KEEP_SHAPE';
   addPointMode = false;
 
-  addedPoints: LatLng[] = []; // pending points (not confirmed yet)
   localLayers: Layer[] = [];
   private baseLayers: Layer[] = [];
 
@@ -54,11 +50,8 @@ export class MapModalComponent {
   searchMarker: Marker | null = null;
   private searchMarkerPos: LatLng | null = null;
 
-  private clearSearchMarker() {
-    this.searchMarker = null;
-    this.searchMarkerPos = null;
-    this.rebuildEditorLayers();
-  }
+  candidateMarker: Marker | null = null;
+  private candidatePos: LatLng | null = null;
 
   constructor(
     private modalCtrl: ModalController,
@@ -76,7 +69,7 @@ export class MapModalComponent {
 
 
   get totalStops(): number {
-    return (this.committedStops?.length ?? 0) + (this.addedPoints?.length ?? 0);
+    return (this.committedStops?.length ?? 0);
   }
 
   get remainingStops(): number {
@@ -129,7 +122,6 @@ export class MapModalComponent {
 
     // cancel -> remove unconfirmed points
     if (this.addPointMode) {
-      this.addedPoints = [];
       this.rebuildEditorLayers();
 
     }
@@ -140,87 +132,15 @@ export class MapModalComponent {
   async onPointAdded(point: LatLng) {
     if (!this.addPointMode || this.isProcessing) return;
 
-    if (this.totalStops >= MapModalComponent.MAX_STOPS) {
-      await this.showMaxStopsToast();
-      this.addPointMode = false; // optional: auto-exit add mode
-      return;
-    }
-
-    this.addedPoints = [...this.addedPoints, point];
-    this.rebuildEditorLayers();
+    // place/move candidate marker
+    this.setSearchMarker(point);
   }
 
   close() {
     this.modalCtrl.dismiss({
-      addedPoints: this.addedPoints,
       committedStops: this.committedStops
     });
   }
-
-  async confirm() {
-    if (!this.onConfirm || this.addedPoints.length === 0 || this.isProcessing) return;
-
-    // Safety check (should already be prevented by UI)
-    if (this.totalStops > MapModalComponent.MAX_STOPS) {
-      await this.showMaxStopsToast();
-      return;
-    }
-
-    const points = [...this.addedPoints];
-
-    this.isProcessing = true;
-    this.loadingMessage = 'Recalculating route…';
-
-    try {
-      const { layers, bounds } = await this.onConfirm(points, this.mode);
-
-      // persist confirmed points as "committed" for this route
-      this.committedStops = [...this.committedStops, ...points];
-
-      // update route layers coming from parent (route polyline etc.)
-      this.baseLayers = [...layers];
-      if (bounds) this.routeBounds = bounds;
-
-      // reset pending editor state
-      this.addedPoints = [];
-      this.addPointMode = false;
-
-      // rebuild all markers with correct colors
-      this.rebuildEditorLayers();
-
-      this.addPointMode = false;
-
-      // refit
-      this.loadingMessage = 'Centering route…';
-
-      requestAnimationFrame(() => {
-        const map = this.mapComponent?.map;
-        if (!map) {
-          this.isProcessing = false;
-          return;
-        }
-
-        map.invalidateSize();
-
-        if (this.routeBounds) {
-          map.fitBounds(this.routeBounds, { padding: [50, 50], animate: true });
-        }
-
-        setTimeout(() => {
-          this.isProcessing = false;
-        }, 120);
-      });
-
-    } catch (e) {
-      console.error('Confirm failed', e);
-      this.isProcessing = false;
-    }
-  }
-
-  toggleMode() {
-    this.mode = this.mode === 'KEEP_SHAPE' ? 'KEEP_LENGTH' : 'KEEP_SHAPE';
-  }
-
 
   onSearchInput(ev: any) {
     const value = (ev?.target?.value ?? '').toString();
@@ -283,14 +203,12 @@ async selectSearchResult(r: { display_name: string; lat: string; lon: string }) 
 
       // Clear local editor state
       this.addPointMode = false;
-      this.addedPoints = [];
       this.committedStops = [];
 
       this.baseLayers = [...layers];
       if (bounds) this.routeBounds = bounds;
 
       // clear markers + neutral marker
-      this.addedPoints = [];
       this.committedStops = [];
       this.addPointMode = false;
       this.clearSearchMarker();
@@ -318,21 +236,13 @@ async selectSearchResult(r: { display_name: string; lat: string; lon: string }) 
 private rebuildEditorLayers() {
   const layers: Layer[] = [...this.baseLayers];
 
+  // committed stops
   for (const p of this.committedStops) {
-    layers.push(
-      marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.confirmed) })
-    );
+    layers.push(marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.confirmed) }));
   }
 
-  for (const p of this.addedPoints) {
-    layers.push(
-      marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.added) })
-    );
-  }
-
-  if (this.searchMarker) {
-    layers.push(this.searchMarker);
-  }
+  // candidate marker (from search OR map click)
+  if (this.searchMarker) layers.push(this.searchMarker);
 
   this.localLayers = layers;
 }
@@ -363,14 +273,22 @@ private async openSearchMarkerActions() {
   if (!this.searchMarkerPos || this.isProcessing) return;
 
   const point = this.searchMarkerPos;
+  const atLimit = this.committedStops.length >= MapModalComponent.MAX_STOPS;
 
   const sheet = await this.actionSheetCtrl.create({
     header: 'Location',
     buttons: [
       {
-        text: 'Add to route',
-        icon: 'add-circle-outline',
-        handler: () => this.addSearchedPointAsStop(point),
+        text: 'Add to route (Fast insert)',
+        icon: 'flash-outline',
+        handler: () => this.addPointToRoute(point),
+        cssClass: atLimit ? 'action-disabled' : ''
+      },
+      {
+        text: 'Add to route (Keep length)',
+        icon: 'resize-outline',
+        handler: () => this.addPointToRoute(point),
+        cssClass: atLimit ? 'action-disabled' : ''
       },
       {
         text: 'Choose as starting point',
@@ -393,21 +311,47 @@ private async openSearchMarkerActions() {
   await sheet.present();
 }
 
-private async addSearchedPointAsStop(point: LatLng) {
-  if (this.isProcessing) return;
+private async addPointToRoute(point: LatLng) {
+  if (!this.onConfirm || this.isProcessing) return;
 
-  if (this.totalStops >= MapModalComponent.MAX_STOPS) {
+  // enforce limit
+  if (this.committedStops.length >= MapModalComponent.MAX_STOPS) {
     await this.showMaxStopsToast();
     return;
   }
 
-  // Add pending stop directly (don’t depend on addPointMode)
-  this.addedPoints = [...this.addedPoints, point];
+  this.isProcessing = true;
+  this.loadingMessage = 'Recalculating route…';
 
-  this.clearSearchMarker();
-  this.rebuildEditorLayers();
+  try {
+    const { layers, bounds } = await this.onConfirm([point]);
+
+    // commit stop in modal state (for marker rendering + limit)
+    this.committedStops = [...this.committedStops, point];
+
+    // update route layers from parent
+    this.baseLayers = [...layers];
+    if (bounds) this.routeBounds = bounds;
+
+    // remove the neutral marker after action
+    this.clearSearchMarker();
+
+    // redraw with committed marker color etc.
+    this.rebuildEditorLayers();
+
+    // refit
+    requestAnimationFrame(() => {
+      const map = this.mapComponent?.map;
+      if (!map || !this.routeBounds) return;
+      map.invalidateSize();
+      map.fitBounds(this.routeBounds, { padding: [50, 50], animate: true });
+    });
+  } catch (e) {
+    console.error('Add to route failed', e);
+  } finally {
+    setTimeout(() => (this.isProcessing = false), 120);
+  }
 }
-
 
 
 private async chooseSearchedPointAsStart(point: LatLng) {
@@ -421,7 +365,6 @@ private async chooseSearchedPointAsStart(point: LatLng) {
 
     // Route changed => clear stops & state
     this.committedStops = [];
-    this.addedPoints = [];
     this.addPointMode = false;
 
     // Clear neutral marker
@@ -447,13 +390,13 @@ private async chooseSearchedPointAsStart(point: LatLng) {
 }
 
 cancelPending() {
-  this.addedPoints = [];
-  this.addPointMode = false; // optional: also exit add mode
+  this.clearSearchMarker();
+  this.addPointMode = false;
   this.rebuildEditorLayers();
 }
 
 get isEditingStops(): boolean {
-  return this.addPointMode || this.addedPoints.length > 0;
+  return this.addPointMode;
 }
 
 onAddCancelClick() {
@@ -464,5 +407,15 @@ onAddCancelClick() {
   }
 }
 
+confirm() {
+  this.addPointMode = false;
+  }
 
+private clearSearchMarker() {
+  this.searchMarker = null;
+  this.searchMarkerPos = null;
+  this.rebuildEditorLayers();
 }
+}
+
+

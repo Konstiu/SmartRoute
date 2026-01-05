@@ -169,6 +169,12 @@ ion-fab {
   box-shadow: 0 0 0 4px rgba(var(--sr-primary-rgb), 0.18);
 }
 
+.action-disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+
 
 
 
