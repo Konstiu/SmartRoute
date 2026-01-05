@@ -1,0 +1,23 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title class="ion-text-center">Page Not Found</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="notfound-container">
+    <div class="logo-area">
+      <img src="assets/logo.png" alt="SmartRoute Logo" class="app-logo" />
+    </div>
+
+    <h1>404 — Page Not Found</h1>
+    <p class="muted">The page you tried to open doesn't exist or the link is broken.</p>
+
+    <div class="actions">
+      <ion-button expand="block" color="primary" (click)="goHome()">
+        <ion-icon slot="start" name="home-outline"></ion-icon>
+        Go to Home
+      </ion-button>
+    </div>
+  </div>
+</ion-content>

@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Globals } from '../global/globals';
 import { Observable } from 'rxjs';
-import { DetailedStravaActivity } from '../app/dtos/StravaActivity';
+import { DetailedActivity } from '../app/dtos/Activity';
 
 @Injectable({ providedIn: 'root' })
 export class GpxService {
@@ -16,11 +16,11 @@ export class GpxService {
    * Endpoint: POST {backendUri}/gpx/import-strava
    * Form param name: files (List<MultipartFile>)
    */
-  importStravaGpx(files: File[]): Observable<DetailedStravaActivity[]> {
+  importStravaGpx(files: File[]): Observable<DetailedActivity[]> {
     const url = `${this.baseUri}/import-strava`;
     const form = new FormData();
     files.forEach(f => form.append('files', f, f.name));
 
-    return this.http.post<DetailedStravaActivity[]>(url, form);
+    return this.http.post<DetailedActivity[]>(url, form);
   }
 }

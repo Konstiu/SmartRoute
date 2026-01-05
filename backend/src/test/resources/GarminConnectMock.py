@@ -7,6 +7,7 @@ from pathlib import Path
 from garminconnect import Garmin  # you can actually remove this import now
 import base64
 import traceback
+import time
 
 MOCK_ACTIVITY = {
     "activityId": 21013233687,
@@ -112,8 +113,11 @@ def main():
     # Same CLI contract as the real script, just no real Garmin usage.
     if len(sys.argv) < 2:
         print(json.dumps({
-            "error": "Usage: script.py <email> <password> <activity_count> OR --token-json '<json>' <activity_count>"
-        }), file=sys.stderr)
+            "error": "Invalid arguments. Usage:\n\n" +
+                     "  python script.py user@example.com password123 10\n" +
+                     "  python script.py --token-json '{\"token\":\"...\"}' 10\n" +
+                     "  python script.py --token-base64 'base64string' 10"
+        }),              file=sys.stderr)
         sys.exit(1)
 
     target_count = None
@@ -133,6 +137,27 @@ def main():
         except Exception:
             print(json.dumps({"error": "activity_count must be integer"}), file=sys.stderr)
             sys.exit(1)
+
+    elif sys.argv[1] == "--token-base64":
+        if len(sys.argv) < 3:
+            print(json.dumps({"error": "Missing token JSON"}), file=sys.stderr)
+            sys.exit(1)
+        if len(sys.argv) < 4:
+            print(json.dumps({"error": "Missing activity_count"}), file=sys.stderr)
+            sys.exit(1)
+        inline = sys.argv[2]
+        try:
+            inline = base64.b64decode(inline).decode('utf-8')
+            obj = json.loads(inline)
+        except Exception as e:
+            print(json.dumps({"error": f"Invalid token JSON: {e}"}), file=sys.stderr)
+            sys.exit(1)
+        try:
+            target_count = int(sys.argv[3])
+        except Exception:
+            print(json.dumps({"error": "activity_count must be integer"}), file=sys.stderr)
+            sys.exit(1)
+
     elif len(sys.argv) == 4 and '@' in sys.argv[1]:
         # legacy email/password invocation
         try:
@@ -144,6 +169,25 @@ def main():
         print(json.dumps({"error": "Unrecognized invocation pattern"}), file=sys.stderr)
         sys.exit(1)
 
+
+    if sys.argv[1] == "auth-error@example.com":
+        print(json.dumps({
+            "error": "Login failed: Invalid credentials"
+        }), file=sys.stderr)
+        sys.exit(1)
+
+    if sys.argv[1] == "no-runs@example.com":
+        print(json.dumps({
+            "error": "No runs found"
+        }), file=sys.stderr)
+        sys.exit(1)
+
+    if sys.argv[1] == "script-error@example.com":
+        print(json.dumps({
+            "error": "Something unexpected happened in the mock script"
+       }), file=sys.stderr)
+        sys.exit(1)
+
     try:
         runs = collect_last_runs(None, target_count)
         if not runs:
@@ -152,6 +196,9 @@ def main():
 
         runs_with_details = fetch_details_for_ids(None, runs)
 
+        now = int(time.time())
+        expires_at = now + 3600  # expires in 1 hour
+        refresh_expires_at = now + 2592000  # expires in 30 days
         tokens = {
             "oauth2_token.json": {
                 "scope": "DUMMY_SCOPE",
@@ -159,9 +206,9 @@ def main():
                 "token_type": "bearer",
                 "access_token": "dummy-token",
                 "expires_in": 99999,
-                "expires_at": 1764344707,
+                "expires_at": expires_at,
                 "refresh_token_expires_in": 2591999,
-                "refresh_token_expires_at": 1766837146
+                "refresh_token_expires_at": refresh_expires_at
             },
             "oauth1_token.json": {
                 "oauth_token": "dummy-token",
@@ -173,7 +220,15 @@ def main():
         }
 
         result = {"tokens": tokens, "activities": runs_with_details}
-        print(json.dumps(result, ensure_ascii=False))
+        with tempfile.NamedTemporaryFile(
+                mode="w", delete=False, dir="/tmp", suffix=".json"
+        ) as tmp:
+            json.dump(result, tmp, ensure_ascii=False)
+            result_path = tmp.name
+
+            # 🔹 Only a *small* JSON goes to stdout (Java reads this)
+        print(json.dumps({"ok": True, "result_file": result_path}))
+
 
     except Exception as e:
         error_info = {

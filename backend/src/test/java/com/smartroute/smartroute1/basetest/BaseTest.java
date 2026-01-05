@@ -53,6 +53,12 @@ public class BaseTest {
     @Autowired
     private AthleteZoneRepository athleteZoneRepository;
 
+    @Autowired
+    private GymWorkoutRepository gymWorkoutRepository;
+
+    @Autowired
+    private FriendshipRepository friendshipRepository;
+
     @BeforeEach
     void setUp() {
         try {
@@ -77,11 +83,13 @@ public class BaseTest {
     }
 
     private void clearData() {
+        gymWorkoutRepository.deleteAllInBatch();
         garminAccountRepository.deleteAllInBatch();
         athleteZoneRepository.deleteAllInBatch();
         activityRepository.deleteAllInBatch();
         stravaAccountRepository.deleteAllInBatch();
         injuryRepository.deleteAllInBatch();
+        friendshipRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
         stravaAccountRepository.deleteAll();
         userRepository.deleteAll();

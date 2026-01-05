@@ -98,7 +98,7 @@ public interface InjuryAwareTrainingService {
      * Creates a new injury record for the specified user.
      *
      * @param injury the DTO containing the details of the injury to create
-     * @param email the email of the user for whom the injury record is created
+     * @param email  the email of the user for whom the injury record is created
      * @return the persisted {@link Injuries} entity
      */
     Injuries createInjuries(CreateInjuryStateDto injury, String email);
@@ -108,7 +108,7 @@ public interface InjuryAwareTrainingService {
      *
      * @param injury the DTO containing updated values and the identifier
      *               of the injury to update
-     * @param email the email of the user whose injury record is being updated
+     * @param email  the email of the user whose injury record is being updated
      * @return the updated {@link Injuries} entity
      */
     Injuries updateInjuries(UpdateInjuryDto injury, String email);
@@ -118,9 +118,59 @@ public interface InjuryAwareTrainingService {
      *
      * @param email the email of the user whose injury record should be retrieved
      * @return a list with the corresponding {@link Injuries} entity
-     * @throws jakarta.persistence.EntityNotFoundException
-     *         if no matching injury for the given user and ID exists
+     * @throws jakarta.persistence.EntityNotFoundException if no matching injury for the given user and ID exists
      */
     List<Injuries> findInjuriesByEmail(String email);
+
+    /**
+     * Deletes one injury by its id and the corresponding User email.
+     * When there is no Injury with that ID for that user it will throw a NOT_FOUND Error.
+     *
+     * @param email the user's Email
+     * @param id    the id of the Injury to delete
+     */
+    void deleteInjuriesByEmailAndId(String email, long id);
+
+    /**
+     * Calculates the global injury index for a user based on all their active injuries.
+     *
+     * <p>The injury index is a weighted average of all injury severities within a 14-day
+     * window, where more recent injuries are weighted more heavily than older ones.
+     * The freshness factor linearly decays from 1.0 (today) to 0.0 (14 days ago).
+     *
+     * <p><b>Calculation:</b></p>
+     * <pre>
+     *     For each injury i within the 14-day window:
+     *         freshnessFactor_i = (14 - daysAgo_i) / 14
+     *         weightedIndex_i = injuryIndex_i × freshnessFactor_i
+     *
+     *     globalInjuryIndex = Σ(weightedIndex_i) / Σ(freshnessFactor_i)
+     * </pre>
+     *
+     * @param email the email of the user whose injury index should be calculated
+     * @return the global injury index ∈ [0,1], where 0 = completely healthy and 1 = severely injured. Returns 0.0 if the user has no active injuries or if the user is not found.
+     */
+    double getInjuryIndex(String email);
+
+
+    /**
+     * Calculates the overall injury constraint for a user, representing the most
+     * restrictive limitation across all training dimensions.
+     *
+     * <p>This method computes the global injury index and applies all three scaling
+     * functions defined in Section 5.3.1 of the training model specification:
+     * <ul>
+     *     <li>{@link #calculateIntensityScaling(double)} - reduces training intensity</li>
+     *     <li>{@link #calculateVolumeScaling(double)} - reduces training volume</li>
+     *     <li>{@link #calculateHighImpactPenalty(double)} - suppresses high-impact movements</li>
+     * </ul>
+     *
+     * <p>The returned constraint is the <b>average</b> of these three factors, representing
+     * the most restrictive dimension.
+     *
+     * @param email the email of the user whose injury constraint should be calculated
+     * @return the overall injury constraint ∈ [0,1], where 1.0 = no restrictions and 0.0 = complete training prohibition. Returns 1.0 if the user has no active injuries or if the user is not found.
+     */
+    double getInjuryConstraint(String email);
 
 }

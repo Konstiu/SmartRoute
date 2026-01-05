@@ -1,0 +1,80 @@
+<ion-content>
+  <ion-header>
+    <ion-toolbar>
+      <ion-buttons slot="start">
+        <ion-back-button defaultHref="/tabs/gym"></ion-back-button>
+      </ion-buttons>
+      <ion-card-title>Workout #{{ workout?.id }}</ion-card-title>
+    </ion-toolbar>
+  </ion-header>
+  <!-- Loading and Error -->
+  <div *ngIf="isLoading" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading workout...</p>
+  </div>
+
+  <div *ngIf="error" class="error-container">
+    <ion-icon color="danger" name="alert-circle-outline"></ion-icon>
+    <p>{{ error }}</p>
+  </div>
+
+  <!-- Workout Details -->
+  <div *ngIf="!isLoading && workout">
+
+    <!-- Day 1 Card -->
+    <ion-card *ngIf="day1Exercises.length > 0">
+      <ion-card-header>
+        <ion-card-title>Day 1</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list>
+          <ion-item (click)="openExercise(ex)" *ngFor="let ex of day1Exercises" button>
+            <ion-thumbnail slot="start">
+              <img (error)="onImageError($event)" [src]="ex.gifUrl"/>
+            </ion-thumbnail>
+            <ion-label>
+              <h2>{{ ex.name }}</h2>
+              <p>{{ ex.targetMuscles.join(', ') }}</p>
+              <p>{{ workout.sets }} sets × {{ workout.reps }} reps</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Day 2 Card -->
+    <ion-card *ngIf="day2Exercises.length > 0">
+      <ion-card-header>
+        <ion-card-title>Day 2</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list>
+          <ion-item (click)="openExercise(ex)" *ngFor="let ex of day2Exercises" button>
+            <ion-thumbnail slot="start">
+              <img (error)="onImageError($event)" [src]="ex.gifUrl"/>
+            </ion-thumbnail>
+            <ion-label>
+              <h2>{{ ex.name }}</h2>
+              <p>{{ ex.targetMuscles.join(', ') }}</p>
+              <p>{{ workout.sets }} sets × {{ workout.reps }} reps</p>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Fallback if no exercises available -->
+    <div *ngIf="day1Exercises.length === 0 && day2Exercises.length === 0" class="injury-warning">
+      <ion-card color="danger">
+        <ion-card-header>
+          <ion-card-title>⚠️ No Exercises Available</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <p>You seem to be too injured to train safely right now. Please rest and consult a doctor if necessary.</p>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+  </div>
+
+</ion-content>

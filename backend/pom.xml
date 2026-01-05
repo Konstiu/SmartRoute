@@ -229,7 +229,11 @@
                 <version>${jib-maven-plugin.version}</version>
                 <configuration>
                     <from>
-                        <image>registry.reset.inso-w.at/pub/docker/eclipse-temurin:17</image>
+						<image>registry.reset.inso-w.at/2025ws-ase-pr-group/25ws-ase-pr-inso-05/base:python312</image>
+						<auth>
+							<username>${env.CI_REGISTRY_USER}</username>
+							<password>${env.CI_REGISTRY_PASSWORD}</password>
+						</auth>
                     </from>
                     <container>
                         <ports>
@@ -241,7 +245,20 @@
                             <jvmFlag>-Dspring.profiles.active=qa,generateData</jvmFlag>
                             <jvmFlag>-Xmx128m</jvmFlag>
                         </jvmFlags>
+						<workingDirectory>/app</workingDirectory>
                     </container>
+                    <extraDirectories>
+                        <paths>
+                            <path>
+                                <from>python</from>
+                                <into>/app/python</into>
+								<excludes>
+									<exclude>.venv/**</exclude>
+									<exclude>**/.venv/**</exclude>
+								</excludes>
+                            </path>
+						</paths>
+                    </extraDirectories>
                 </configuration>
             </plugin>
             <plugin>

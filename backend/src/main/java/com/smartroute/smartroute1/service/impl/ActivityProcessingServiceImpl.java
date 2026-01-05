@@ -3,6 +3,7 @@ package com.smartroute.smartroute1.service.impl;
 import com.smartroute.smartroute1.endpoint.dto.StravaStreamDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
@@ -10,6 +11,8 @@ import com.smartroute.smartroute1.service.FitnessScoreService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.scheduling.TaskScheduler;
@@ -21,6 +24,8 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -35,15 +40,16 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
     private final TaskScheduler taskScheduler;
     private final UserRepository userRepository;
 
+    @Override
     public void fetchHeartRateDataForActivities(int maxBatchSize, List<Activity> activities, String token) {
-        LOGGER.trace("fetchHeartRateDataForActivitiesAsync({},{},*token*)", maxBatchSize, activities);
+        LOGGER.trace("fetchHeartRateDataForActivities({},{},*token*)", maxBatchSize, activities);
 
         // Lists of activities with and without sufferScore are separated to immediately calculate fitnessScore for
         // all activities with the necessary data available.
 
         // Find running activities with strava sufferScore and missing sessionLoad and calculate sessionLoad
         List<Activity> activitiesWithStravaSufferScore = activities.stream()
-                .filter(a -> a.getType().equals("Run") && a.getSufferScore() != null && a.getSessionLoad() == null)
+                .filter(a -> a.getSportType() != null && a.getSportType().equals("Run") && a.getSufferScore() != null && a.getSessionLoad() == null)
                 .toList();
         activitiesWithStravaSufferScore.forEach(a ->
                 processActivity(a, token)
@@ -52,11 +58,11 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         // Find running activities without Strava sufferScore and missing sessionLoad, fetch heartrate stream if available
         // and calculate sessionLoad
         List<Activity> activitiesMissingSessionLoad = activities.stream()
-                .filter(a -> a.getType().equals("Run") && a.getSessionLoad() == null && a.getSufferScore() == null)
+                .filter(a -> a.getSportType() != null && a.getSportType().equals("Run") && a.getSessionLoad() == null && a.getSufferScore() == null)
                 .sorted((a, b) -> b.getStartDate().compareTo(a.getStartDate()))
                 .toList();
 
-        LOGGER.info("Async calculate sessionLoad for {} activities", activitiesMissingSessionLoad.size());
+        LOGGER.info("Calculate sessionLoad for {} activities", activitiesMissingSessionLoad.size());
         try {
             for (int i = 0; i < activitiesMissingSessionLoad.size(); i += maxBatchSize) {
                 int batchNumber = i / maxBatchSize;
@@ -99,17 +105,42 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             }
 
             activity.setSessionLoad(sessionLoad);
-            Optional<Activity> storedActivities = activityRepository.getActivitiesByUserAndStartDate(user, activity.getStartDate());
 
-            if (storedActivities.isEmpty()) {
+            List<Activity> storedActivities = activityRepository.findAllByUserAndStartDate(user, activity.getStartDate());
+            Activity storedActivity = null;
+            if (storedActivities.size() > 1) {
+                float newDistance = activity.getDistance();
+
+                for (Activity stored : storedActivities) {
+                    float storedDistance = stored.getDistance();
+                    float distanceDiff = Math.abs(storedDistance - newDistance);
+
+                    if (distanceDiff <= 1000) {
+                        storedActivity = stored;
+                        break;
+                    }
+                }
+            } else if (storedActivities.size() == 1) {
+                storedActivity = storedActivities.get(0);
+            }
+            if (storedActivity == null) {
                 activityRepository.save(activity);
             } else {
-                Activity storedActivity = storedActivities.get();
                 storedActivity.setExternalId(activity.getExternalId());
                 storedActivity.setStravaId(activity.getStravaId());
                 storedActivity.setSufferScore(activity.getSufferScore());
                 storedActivity.setAverageWatts(activity.getAverageWatts());
                 storedActivity.setKilojoules(activity.getKilojoules());
+                storedActivity.setTotalElevationGain(storedActivity.getTotalElevationGain());
+                storedActivity.setStartDate(storedActivity.getStartDate());
+                storedActivity.setElapsedTime(storedActivity.getElapsedTime());
+                storedActivity.setMovingTime(storedActivity.getMovingTime());
+                storedActivity.setMaxHeartrate(storedActivity.getMaxHeartrate());
+                storedActivity.setSummaryPolyline(storedActivity.getSummaryPolyline());
+                storedActivity.setAverageHeartrate(activity.getAverageHeartrate());
+                storedActivity.setAverageSpeed(activity.getAverageSpeed());
+                storedActivity.setMaxSpeed(activity.getMaxSpeed());
+                storedActivity.setSessionLoad(activity.getSessionLoad());
                 // always the first name is going to be the new name of the Activity
                 //storedActivity.setName(entity.getName());
                 activityRepository.save(storedActivity);
@@ -150,7 +181,6 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 .block();
     }
 
-
     @Override
     public List<Activity> getActivities(String email) {
         LOGGER.trace("Get all Strava activities for user with mail: {}", email);
@@ -168,5 +198,35 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Strava activity not found");
         }
         return act;
+    }
+
+    @Override
+    public Optional<Activity> getLastActivityBeforeDate(String email, LocalDate date) {
+        LOGGER.trace("Get last Strava activity before date {} for user with mail: {}", date, email);
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        Instant instant = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        return activityRepository.findTopByUserAndStartDateBeforeOrderByStartDateDesc(user, instant);
+    }
+
+    @Override
+    public List<Activity> getLastActivities(String email, int n) throws IllegalArgumentException {
+        LOGGER.trace("Get last {} Strava activities for user with mail: {}", n, email);
+        if (n <= 0) {
+            throw new IllegalArgumentException("n must be greater than zero");
+        }
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        return activityRepository.findByUserOrderByStartDateDesc(user, PageRequest.of(0, n));
+    }
+
+    @Override
+    public Optional<Activity> getLastRunningActivityBeforeDate(String email, LocalDate date) {
+        LOGGER.trace("Get last running Strava activity before date {} for user with mail: {}", date, email);
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        Instant instant = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
+        return activityRepository.findTopByUserAndWorkoutTypeInAndStartDateBeforeOrderByStartDateDesc(
+            user,
+            List.of(WorkoutType.EASY_RUN, WorkoutType.TEMPO_RUN, WorkoutType.INTERVAL_RUN, WorkoutType.LONG_RUN),
+            instant
+        );
     }
 }

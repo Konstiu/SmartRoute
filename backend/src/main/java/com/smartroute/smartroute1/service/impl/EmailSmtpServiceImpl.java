@@ -11,8 +11,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.lang.invoke.MethodHandles;
@@ -34,6 +36,9 @@ public class EmailSmtpServiceImpl implements EmailSmtpService {
     @Value("${spring.mail.username}")
     private String senderEmail;
 
+    @Value("${app.frontendUrl}")
+    private String frontendUrl;
+
     @Autowired
     public EmailSmtpServiceImpl(JwtTokenizer jwtTokenizer, JavaMailSender mailSender, ThymeleafService thymeleafService) {
         this.mailSender = mailSender;
@@ -42,6 +47,7 @@ public class EmailSmtpServiceImpl implements EmailSmtpService {
     }
 
     @Override
+    @Async("mailExecutor")
     public void sendVerificationEmail(CreateUserDto userDto, String origin) {
         LOG.trace("Send verification email {}", userDto);
         try {
@@ -57,9 +63,15 @@ public class EmailSmtpServiceImpl implements EmailSmtpService {
             Map<String, Object> variables = new HashMap<>();
             variables.put("full_name", userDto.getFirstname() + " " + userDto.getLastname());
             String token = jwtTokenizer.buildVerificationToken(userDto.getEmail());
+
+            if (origin == null || origin.startsWith("capacitor://localhost")) {
+                origin = frontendUrl;
+            }
             variables.put("verification_link", origin + "/register/verify/" + token);
             helper.setText(thymeleafService.createContent("verification_email.html", variables), true);
             helper.setFrom(senderEmail);
+            ClassPathResource logo = new ClassPathResource("templates/logo.png");
+            helper.addInline("logo", logo);
             mailSender.send(message);
         } catch (Exception e) {
             LOG.debug("Send verification email failed", e.getStackTrace());
@@ -67,6 +79,7 @@ public class EmailSmtpServiceImpl implements EmailSmtpService {
     }
 
     @Override
+    @Async("mailExecutor")
     public void sendPasswordResetEmail(ApplicationUser userDto, String origin) {
         LOG.trace("Send password reset email {}", userDto);
         try {
@@ -82,9 +95,14 @@ public class EmailSmtpServiceImpl implements EmailSmtpService {
             Map<String, Object> variables = new HashMap<>();
             variables.put("full_name", userDto.getFirstname() + " " + userDto.getLastname());
             String token = jwtTokenizer.buildVerificationToken(userDto.getEmail());
+            if (origin == null || origin.startsWith("capacitor://localhost")) {
+                origin = frontendUrl;
+            }
             variables.put("password_reset_link", origin + "/password_reset/" + token);
             helper.setText(thymeleafService.createContent("password_reset_email.html", variables), true);
             helper.setFrom(senderEmail);
+            ClassPathResource logo = new ClassPathResource("templates/logo.png");
+            helper.addInline("logo", logo);
             mailSender.send(message);
         } catch (Exception e) {
             LOG.debug("Send verification email failed", e.getStackTrace());
