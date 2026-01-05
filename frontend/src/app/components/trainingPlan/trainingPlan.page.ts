@@ -27,6 +27,8 @@ import { StopsService } from 'src/services/add-stops.service';
 import { firstValueFrom } from 'rxjs';
 import { GeoJsonPosition, AddStopsRequest } from '../../dtos/add-stops';
 type RouteUpdate = { layers: Layer[]; bounds: LatLngBounds | null };
+import L from 'leaflet';
+import 'leaflet-polylinedecorator';
 
 @Component({
   selector: 'app-trainingplan',
@@ -292,11 +294,17 @@ export class TrainingPlanPage implements OnInit {
     const layers: Layer[] = [];
 
     if (this.userLocationMarker) {
-      layers.push(this.userLocationMarker);
-    }
+       layers.push(this.userLocationMarker);
+       }
 
     if (this.routeLine) {
       layers.push(this.routeLine);
+      //layers.push(...this.buildGradientRouteLayers(this.routeLine));
+      layers.push(this.buildDirectionArrows(this.routeLine));
+    }
+
+    for (const p of this.committedStops) {
+      layers.push(marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.added) }));
     }
 
     this.layers = layers;
@@ -365,29 +373,35 @@ async openMapModal() {
 }
 
 
- private cloneLayersForModal(): Layer[] {
-   const cloned: Layer[] = [];
+  private cloneLayersForModal(): Layer[] {
+    const cloned: Layer[] = [];
 
-   if (this.userLocationMarker) {
-     cloned.push(
-       marker(
-         this.userLocationMarker.getLatLng(), {
-           icon: coloredMarker(MAP_MARKER_COLORS.start)}
-       )
-     );
-   }
+    if (this.userLocationMarker) {
+      cloned.push(
+        marker(this.userLocationMarker.getLatLng(), {
+          icon: coloredMarker(MAP_MARKER_COLORS.start)
+        })
+      );
+    }
 
-   if (this.routeLine) {
-     cloned.push(
-       polyline(
-         this.routeLine.getLatLngs() as LatLng[],
-         (this.routeLine as any).options
-       )
-     );
-   }
+    if (this.routeLine) {
+      const routeClone = polyline(
+        this.routeLine.getLatLngs() as LatLng[],
+        (this.routeLine as any).options
+      );
 
-   return cloned;
- }
+      cloned.push(routeClone);
+      //cloned.push(...this.buildGradientRouteLayers(routeClone));
+      cloned.push(this.buildDirectionArrows(routeClone));
+    }
+
+    // show committed stops inside modal
+    for (const p of this.committedStops) {
+      cloned.push(marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.added) }));
+    }
+
+    return cloned;
+  }
 
   private cloneOriginalLayersForModal(): Layer[] {
     const cloned: Layer[] = [];
@@ -517,6 +531,105 @@ async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH
       map.fitBounds(this.routeBounds, { padding: [30, 30], animate: true });
     });
   }
+
+  private buildDirectionArrows(route: Polyline): Layer {
+    const latlngs = route.getLatLngs() as LatLng[];
+
+    const decorator = (L as any).polylineDecorator(latlngs, {
+      patterns: [
+        {
+          repeat: 75,
+          offset: 0,
+          symbol: (L as any).Symbol.arrowHead({
+            pixelSize: 10,
+            polygon: false,
+            pathOptions: {
+              weight: 3,
+              opacity: 0.9
+            }
+          })
+        }
+      ]
+    });
+
+    return decorator as Layer;
+  }
+
+private downsampleLatLngs(points: LatLng[], maxPoints = 220): LatLng[] {
+  if (points.length <= maxPoints) return points;
+
+  const step = (points.length - 1) / (maxPoints - 1);
+  const out: LatLng[] = [];
+  for (let i = 0; i < maxPoints; i++) {
+    out.push(points[Math.round(i * step)]);
+  }
+  return out;
+}
+
+private hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace('#', '').trim();
+  const full = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  const n = parseInt(full, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+private rgbToHex(r: number, g: number, b: number): string {
+  const toHex = (x: number) => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+private lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+private lerpHexColor(startHex: string, endHex: string, t: number): string {
+  const s = this.hexToRgb(startHex);
+  const e = this.hexToRgb(endHex);
+  return this.rgbToHex(
+    this.lerp(s.r, e.r, t),
+    this.lerp(s.g, e.g, t),
+    this.lerp(s.b, e.b, t)
+  );
+}
+
+/**
+ * True color gradient: startColor -> endColor along the route.
+ * Returns MANY small polylines (segments), each with its own color.
+ */
+private buildGradientRouteLayers(
+  route: Polyline,
+  startColor = MAP_MARKER_COLORS.start,
+  endColor = '#003b9b',
+  maxSegments = 160
+): Layer[] {
+  const raw = route.getLatLngs() as LatLng[];
+  if (!raw || raw.length < 2) return [route];
+
+  const pts = this.downsampleLatLngs(raw, maxSegments + 1);
+  const baseOpts: any = (route as any).options ?? {};
+
+  const weight = baseOpts.weight ?? 5;
+
+  const layers: Layer[] = [];
+  const denom = Math.max(1, pts.length - 2);
+
+  for (let i = 0; i < pts.length - 1; i++) {
+    const t = i / denom;
+    const color = this.lerpHexColor(startColor, endColor, t);
+
+    layers.push(
+      polyline([pts[i], pts[i + 1]], {
+        ...baseOpts,
+        color,
+        opacity: 1.0,
+        weight
+      })
+    );
+  }
+
+  return layers;
+}
+
 
 
   exportGpx() {
