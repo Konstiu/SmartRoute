@@ -140,7 +140,7 @@ A Firebase **service account JSON file** is required to authenticate the backend
 ##### Configuration
 
 ```properties
-firebase.service.account.path=${firebase_service_account_path:file:firebase-service-account.json}
+firebase.service.account.path=${firebase_service_account_path:file:dummy-firebase-service-account.json}
 ```
 
 ##### Options
@@ -286,7 +286,7 @@ export VAPID_PRIVATE_KEY=your_private_vapid_key
 export VAPID_PUBLIC_KEY=your_public_vapid_key   # optional
 
 # Firebase Cloud Messaging
-export firebase_service_account_path=/secure/path/firebase-service-account.json
+export firebase_service_account_path=/secure/path/dummy-firebase-service-account.json
 
 # Strava OAuth
 export strava_client_id=your_strava_client_id
