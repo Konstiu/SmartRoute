@@ -9,6 +9,8 @@ import { GeocodingService, GeocodeResult } from 'src/services/geocoding.service'
 import { ActionSheetController } from '@ionic/angular';
 import { NgZone } from '@angular/core';
 
+type AddStopsMode = 'KEEP_SHAPE' | 'KEEP_LENGTH';
+
 @Component({
   standalone: true,
   selector: 'app-map-modal',
@@ -21,7 +23,7 @@ export class MapModalComponent {
 
   @Input() layers: any[] = [];
   @Input() routeBounds!: LatLngBounds;
-  @Input() onConfirm!: (points: LatLng[]) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
+  @Input() onConfirm!: (points: LatLng[], mode: AddStopsMode) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
   @Input() committedStops: LatLng[] = []; // stops already confirmed for this route
   @Input() originalLayers!: Layer[];
   @Input() originalBounds!: LatLngBounds;
@@ -281,13 +283,13 @@ private async openSearchMarkerActions() {
       {
         text: 'Add to route (Fast insert)',
         icon: 'flash-outline',
-        handler: () => this.addPointToRoute(point),
+        handler: () => this.addPointToRoute(point, 'KEEP_SHAPE'),
         cssClass: atLimit ? 'action-disabled' : ''
       },
       {
         text: 'Add to route (Keep length)',
         icon: 'resize-outline',
-        handler: () => this.addPointToRoute(point),
+        handler: () => this.addPointToRoute(point, 'KEEP_LENGTH'),
         cssClass: atLimit ? 'action-disabled' : ''
       },
       {
@@ -311,7 +313,7 @@ private async openSearchMarkerActions() {
   await sheet.present();
 }
 
-private async addPointToRoute(point: LatLng) {
+private async addPointToRoute(point: LatLng, mode: AddStopsMode) {
   if (!this.onConfirm || this.isProcessing) return;
 
   // enforce limit
@@ -324,7 +326,7 @@ private async addPointToRoute(point: LatLng) {
   this.loadingMessage = 'Recalculating route…';
 
   try {
-    const { layers, bounds } = await this.onConfirm([point]);
+    const { layers, bounds } = await this.onConfirm([point], mode);
 
     // commit stop in modal state (for marker rendering + limit)
     this.committedStops = [...this.committedStops, point];
