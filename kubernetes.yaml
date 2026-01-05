@@ -66,6 +66,21 @@ spec:
                 secretKeyRef:
                   name: strava-secret
                   key: STRAVA_CLIENT_SECRET
+
+            - name: firebase.service.account.path
+              value: "file:/etc/secrets/firebase/firebase-service-account.json"
+
+          volumeMounts:
+            - name: firebase-secret
+              mountPath: /etc/secrets/firebase
+              readOnly: true
+      volumes:
+        - name: firebase-secret
+          secret:
+            secretName: firebase-service-account
+            items:
+              - key: firebase-service-account.json
+                path: firebase-service-account.json
       imagePullSecrets:
         - name: secret-dockercfg
   revisionHistoryLimit: 2
