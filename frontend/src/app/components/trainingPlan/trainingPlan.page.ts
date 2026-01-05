@@ -304,7 +304,7 @@ export class TrainingPlanPage implements OnInit {
     }
 
     for (const p of this.committedStops) {
-      layers.push(marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.added) }));
+      layers.push(marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.confirmed) }));
     }
 
     this.layers = layers;
@@ -363,7 +363,9 @@ async openMapModal() {
       onReset: async () => {
         this.resetRouteToOriginal();
         return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
-      }
+      },
+
+      onChangeStart: (start: LatLng) => this.changeStartLocation(start),
     },
     cssClass: 'fullscreen-map-modal',
     animated: false
@@ -630,7 +632,53 @@ private buildGradientRouteLayers(
   return layers;
 }
 
+  private async changeStartLocation(newStart: LatLng): Promise<{ layers: Layer[]; bounds: LatLngBounds | null }> {
+    // move / create start marker
+    if (!this.userLocationMarker) {
+      this.userLocationMarker = marker(newStart, {
+        icon: coloredMarker(MAP_MARKER_COLORS.start)
+      });
+    } else {
+      this.userLocationMarker.setLatLng(newStart);
+    }
 
+    // changing start invalidates stops + edited route
+    this.committedStops = [];
+
+    // regenerate route from new start (wrap your existing observable into a Promise)
+    await firstValueFrom(
+      this.routeService.getGeneratedRoute(
+        newStart.lat,
+        newStart.lng,
+        this.recommendedActivity!.route!.distance
+      )
+    ).then(e => {
+      this.recommendedActivity!.route!.distance = e.distance;
+      this.recommendedActivity!.route!.elevation = e.elevation;
+
+      this.routeLine = polyline(
+        convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1]))
+      );
+
+      this.latlngs = this.routeLine.getLatLngs() as LatLng[];
+      this.routeBounds = this.routeLine.getBounds();
+
+      // IMPORTANT: update baseline snapshot if you’re using original-route reset
+      // e.g. this.originalLatlngs = [...this.latlngs]; this.originalRouteBounds = this.routeBounds; etc.
+
+      this.rebuildLayers();
+    });
+
+    // refit main map (optional but nice)
+    requestAnimationFrame(() => {
+      const map = this.mapComponent?.map;
+      if (!map || !this.routeBounds) return;
+      map.invalidateSize();
+      map.fitBounds(this.routeBounds, { padding: [30, 30], animate: true });
+    });
+
+    return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
+  }
 
   exportGpx() {
     if (!this.latlngs || this.latlngs.length === 0) {
