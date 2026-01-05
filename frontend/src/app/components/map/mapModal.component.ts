@@ -2,10 +2,12 @@ import { Component, Input, ViewChild } from '@angular/core';
 import { IonicModule, ModalController, ToastController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms'
-import { LatLngBounds, LatLng, Layer, marker } from 'leaflet';
+import { LatLngBounds, LatLng, Layer, marker, Marker } from 'leaflet';
 import { MapComponent } from './map.component';
 import { MAP_MARKER_COLORS, coloredMarker } from './map-icon';
 import { GeocodingService, GeocodeResult } from 'src/services/geocoding.service';
+import { ActionSheetController } from '@ionic/angular';
+import { NgZone } from '@angular/core';
 
 type AddStopsMode = 'KEEP_SHAPE' | 'KEEP_LENGTH';
 
@@ -26,6 +28,7 @@ export class MapModalComponent {
   @Input() originalLayers!: Layer[];
   @Input() originalBounds!: LatLngBounds;
   @Input() onReset?: () => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
+  @Input() onChangeStart?: (start: LatLng) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
 
   @ViewChild(MapComponent) mapComponent!: MapComponent;
 
@@ -48,22 +51,29 @@ export class MapModalComponent {
 
   private searchTimer?: any;
 
+  searchMarker: Marker | null = null;
+  private searchMarkerPos: LatLng | null = null;
+
+  private clearSearchMarker() {
+    this.searchMarker = null;
+    this.searchMarkerPos = null;
+    this.rebuildEditorLayers();
+  }
+
   constructor(
     private modalCtrl: ModalController,
     private toastCtrl: ToastController,
-    private geocoding: GeocodingService
+    private geocoding: GeocodingService,
+    private actionSheetCtrl: ActionSheetController,
+    private zone: NgZone
   ) {}
 
   ngOnInit() {
     this.baseLayers = [...this.layers];
 
-    const stopMarkers = this.committedStops.map(p =>
-      marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.added) })
-    );
-
-    this.baseLayers = [...this.baseLayers, ...stopMarkers];
-    this.localLayers = [...this.baseLayers];
+    this.rebuildEditorLayers();
   }
+
 
   get totalStops(): number {
     return (this.committedStops?.length ?? 0) + (this.addedPoints?.length ?? 0);
@@ -120,7 +130,8 @@ export class MapModalComponent {
     // cancel -> remove unconfirmed points
     if (this.addPointMode) {
       this.addedPoints = [];
-      this.localLayers = [...this.baseLayers];
+      this.rebuildEditorLayers();
+
     }
 
     this.addPointMode = !this.addPointMode;
@@ -136,9 +147,7 @@ export class MapModalComponent {
     }
 
     this.addedPoints = [...this.addedPoints, point];
-
-    const m = marker(point, { icon: coloredMarker(MAP_MARKER_COLORS.added) });
-    this.localLayers = [...this.localLayers, m];
+    this.rebuildEditorLayers();
 
     // optional: auto-exit when user hits limit
     if (this.totalStops >= MapModalComponent.MAX_STOPS) {
@@ -173,13 +182,17 @@ export class MapModalComponent {
       // persist confirmed points as "committed" for this route
       this.committedStops = [...this.committedStops, ...points];
 
-      // update layers
+      // update route layers coming from parent (route polyline etc.)
       this.baseLayers = [...layers];
-      this.localLayers = [...layers];
       if (bounds) this.routeBounds = bounds;
 
       // reset pending editor state
       this.addedPoints = [];
+      this.addPointMode = false;
+
+      // rebuild all markers with correct colors
+      this.rebuildEditorLayers();
+
       this.addPointMode = false;
 
       // refit
@@ -252,22 +265,14 @@ async selectSearchResult(r: { display_name: string; lat: string; lon: string }) 
 
   const point = new LatLng(lat, lon);
 
-  // Always center the map on the searched location
+  // Center map
   const map = this.mapComponent?.map;
-  if (map) {
-    map.setView(point, Math.max(map.getZoom(), 15), { animate: true });
-  }
+  if (map) map.setView(point, Math.max(map.getZoom(), 15), { animate: true });
 
-  // Only create a stop marker if we're in "add stop" mode
-  if (!this.addPointMode || this.isProcessing) {
-    //await this.showInfoToast('Enable add-stop mode to insert a stop.');
-    return;
-  }
+  // Place/move neutral marker
+  this.setSearchMarker(point);
 
-  // Reuse your existing flow (adds marker + updates layers + enforces max-3)
-  await this.onPointAdded(point);
-
-  // Optional: clear results after selecting
+  // Hide results after selection
   this.clearSearch();
 }
 
@@ -286,10 +291,17 @@ async selectSearchResult(r: { display_name: string; lat: string; lon: string }) 
       this.addedPoints = [];
       this.committedStops = [];
 
-      // Update modal visuals instantly
       this.baseLayers = [...layers];
-      this.localLayers = [...layers];
       if (bounds) this.routeBounds = bounds;
+
+      // clear markers + neutral marker
+      this.addedPoints = [];
+      this.committedStops = [];
+      this.addPointMode = false;
+      this.clearSearchMarker();
+
+      // rebuild all layers
+      this.rebuildEditorLayers();
 
       // Refit map
       requestAnimationFrame(() => {
@@ -307,4 +319,136 @@ async selectSearchResult(r: { display_name: string; lat: string; lon: string }) 
       setTimeout(() => (this.isProcessing = false), 120);
     }
   }
+
+private rebuildEditorLayers() {
+  const layers: Layer[] = [...this.baseLayers];
+
+  for (const p of this.committedStops) {
+    layers.push(
+      marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.confirmed) })
+    );
+  }
+
+  for (const p of this.addedPoints) {
+    layers.push(
+      marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.added) })
+    );
+  }
+
+  if (this.searchMarker) {
+    layers.push(this.searchMarker);
+  }
+
+  this.localLayers = layers;
+}
+
+private setSearchMarker(point: LatLng) {
+  this.searchMarkerPos = point;
+
+  if (this.searchMarker) {
+    this.searchMarker.setLatLng(point);
+    this.rebuildEditorLayers();
+    return;
+  }
+
+  // Neutral marker icon:
+  // If you have MAP_MARKER_COLORS.search, use coloredMarker(...) here.
+  // Otherwise default Leaflet marker is fine:
+  this.searchMarker = marker(point, { icon: coloredMarker(MAP_MARKER_COLORS.added) });
+
+  // Leaflet click -> Ionic action sheet (must run in Angular zone)
+  this.searchMarker.on('click', () => {
+    this.zone.run(() => this.openSearchMarkerActions());
+  });
+
+  this.rebuildEditorLayers();
+}
+
+private async openSearchMarkerActions() {
+  if (!this.searchMarkerPos || this.isProcessing) return;
+
+  const point = this.searchMarkerPos;
+
+  const sheet = await this.actionSheetCtrl.create({
+    header: 'Location',
+    buttons: [
+      {
+        text: 'Add to route',
+        icon: 'add-circle-outline',
+        handler: () => this.addSearchedPointAsStop(point),
+      },
+      {
+        text: 'Choose as starting point',
+        icon: 'flag-outline',
+        handler: () => this.chooseSearchedPointAsStart(point),
+      },
+      {
+        text: 'Remove marker',
+        role: 'destructive',
+        icon: 'trash-outline',
+        handler: () => this.clearSearchMarker(),
+      },
+      {
+        text: 'Cancel',
+        role: 'cancel',
+      }
+    ]
+  });
+
+  await sheet.present();
+}
+
+private async addSearchedPointAsStop(point: LatLng) {
+  if (this.isProcessing) return;
+
+  const wasAddMode = this.addPointMode;
+  this.addPointMode = true;
+
+  try {
+    await this.onPointAdded(point);
+
+    this.clearSearchMarker();
+
+    this.rebuildEditorLayers();
+  } finally {
+    this.addPointMode = wasAddMode;
+  }
+}
+
+
+private async chooseSearchedPointAsStart(point: LatLng) {
+  if (!this.onChangeStart || this.isProcessing) return;
+
+  this.isProcessing = true;
+  this.loadingMessage = 'Updating start…';
+
+  try {
+    const { layers, bounds } = await this.onChangeStart(point);
+
+    // Route changed => clear stops & state
+    this.committedStops = [];
+    this.addedPoints = [];
+    this.addPointMode = false;
+
+    // Clear neutral marker
+    this.clearSearchMarker();
+
+    // Update modal view instantly
+    this.baseLayers = [...layers];
+    this.rebuildEditorLayers();
+    if (bounds) this.routeBounds = bounds;
+
+    // Refit
+    requestAnimationFrame(() => {
+      const map = this.mapComponent?.map;
+      if (!map || !this.routeBounds) return;
+      map.invalidateSize();
+      map.fitBounds(this.routeBounds, { padding: [50, 50], animate: true });
+    });
+  } catch (e) {
+    console.error('Change start failed', e);
+  } finally {
+    setTimeout(() => (this.isProcessing = false), 120);
+  }
+}
 }
