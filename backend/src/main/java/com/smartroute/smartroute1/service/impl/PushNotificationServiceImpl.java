@@ -1,5 +1,8 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.google.auth.oauth2.GoogleCredentials;
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.FirebaseOptions;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
 import com.google.firebase.messaging.Message;
@@ -38,8 +41,8 @@ public class PushNotificationServiceImpl implements PushNotificationService {
             @Value("${vapid.public.key}") String publicKey,
             @Value("${vapid.private.key}") String privateKey,
             @Value("${vapid.subject}") String subject,
-            @Value("${firebase.service.account.path:#{null}}") Resource firebaseConfig)
-            throws GeneralSecurityException {
+            @Value("${firebase.service.account.path}") Resource firebaseConfig)
+            throws GeneralSecurityException, IOException {
 
         this.subscriptionRepository = subscriptionRepository;
 
@@ -49,14 +52,13 @@ public class PushNotificationServiceImpl implements PushNotificationService {
 
         this.webPushService = new PushService(publicKey, privateKey, subject);
 
-        // TODO: Still need to do the native push and subscribe:
         // Initialize Firebase
-        //        if (FirebaseApp.getApps().isEmpty()) {
-        //            FirebaseOptions options = FirebaseOptions.builder()
-        //                    .setCredentials(GoogleCredentials.fromStream(firebaseConfig.getInputStream()))
-        //                    .build();
-        //            FirebaseApp.initializeApp(options);
-        //        }
+        if (FirebaseApp.getApps().isEmpty()) {
+            FirebaseOptions options = FirebaseOptions.builder()
+                    .setCredentials(GoogleCredentials.fromStream(firebaseConfig.getInputStream()))
+                    .build();
+            FirebaseApp.initializeApp(options);
+        }
     }
 
     @Override
