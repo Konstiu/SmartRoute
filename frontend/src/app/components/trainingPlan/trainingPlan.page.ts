@@ -439,7 +439,7 @@ async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH
 
   const request: AddStopsRequest = {
     originalRoute: this.routeLineToGeoJson(this.routeLine),
-    newPoints: (mode === 'KEEP_LENGTH' ? this.committedStops : points).map(p => this.toGeoJsonPosition(p)),
+    newPoints: this.committedStops.map(p => this.toGeoJsonPosition(p)),
   };
 
   // wait for backend response
