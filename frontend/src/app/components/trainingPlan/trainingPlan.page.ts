@@ -262,7 +262,7 @@ export class TrainingPlanPage implements OnInit {
           convertPolylineToCoordinateList(e.polyline)
             .map(p => latLng(p[0], p[1]))
         );
-      this.latlngs = routeLine.getLatLngs() as LatLng[];
+      this.latlngs = this.routeLine.getLatLngs() as LatLng[];
 
         this.routeBounds = this.routeLine.getBounds();
         this.rebuildLayers();
@@ -386,6 +386,8 @@ async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH
   this.routeLine = polyline(
     convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1]))
   );
+
+  this.latlngs = this.routeLine.getLatLngs() as LatLng[];
 
   this.routeBounds = this.routeLine.getBounds();
 
