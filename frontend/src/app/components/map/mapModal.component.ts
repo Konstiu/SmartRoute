@@ -23,6 +23,9 @@ export class MapModalComponent {
   @Input() routeBounds!: LatLngBounds;
   @Input() onConfirm!: (points: LatLng[], mode: AddStopsMode) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
   @Input() committedStops: LatLng[] = []; // stops already confirmed for this route
+  @Input() originalLayers!: Layer[];
+  @Input() originalBounds!: LatLngBounds;
+  @Input() onReset?: () => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
 
   @ViewChild(MapComponent) mapComponent!: MapComponent;
 
@@ -40,6 +43,8 @@ export class MapModalComponent {
   searchQuery = '';
   searchResults: GeocodeResult[] = [];
   isSearching = false;
+
+  private wasReset = false;
 
   private searchTimer?: any;
 
@@ -266,4 +271,40 @@ async selectSearchResult(r: { display_name: string; lat: string; lon: string }) 
   this.clearSearch();
 }
 
+  async reset() {
+    if (!this.onReset || this.isProcessing) return;
+
+    this.isProcessing = true;
+    this.loadingMessage = 'Resetting route…';
+
+    try {
+      // Ask parent to reset route and return fresh layers/bounds
+      const { layers, bounds } = await this.onReset();
+
+      // Clear local editor state
+      this.addPointMode = false;
+      this.addedPoints = [];
+      this.committedStops = [];
+
+      // Update modal visuals instantly
+      this.baseLayers = [...layers];
+      this.localLayers = [...layers];
+      if (bounds) this.routeBounds = bounds;
+
+      // Refit map
+      requestAnimationFrame(() => {
+        const map = this.mapComponent?.map;
+        if (!map || !this.routeBounds) return;
+
+        map.invalidateSize();
+        map.fitBounds(this.routeBounds, { padding: [50, 50], animate: true });
+      });
+
+    } catch (e) {
+      console.error('Reset failed', e);
+    } finally {
+      // small delay avoids leaflet grey flash in modals
+      setTimeout(() => (this.isProcessing = false), 120);
+    }
+  }
 }
