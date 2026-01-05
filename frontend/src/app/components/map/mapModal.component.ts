@@ -1,10 +1,11 @@
 import { Component, Input, ViewChild } from '@angular/core';
-import { IonicModule, ModalController } from '@ionic/angular';
+import { IonicModule, ModalController, ToastController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms'
 import { LatLngBounds, LatLng, Layer, marker } from 'leaflet';
 import { MapComponent } from './map.component';
 import { MAP_MARKER_COLORS, coloredMarker } from './map-icon';
+
 type AddStopsMode = 'KEEP_SHAPE' | 'KEEP_LENGTH';
 
 @Component({
@@ -15,24 +16,30 @@ type AddStopsMode = 'KEEP_SHAPE' | 'KEEP_LENGTH';
   styleUrls: ['./mapModal.component.scss']
 })
 export class MapModalComponent {
+  private static readonly MAX_STOPS = 3;
 
   @Input() layers: any[] = [];
   @Input() routeBounds!: LatLngBounds;
   @Input() onConfirm!: (points: LatLng[], mode: AddStopsMode) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
-  @Input() committedStops: LatLng[] = [];
+  @Input() committedStops: LatLng[] = []; // stops already confirmed for this route
 
   @ViewChild(MapComponent) mapComponent!: MapComponent;
+
   mode: AddStopsMode = 'KEEP_SHAPE';
   addPointMode = false;
-  addedPoints: LatLng[] = [];
+
+  addedPoints: LatLng[] = []; // pending points (not confirmed yet)
   localLayers: Layer[] = [];
   private baseLayers: Layer[] = [];
 
-  isMapReady = false; // initial "map is centered, show it"
-  isProcessing = false; // confirming points (backend call)
+  isMapReady = false;
+  isProcessing = false;
   loadingMessage = 'Loading map…';
 
-  constructor(private modalCtrl: ModalController) {}
+  constructor(
+    private modalCtrl: ModalController,
+    private toastCtrl: ToastController
+  ) {}
 
   ngOnInit() {
     this.baseLayers = [...this.layers];
@@ -43,6 +50,23 @@ export class MapModalComponent {
 
     this.baseLayers = [...this.baseLayers, ...stopMarkers];
     this.localLayers = [...this.baseLayers];
+  }
+
+  get totalStops(): number {
+    return (this.committedStops?.length ?? 0) + (this.addedPoints?.length ?? 0);
+  }
+
+  get remainingStops(): number {
+    return Math.max(0, MapModalComponent.MAX_STOPS - this.totalStops);
+  }
+
+  private async showMaxStopsToast() {
+    const toast = await this.toastCtrl.create({
+      message: `You can add at most ${MapModalComponent.MAX_STOPS} stops per route.`,
+      duration: 1800,
+      position: 'bottom'
+    });
+    await toast.present();
   }
 
   ionViewDidEnter() {
@@ -58,13 +82,8 @@ export class MapModalComponent {
       if (!map || !this.routeBounds) return;
 
       map.invalidateSize();
+      map.fitBounds(this.routeBounds, { padding: [50, 50], animate: false });
 
-      map.fitBounds(this.routeBounds, {
-        padding: [50, 50],
-        animate: false
-      });
-
-      // reveal map AFTER centering
       setTimeout(() => {
         this.isMapReady = true;
       }, 80);
@@ -75,13 +94,16 @@ export class MapModalComponent {
     const map = this.mapComponent?.map;
     if (!map || !this.routeBounds) return;
 
-    map.fitBounds(this.routeBounds, {
-      padding: [50, 50],
-      animate: true
-    });
+    map.fitBounds(this.routeBounds, { padding: [50, 50], animate: true });
   }
 
-  toggleAddPointMode() {
+  async toggleAddPointMode() {
+    // entering add mode: block if already at limit
+    if (!this.addPointMode && this.remainingStops === 0) {
+      await this.showMaxStopsToast();
+      return;
+    }
+
     // cancel -> remove unconfirmed points
     if (this.addPointMode) {
       this.addedPoints = [];
@@ -91,26 +113,41 @@ export class MapModalComponent {
     this.addPointMode = !this.addPointMode;
   }
 
-  onPointAdded(point: LatLng) {
+  async onPointAdded(point: LatLng) {
     if (!this.addPointMode || this.isProcessing) return;
 
-    this.addedPoints.push(point);
+    if (this.totalStops >= MapModalComponent.MAX_STOPS) {
+      await this.showMaxStopsToast();
+      this.addPointMode = false; // optional: auto-exit add mode
+      return;
+    }
 
-    const m = marker(point, {
-      icon: coloredMarker(MAP_MARKER_COLORS.added)
-    });
+    this.addedPoints = [...this.addedPoints, point];
 
+    const m = marker(point, { icon: coloredMarker(MAP_MARKER_COLORS.added) });
     this.localLayers = [...this.localLayers, m];
+
+    // optional: auto-exit when user hits limit
+    if (this.totalStops >= MapModalComponent.MAX_STOPS) {
+      this.addPointMode = false;
+    }
   }
 
   close() {
     this.modalCtrl.dismiss({
-      addedPoints: this.addedPoints
+      addedPoints: this.addedPoints,
+      committedStops: this.committedStops
     });
   }
 
   async confirm() {
     if (!this.onConfirm || this.addedPoints.length === 0 || this.isProcessing) return;
+
+    // Safety check (should already be prevented by UI)
+    if (this.totalStops > MapModalComponent.MAX_STOPS) {
+      await this.showMaxStopsToast();
+      return;
+    }
 
     const points = [...this.addedPoints];
 
@@ -120,12 +157,15 @@ export class MapModalComponent {
     try {
       const { layers, bounds } = await this.onConfirm(points, this.mode);
 
-      // update modal immediately
+      // persist confirmed points as "committed" for this route
+      this.committedStops = [...this.committedStops, ...points];
+
+      // update layers
       this.baseLayers = [...layers];
       this.localLayers = [...layers];
       if (bounds) this.routeBounds = bounds;
 
-      // reset editor state
+      // reset pending editor state
       this.addedPoints = [];
       this.addPointMode = false;
 
@@ -145,7 +185,6 @@ export class MapModalComponent {
           map.fitBounds(this.routeBounds, { padding: [50, 50], animate: true });
         }
 
-        // small delay to avoid grey tile flash
         setTimeout(() => {
           this.isProcessing = false;
         }, 120);
