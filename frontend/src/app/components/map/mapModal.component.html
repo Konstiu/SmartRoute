@@ -49,11 +49,21 @@
   <!-- LEFT STACKED FABs -->
   <ion-fab vertical="bottom" horizontal="start" slot="fixed">
 
+    <!-- Stops counter -->
+    <ion-chip
+      *ngIf="isMapReady"
+      class="stops-chip"
+      [color]="remainingStops === 0 ? 'warning' : 'medium'">
+      <ion-icon name="flag-outline"></ion-icon>
+      <ion-label>{{ totalStops }}/3 stops</ion-label>
+    </ion-chip>
+
     <!-- Confirm -->
     <ion-fab-button
       *ngIf="addedPoints.length > 0"
       color="success"
       class="fab-confirm"
+      [disabled]="isProcessing"
       (click)="confirm()">
       <ion-icon name="checkmark-outline"></ion-icon>
     </ion-fab-button>
@@ -61,15 +71,13 @@
     <!-- Add / Cancel -->
     <ion-fab-button
       [color]="addPointMode ? 'danger' : 'primary'"
+      [disabled]="!addPointMode && remainingStops === 0"
       (click)="toggleAddPointMode()">
-
-      <ion-icon
-        [name]="addPointMode ? 'close-outline' : 'add-outline'">
-      </ion-icon>
-
+      <ion-icon [name]="addPointMode ? 'close-outline' : 'add-outline'"></ion-icon>
     </ion-fab-button>
 
   </ion-fab>
+
 
 
 </ion-content>
