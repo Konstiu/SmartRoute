@@ -5,48 +5,59 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Email Verification - SmartRoute</title>
 </head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 0;">
-<div style="max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 16px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2); overflow: hidden;">
-    <!-- Header with gradient -->
-    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center;">
-        <div style="background-color: white; width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 15px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);">
-            <svg width="50" height="50" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M13.5 2C13.5 2 15.8335 2.91421 17.6569 4.73748C19.4802 6.56075 20.3944 8.89418 20.3944 8.89418M16.063 5.37207C16.063 5.37207 16.9175 5.81556 17.6569 6.55498C18.3963 7.29441 18.8398 8.14886 18.8398 8.14886M3 7.5L8.75 11.5L3 7.5ZM8.75 11.5L3 15.5L8.75 11.5ZM8.75 11.5L15.5 7L8.75 11.5ZM8.75 11.5V21.5L11.75 17.5L8.75 11.5Z" stroke="#667eea" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        </div>
-        <h1 style="margin: 0; font-size: 36px; font-weight: 700; color: #ffffff; letter-spacing: -0.5px;">SmartRoute</h1>
-        <p style="margin: 8px 0 0; font-size: 14px; color: rgba(255, 255, 255, 0.9); font-weight: 500;">Your Intelligent Running Companion</p>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f5f7; margin: 0; padding: 0;">
+<div style="max-width: 600px; margin: 40px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+
+    <!-- Header with Logo -->
+    <div style="padding: 40px 30px 30px; text-align: center; background-color: #ffffff;">
+        <img src="cid:logo" alt="SmartRoute Logo" style="width: 80px; height: 80px; border-radius: 16px; margin-bottom: 16px;">
+        <h2 style="margin: 0; font-size: 20px; font-weight: 600; color: #000000;">SmartRoute</h2>
     </div>
 
     <!-- Content -->
-    <div style="padding: 40px 30px; line-height: 1.8; color: #333333;">
-        <p style="margin: 0 0 12px; font-size: 16px;">Hey <b><span th:text="${full_name}"></span></b>! 👋</p>
-        <p style="margin: 0 0 12px; font-size: 16px;">Welcome to SmartRoute – we're excited to have you join our running community!</p>
-        <p style="margin: 0 0 30px; font-size: 16px;">Let's get you started on your journey. Click the button below to verify your email and unlock your personalized routes.</p>
+    <div style="padding: 0 30px 40px; color: #000000;">
+        <h1 style="margin: 0 0 8px; font-size: 28px; font-weight: 600; color: #000000;">Welcome to SmartRoute!</h1>
+        <p style="margin: 0 0 24px; font-size: 16px; color: #666666;">Verify your email to get started</p>
 
-        <a th:href="${verification_link}" target="_blank" style="display: block; width: 220px; margin: 0 auto 30px; padding: 16px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; text-align: center; text-decoration: none; border-radius: 50px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); transition: transform 0.2s;">Verify My Email</a>
+        <p style="margin: 0 0 24px; font-size: 15px; color: #333333; line-height: 1.6;">
+            Hey <b style="color: #000000;"><span th:text="${full_name}"></span></b>! 👋
+        </p>
 
-        <!--
-        <div style="background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); padding: 20px; border-radius: 12px; margin-bottom: 30px;">
-            <p style="margin: 0 0 10px; font-size: 14px; font-weight: 600; color: #555;">What's Next?</p>
-            <p style="margin: 0; font-size: 14px; color: #666; line-height: 1.6;">
+        <p style="margin: 0 0 24px; font-size: 15px; color: #333333; line-height: 1.6;">
+            Welcome to SmartRoute – we're excited to have you join our running community! Click the button below to verify your email and unlock your personalized routes.
+        </p>
+
+        <!-- Verify Button -->
+        <a th:href="${verification_link}" target="_blank"
+           style="display: block; width: 100%; max-width: 100%; padding: 14px 24px; background-color: #3880ff; color: #ffffff; text-align: center; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; box-sizing: border-box; margin-bottom: 24px;">
+            Verify My Email
+        </a>
+
+        <!-- Info box -->
+        <div style="background-color: #f2f2f7; padding: 16px; border-radius: 8px; margin-bottom: 24px; border-left: 3px solid #3880ff;">
+            <p style="margin: 0 0 8px; font-size: 14px; font-weight: 600; color: #000000;">What's Next?</p>
+            <p style="margin: 0; font-size: 14px; color: #666666; line-height: 1.6;">
                 ✓ Create your runner profile<br>
                 ✓ Discover optimized routes<br>
                 ✓ Track your progress<br>
                 ✓ Join challenges and compete
             </p>
         </div>
-        !-->
-        <p style="margin: 0 0 8px; font-size: 16px;">Ready to run smarter?</p>
-        <p style="margin: 0; font-size: 16px; font-weight: 600; color: #667eea;">The SmartRoute Team</p>
+
+        <p style="margin: 0 0 8px; font-size: 14px; color: #666666;">
+            Ready to run smarter?
+        </p>
+        <p style="margin: 0; font-size: 14px; color: #000000; font-weight: 600;">
+            The SmartRoute Team
+        </p>
     </div>
 
     <!-- Footer -->
-    <div style="background-color: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #e9ecef;">
-        <p style="margin: 0 0 8px; color: #6c757d; font-size: 12px; line-height: 1.5;">
-            <i>This is an automated message. Please do not reply to this email.</i>
+    <div style="background-color: #f5f5f7; padding: 20px 30px; text-align: center; border-top: 1px solid #e5e5ea;">
+        <p style="margin: 0 0 4px; color: #666666; font-size: 12px;">
+            This is an automated message. Please do not reply to this email.
         </p>
-        <p style="margin: 0; color: #adb5bd; font-size: 11px;">
+        <p style="margin: 0; color: #999999; font-size: 11px;">
             © 2025 SmartRoute. All rights reserved.
         </p>
     </div>

@@ -18,9 +18,9 @@ import okhttp3.mockwebserver.MockResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
@@ -42,7 +42,7 @@ class StravaServiceTest extends BaseTest {
     private StravaAccountRepository stravaAccountRepository;
     @Autowired
     private ActivityRepository activityRepository;
-    @MockBean
+    @MockitoBean
     private StravaOauthServiceImpl authService;
 
     private static StravaActivityDto getTestActivityDto() {
@@ -117,7 +117,7 @@ class StravaServiceTest extends BaseTest {
                         .setBody("[{\"type\": \"heartrate\", \"data\": [150,151,152], \"original_size\": 3}]")
         );
 
-        List<StravaActivityDto> result = stravaService.importStravaActivities(email);
+        List<StravaActivityDto> result = stravaService.importStravaActivities(email, 50);
 
         assertAll(
                 () -> assertNotNull(result),
@@ -154,7 +154,7 @@ class StravaServiceTest extends BaseTest {
         stravaAccountRepository.deleteAll();
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> stravaService.importStravaActivities(email));
+                () -> stravaService.importStravaActivities(email, 50));
 
         assertAll(
                 () -> assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode()),
@@ -177,7 +177,7 @@ class StravaServiceTest extends BaseTest {
         );
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> stravaService.importStravaActivities(email));
+                () -> stravaService.importStravaActivities(email, 50));
 
         assertAll(
                 () -> assertEquals(HttpStatus.BAD_REQUEST, ex.getStatusCode()),
@@ -203,7 +203,7 @@ class StravaServiceTest extends BaseTest {
         );
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> stravaService.importStravaActivities(email));
+                () -> stravaService.importStravaActivities(email, 50));
 
         assertAll(
                 () -> assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatusCode()),
@@ -250,7 +250,7 @@ class StravaServiceTest extends BaseTest {
                         .setBody("[{\"type\": \"heartrate\", \"data\": [144,141,142], \"original_size\": 3}]")
         );
 
-        List<StravaActivityDto> result = stravaService.importStravaActivities(email);
+        List<StravaActivityDto> result = stravaService.importStravaActivities(email, 50);
 
         List<Activity> stored = activityRepository.findByUser(user);
 

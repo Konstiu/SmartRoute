@@ -1,0 +1,93 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/account"></ion-back-button>
+    </ion-buttons>
+    <ion-title class="ion-text-center">My Injuries</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="openAddInjuryModal()">
+        <ion-icon slot="icon-only" name="add"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="injuries-container">
+    <!-- Loading State -->
+    <div *ngIf="loading" class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading injuries...</p>
+    </div>
+
+    <!-- Empty State -->
+    <div *ngIf="!loading && allInjuries.length === 0" class="empty-state">
+      <ion-icon name="fitness-outline" class="empty-icon"></ion-icon>
+      <h2>No Injuries Reported</h2>
+      <p>Tap the + button above to report an injury</p>
+    </div>
+
+    <!-- Injuries List -->
+    <div *ngIf="!loading && injuries.length > 0" class="injuries-list">
+      <ion-card *ngFor="let injury of injuries" class="injury-card">
+        <ion-card-content>
+          <div class="card-header">
+            <div class="title-section">
+              <h2>{{ getBodyPartLabel(injury.affectedArea) }}</h2>
+              <ion-badge [color]="getSeverityColor(injury.injuryIndex)" class="severity-badge">
+                {{ getSeverityLabel(injury.injuryIndex) }}
+              </ion-badge>
+            </div>
+            <ion-button fill="clear" size="small" (click)="deleteInjury(injury.injuryId)" class="delete-btn">
+              <ion-icon slot="icon-only" name="trash-outline" color="danger"></ion-icon>
+            </ion-button>
+          </div>
+          <div class="card-body">
+            <div class="info-row">
+              <ion-icon name="alert-circle-outline" class="info-icon"></ion-icon>
+              <span class="info-text">Severity: {{ (injury.injuryIndex * 100).toFixed(0) }}%</span>
+            </div>
+            <div class="info-row">
+              <ion-icon name="bandage-outline" class="info-icon"></ion-icon>
+              <span class="info-text">
+                Start Date: {{ injury.lastHealthyDate | date:'mediumDate' }}
+              </span>
+            </div>
+            <div class="info-row">
+              <ion-icon name="time-outline" class="info-icon"></ion-icon>
+              <span class="info-text">
+                End Date: {{ injury.lastInjuryDate ? (injury.lastInjuryDate | date:'mediumDate') : 'Still injured' }}
+              </span>
+            </div>
+          </div>
+          <ion-button expand="block" fill="outline" size="default" (click)="editInjury(injury)" class="edit-btn">
+            <ion-icon slot="start" name="create-outline"></ion-icon>
+            Edit
+          </ion-button>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Toggle Button (only show if there are old injuries and recent ones) -->
+    <div *ngIf="!loading && allInjuries.length > 0 && getOldInjuriesCount() > 0 && injuries.length > 0"
+         class="toggle-container ion-margin-bottom">
+      <ion-button
+        expand="block"
+        fill="outline"
+        (click)="toggleOldInjuries()">
+        <ion-icon slot="start" [name]="showOldInjuries ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+        {{ showOldInjuries ? 'Hide' : 'Show' }} Old Injuries ({{ getOldInjuriesCount() }})
+      </ion-button>
+    </div>
+
+    <!-- No Recent Injuries Message -->
+    <div *ngIf="!loading && allInjuries.length > 0 && injuries.length === 0 && !showOldInjuries" class="empty-state">
+      <ion-icon name="checkmark-circle-outline" class="empty-icon" color="success"></ion-icon>
+      <h2>No Recent Injuries</h2>
+      <p>All your injuries ended more than 14 days ago</p>
+      <ion-button fill="outline" (click)="toggleOldInjuries()">
+        View Old Injuries ({{ getOldInjuriesCount() }})
+      </ion-button>
+    </div>
+  </div>
+</ion-content>

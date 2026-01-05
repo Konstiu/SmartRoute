@@ -1,9 +1,9 @@
-import {Globals} from "../global/globals";
-import {HttpClient} from "@angular/common/http";
+import { Globals } from "../global/globals";
+import { HttpClient } from "@angular/common/http";
 import { CreateUserDto, PersonalDataDto, UserDetailDto, UserDto } from "../app/dtos/user";
-import {Observable} from "rxjs";
-import {inject, Injectable} from "@angular/core";
-import {SendPasswordResetDto, ResetPasswordDto} from "../app/dtos/passwordReset";
+import { BehaviorSubject, first, Observable } from "rxjs";
+import { inject, Injectable } from "@angular/core";
+import { SendPasswordResetDto, ResetPasswordDto } from "../app/dtos/passwordReset";
 
 @Injectable({ providedIn: "root" })
 export class UserService {
@@ -11,11 +11,24 @@ export class UserService {
   private globals = inject(Globals);
   private userUri: string = this.globals.backendUri + '/user';
 
+  // https://forum.ionicframework.com/t/refresh-data-after-redirect-go-back/211479
+  private lastPersonalData = new BehaviorSubject<UserDetailDto | null>(null);
+
   /**
    * Update personal user data like height, weight, etc.
    */
   updatePersonalData(updateInformation: PersonalDataDto): Observable<UserDetailDto> {
-    return this.httpClient.put<UserDetailDto>(this.userUri + "/personal-data", updateInformation, { responseType: 'json' });
+    let data = this.httpClient.put<UserDetailDto>(this.userUri + "/personal-data", updateInformation, { responseType: 'json' })
+    data.pipe(first()).subscribe({
+      next: (data: UserDetailDto) => {
+        this.lastPersonalData?.next(data);
+      }
+    });
+    return data;
+  }
+
+  watchPersonalData(): BehaviorSubject<UserDetailDto | null> {
+    return this.lastPersonalData;
   }
 
   /**
@@ -46,7 +59,7 @@ export class UserService {
    *    }
    */
   createUser(toCreate: CreateUserDto): Observable<UserDto> {
-    return this.httpClient.post<UserDto>(this.userUri, toCreate, {responseType: 'json'});
+    return this.httpClient.post<UserDto>(this.userUri, toCreate, { responseType: 'json' });
   }
 
   /**
@@ -69,5 +82,9 @@ export class UserService {
         repeatPassword: dto.repeatPassword
       }
     );
+  }
+
+  deleteAccount(): Observable<any> {
+    return this.httpClient.delete(`${this.userUri}/account`);
   }
 }

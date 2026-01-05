@@ -42,11 +42,10 @@ public interface FitnessScoreService {
      *
      * @param heartRates a list of heart rates
      * @param timestamps a list of timestamps
-     * @param maxHeartRate the users max heart rate, this can be null then it is calculated from the heart rate data
      * @param activity the activity to calculate the sessionLoad for
      * @return the calculated sessionLoad
      */
-    Integer calculateSessionLoad(List<Float> heartRates, List<Float> timestamps, Float maxHeartRate, Activity activity);
+    Integer calculateSessionLoad(List<Float> heartRates, List<Float> timestamps, Activity activity);
 
     /**
      * Calculates the sessionLoad from power and FTP.

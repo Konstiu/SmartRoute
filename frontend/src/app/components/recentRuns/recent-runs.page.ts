@@ -1,9 +1,13 @@
-import {Component, OnInit} from '@angular/core';
+import {Component, inject, OnInit, OnDestroy} from '@angular/core';
 import {IonicModule} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../services/activities.service';
-import {StravaActivity} from '../../dtos/StravaActivity';
+import {Activity} from '../../dtos/Activity';
 import {Router} from "@angular/router";
+import {ToastController} from '@ionic/angular';
+import {formatDistance, formatDuration, formatElevation, formatHeartRate, formatPace} from "../../util/formatters";
+import {ActivitySyncNotificationService} from "../../../services/ActivitySyncNotificationService";
+
 
 @Component({
   selector: 'app-recent-runs',
@@ -13,15 +17,24 @@ import {Router} from "@angular/router";
   imports: [IonicModule, CommonModule]
 })
 export class RecentRunsPage implements OnInit {
-  activities: StravaActivity[] = [];
+  activities: Activity[] = [];
   isLoading = false;
   error: string | null = null;
+  private syncSubscription: any;
 
-  constructor(private stravaService: ActivitiesService, private router: Router) {
-  }
+  constructor(private stravaService: ActivitiesService,
+              private router: Router,
+              private syncNotificationService: ActivitySyncNotificationService
+  ) {}
+
+  private activitiesService: ActivitiesService = inject(ActivitiesService);
+  private toastCtrl: ToastController = inject(ToastController);
 
   ngOnInit() {
     this.loadActivities();
+    this.syncSubscription = this.syncNotificationService.syncCompleted.subscribe(() => {
+      this.loadActivities();
+    });
   }
 
   loadActivities(event?: any) {
@@ -50,39 +63,63 @@ export class RecentRunsPage implements OnInit {
     });
   }
 
-  doRefresh(event: any) {
-    this.loadActivities(event);
+  async refreshActivities(event: any) {
+    if (!this.activitiesService.canRefresh()) {
+      await this.showToast("Refresh limit reached. Try again in a few minutes.", "warning")
+      event.target.complete();
+      return;
+    }
+
+    this.activitiesService.incrementRefreshCount();
+
+    this.isLoading = true;
+    this.error = null;
+
+    this.activitiesService.refreshActivities(10)
+      .subscribe({
+        next: async () => {
+          this.loadActivities(event);
+          await this.showToast("Activities synchronized successfully.", "success");
+        },
+        error: err => {
+          console.error('Error fetching activities:', err);
+          this.error = 'Failed to load activities. Please try again.';
+          this.isLoading = false;
+          event.target.complete();
+        }
+      })
   }
 
+  private async showToast(message: string, color: "success" | "warning" | "danger") {
+    const toast = await this.toastCtrl.create({
+      message,
+      color,
+      duration: 2500,
+      position: "top"
+    });
+    await toast.present();
+  }
+
+  async doRefresh(event: any) {
+    await this.refreshActivities(event);
+  }
 
   formatDate(dateString: string): string {
-    if (!dateString) {
-      return '';
-    }
-
-    const date = new Date(dateString);
+    const cleanString = dateString.replace('Z', '');
+    const date = new Date(cleanString);
     const now = new Date();
-
-    if (isNaN(date.getTime())) {
-      console.error('Invalid date string:', dateString);
-      return dateString;
-    }
-
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-    let rawTime: string;
+    const timeString = date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false // Use 24-hour format, change to true for 12-hour format
+    });
 
-    const match = dateString.match(/(\d{2}:\d{2})/);
-    if (match) {
-      rawTime = match[1];
-    } else {
-      rawTime = date.toISOString().substring(11, 16);
-    }
-
-    if (diffDays === 0) return `Today at ${rawTime}`;
-    if (diffDays === 1) return `Yesterday at ${rawTime}`;
-    if (diffDays < 7) return `${diffDays} days ago at ${rawTime}`;
+    if (diffDays === 1) return `Today at ${timeString}`;
+    if (diffDays === 2) return `Yesterday at ${timeString}`;
+    if (diffDays < 8) return `${diffDays - 1} days ago at ${timeString}`;
 
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'short',
@@ -90,7 +127,7 @@ export class RecentRunsPage implements OnInit {
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
     });
 
-    return `${dateStr} at ${rawTime}`;
+    return `${dateStr} at ${timeString}`;
   }
 
   formatDuration(seconds: number): string {
@@ -131,12 +168,20 @@ export class RecentRunsPage implements OnInit {
     return icons[sportType] || icons['default'];
   }
 
-  openActivity(activity: StravaActivity) {
+  openActivity(activity: Activity) {
     this.router.navigate(['/activity/', activity.id]);
   }
 
   importGpx() {
     this.router.navigate(['/import-gpx']);
+  }
+
+  protected readonly formatElevation = formatElevation;
+  protected readonly formatHeartRate = formatHeartRate;
+  ngOnDestroy() {
+    if (this.syncSubscription) {
+      this.syncSubscription.unsubscribe();
+    }
   }
 
 }

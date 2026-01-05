@@ -1,28 +1,32 @@
-import { Component } from '@angular/core';
-import { Router } from '@angular/router';
-import {ConnectStravaComponent} from '../connect-strava/connect-strava.component'
-import { AlertController, IonicModule } from '@ionic/angular';
+import {Component, inject} from '@angular/core';
+import { ConnectStravaComponent } from '../connect-strava/connect-strava.component'
+import { AlertController, IonicModule, ToastController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ExploreContainerComponentModule } from '../explore-container/explore-container.module';
 import { AuthService } from 'src/services/auth.service';
 import { ConnectGarminComponent } from "../connect-garmin/connect-garmin.component";
-
+import { UserDataDisplayComponent } from '../user-data-display/user-data-display.component';
+import {Router} from "@angular/router";
+import {UserService} from "../../../services/user.service";
 
 @Component({
   selector: 'app-account',
   templateUrl: 'account.page.html',
   styleUrls: ['account.page.scss'],
   standalone: true,
-  imports: [ConnectStravaComponent, IonicModule, CommonModule, FormsModule, ExploreContainerComponentModule, ConnectGarminComponent]
+  imports: [IonicModule, CommonModule, FormsModule, ExploreContainerComponentModule, UserDataDisplayComponent]
 })
 export class AccountPage {
+  private userService = inject(UserService);
 
   constructor(
     private authService: AuthService,
     private alertController: AlertController,
-    private router: Router
-  ) {}
+    private router: Router,
+    private toastController: ToastController,
+
+  ) { }
 
   async presentLogoutConfirm() {
     const alert = await this.alertController.create({
@@ -46,12 +50,48 @@ export class AccountPage {
     await alert.present();
   }
 
-  editUserData() {
-    this.router.navigate(['/user-data']);
+  async deleteAccount() {
+    this.userService.deleteAccount().subscribe({
+      next: async () => {
+        const toast = await this.toastController.create({
+          message: 'Account deleted successfully',
+          color: 'success',
+          duration: 2000
+        });
+        await toast.present();
+
+        // Logout and redirect to login page
+        this.authService.logoutUser();
+      },
+      error: async (error) => {
+        console.error('Error deleting account:', error);
+        const toast = await this.toastController.create({
+          message: 'Failed to delete account. Please try again.',
+          color: 'danger',
+          duration: 3000
+        });
+        await toast.present();
+      }
+    });
+  }
+
+  navigateToSync() {
+    this.router.navigate(['/sync-activities']);
+  }
+
+  navigateToInjuries() {
+    this.router.navigate(['/injuries']);
+  }
+
+  navigateToFriends() {
+    this.router.navigate(['/friends']);
   }
 
   logout() {
     this.authService.logoutUser();
   }
 
+  delete() {
+    this.userService.deleteAccount();
+  }
 }

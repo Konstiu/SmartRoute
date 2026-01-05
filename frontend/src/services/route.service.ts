@@ -1,0 +1,29 @@
+import { HttpClient } from "@angular/common/http";
+import { inject, Injectable } from "@angular/core";
+import { BehaviorSubject, Observable } from "rxjs";
+import { Globals } from "src/global/globals";
+import { GeneratedRouteDto } from "src/app/dtos/route";
+
+@Injectable({
+  providedIn: 'root',
+})
+export class RouteService {
+  private readonly httpClient: HttpClient = inject(HttpClient);
+  private readonly globals: Globals = inject(Globals);
+
+  private readonly routeBaseUri: string = this.globals.backendUri + '/route';
+
+  private lastRoute: GeneratedRouteDto | null = null;
+
+  /**
+   * Generate route for ('lat', 'long') with length 'length'.
+   */
+  getGeneratedRoute(lat: number, long: number, length: number): Observable<GeneratedRouteDto> {
+    let route = this.httpClient.get<GeneratedRouteDto>(this.routeBaseUri, { params: { "lat": lat, "long": long, "length": length } });
+    return route;
+  }
+
+  getLastGeneratedRoute(): GeneratedRouteDto | null {
+    return this.lastRoute;
+  }
+}
