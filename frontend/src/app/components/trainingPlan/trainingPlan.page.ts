@@ -45,6 +45,13 @@ export class TrainingPlanPage implements OnInit {
   private stopsService = inject(StopsService);
   private committedStops: LatLng[] = [];
 
+  private originalRouteLine: Polyline | null = null;
+  private originalRouteBounds: LatLngBounds | null = null;
+  private originalLatlngs: LatLng[] | null = null;
+  private originalDistance: number | null = null;
+  private originalElevation: number | null = null;
+
+
   date: string = new Date().toLocaleDateString();
   recommendedActivity: RecommendedActivityDto | undefined = {
     name: "Gym Session",
@@ -263,9 +270,17 @@ export class TrainingPlanPage implements OnInit {
             .map(p => latLng(p[0], p[1]))
         );
       this.latlngs = this.routeLine.getLatLngs() as LatLng[];
+      this.routeBounds = this.routeLine.getBounds();
 
-        this.routeBounds = this.routeLine.getBounds();
-        this.rebuildLayers();
+      // --- baseline snapshot ---
+      this.originalLatlngs = [...this.latlngs];
+      this.originalRouteLine = polyline(this.originalLatlngs);
+      this.originalRouteBounds = this.originalRouteLine.getBounds();
+
+      this.originalDistance = this.recommendedActivity!.route!.distance;
+      this.originalElevation = this.recommendedActivity!.route!.elevation;
+
+      this.rebuildLayers();
 
         this.mapComponent?.map?.fitBounds(this.routeBounds, {
           padding: [30, 30]
@@ -323,12 +338,24 @@ async openMapModal() {
   const modal = await this.modalCtrl.create({
     component: MapModalComponent,
     componentProps: {
+      // current (edited) view
       layers: this.cloneLayersForModal(),
       routeBounds: this.routeBounds,
       committedStops: this.committedStops,
 
-      // modal calls this, waits for backend, receives updated layers + bounds
-      onConfirm: (points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH') => this.handleAdditionalPoints(points, mode),
+      // true baseline for "Reset"
+      originalLayers: this.cloneOriginalLayersForModal(),
+      originalBounds: this.originalRouteBounds,
+
+      // existing confirm
+      onConfirm: (points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH') =>
+        this.handleAdditionalPoints(points, mode),
+
+      // let modal trigger a global reset
+      onReset: async () => {
+        this.resetRouteToOriginal();
+        return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
+      }
     },
     cssClass: 'fullscreen-map-modal',
     animated: false
@@ -336,7 +363,6 @@ async openMapModal() {
 
   await modal.present();
 }
-
 
 
  private cloneLayersForModal(): Layer[] {
@@ -362,6 +388,31 @@ async openMapModal() {
 
    return cloned;
  }
+
+  private cloneOriginalLayersForModal(): Layer[] {
+    const cloned: Layer[] = [];
+
+    if (this.userLocationMarker) {
+      cloned.push(
+        marker(this.userLocationMarker.getLatLng(), {
+          icon: coloredMarker(MAP_MARKER_COLORS.start)
+        })
+      );
+    }
+
+    if (this.originalLatlngs && this.originalLatlngs.length > 0) {
+      cloned.push(
+        polyline(this.originalLatlngs, (this.routeLine as any)?.options)
+      );
+    } else if (this.routeLine) {
+      // fallback if baseline not set yet
+      cloned.push(
+        polyline(this.routeLine.getLatLngs() as LatLng[], (this.routeLine as any).options)
+      );
+    }
+
+    return cloned;
+  }
 
 async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH'): Promise<RouteUpdate> {
   if (!this.routeLine || points.length === 0) {
@@ -440,6 +491,32 @@ async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH
    return out;
  }
 
+  resetRouteToOriginal() {
+    if (!this.originalLatlngs || this.originalLatlngs.length === 0) return;
+
+    // Clear all stops globally
+    this.committedStops = [];
+
+    // Restore current route from baseline
+    this.routeLine = polyline(this.originalLatlngs);
+    this.latlngs = this.routeLine.getLatLngs() as LatLng[];
+    this.routeBounds = this.routeLine.getBounds();
+
+    // Restore stats (optional)
+    if (this.recommendedActivity?.route) {
+      if (this.originalDistance != null) this.recommendedActivity.route.distance = this.originalDistance;
+      if (this.originalElevation != null) this.recommendedActivity.route.elevation = this.originalElevation;
+    }
+
+    this.rebuildLayers();
+
+    requestAnimationFrame(() => {
+      const map = this.mapComponent?.map;
+      if (!map || !this.routeBounds) return;
+      map.invalidateSize();
+      map.fitBounds(this.routeBounds, { padding: [30, 30], animate: true });
+    });
+  }
 
 
   exportGpx() {

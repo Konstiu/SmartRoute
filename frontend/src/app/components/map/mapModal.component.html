@@ -101,6 +101,15 @@
       <ion-icon [name]="addPointMode ? 'close-outline' : 'add-outline'"></ion-icon>
     </ion-fab-button>
 
+    <ion-fab-button
+      *ngIf="isMapReady"
+      color="light"
+      [disabled]="isProcessing || !onReset"
+      (click)="reset()">
+      <ion-icon name="refresh-outline"></ion-icon>
+    </ion-fab-button>
+
+
   </ion-fab>
 
 </ion-content>
