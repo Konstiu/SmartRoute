@@ -61,9 +61,73 @@ ion-fab {
   box-shadow: 0 6px 18px rgba(0,0,0,0.2);
 }
 
+.fab-mode {
+  position: relative;
+}
+
+.mode-badge {
+  position: absolute;
+  right: -6px;
+  top: -6px;
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+
 .stops-chip {
   margin-bottom: 10px;
   align-self: flex-start;
 }
+
+.search-overlay {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 8px);
+  right: 8px;
+  z-index: 1000;
+  pointer-events: auto;
+
+  /* IMPORTANT: remove left so width can shrink */
+  left: auto;
+}
+
+.search-bar-wrapper {
+  width: 540px;
+  max-width: 85vw;
+  padding: 4px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+}
+
+/* Proper height */
+.search-bar-wrapper ion-searchbar {
+  --background: transparent;
+  --box-shadow: none;
+
+  height: 44px;
+  min-height: 44px;
+}
+
+.search-bar-wrapper ion-searchbar::part(container) {
+  height: 44px;
+}
+
+.search-bar-wrapper ion-searchbar::part(input) {
+  font-size: 15px;
+  line-height: 44px;
+}
+
+/* Results align under the bar */
+.search-results {
+  width: 260px;
+  max-width: 85vw;
+  margin-top: 6px;
+  margin-left: auto;   // keeps it right-aligned
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+}
+
+
 
 
