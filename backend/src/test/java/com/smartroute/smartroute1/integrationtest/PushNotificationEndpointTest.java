@@ -8,6 +8,7 @@ import com.smartroute.smartroute1.endpoint.dto.subscription.NativeSubscriptionDt
 import com.smartroute.smartroute1.endpoint.dto.subscription.SubscriptionDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Friendship;
+import com.smartroute.smartroute1.repository.FriendshipRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.FriendshipService;
 import com.smartroute.smartroute1.service.impl.PushNotificationServiceImpl;
@@ -52,6 +53,9 @@ class PushNotificationEndpointTest extends BaseTest {
     @MockBean
     private FriendshipService friendshipService;
 
+    @Autowired
+    private FriendshipRepository friendshipRepository;
+
     private ApplicationUser testUser;
     private ApplicationUser friendUser;
 
@@ -64,6 +68,8 @@ class PushNotificationEndpointTest extends BaseTest {
         friendUser = new ApplicationUser();
         friendUser.setEmail("friend@example.com");
         friendUser.setId(2L);
+
+
     }
 
     // ==================== subscribeWeb Tests ====================
@@ -226,11 +232,13 @@ class PushNotificationEndpointTest extends BaseTest {
 
         Friendship friendship1 = new Friendship();
         friendship1.setReceiver(friendUser);
+        friendship1.setSender(testUser);
 
         ApplicationUser friend2 = new ApplicationUser();
         friend2.setEmail("friend2@example.com");
         Friendship friendship2 = new Friendship();
         friendship2.setReceiver(friend2);
+        friendship2.setSender(testUser);
 
         List<Friendship> friendships = Arrays.asList(friendship1, friendship2);
 
@@ -286,6 +294,7 @@ class PushNotificationEndpointTest extends BaseTest {
 
         Friendship friendship = new Friendship();
         friendship.setReceiver(friendUser);
+        friendship.setSender(testUser);
 
         when(userRepository.findUserByEmail("test@example.com")).thenReturn(testUser);
         when(friendshipService.getFriends("test@example.com")).thenReturn(Collections.singletonList(friendship));
