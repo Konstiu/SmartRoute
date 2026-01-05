@@ -71,6 +71,18 @@
       <ion-label>{{ totalStops }}/3 stops</ion-label>
     </ion-chip>
 
+    <!-- Mode toggle (only when adding stops) -->
+    <ion-fab-button
+      *ngIf="isMapReady && isEditingStops"
+      class="fab-mode"
+      [color]="mode === 'KEEP_SHAPE' ? 'tertiary' : 'secondary'"
+      (click)="toggleMode()"
+      [disabled]="isProcessing">
+
+      <!-- Icon changes with mode -->
+      <ion-icon [name]="mode === 'KEEP_SHAPE' ? 'flash-outline' : 'resize-outline'"></ion-icon>
+    </ion-fab-button>
+
     <!-- Confirm -->
     <ion-fab-button
       *ngIf="addedPoints.length > 0"
@@ -81,26 +93,17 @@
       <ion-icon name="checkmark-outline"></ion-icon>
     </ion-fab-button>
 
-    <!-- Mode toggle (only when adding stops) -->
+    <!-- Add -->
     <ion-fab-button
-      *ngIf="isMapReady && addPointMode"
-      class="fab-mode"
-      [color]="mode === 'KEEP_SHAPE' ? 'tertiary' : 'secondary'"
-      (click)="toggleMode()">
-
-      <!-- Icon changes with mode -->
-      <ion-icon [name]="mode === 'KEEP_SHAPE' ? 'flash-outline' : 'resize-outline'"></ion-icon>
-
+      [color]="isEditingStops ? 'danger' : 'primary'"
+      [disabled]="!isEditingStops && remainingStops === 0"
+      (click)="onAddCancelClick()">
+      <ion-icon
+        [name]="isEditingStops ? 'close-outline' : 'add-outline'">
+      </ion-icon>
     </ion-fab-button>
 
 
-    <!-- Add / Cancel -->
-    <ion-fab-button
-      [color]="addPointMode ? 'danger' : 'primary'"
-      [disabled]="!addPointMode && remainingStops === 0"
-      (click)="toggleAddPointMode()">
-      <ion-icon [name]="addPointMode ? 'close-outline' : 'add-outline'"></ion-icon>
-    </ion-fab-button>
 
     <ion-fab-button
       *ngIf="isMapReady"
