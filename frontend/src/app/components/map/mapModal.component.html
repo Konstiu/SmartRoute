@@ -7,13 +7,37 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content fullscreen>
+<ion-content>
 
   <!-- Spinner overlay -->
   <div class="map-loading" *ngIf="!isMapReady">
     <ion-spinner name="crescent"></ion-spinner>
     <p>Centering route…</p>
   </div>
+
+  <!-- Search overlay (on top of the map) -->
+  <div class="search-overlay" *ngIf="isMapReady">
+    <div class="search-bar-wrapper">
+      <ion-searchbar
+        placeholder="Search location…"
+        [value]="searchQuery"
+        (ionInput)="onSearchInput($event)"
+        (ionClear)="clearSearch()">
+      </ion-searchbar>
+    </div>
+
+    <ion-list *ngIf="searchResults.length > 0" class="search-results">
+      <ion-item
+        button
+        *ngFor="let r of searchResults"
+        (click)="selectSearchResult(r)">
+        <ion-label class="ion-text-wrap">
+          {{ r.display_name }}
+        </ion-label>
+      </ion-item>
+    </ion-list>
+  </div>
+
 
   <!-- Map -->
   <app-map
@@ -22,18 +46,6 @@
     [addPointMode]="addPointMode"
     (pointAdded)="onPointAdded($event)">
   </app-map>
-
-  <!-- Add points toggle -->
-  <div class="mode-toggle" *ngIf="isMapReady">
-    <ion-segment [(ngModel)]="mode" [disabled]="addPointMode">
-      <ion-segment-button value="KEEP_SHAPE">
-        <ion-label>Fast insert</ion-label>
-      </ion-segment-button>
-      <ion-segment-button value="KEEP_LENGTH">
-        <ion-label>Keep length</ion-label>
-      </ion-segment-button>
-    </ion-segment>
-  </div>
 
   <!-- Center FAB -->
   <ion-fab
@@ -68,6 +80,19 @@
       <ion-icon name="checkmark-outline"></ion-icon>
     </ion-fab-button>
 
+    <!-- Mode toggle (only when adding stops) -->
+    <ion-fab-button
+      *ngIf="isMapReady && addPointMode"
+      class="fab-mode"
+      [color]="mode === 'KEEP_SHAPE' ? 'tertiary' : 'secondary'"
+      (click)="toggleMode()">
+
+      <!-- Icon changes with mode -->
+      <ion-icon [name]="mode === 'KEEP_SHAPE' ? 'flash-outline' : 'resize-outline'"></ion-icon>
+
+    </ion-fab-button>
+
+
     <!-- Add / Cancel -->
     <ion-fab-button
       [color]="addPointMode ? 'danger' : 'primary'"
@@ -77,7 +102,5 @@
     </ion-fab-button>
 
   </ion-fab>
-
-
 
 </ion-content>

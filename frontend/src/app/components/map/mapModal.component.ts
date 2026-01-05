@@ -5,6 +5,7 @@ import { FormsModule } from '@angular/forms'
 import { LatLngBounds, LatLng, Layer, marker } from 'leaflet';
 import { MapComponent } from './map.component';
 import { MAP_MARKER_COLORS, coloredMarker } from './map-icon';
+import { GeocodingService, GeocodeResult } from 'src/services/geocoding.service';
 
 type AddStopsMode = 'KEEP_SHAPE' | 'KEEP_LENGTH';
 
@@ -36,9 +37,16 @@ export class MapModalComponent {
   isProcessing = false;
   loadingMessage = 'Loading map…';
 
+  searchQuery = '';
+  searchResults: GeocodeResult[] = [];
+  isSearching = false;
+
+  private searchTimer?: any;
+
   constructor(
     private modalCtrl: ModalController,
-    private toastCtrl: ToastController
+    private toastCtrl: ToastController,
+    private geocoding: GeocodingService
   ) {}
 
   ngOnInit() {
@@ -195,4 +203,67 @@ export class MapModalComponent {
       this.isProcessing = false;
     }
   }
+
+  toggleMode() {
+    this.mode = this.mode === 'KEEP_SHAPE' ? 'KEEP_LENGTH' : 'KEEP_SHAPE';
+  }
+
+
+  onSearchInput(ev: any) {
+    const value = (ev?.target?.value ?? '').toString();
+    this.searchQuery = value;
+
+    clearTimeout(this.searchTimer);
+
+    // debounce
+    this.searchTimer = setTimeout(async () => {
+      const q = this.searchQuery.trim();
+      if (q.length < 3) {
+        this.searchResults = [];
+        return;
+      }
+
+      this.isSearching = true;
+      try {
+        this.searchResults = await this.geocoding.search(q);
+      } catch (e) {
+        console.error('Geocoding failed', e);
+        this.searchResults = [];
+      } finally {
+        this.isSearching = false;
+      }
+    }, 350);
+  }
+
+  clearSearch() {
+    this.searchQuery = '';
+    this.searchResults = [];
+  }
+
+async selectSearchResult(r: { display_name: string; lat: string; lon: string }) {
+  const lat = Number(r.lat);
+  const lon = Number(r.lon);
+  if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+
+  const point = new LatLng(lat, lon);
+
+  // Always center the map on the searched location
+  const map = this.mapComponent?.map;
+  if (map) {
+    map.setView(point, Math.max(map.getZoom(), 15), { animate: true });
+  }
+
+  // Only create a stop marker if we're in "add stop" mode
+  if (!this.addPointMode || this.isProcessing) {
+    //await this.showInfoToast('Enable add-stop mode to insert a stop.');
+    return;
+  }
+
+  // Reuse your existing flow (adds marker + updates layers + enforces max-3)
+  await this.onPointAdded(point);
+
+  // Optional: clear results after selecting
+  this.clearSearch();
+}
+
 }
