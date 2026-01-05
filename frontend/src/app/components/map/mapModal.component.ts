@@ -148,11 +148,6 @@ export class MapModalComponent {
 
     this.addedPoints = [...this.addedPoints, point];
     this.rebuildEditorLayers();
-
-    // optional: auto-exit when user hits limit
-    if (this.totalStops >= MapModalComponent.MAX_STOPS) {
-      this.addPointMode = false;
-    }
   }
 
   close() {
@@ -401,19 +396,18 @@ private async openSearchMarkerActions() {
 private async addSearchedPointAsStop(point: LatLng) {
   if (this.isProcessing) return;
 
-  const wasAddMode = this.addPointMode;
-  this.addPointMode = true;
-
-  try {
-    await this.onPointAdded(point);
-
-    this.clearSearchMarker();
-
-    this.rebuildEditorLayers();
-  } finally {
-    this.addPointMode = wasAddMode;
+  if (this.totalStops >= MapModalComponent.MAX_STOPS) {
+    await this.showMaxStopsToast();
+    return;
   }
+
+  // Add pending stop directly (don’t depend on addPointMode)
+  this.addedPoints = [...this.addedPoints, point];
+
+  this.clearSearchMarker();
+  this.rebuildEditorLayers();
 }
+
 
 
 private async chooseSearchedPointAsStart(point: LatLng) {
@@ -451,4 +445,24 @@ private async chooseSearchedPointAsStart(point: LatLng) {
     setTimeout(() => (this.isProcessing = false), 120);
   }
 }
+
+cancelPending() {
+  this.addedPoints = [];
+  this.addPointMode = false; // optional: also exit add mode
+  this.rebuildEditorLayers();
+}
+
+get isEditingStops(): boolean {
+  return this.addPointMode || this.addedPoints.length > 0;
+}
+
+onAddCancelClick() {
+  if (this.isEditingStops) {
+    this.cancelPending();
+  } else {
+    this.toggleAddPointMode();
+  }
+}
+
+
 }
