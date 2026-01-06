@@ -18,6 +18,9 @@ export class PushNotificationService {
 
   private subscriptionStatus = new BehaviorSubject<boolean>(false);
 
+  private emergencyAlertEnabledSubject = new BehaviorSubject<boolean>(this.loadFromLocalStorage());
+  public emergencyAlertEnabled$ = this.emergencyAlertEnabledSubject.asObservable();
+
   // Track if listeners are already registered (to prevent duplicates)
   private nativeListenersRegistered = false;
 
@@ -29,6 +32,25 @@ export class PushNotificationService {
     // Don't auto-initialize - wait for explicit call after login
     // this.autoInitialize();
   }
+
+
+  private loadFromLocalStorage(): boolean {
+    const stored = localStorage.getItem('emergencyAlertEnabled');
+    // Default to true if not set
+    return stored !== 'false';
+  }
+
+  async setEmergencyAlertEnabled(enabled: boolean) {
+    localStorage.setItem('emergencyAlertEnabled', enabled.toString());
+
+    // Update observable
+    this.emergencyAlertEnabledSubject.next(enabled);
+  }
+
+  getEmergencyAlertEnabled(): boolean {
+    return this.emergencyAlertEnabledSubject.value;
+  }
+
 
   /**
    * Automatically initialize push notifications on service startup

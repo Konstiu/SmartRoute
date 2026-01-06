@@ -67,6 +67,12 @@ spec:
                   name: strava-secret
                   key: STRAVA_CLIENT_SECRET
 
+            - name: VAPID_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: vapid-secret
+                  key: VAPID_PRIVATE_KEY
+
             - name: firebase.service.account.path
               value: "file:/etc/secrets/firebase/firebase-service-account.json"
 
