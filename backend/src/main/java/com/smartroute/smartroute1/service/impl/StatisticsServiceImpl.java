@@ -46,7 +46,11 @@ public class StatisticsServiceImpl implements StatisticsService {
     );
     private int numberOfDaysInYear;     //For checking leap years
 
-    public StatisticsServiceImpl(FatigueAndOverloadService fatigueAndOverloadService, ConsistencyAnalyzerService consistencyAnalyzerService, ActivityRepository activityRepository, GymWorkoutRepository gymWorkoutRepository, InjuryRepository injuryRepository) {
+    public StatisticsServiceImpl(FatigueAndOverloadService fatigueAndOverloadService,
+                                 ConsistencyAnalyzerService consistencyAnalyzerService,
+                                 ActivityRepository activityRepository,
+                                 GymWorkoutRepository gymWorkoutRepository,
+                                 InjuryRepository injuryRepository) {
         this.fatigueAndOverloadService = fatigueAndOverloadService;
         this.consistencyAnalyzerService = consistencyAnalyzerService;
         this.activityRepository = activityRepository;
