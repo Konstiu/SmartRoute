@@ -2,10 +2,13 @@ package com.smartroute.smartroute1.integrationtest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartroute.smartroute1.endpoint.dto.KeysDto;
+import com.smartroute.smartroute1.endpoint.dto.MessageDetailDto;
 import com.smartroute.smartroute1.endpoint.dto.UserDetailDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.Message;
 import com.smartroute.smartroute1.service.CommunicationService;
 import com.smartroute.smartroute1.endpoint.mapper.UserMapper;
+import com.smartroute.smartroute1.endpoint.mapper.MessageMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -15,14 +18,17 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 
@@ -41,6 +47,9 @@ public class CommunicationEndpointTest {
 
     @MockitoBean
     private UserMapper userMapper;
+
+    @MockitoBean
+    private MessageMapper messageMapper;
 
     @Test
     @WithMockUser(username = "test@email.com")
@@ -213,6 +222,167 @@ public class CommunicationEndpointTest {
     @Test
     void getKeysOfFriend_withoutRole_forbidden() throws Exception {
         mockMvc.perform(get("/api/v1/communication/keys-of-friend/{friendEmail}", "friend@example.com"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "sender@example.com")
+    void sendEncryptedMessage_withRoleUser_returnsMessageDetailDto() throws Exception {
+        UUID usedId = UUID.randomUUID();
+        var payload = Map.of(
+            "senderEmail", "sender@example.com",
+            "recipientEmail", "recipient@example.com",
+            "senderIdentityKey", "S_ID",
+            "senderEphemeralKey", "S_EPH",
+            "usedOneTimePreKeyId", usedId,
+            "encryptedMessage", Map.of(
+                "ciphertext", "CIPH",
+                "nonce", "NON",
+                "messageNumber", 1,
+                "ratchetPublicKey", "RPK"
+            )
+        );
+
+        String requestJson = objectMapper.writeValueAsString(payload);
+
+        Message returnedMessage = new Message();
+        ApplicationUser s = new ApplicationUser(); s.setEmail("sender@example.com");
+        ApplicationUser r = new ApplicationUser(); r.setEmail("recipient@example.com");
+        returnedMessage.setSender(s);
+        returnedMessage.setRecipient(r);
+        returnedMessage.setSenderIdentityKey("S_ID");
+        returnedMessage.setSenderEphemeralKey("S_EPH");
+        returnedMessage.setUsedOneTimePreKeyId(usedId);
+        returnedMessage.setCiphertext("CIPH");
+        returnedMessage.setNonce("NON");
+        returnedMessage.setMessageNumber(1L);
+        returnedMessage.setRatchetPublicKey("RPK");
+
+        MessageDetailDto dto = new MessageDetailDto();
+        dto.setSenderEmail("sender@example.com");
+        dto.setRecipientEmail("recipient@example.com");
+        dto.setSenderIdentityKey("S_ID");
+        dto.setSenderEphemeralKey("S_EPH");
+        dto.setUsedOneTimePreKeyId(usedId);
+        com.smartroute.smartroute1.endpoint.dto.EncryptedMessageDto enc = new com.smartroute.smartroute1.endpoint.dto.EncryptedMessageDto();
+        enc.setCiphertext("CIPH"); enc.setNonce("NON"); enc.setMessageNumber(1L); enc.setRatchetPublicKey("RPK");
+        dto.setEncryptedMessage(enc);
+
+        when(communicationService.sendEncryptedMessage(eq("sender@example.com"), any())).thenReturn(returnedMessage);
+        when(messageMapper.entityToMessageDetailDto(returnedMessage)).thenReturn(dto);
+
+        mockMvc.perform(post("/api/v1/communication/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.senderEmail").value("sender@example.com"))
+                .andExpect(jsonPath("$.recipientEmail").value("recipient@example.com"))
+                .andExpect(jsonPath("$.encryptedMessage.ciphertext").value("CIPH"));
+    }
+
+    @Test
+    void sendEncryptedMessage_withoutRole_forbidden() throws Exception {
+        var payload = Map.of(
+            "senderEmail", "sender@example.com",
+            "recipientEmail", "recipient@example.com",
+            "encryptedMessage", Map.of("ciphertext","C","nonce","N","messageNumber",1,"ratchetPublicKey","R")
+        );
+        String requestJson = objectMapper.writeValueAsString(payload);
+
+        mockMvc.perform(post("/api/v1/communication/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "sender2@example.com")
+    void sendEncryptedMessage_whenServiceThrowsValidationException_returns422() throws Exception {
+        var payload = Map.of(
+            "senderEmail", "sender2@example.com",
+            "recipientEmail", "recipient2@example.com",
+            "encryptedMessage", Map.of("ciphertext","C2","nonce","N2","messageNumber",2,"ratchetPublicKey","R2")
+        );
+        String requestJson = objectMapper.writeValueAsString(payload);
+
+        when(communicationService.sendEncryptedMessage(eq("sender2@example.com"), any()))
+                .thenThrow(new com.smartroute.smartroute1.exception.ValidationException("invalid"));
+
+        mockMvc.perform(post("/api/v1/communication/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com")
+    void getMessages_withRoleUser_returnsMappedMessages() throws Exception {
+        Instant since = Instant.now().minusSeconds(60);
+
+        // prepare messages returned by service
+        Message m1 = new Message();
+        ApplicationUser s = new ApplicationUser(); s.setEmail("user@example.com");
+        ApplicationUser r = new ApplicationUser(); r.setEmail("friend@example.com");
+        m1.setSender(s);
+        m1.setRecipient(r);
+        m1.setCiphertext("C1");
+        m1.setTimestamp(since.plusSeconds(10));
+
+        Message m2 = new Message();
+        ApplicationUser s2 = new ApplicationUser(); s2.setEmail("friend@example.com");
+        ApplicationUser r2 = new ApplicationUser(); r2.setEmail("user@example.com");
+        m2.setSender(s2);
+        m2.setRecipient(r2);
+        m2.setCiphertext("C2");
+        m2.setTimestamp(since.plusSeconds(20));
+
+        // DTOs produced by mapper
+        MessageDetailDto dto1 = new MessageDetailDto();
+        dto1.setSenderEmail("user@example.com");
+        dto1.setRecipientEmail("friend@example.com");
+        com.smartroute.smartroute1.endpoint.dto.EncryptedMessageDto enc1 = new com.smartroute.smartroute1.endpoint.dto.EncryptedMessageDto();
+        enc1.setCiphertext("C1"); dto1.setEncryptedMessage(enc1);
+
+        MessageDetailDto dto2 = new MessageDetailDto();
+        dto2.setSenderEmail("friend@example.com");
+        dto2.setRecipientEmail("user@example.com");
+        com.smartroute.smartroute1.endpoint.dto.EncryptedMessageDto enc2 = new com.smartroute.smartroute1.endpoint.dto.EncryptedMessageDto();
+        enc2.setCiphertext("C2"); dto2.setEncryptedMessage(enc2);
+
+        when(communicationService.retrieveMessagesByFriendAndTimestamp(eq("user@example.com"), eq("friend@example.com"), any()))
+                .thenReturn(List.of(m1, m2));
+        when(messageMapper.entityToMessageDetailDto(m1)).thenReturn(dto1);
+        when(messageMapper.entityToMessageDetailDto(m2)).thenReturn(dto2);
+
+        mockMvc.perform(get("/api/v1/communication/messages/{friendEmail}", "friend@example.com")
+                        .param("timestamp", since.toString()))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].senderEmail").value("user@example.com"))
+                .andExpect(jsonPath("$[1].senderEmail").value("friend@example.com"));
+    }
+
+    @Test
+    @WithMockUser(username = "user2@example.com")
+    void getMessages_withRoleUser_andNoMessages_returnsEmptyList() throws Exception {
+        Instant since = Instant.now();
+        when(communicationService.retrieveMessagesByFriendAndTimestamp(eq("user2@example.com"), eq("friend2@example.com"), any()))
+                .thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/communication/messages/{friendEmail}", "friend2@example.com")
+                        .param("timestamp", since.toString()))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void getMessages_withoutRole_forbidden() throws Exception {
+        Instant since = Instant.now();
+        mockMvc.perform(get("/api/v1/communication/messages/{friendEmail}", "friend3@example.com")
+                        .param("timestamp", since.toString()))
                 .andExpect(status().isForbidden());
     }
 
