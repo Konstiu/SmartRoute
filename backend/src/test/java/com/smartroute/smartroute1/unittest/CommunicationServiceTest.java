@@ -1,13 +1,17 @@
 package com.smartroute.smartroute1.unittest;
 
 import com.smartroute.smartroute1.endpoint.dto.KeysDto;
+import com.smartroute.smartroute1.endpoint.dto.MessageDetailDto;
 import com.smartroute.smartroute1.endpoint.dto.OneTimePreKeyDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Friendship;
+import com.smartroute.smartroute1.entity.Message;
 import com.smartroute.smartroute1.entity.PreKey;
 import com.smartroute.smartroute1.entity.enums.FriendshipStatus;
 import com.smartroute.smartroute1.exception.NotFoundException;
+import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.FriendshipRepository;
+import com.smartroute.smartroute1.repository.MessageRepository;
 import com.smartroute.smartroute1.repository.PreKeyRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.CommunicationService;
@@ -18,6 +22,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.security.access.AccessDeniedException;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -39,6 +44,9 @@ class CommunicationServiceTest {
 
     @Autowired
     private FriendshipRepository friendshipRepository;
+
+    @Autowired
+    private MessageRepository messageRepository;
 
     @Test
     void uploadIdentityKey_withExistingUser_shouldSetPublicKeyAndReturnUser() {
@@ -263,6 +271,146 @@ class CommunicationServiceTest {
         // ensure prekey was deleted
         long remaining = preKeyRepository.countByUserId(friend.getId());
         assertEquals(0, remaining, "One-time pre-key should have been deleted after retrieval");
+    }
+
+    @Test
+    void sendEncryptedMessage_whenNotFriends_shouldThrowAccessDenied() {
+        ApplicationUser sender = new ApplicationUser("sender1@example.com", "pw", "S", "One");
+        ApplicationUser recipient = new ApplicationUser("recipient1@example.com", "pw", "R", "One");
+        userRepository.save(sender);
+        userRepository.save(recipient);
+
+        MessageDetailDto dto = new MessageDetailDto();
+        dto.setSenderEmail(sender.getEmail());
+        dto.setRecipientEmail(recipient.getEmail());
+        dto.setEncryptedMessage(null);
+
+        assertThrows(AccessDeniedException.class,
+                () -> communicationService.sendEncryptedMessage(sender.getEmail(), dto));
+    }
+
+    @Test
+    void sendEncryptedMessage_whenFriendsAndInvalid_shouldThrowValidationException() {
+        ApplicationUser sender = new ApplicationUser("sender2@example.com", "pw", "S", "Two");
+        ApplicationUser recipient = new ApplicationUser("recipient2@example.com", "pw", "R", "Two");
+        userRepository.save(sender);
+        userRepository.save(recipient);
+
+        Friendship f = new Friendship();
+        f.setSender(sender);
+        f.setReceiver(recipient);
+        f.setStatus(FriendshipStatus.ACCEPTED);
+        friendshipRepository.save(f);
+
+        MessageDetailDto dto = new MessageDetailDto();
+        dto.setSenderEmail(sender.getEmail());
+        dto.setRecipientEmail(recipient.getEmail());
+        dto.setEncryptedMessage(null);
+
+        assertThrows(ValidationException.class,
+                () -> communicationService.sendEncryptedMessage(sender.getEmail(), dto));
+    }
+
+    @Test
+    void sendEncryptedMessage_whenFriendsAndValid_shouldPersistAllFields() throws com.smartroute.smartroute1.exception.ValidationException {
+        ApplicationUser sender = new ApplicationUser("sender3@example.com", "pw", "S", "Three");
+        ApplicationUser recipient = new ApplicationUser("recipient3@example.com", "pw", "R", "Three");
+        userRepository.save(sender);
+        userRepository.save(recipient);
+
+        Friendship f = new Friendship();
+        f.setSender(sender);
+        f.setReceiver(recipient);
+        f.setStatus(FriendshipStatus.ACCEPTED);
+        friendshipRepository.save(f);
+
+        // build full DTO
+        MessageDetailDto dto = new MessageDetailDto();
+        dto.setSenderEmail(sender.getEmail());
+        dto.setRecipientEmail(recipient.getEmail());
+        dto.setSenderIdentityKey("SENDER_IDENTITY_KEY");
+        dto.setSenderEphemeralKey("SENDER_EPHEMERAL_KEY");
+        UUID usedPreKey = UUID.randomUUID();
+        dto.setUsedOneTimePreKeyId(usedPreKey);
+
+        com.smartroute.smartroute1.endpoint.dto.EncryptedMessageDto enc = new com.smartroute.smartroute1.endpoint.dto.EncryptedMessageDto();
+        enc.setCiphertext("CIPHERTEXT_ABC");
+        enc.setNonce("NONCE_123");
+        enc.setMessageNumber(42L);
+        enc.setRatchetPublicKey("RATCHET_KEY_XYZ");
+        dto.setEncryptedMessage(enc);
+
+        Message saved = communicationService.sendEncryptedMessage(sender.getEmail(), dto);
+
+        assertNotNull(saved, "Saved message should not be null");
+        assertEquals(sender.getEmail(), saved.getSender().getEmail());
+        assertEquals(recipient.getEmail(), saved.getRecipient().getEmail());
+
+        assertEquals(dto.getSenderIdentityKey(), saved.getSenderIdentityKey());
+        assertEquals(dto.getSenderEphemeralKey(), saved.getSenderEphemeralKey());
+        assertEquals(dto.getUsedOneTimePreKeyId(), saved.getUsedOneTimePreKeyId());
+
+        assertNotNull(saved.getCiphertext());
+        assertEquals(enc.getCiphertext(), saved.getCiphertext());
+        assertEquals(enc.getNonce(), saved.getNonce());
+        assertEquals(enc.getMessageNumber(), saved.getMessageNumber());
+        assertEquals(enc.getRatchetPublicKey(), saved.getRatchetPublicKey());
+    }
+
+    @Test
+    void retrieveMessagesByFriendAndTimestamp_whenNotFriends_shouldThrowAccessDenied() {
+        ApplicationUser user = new ApplicationUser("rm_user@example.com", "pw", "R", "One");
+        ApplicationUser friend = new ApplicationUser("rm_friend@example.com", "pw", "R", "Friend");
+        userRepository.save(user);
+        userRepository.save(friend);
+
+        Instant since = Instant.now().minusSeconds(3600);
+
+        assertThrows(AccessDeniedException.class,
+                () -> communicationService.retrieveMessagesByFriendAndTimestamp(user.getEmail(), friend.getEmail(), since));
+    }
+
+    @Test
+    void retrieveMessagesByFriendAndTimestamp_whenFriends_returnsMessagesSinceTimestamp() {
+        ApplicationUser user = new ApplicationUser("rm_user2@example.com", "pw", "R", "Two");
+        ApplicationUser friend = new ApplicationUser("rm_friend2@example.com", "pw", "R", "Friend2");
+        userRepository.save(user);
+        userRepository.save(friend);
+
+        Friendship f = new Friendship();
+        f.setSender(user);
+        f.setReceiver(friend);
+        f.setStatus(FriendshipStatus.ACCEPTED);
+        friendshipRepository.save(f);
+
+        // prepare timestamps
+        Instant base = Instant.now();
+        Instant older = base.minusSeconds(3600);
+        Instant newer = base.plusSeconds(10);
+
+        // message before since
+        Message mOld = new Message();
+        mOld.setSender(user);
+        mOld.setRecipient(friend);
+        mOld.setCiphertext("OLD");
+        mOld.setTimestamp(older);
+        messageRepository.save(mOld);
+
+        // message after since
+        Message mNew = new Message();
+        mNew.setSender(friend);
+        mNew.setRecipient(user);
+        mNew.setCiphertext("NEW");
+        mNew.setTimestamp(newer);
+        messageRepository.save(mNew);
+
+        // retrieve messages since 'base'
+        var results = communicationService.retrieveMessagesByFriendAndTimestamp(user.getEmail(), friend.getEmail(), base);
+
+        assertNotNull(results);
+        assertEquals(1, results.size(), "Only the message with timestamp >= base should be returned");
+        Message returned = results.getFirst();
+        assertEquals("NEW", returned.getCiphertext());
     }
 
 }

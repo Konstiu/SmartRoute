@@ -5,12 +5,10 @@ import naclUtil from 'tweetnacl-util';
 import { Globals } from '../global/globals';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom, Observable } from 'rxjs';
-import { KeysDto, OneTimePreKeyDto } from 'src/app/dtos/communication';
+import { EncryptedMessage, KeysDto, MessageDetailDto, OneTimePreKeyDto } from 'src/app/dtos/communication';
+import { db, KeyPair, Message, RatchetState } from 'src/db/encryption';
 
-interface KeyPair {
-  publicKey: Uint8Array,
-  privateKey: Uint8Array
-}
+
 
 @Injectable({
   providedIn: 'root'
@@ -217,6 +215,27 @@ export class KeyManagementService {
   }
 
   /**
+   * Get the signed pre-key pair from secure storage
+   * @returns 
+   */
+  async getSignedPreKeyPair(): Promise<KeyPair | null> {
+    try {
+      const publicKeyResult = await this.getFromStorageSafe(KeyManagementService.SIGNED_PRE_KEY_PUBLIC);
+      const privateKeyResult = await this.getFromStorageSafe(KeyManagementService.SIGNED_PRE_KEY_PRIVATE);
+      if (!publicKeyResult || !publicKeyResult.value || !privateKeyResult || !privateKeyResult.value) {
+        return null;
+      }
+      return {
+        publicKey: naclUtil.decodeBase64(publicKeyResult.value),
+        privateKey: naclUtil.decodeBase64(privateKeyResult.value)
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+
+  /**
    * Generate and store one-time pre-keys if the count on the backend is below the threshold.
    */
   async generateStoreAndUploadOneTimePreKeysIfNecessary(): Promise<void> {
@@ -261,6 +280,29 @@ export class KeyManagementService {
     }
 
     return oneTimePreKeys;
+  }
+
+  /**
+   * Get a one-time pre-key pair by its UUID from secure storage.
+   * 
+   * @param uuid 
+   * @returns 
+   */
+  async getOneTimePreKeyPairByUuid(uuid: string): Promise<KeyPair | null> {
+    const keyName = KeyManagementService.ONE_TIME_PRE_KEY_PREFIX + uuid;
+    try {
+      const result = await this.getFromStorageSafe(keyName);
+      if (!result || !result.value) {
+        return null;
+      }
+      const storedKey = JSON.parse(result.value);
+      return {
+        publicKey: naclUtil.decodeBase64(storedKey.publicKey),
+        privateKey: naclUtil.decodeBase64(storedKey.privateKey)
+      };
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -355,9 +397,9 @@ export class KeyManagementService {
     const OPK_B = friendKeysDto.oneTimePreKey ? naclUtil.decodeBase64(friendKeysDto.oneTimePreKey.publicKey) : null;
 
     // perform diffie hellmann operations
-    const dh1 = nacl.scalarMult(IK_A.privateKey, SPK_B);  // IK_A * SPK_B
-    const dh2 = nacl.scalarMult(EK_A.privateKey, IK_B);   // EK_A * IK_B
-    const dh3 = nacl.scalarMult(EK_A.privateKey, SPK_B);  // EK_A * SPK_B
+    const dh1 = nacl.scalarMult(IK_A.privateKey.slice(0, 32), SPK_B);  // IK_A * SPK_B
+    const dh2 = nacl.scalarMult(EK_A.privateKey, IK_B);                // EK_A * IK_B
+    const dh3 = nacl.scalarMult(EK_A.privateKey, SPK_B);               // EK_A * SPK_B
 
     let dhResult: Uint8Array;
     if (OPK_B) {
@@ -437,7 +479,7 @@ export class KeyManagementService {
 
     // reverse diffie hellmann operations
     const dh1 = nacl.scalarMult(SPK_B.privateKey, IK_A);  // SPK_B * IK_A
-    const dh2 = nacl.scalarMult(IK_B.privateKey, EK_A);   // IK_B * EK_A
+    const dh2 = nacl.scalarMult(IK_B.privateKey.slice(0, 32), EK_A);   // IK_B * EK_A
     const dh3 = nacl.scalarMult(SPK_B.privateKey, EK_A);  // SPK_B * EK_A
 
     let dhResult: Uint8Array;
@@ -500,5 +542,468 @@ export class KeyManagementService {
   }
 
 
+  /**
+   * Initializes the Double Ratchet state for the sender after X3DH key agreement.
+   * 
+   * @param sharedSecret 
+   * @param theirSignedPrekeyPublicKey 
+   * @returns 
+   */
+  async initializeForSender(
+    sharedSecret: Uint8Array,
+    theirSignedPrekeyPublicKey: Uint8Array
+  ): Promise<RatchetState> {
+
+    // Derive initial root key and chain keys from shared secret
+    const rootKey = await this.hkdf(sharedSecret, new Uint8Array(32), 'WhisperRatchet', 32);
+
+    // Generate own ratchet key pair
+    const myRatchetKeyPair = nacl.box.keyPair();
+
+    // First DH with their signed prekey
+    const dhOutput = nacl.scalarMult(myRatchetKeyPair.secretKey, theirSignedPrekeyPublicKey);
+
+    // Derive new root key and sending chain key
+    const { newRootKey, chainKey } = this.deriveRatchetKeys(rootKey, dhOutput);
+
+    return {
+      rootKey: newRootKey,
+      sendingChainKey: chainKey,
+      receivingChainKey: new Uint8Array(0), // is set on first receive
+      myCurrentRatchetKeyPair: {
+        publicKey: myRatchetKeyPair.publicKey,
+        privateKey: myRatchetKeyPair.secretKey
+      },
+      theirCurrentRatchetPublicKey: theirSignedPrekeyPublicKey,
+      sendMessageNumber: 0,
+      receiveMessageNumber: 0,
+      previousSendingChainLength: 0
+    };
+  }
+
+  /**
+   * Initializes the Double Ratchet state for the receiver after X3DH key agreement.
+   * 
+   * @param sharedSecret 
+   * @param mySignedPreKeyPair 
+   * @returns 
+   */
+  async initializeForReceiver(
+    sharedSecret: Uint8Array,
+    mySignedPreKeyPair: KeyPair
+  ): Promise<RatchetState> {
+
+    // Derive initial root key and chain keys from shared secret
+    const rootKey = await this.hkdf(sharedSecret, new Uint8Array(32), 'WhisperRatchet', 32);
+
+    // Generate own ratchet key pair
+    const myRatchetKeyPair = nacl.box.keyPair();
+
+    return {
+      rootKey,
+      sendingChainKey: new Uint8Array(0), // is set on first send
+      receivingChainKey: new Uint8Array(0), // is set on first receive
+      myCurrentRatchetKeyPair: {
+        publicKey: myRatchetKeyPair.publicKey,
+        privateKey: myRatchetKeyPair.secretKey
+      },
+      theirCurrentRatchetPublicKey: null, // extracted from first message
+      sendMessageNumber: 0,
+      receiveMessageNumber: 0,
+      previousSendingChainLength: 0
+    };
+  }
+
+  /**
+   * Encrypts a message using the Double Ratchet algorithm.
+   * 
+   * @param state 
+   * @param plaintext 
+   * @returns 
+   */
+  async encryptMessage(state: RatchetState, plaintext: string): Promise<EncryptedMessage> {
+    // Derive message key from sending chain key
+    const { messageKey, newChainKey } = await this.deriveMessageKey(state.sendingChainKey);
+
+    // Encrypt the plaintext
+    const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
+    const plaintextBytes = naclUtil.decodeUTF8(plaintext);
+    const ciphertext = nacl.secretbox(
+      plaintextBytes,
+      nonce,
+      messageKey
+    );
+
+    // Update state
+    const messageNumber = state.sendMessageNumber;
+    state.sendingChainKey = newChainKey;
+    state.sendMessageNumber++;
+
+    // Delete used message key from memory
+    messageKey.fill(0);
+
+    return {
+      ciphertext: naclUtil.encodeBase64(ciphertext),
+      nonce: naclUtil.encodeBase64(nonce),
+      messageNumber,
+      ratchetPublicKey: naclUtil.encodeBase64(state.myCurrentRatchetKeyPair.publicKey)
+    };
+  }
+
+  /**
+   * Decrypts a message using the Double Ratchet algorithm.
+   * 
+   * @param state 
+   * @param encryptedMessage 
+   * @returns 
+   */
+  async decryptMessage(state: RatchetState, encryptedMessage: EncryptedMessage): Promise<string> {
+    const theirRatchetkey = naclUtil.decodeBase64(encryptedMessage.ratchetPublicKey);
+
+    // Check if we need to perform a ratchet step
+    if (!state.theirCurrentRatchetPublicKey || !this.keysEqual(theirRatchetkey, state.theirCurrentRatchetPublicKey)) {
+      // Perform DH with their new ratchet public key
+      this.performDHRatchetStep(state, theirRatchetkey);
+    }
+
+    // Derive message key from receiving chain key
+    const { messageKey, newChainKey } = await this.deriveMessageKey(state.receivingChainKey);
+    state.receivingChainKey = newChainKey;
+
+    // Decrypt the ciphertext
+    const ciphertextBytes = naclUtil.decodeBase64(encryptedMessage.ciphertext);
+    const nonceBytes = naclUtil.decodeBase64(encryptedMessage.nonce);
+    const plaintextBytes = nacl.secretbox.open(ciphertextBytes, nonceBytes, messageKey);
+
+    if (!plaintextBytes) {
+      throw new Error('Decryption failed');
+    }
+
+    state.receiveMessageNumber++;
+
+    // Delete used message key from memory
+    messageKey.fill(0);
+
+    return naclUtil.encodeUTF8(plaintextBytes);
+  }
+
+  /**
+   * Performs a DH ratchet step when a new ratchet public key is received.
+   * 
+   * @param state 
+   * @param theirNewRatchetKey 
+   */
+  private performDHRatchetStep(state: RatchetState, theirNewRatchetKey: Uint8Array): void {
+    
+    // save friend's new ratchet public key
+    const previousRatchetKey = state.theirCurrentRatchetPublicKey;
+    state.theirCurrentRatchetPublicKey = theirNewRatchetKey;
+
+    // perform DH with friend's new ratchet public key
+    const dhOutput = nacl.scalarMult(state.myCurrentRatchetKeyPair.privateKey, theirNewRatchetKey);
+
+    // derive new root key and receiving chain key
+    const { newRootKey, chainKey } = this.deriveRatchetKeys(state.rootKey, dhOutput);
+    state.rootKey = newRootKey;
+    state.receivingChainKey = chainKey;
+    state.previousSendingChainLength = state.sendMessageNumber;
+    state.receiveMessageNumber = 0;
+
+    // generate new ratchet key pair
+    const newRatchetKeyPair = nacl.box.keyPair();
+    state.myCurrentRatchetKeyPair = {
+      publicKey: newRatchetKeyPair.publicKey,
+      privateKey: newRatchetKeyPair.secretKey
+    };
+
+    // perform DH with new ratchet key pair
+    const dhOutput2 = nacl.scalarMult(state.myCurrentRatchetKeyPair.privateKey, theirNewRatchetKey);
+
+    // derive new root key and sending chain key
+    const { newRootKey: finalRootKey, chainKey: newSendingChainKey } = this.deriveRatchetKeys(state.rootKey, dhOutput2);
+
+    state.rootKey = finalRootKey;
+    state.sendingChainKey = newSendingChainKey;
+    state.sendMessageNumber = 0;
+  }
+
+  /**
+   * Derives the message key and the next chain key from the current chain key.
+   * 
+   * @param chainKey 
+   * @returns 
+   */
+  private async deriveMessageKey(chainKey: Uint8Array): Promise<{
+    messageKey: Uint8Array;
+    newChainKey: Uint8Array;
+  }> {
+    const messageKey = await this.hkdf(chainKey, new Uint8Array(1).fill(0x01), 'WhisperMessageKeys', 32);
+    const newChainKey = await this.hkdf(chainKey, new Uint8Array(1).fill(0x02), 'WhisperMessageKeys', 32);
+    
+    return { messageKey, newChainKey };
+  }
+
+  /**
+   * Derives new root key and chain key using the Double Ratchet KDF.
+   * 
+   * @param rootKey 
+   * @param dhOutput 
+   * @returns 
+   */
+  private deriveRatchetKeys(rootKey: Uint8Array, dhOutput: Uint8Array): {
+    newRootKey: Uint8Array;
+    chainKey: Uint8Array;
+  } {
+    const combined = new Uint8Array(rootKey.length + dhOutput.length);
+    combined.set(rootKey);
+    combined.set(dhOutput, rootKey.length);
+    
+    const hash = nacl.hash(combined);
+    
+    return {
+      newRootKey: hash.slice(0, 32),
+      chainKey: hash.slice(32, 64)
+    };
+  }
+
+  /**
+   * Derives cryptographic key material using HKDF (RFC 5869) with SHA-256.
+   * 
+   * @param inputKeyMaterial Input key material (shared secret)
+   * @param salt Optional random salt value
+   * @param info Contextual information to bind the derived key to a specific use
+   * @param length Desired length of the derived key in bytes
+   * @returns A Uint8Array containing the derived key material
+   */
+  private async hkdf(
+    ikm: Uint8Array,
+    salt: Uint8Array,
+    info: string,
+    length: number
+  ): Promise<Uint8Array> {
+
+    // Helper function to convert Uint8Array to ArrayBuffer which is needed for Web Crypto API
+    const toArrayBuffer = (u8: Uint8Array): ArrayBuffer => {
+      if (u8.byteOffset === 0 && u8.byteLength === u8.buffer.byteLength && u8.buffer instanceof ArrayBuffer) {
+        return u8.buffer as ArrayBuffer;
+      }
+      const ab = new ArrayBuffer(u8.byteLength);
+      new Uint8Array(ab).set(u8);
+      return ab;
+    }
+
+    // Import the input key material
+    const key = await crypto.subtle.importKey(
+      "raw",
+      toArrayBuffer(ikm),
+      "HKDF",
+      false,
+      ["deriveBits"]
+    );
+
+    // Derive bits using HKDF
+    const bits = await crypto.subtle.deriveBits(
+      {
+        name: "HKDF",
+        hash: "SHA-256",
+        salt: toArrayBuffer(salt),
+        info: new TextEncoder().encode(info),
+      },
+      key,
+      length * 8
+    );
+
+    return new Uint8Array(bits);
+  }
+
+  /**
+   * Compares two Uint8Array instances for equality.
+   * 
+   * @param a 
+   * @param b 
+   * @returns 
+   */
+  private keysEqual(a: Uint8Array, b: Uint8Array): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Uploads an encrypted message to the backend.
+   * 
+   * @param message 
+   */
+  async uploadMessage(message: MessageDetailDto): Promise<MessageDetailDto> {
+    console.log('Uploading message to backend:', message);
+    return await firstValueFrom(this.httpClient.post<MessageDetailDto>(`${this.authBaseUri}/messages`, message));
+  }
+
+  /**
+   * Fetches messages from the backend sent by a friend after a specific timestamp.
+   * 
+   * @param friendEmail 
+   * @param timestamp 
+   * @returns 
+   */
+  async getMessagesFromBackendAfter(friendEmail: string, timestamp: Date): Promise<MessageDetailDto[]> {
+    return await firstValueFrom(this.httpClient.get<MessageDetailDto[]>(
+      `${this.authBaseUri}/messages/${encodeURIComponent(friendEmail)}?timestamp=${timestamp.toISOString()}`
+    ));
+  }
+
+  /**
+   * Sends an encrypted message to a friend.
+   * 
+   * @param friendEmail
+   * @param plaintext 
+   */
+  async sendMessageToFriend(friendEmail: string, plaintext: string): Promise<Message> {
+    // Check if there is an existing ratchet state with the friend
+    const state = await db.ratchetStates.get(friendEmail);
+
+    let savedMessage: MessageDetailDto;
+    if (!state) {
+      // if there is no existing state, perform X3DH and initialize ratchet
+
+      // get friend's keys
+      const friendKeysDto = await firstValueFrom(this.getKeysOfFriend(friendEmail));
+
+      // get my identity key
+      const myIdentityKeyPair = await this.getIdentityKey();
+      if (!myIdentityKeyPair) {
+        throw new Error('No identity key found');
+      }
+
+      // perform X3DH
+      const { sharedSecret, ephemeralPublicKey } = await this.performX3DH(friendKeysDto, myIdentityKeyPair);
+
+      console.log("Sender derived shared secret:", naclUtil.encodeBase64(sharedSecret));
+
+      // initialize ratchet state
+      const ratchetState = await this.initializeForSender(sharedSecret, naclUtil.decodeBase64(friendKeysDto.signedPreKey));
+
+      // encrypt message
+      const encryptedMessage = await this.encryptMessage(ratchetState, plaintext);
+
+      // store ratchet state
+      await db.ratchetStates.put({ contactId: friendEmail, ...ratchetState });
+
+      // send encrypted message to friend via backend
+      const messageDetail: MessageDetailDto = {
+        recipientEmail: friendEmail,
+        senderIdentityKey: naclUtil.encodeBase64(myIdentityKeyPair.publicKey),
+        senderEphemeralKey: naclUtil.encodeBase64(ephemeralPublicKey),
+        usedOneTimePreKeyId: friendKeysDto.oneTimePreKey ? friendKeysDto.oneTimePreKey.uuid : null,
+        encryptedMessage: encryptedMessage
+      };
+      savedMessage = await this.uploadMessage(messageDetail);
+    } else {
+      // if there is an existing state, use it to encrypt the message
+      const encryptedMessage = await this.encryptMessage(state, plaintext);
+
+      // update ratchet state in database
+      // encrypt message did change the state
+      await db.ratchetStates.put(state);
+
+      // send encrypted message to friend via backend
+      const messageDetail: MessageDetailDto = {
+        recipientEmail: friendEmail,
+        senderIdentityKey: null, // not needed for existing sessions
+        senderEphemeralKey: null, // not needed for existing sessions
+        usedOneTimePreKeyId: null, // not needed for existing sessions
+        encryptedMessage: encryptedMessage
+      };
+      savedMessage = await this.uploadMessage(messageDetail);
+    }
+
+    // save the message to local database
+    const messageRecord: Message = {
+      id: savedMessage.id!,
+      conversationId: '',
+      senderId: 'me',
+      recipientId: friendEmail,
+      plaintext,
+      timestamp: savedMessage.timestamp ? new Date(savedMessage.timestamp) : new Date(),
+      direction: 'sent',
+    }
+    await db.messages.add(messageRecord);
+
+    return messageRecord;
+  }
+
+  /**
+   * Receives and decrypts a message from a friend.
+   * 
+   * @param messageDetail 
+   * @returns 
+   */
+  async receiveMessageFromFriend(messageDetail: MessageDetailDto): Promise<Message> {
+    // Check if there is an existing ratchet state with the friend
+    const state = await db.ratchetStates.get(messageDetail.senderEmail!);
+
+    let plaintext: string;
+    if (!state) {
+      // if there is no existing state, perform X3DH and initialize ratchet
+
+      // receive X3DH
+      const myIdentityKeyPair = await this.getIdentityKey();
+      const mySignedPreKeyPair = await this.getSignedPreKeyPair();
+      const myOneTimePreKeyPair = messageDetail.usedOneTimePreKeyId
+        ? await this.getOneTimePreKeyPairByUuid(messageDetail.usedOneTimePreKeyId)
+        : null;
+
+      const { sharedSecret } = await this.receiveX3DH(
+        messageDetail.senderIdentityKey!,
+        messageDetail.senderEphemeralKey!,
+        messageDetail.usedOneTimePreKeyId
+          ? { uuid: messageDetail.usedOneTimePreKeyId, publicKey: '' }
+          : null,
+        myIdentityKeyPair!,
+        mySignedPreKeyPair!,
+        myOneTimePreKeyPair
+      );
+
+      console.log("Recipient received shared secret:", naclUtil.encodeBase64(sharedSecret));
+
+      // initialize ratchet state
+      const ratchetState = await this.initializeForReceiver(sharedSecret, mySignedPreKeyPair!);
+
+      // decrypt message
+      plaintext = await this.decryptMessage(ratchetState, messageDetail.encryptedMessage);
+
+      // store ratchet state
+      await db.ratchetStates.put({ contactId: messageDetail.senderEmail!, ...ratchetState });
+
+      // delete used one-time prekey from storage
+      if (messageDetail.usedOneTimePreKeyId) {
+        await this.deleteOneTimePreKey(messageDetail.usedOneTimePreKeyId);
+      }
+    } else {
+      // if there is an existing state, use it to decrypt the message
+      plaintext = await this.decryptMessage(state, messageDetail.encryptedMessage);
+
+      // update ratchet state in database
+      // decrypt message did change the state
+      await db.ratchetStates.put(state);
+
+    }
+
+    // save the message to local database
+    const messageRecord: Message = {
+      id: messageDetail.id!,
+      conversationId: '',
+      senderId: messageDetail.senderEmail!,
+      recipientId: 'me',
+      plaintext,
+      timestamp: messageDetail.timestamp ? new Date(messageDetail.timestamp) : new Date(),
+      direction: 'received',
+    }
+    await db.messages.add(messageRecord);
+
+    return messageRecord;
+  }
 
 }
