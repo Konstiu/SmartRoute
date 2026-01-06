@@ -20,6 +20,7 @@ import {PushNotificationService} from "../../../services/push-notification.servi
 })
 export class AccountPage implements OnInit {
   private userService = inject(UserService);
+  emergencyAlertEnabled = true;
 
   constructor(
     private authService: AuthService,
@@ -32,6 +33,14 @@ export class AccountPage implements OnInit {
 
   ngOnInit() {
     this.pushService.listenToNotifications();
+    this.pushService.emergencyAlertEnabled$.subscribe(enabled => {
+      this.emergencyAlertEnabled = enabled;
+    });
+  }
+
+  toggleEmergencyAlert(event: any) {
+    const enabled = event.detail.checked;
+    this.pushService.setEmergencyAlertEnabled(enabled);
   }
 
   async presentLogoutConfirm() {
