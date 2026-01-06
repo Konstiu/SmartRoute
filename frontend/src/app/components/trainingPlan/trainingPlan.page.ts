@@ -52,6 +52,7 @@ export class TrainingPlanPage implements OnInit {
   private originalLatlngs: LatLng[] | null = null;
   private originalDistance: number | null = null;
   private originalElevation: number | null = null;
+  private originalStart: LatLng | null = null;
 
 
   date: string = new Date().toLocaleDateString();
@@ -250,45 +251,75 @@ export class TrainingPlanPage implements OnInit {
     this.userLocationMarker = marker(location, {
       icon: coloredMarker(MAP_MARKER_COLORS.start)});
 
-    this.generateRouteFromLocation(location);
+    this.originalStart = location;
+
+    this.generateRouteFromLocation(location, true);
   }
 
-  private generateRouteFromLocation(location: LatLng) {
+  private generateRouteFromLocation(location: LatLng, updateBaseline: boolean) {
     this.committedStops = [];
 
     this.routeService
-      .getGeneratedRoute(
-        location.lat,
-        location.lng,
-        this.recommendedActivity!.route!.distance
-      )
+      .getGeneratedRoute(location.lat, location.lng, this.recommendedActivity!.route!.distance)
       .subscribe(e => {
-
         this.recommendedActivity!.route!.distance = e.distance;
         this.recommendedActivity!.route!.elevation = e.elevation;
 
         this.routeLine = polyline(
-          convertPolylineToCoordinateList(e.polyline)
-            .map(p => latLng(p[0], p[1]))
+          convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1]))
         );
-      this.latlngs = this.routeLine.getLatLngs() as LatLng[];
-      this.routeBounds = this.routeLine.getBounds();
 
-      // --- baseline snapshot ---
-      this.originalLatlngs = [...this.latlngs];
-      this.originalRouteLine = polyline(this.originalLatlngs);
-      this.originalRouteBounds = this.originalRouteLine.getBounds();
+        this.latlngs = this.routeLine.getLatLngs() as LatLng[];
+        this.routeBounds = this.routeLine.getBounds();
 
-      this.originalDistance = this.recommendedActivity!.route!.distance;
-      this.originalElevation = this.recommendedActivity!.route!.elevation;
+        if (updateBaseline) {
+          this.originalLatlngs = [...this.latlngs];
+          this.originalRouteBounds = this.routeBounds;
+          this.originalDistance = e.distance;
+          this.originalElevation = e.elevation;
 
-      this.rebuildLayers();
+          // also ensure originalStartLatLng exists
+          if (!this.originalStart) this.originalStart = location;
+        }
 
-        this.mapComponent?.map?.fitBounds(this.routeBounds, {
-          padding: [30, 30]
-        });
+        this.rebuildLayers();
+
+        this.mapComponent?.map?.fitBounds(this.routeBounds!, { padding: [30, 30] });
       });
   }
+
+private async generateRouteFromLocationAsync(location: LatLng, updateBaseline: boolean): Promise<void> {
+  this.committedStops = [];
+
+  const e = await firstValueFrom(
+    this.routeService.getGeneratedRoute(
+      location.lat,
+      location.lng,
+      this.recommendedActivity!.route!.distance
+    )
+  );
+
+  this.recommendedActivity!.route!.distance = e.distance;
+  this.recommendedActivity!.route!.elevation = e.elevation;
+
+  this.routeLine = polyline(
+    convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1]))
+  );
+
+  this.latlngs = this.routeLine.getLatLngs() as LatLng[];
+  this.routeBounds = this.routeLine.getBounds();
+
+  if (updateBaseline) {
+    this.originalLatlngs = [...this.latlngs];
+    this.originalRouteBounds = this.routeBounds;
+    this.originalDistance = e.distance;
+    this.originalElevation = e.elevation;
+    if (!this.originalStart) this.originalStart = location;
+  }
+
+  this.rebuildLayers();
+}
+
 
   private rebuildLayers() {
     const layers: Layer[] = [];
@@ -510,28 +541,28 @@ async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH
   resetRouteToOriginal() {
     if (!this.originalLatlngs || this.originalLatlngs.length === 0) return;
 
-    // Clear all stops globally
+    if (this.originalStart) {
+      if (!this.userLocationMarker) {
+        this.userLocationMarker = marker(this.originalStart, {
+          icon: coloredMarker(MAP_MARKER_COLORS.start)
+        });
+      } else {
+        this.userLocationMarker.setLatLng(this.originalStart);
+      }
+    }
+
     this.committedStops = [];
 
-    // Restore current route from baseline
     this.routeLine = polyline(this.originalLatlngs);
     this.latlngs = this.routeLine.getLatLngs() as LatLng[];
     this.routeBounds = this.routeLine.getBounds();
 
-    // Restore stats (optional)
     if (this.recommendedActivity?.route) {
       if (this.originalDistance != null) this.recommendedActivity.route.distance = this.originalDistance;
       if (this.originalElevation != null) this.recommendedActivity.route.elevation = this.originalElevation;
     }
 
     this.rebuildLayers();
-
-    requestAnimationFrame(() => {
-      const map = this.mapComponent?.map;
-      if (!map || !this.routeBounds) return;
-      map.invalidateSize();
-      map.fitBounds(this.routeBounds, { padding: [30, 30], animate: true });
-    });
   }
 
   private buildDirectionArrows(route: Polyline): Layer {
@@ -632,53 +663,19 @@ private buildGradientRouteLayers(
   return layers;
 }
 
-  private async changeStartLocation(newStart: LatLng): Promise<{ layers: Layer[]; bounds: LatLngBounds | null }> {
-    // move / create start marker
-    if (!this.userLocationMarker) {
-      this.userLocationMarker = marker(newStart, {
-        icon: coloredMarker(MAP_MARKER_COLORS.start)
-      });
-    } else {
-      this.userLocationMarker.setLatLng(newStart);
-    }
-
-    // changing start invalidates stops + edited route
-    this.committedStops = [];
-
-    // regenerate route from new start (wrap your existing observable into a Promise)
-    await firstValueFrom(
-      this.routeService.getGeneratedRoute(
-        newStart.lat,
-        newStart.lng,
-        this.recommendedActivity!.route!.distance
-      )
-    ).then(e => {
-      this.recommendedActivity!.route!.distance = e.distance;
-      this.recommendedActivity!.route!.elevation = e.elevation;
-
-      this.routeLine = polyline(
-        convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1]))
-      );
-
-      this.latlngs = this.routeLine.getLatLngs() as LatLng[];
-      this.routeBounds = this.routeLine.getBounds();
-
-      // IMPORTANT: update baseline snapshot if you’re using original-route reset
-      // e.g. this.originalLatlngs = [...this.latlngs]; this.originalRouteBounds = this.routeBounds; etc.
-
-      this.rebuildLayers();
-    });
-
-    // refit main map (optional but nice)
-    requestAnimationFrame(() => {
-      const map = this.mapComponent?.map;
-      if (!map || !this.routeBounds) return;
-      map.invalidateSize();
-      map.fitBounds(this.routeBounds, { padding: [30, 30], animate: true });
-    });
-
-    return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
+private async changeStartLocation(newStart: LatLng): Promise<{ layers: Layer[]; bounds: LatLngBounds | null }> {
+  if (!this.userLocationMarker) {
+    this.userLocationMarker = marker(newStart, { icon: coloredMarker(MAP_MARKER_COLORS.start) });
+  } else {
+    this.userLocationMarker.setLatLng(newStart);
   }
+
+  // regenerate route BUT do NOT overwrite original baseline
+  await this.generateRouteFromLocationAsync(newStart, false);
+
+  return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
+}
+
 
   exportGpx() {
     if (!this.latlngs || this.latlngs.length === 0) {
