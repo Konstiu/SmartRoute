@@ -9,11 +9,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
 @Data
 @Entity
+@NoArgsConstructor
 public class Injuries {
 
     @Id
@@ -35,4 +37,12 @@ public class Injuries {
     @ManyToOne
     @JoinColumn(name = "application_user_id")
     private ApplicationUser applicationUser;
+
+    public Injuries(ApplicationUser user, int i, BodyPart area, LocalDate localDate, LocalDate lastInjuryDate) {
+        this.applicationUser = user;
+        this.injuryIndex = i;
+        this.affectedArea = area;
+        this.lastHealthyDate = localDate;
+        this.lastInjuryDate = lastInjuryDate;
+    }
 }
