@@ -75,6 +75,9 @@ public class ApplicationUser {
     private String publicIdentityKey;
 
     @Column
+    private String publicIdentityDhKey;
+
+    @Column
     private String publicPreKey;
 
     @Column
