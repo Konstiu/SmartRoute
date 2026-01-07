@@ -22,7 +22,7 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
           )
           AND m.timestamp > :since
         ORDER BY m.timestamp ASC
-    """)
+        """)
     List<Message> findConversationSince(@Param("user1") ApplicationUser user1, @Param("user2") ApplicationUser user2, @Param("since") Instant since);
 
 }

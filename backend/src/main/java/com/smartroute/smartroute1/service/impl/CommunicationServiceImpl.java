@@ -16,7 +16,6 @@ import com.smartroute.smartroute1.service.FriendshipService;
 import com.smartroute.smartroute1.service.UserService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
@@ -42,11 +41,11 @@ public class CommunicationServiceImpl implements CommunicationService {
 
     @Override
     @Transactional
-    public ApplicationUser uploadIdentityKey(String email, String publicKey, String publicDHKey) {
-        LOGGER.trace("uploadIdentityKey({}, {}, {})", email, publicKey, publicDHKey);
+    public ApplicationUser uploadIdentityKey(String email, String publicKey, String publicDhKey) {
+        LOGGER.trace("uploadIdentityKey({}, {}, {})", email, publicKey, publicDhKey);
         ApplicationUser user = userService.findApplicationUserByEmail(email);
         user.setPublicIdentityKey(publicKey);
-        user.setPublicIdentityDHKey(publicDHKey);
+        user.setPublicIdentityDhKey(publicDhKey);
         userRepository.save(user);
         return user;
     }
@@ -116,7 +115,7 @@ public class CommunicationServiceImpl implements CommunicationService {
         ApplicationUser friend = userService.findApplicationUserByEmail(friendEmail);
         KeysDto keysDto = new KeysDto();
         keysDto.setIdentityKey(friend.getPublicIdentityKey());
-        keysDto.setIdentityDHKey(friend.getPublicIdentityDHKey());
+        keysDto.setIdentityDhKey(friend.getPublicIdentityDhKey());
         keysDto.setSignedPreKey(friend.getPublicPreKey());
         keysDto.setSignedPreKeySignature(friend.getPreKeySignature());
 
@@ -151,11 +150,11 @@ public class CommunicationServiceImpl implements CommunicationService {
     }
 
     private void validateMessageDetailDto(MessageDetailDto messageDetailDto) throws ValidationException {
-        if (messageDetailDto == null ||
-            messageDetailDto.getEncryptedMessage() == null ||
-            messageDetailDto.getEncryptedMessage().getCiphertext() == null ||
-            messageDetailDto.getEncryptedMessage().getNonce() == null ||
-            messageDetailDto.getEncryptedMessage().getRatchetPublicKey() == null) {
+        if (messageDetailDto == null
+            || messageDetailDto.getEncryptedMessage() == null
+            || messageDetailDto.getEncryptedMessage().getCiphertext() == null
+            || messageDetailDto.getEncryptedMessage().getNonce() == null
+            || messageDetailDto.getEncryptedMessage().getRatchetPublicKey() == null) {
             throw new ValidationException("Invalid MessageDetailDto", List.of());
         }
     }
