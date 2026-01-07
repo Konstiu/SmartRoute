@@ -1,0 +1,44 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/friends"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{ friendName }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <div class="chat-container">
+    <!-- Messages list -->
+    <div class="messages-list">
+      @for (message of messages; track message.id) {
+        <div class="message-wrapper" [ngClass]="message.isOwnMessage ? 'own-message' : 'friend-message'">
+          <div class="message-bubble">
+            <div class="message-text">{{ message.text }}</div>
+            <div class="message-timestamp">{{ formatTime(message.timestamp) }}</div>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <div class="input-container">
+      <ion-input
+        [(ngModel)]="messageText"
+        placeholder="Type a message..."
+        class="message-input"
+        (keydown.enter)="sendMessage()"
+      ></ion-input>
+      <ion-button 
+        (click)="sendMessage()" 
+        [disabled]="!messageText.trim()"
+        class="send-button"
+      >
+        <ion-icon slot="icon-only" name="send"></ion-icon>
+      </ion-button>
+    </div>
+  </ion-toolbar>
+</ion-footer>

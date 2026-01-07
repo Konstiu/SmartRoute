@@ -52,6 +52,11 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'chat',
+    loadComponent: () => import('./chat/chat.page').then(m => m.ChatPage),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'privacy',
     loadComponent: () => import('./privacy/privacy.page').then( m => m.PrivacyPage)
   },

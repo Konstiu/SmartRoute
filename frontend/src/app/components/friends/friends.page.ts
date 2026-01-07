@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FriendInfoDto, FriendRequestDto, FriendshipDetailDto } from 'src/app/dtos/friendship';
 import { FriendshipService } from 'src/services/friendship.service';
 import { AuthService } from 'src/services/auth.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-friends',
@@ -22,7 +23,8 @@ export class FriendsPage implements OnInit {
     private friendshipService: FriendshipService,
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
-    private popoverCtrl: PopoverController
+    private popoverCtrl: PopoverController,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
@@ -302,6 +304,15 @@ export class FriendsPage implements OnInit {
           position: 'top'
         });
         await toast.present();
+      }
+    });
+  }
+
+  startConversationWithFriend(friend: FriendInfoDto) {
+    this.router.navigate(['/chat'], {
+      queryParams: {
+        friendName: encodeURIComponent(`${friend.firstName} ${friend.lastName}`), 
+        friendEmail: encodeURIComponent(friend.email) 
       }
     });
   }
