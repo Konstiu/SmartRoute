@@ -25,6 +25,8 @@ export class KeyManagementService {
   // constants for storage names
   static IDENTITY_PUBLIC_KEY = 'identity_public_key';
   static IDENTITY_PRIVATE_KEY = 'identity_private_key';
+  static IDENTITY_DH_PUBLIC_KEY = 'identity_dh_public_key';
+  static IDENTITY_DH_PRIVATE_KEY = 'identity_dh_private_key';
   static SIGNED_PRE_KEY_PUBLIC = 'signed_pre_key_public';
   static SIGNED_PRE_KEY_PRIVATE = 'signed_pre_key_private';
   static SIGNED_PRE_KEY_SIGNATURE = 'signed_pre_key_signature';
@@ -75,6 +77,31 @@ export class KeyManagementService {
   }
 
   /**
+   * Get the DH identity key pair from secure storage
+   * 
+   * @returns The DH identity key pair or null if not found
+   */
+  async getIdentityDHKey(): Promise<KeyPair | null> {
+    try {
+      const publicKeyResult = await this.getFromStorageSafe(KeyManagementService.IDENTITY_DH_PUBLIC_KEY);
+      const privateKeyResult = await this.getFromStorageSafe(KeyManagementService.IDENTITY_DH_PRIVATE_KEY);
+
+      if (!publicKeyResult || !publicKeyResult.value || !privateKeyResult || !privateKeyResult.value) {
+        console.log('DH identity key not found');
+        return null;
+      }
+
+      return {
+        publicKey: naclUtil.decodeBase64(publicKeyResult.value),
+        privateKey: naclUtil.decodeBase64(privateKeyResult.value)
+      };
+    } catch (_) {
+      console.log('DH identity key not found');
+      return null;
+    }
+  }
+
+  /**
    * Get the public identity key from secure storage
    * 
    * @returns The public identity key as a string or null if not found
@@ -92,51 +119,91 @@ export class KeyManagementService {
   }
 
   /**
-   * Generate a new Curve25519 identity key pair, store it securely.
+   * Get the public DH identity key from secure storage
+   * 
+   * @returns The public DH identity key as a string or null if not found
+   */
+  async getPublicIdentityDHKey(): Promise<string | null> {
+    try {
+      const result = await this.getFromStorageSafe(KeyManagementService.IDENTITY_DH_PUBLIC_KEY);
+      if (!result || !result.value) {
+        return null;
+      }
+      return result.value;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /**
+   * Generate new identity key pairs (both sign and DH), store them securely.
+   * Sign key pair is used for signatures, DH key pair is used for X3DH.
    * 
    * @returns a Promise that resolves when the operation is complete
    */
   async generateAndStoreIdentityKey(): Promise<void> {
 
-    // Generate new Curve25519 key pair
-    const keyPair = nacl.sign.keyPair();
+    // Generate new Ed25519 key pair for signatures
+    const signKeyPair = nacl.sign.keyPair();
+    
+    // Generate new Curve25519 key pair for DH operations
+    const dhKeyPair = nacl.box.keyPair();
     
     // Convert to Base64 for storage
-    const publicKey = naclUtil.encodeBase64(keyPair.publicKey);
-    const privateKey = naclUtil.encodeBase64(keyPair.secretKey);
+    const signPublicKey = naclUtil.encodeBase64(signKeyPair.publicKey);
+    const signPrivateKey = naclUtil.encodeBase64(signKeyPair.secretKey);
+    const dhPublicKey = naclUtil.encodeBase64(dhKeyPair.publicKey);
+    const dhPrivateKey = naclUtil.encodeBase64(dhKeyPair.secretKey);
 
-    // Store securely
+    // Store sign keys securely
     await SecureStoragePlugin.set({
       key: KeyManagementService.IDENTITY_PRIVATE_KEY,
-      value: privateKey
+      value: signPrivateKey
     });
 
     await SecureStoragePlugin.set({
       key: KeyManagementService.IDENTITY_PUBLIC_KEY,
-      value: publicKey
+      value: signPublicKey
+    });
+
+    // Store DH keys securely
+    await SecureStoragePlugin.set({
+      key: KeyManagementService.IDENTITY_DH_PRIVATE_KEY,
+      value: dhPrivateKey
+    });
+
+    await SecureStoragePlugin.set({
+      key: KeyManagementService.IDENTITY_DH_PUBLIC_KEY,
+      value: dhPublicKey
     });
   }
 
   /**
-   * Upload the public identity key to the backend.
+   * Upload the public identity keys (both sign and DH) to the backend.
    */
   async uploadPublicIdentityKey(): Promise<void> {
-    const publicKey = await this.getPublicIdentityKey();
-    if (!publicKey) {
-      throw new Error('No public identity key found');
+    const publicSignKey = await this.getPublicIdentityKey();
+    const publicDHKey = await this.getPublicIdentityDHKey();
+    if (!publicSignKey || !publicDHKey) {
+      throw new Error('No public identity keys found');
     }
-    const payload = { publicKey: publicKey };
+    const payload = { 
+      publicKey: publicSignKey,
+      publicDHKey: publicDHKey
+    };
     await firstValueFrom(this.httpClient.put<void>(`${this.authBaseUri}/upload-identity-key`, payload));
   }
 
   /**
-   * Delete the identity key pair from secure storage.
+   * Delete the identity key pairs (both sign and DH) from secure storage.
    * This is used on account deletion
    */
   async deleteIdentityKey(): Promise<void> {
     try {
       await SecureStoragePlugin.remove({ key: KeyManagementService.IDENTITY_PRIVATE_KEY });
       await SecureStoragePlugin.remove({ key: KeyManagementService.IDENTITY_PUBLIC_KEY });
+      await SecureStoragePlugin.remove({ key: KeyManagementService.IDENTITY_DH_PRIVATE_KEY });
+      await SecureStoragePlugin.remove({ key: KeyManagementService.IDENTITY_DH_PUBLIC_KEY });
     } catch (error) {
       console.error('Error on deleteIdentityKey:', error);
     }
@@ -353,8 +420,8 @@ export class KeyManagementService {
    *   The remote party's public key material, including identity key,
    *   signed pre-key, and one-time pre-key (if available).
    *
-   * @param myIdentityKeyPair
-   *   The local client's long-term identity key pair.
+   * @param myIdentityDHKeyPair
+   *   The local client's long-term DH identity key pair (Curve25519).
    *
    * @param myEphemeralKeyPair
    *   Optional local ephemeral key pair. If omitted, a new ephemeral key pair
@@ -365,10 +432,12 @@ export class KeyManagementService {
    *   - sharedSecret: The derived shared secret as a Uint8Array
    *   - ephemeralPublicKey: The public key of the ephemeral key pair used in the exchange
    */
-  async performX3DH(friendKeysDto: KeysDto, myIdentityKeyPair: KeyPair, myEphemeralKeyPair?: KeyPair): 
+  async performX3DH(friendKeysDto: KeysDto, myIdentityDHKeyPair: KeyPair, myEphemeralKeyPair?: KeyPair): 
     Promise<{ sharedSecret: Uint8Array, ephemeralPublicKey: Uint8Array }> {
       
-    // verify the signature of the prekey
+    // verify the signature of the prekey using the friend's sign identity key
+    console.log("Initiator performing X3DH with friend's keys:", friendKeysDto);
+
     const isValid = this.verifySignatureOfPreKey(
       friendKeysDto.signedPreKey,
       friendKeysDto.signedPreKeySignature,
@@ -390,16 +459,16 @@ export class KeyManagementService {
 
     // decode friend's keys from base64
     // and declare shorter variable names
-    const IK_A = myIdentityKeyPair;
+    const IK_A = myIdentityDHKeyPair;
     const EK_A = myEphemeralKeyPair;
-    const IK_B = naclUtil.decodeBase64(friendKeysDto.identityKey);
+    const IK_B = naclUtil.decodeBase64(friendKeysDto.identityDHKey);
     const SPK_B = naclUtil.decodeBase64(friendKeysDto.signedPreKey);
     const OPK_B = friendKeysDto.oneTimePreKey ? naclUtil.decodeBase64(friendKeysDto.oneTimePreKey.publicKey) : null;
 
     // perform diffie hellmann operations
-    const dh1 = nacl.scalarMult(IK_A.privateKey.slice(0, 32), SPK_B);  // IK_A * SPK_B
-    const dh2 = nacl.scalarMult(EK_A.privateKey, IK_B);                // EK_A * IK_B
-    const dh3 = nacl.scalarMult(EK_A.privateKey, SPK_B);               // EK_A * SPK_B
+    const dh1 = nacl.scalarMult(IK_A.privateKey, SPK_B);  // IK_A * SPK_B
+    const dh2 = nacl.scalarMult(EK_A.privateKey, IK_B);   // EK_A * IK_B
+    const dh3 = nacl.scalarMult(EK_A.privateKey, SPK_B);  // EK_A * SPK_B
 
     let dhResult: Uint8Array;
     if (OPK_B) {
@@ -436,8 +505,8 @@ export class KeyManagementService {
    * The resulting shared secret can be used as input for a symmetric
    * ratchet (e.g. Double Ratchet).
    *
-   * @param friendIdentityKey
-   *   The remote party's public identity key (Base64-encoded).
+   * @param friendIdentityDHKey
+   *   The remote party's public DH identity key (Base64-encoded, Curve25519).
    *
    * @param friendEphemeralKey
    *   The remote party's ephemeral public key used for this X3DH exchange
@@ -447,8 +516,8 @@ export class KeyManagementService {
    *   The one-time pre-key that was used by the initiator, or null if no
    *   one-time pre-key was used.
    *
-   * @param myIdentityKeyPair
-   *   The local client's long-term identity key pair.
+   * @param myIdentityDHKeyPair
+   *   The local client's long-term DH identity key pair (Curve25519).
    *
    * @param mySignedPreKeyPair
    *   The local client's signed pre-key pair.
@@ -461,25 +530,25 @@ export class KeyManagementService {
    *   - sharedSecret: The derived shared secret as a Uint8Array
    */
   async receiveX3DH(
-    friendIdentityKey: string,
+    friendIdentityDHKey: string,
     friendEphemeralKey: string,
     usedOneTimePreKey: OneTimePreKeyDto | null,
-    myIdentityKeyPair: KeyPair,
+    myIdentityDHKeyPair: KeyPair,
     mySignedPreKeyPair: KeyPair,
     myOneTimePreKeyPair: KeyPair | null
   ): Promise<{ sharedSecret: Uint8Array }> {
 
     // decode friend's keys from base64
     // and declare shorter variable names
-    const IK_B = myIdentityKeyPair;
+    const IK_B = myIdentityDHKeyPair;
     const SPK_B = mySignedPreKeyPair;
     const OPK_B = myOneTimePreKeyPair;
-    const IK_A = naclUtil.decodeBase64(friendIdentityKey);
+    const IK_A = naclUtil.decodeBase64(friendIdentityDHKey);
     const EK_A = naclUtil.decodeBase64(friendEphemeralKey);
 
     // reverse diffie hellmann operations
     const dh1 = nacl.scalarMult(SPK_B.privateKey, IK_A);  // SPK_B * IK_A
-    const dh2 = nacl.scalarMult(IK_B.privateKey.slice(0, 32), EK_A);   // IK_B * EK_A
+    const dh2 = nacl.scalarMult(IK_B.privateKey, EK_A);   // IK_B * EK_A
     const dh3 = nacl.scalarMult(SPK_B.privateKey, EK_A);  // SPK_B * EK_A
 
     let dhResult: Uint8Array;
@@ -596,17 +665,14 @@ export class KeyManagementService {
     // Derive initial root key and chain keys from shared secret
     const rootKey = await this.hkdf(sharedSecret, new Uint8Array(32), 'WhisperRatchet', 32);
 
-    // Generate own ratchet key pair
-    const myRatchetKeyPair = nacl.box.keyPair();
+    // Use signed pre-key pair as initial ratchet key pair
+    // This is important because the sender encrypted with this public key
 
     return {
       rootKey,
       sendingChainKey: new Uint8Array(0), // is set on first send
       receivingChainKey: new Uint8Array(0), // is set on first receive
-      myCurrentRatchetKeyPair: {
-        publicKey: myRatchetKeyPair.publicKey,
-        privateKey: myRatchetKeyPair.secretKey
-      },
+      myCurrentRatchetKeyPair: mySignedPreKeyPair,
       theirCurrentRatchetPublicKey: null, // extracted from first message
       sendMessageNumber: 0,
       receiveMessageNumber: 0,
@@ -871,16 +937,20 @@ export class KeyManagementService {
       // get friend's keys
       const friendKeysDto = await firstValueFrom(this.getKeysOfFriend(friendEmail));
 
-      // get my identity key
+      // get my DH identity key
+      const myIdentityDHKeyPair = await this.getIdentityDHKey();
+      if (!myIdentityDHKeyPair) {
+        throw new Error('No DH identity key found');
+      }
+
+      // get my sign identity key for sending
       const myIdentityKeyPair = await this.getIdentityKey();
       if (!myIdentityKeyPair) {
-        throw new Error('No identity key found');
+        throw new Error('No sign identity key found');
       }
 
       // perform X3DH
-      const { sharedSecret, ephemeralPublicKey } = await this.performX3DH(friendKeysDto, myIdentityKeyPair);
-
-      console.log("Sender derived shared secret:", naclUtil.encodeBase64(sharedSecret));
+      const { sharedSecret, ephemeralPublicKey } = await this.performX3DH(friendKeysDto, myIdentityDHKeyPair);
 
       // initialize ratchet state
       const ratchetState = await this.initializeForSender(sharedSecret, naclUtil.decodeBase64(friendKeysDto.signedPreKey));
@@ -895,6 +965,7 @@ export class KeyManagementService {
       const messageDetail: MessageDetailDto = {
         recipientEmail: friendEmail,
         senderIdentityKey: naclUtil.encodeBase64(myIdentityKeyPair.publicKey),
+        senderIdentityDHKey: naclUtil.encodeBase64(myIdentityDHKeyPair.publicKey),
         senderEphemeralKey: naclUtil.encodeBase64(ephemeralPublicKey),
         usedOneTimePreKeyId: friendKeysDto.oneTimePreKey ? friendKeysDto.oneTimePreKey.uuid : null,
         encryptedMessage: encryptedMessage
@@ -912,6 +983,7 @@ export class KeyManagementService {
       const messageDetail: MessageDetailDto = {
         recipientEmail: friendEmail,
         senderIdentityKey: null, // not needed for existing sessions
+        senderIdentityDHKey: null, // not needed for existing sessions
         senderEphemeralKey: null, // not needed for existing sessions
         usedOneTimePreKeyId: null, // not needed for existing sessions
         encryptedMessage: encryptedMessage
@@ -949,24 +1021,26 @@ export class KeyManagementService {
       // if there is no existing state, perform X3DH and initialize ratchet
 
       // receive X3DH
-      const myIdentityKeyPair = await this.getIdentityKey();
+      const myIdentityDHKeyPair = await this.getIdentityDHKey();
       const mySignedPreKeyPair = await this.getSignedPreKeyPair();
       const myOneTimePreKeyPair = messageDetail.usedOneTimePreKeyId
         ? await this.getOneTimePreKeyPairByUuid(messageDetail.usedOneTimePreKeyId)
         : null;
 
+      if (!myIdentityDHKeyPair) {
+        throw new Error('No DH identity key found');
+      }
+
       const { sharedSecret } = await this.receiveX3DH(
-        messageDetail.senderIdentityKey!,
+        messageDetail.senderIdentityDHKey!,
         messageDetail.senderEphemeralKey!,
         messageDetail.usedOneTimePreKeyId
           ? { uuid: messageDetail.usedOneTimePreKeyId, publicKey: '' }
           : null,
-        myIdentityKeyPair!,
+        myIdentityDHKeyPair,
         mySignedPreKeyPair!,
         myOneTimePreKeyPair
       );
-
-      console.log("Recipient received shared secret:", naclUtil.encodeBase64(sharedSecret));
 
       // initialize ratchet state
       const ratchetState = await this.initializeForReceiver(sharedSecret, mySignedPreKeyPair!);
@@ -976,11 +1050,6 @@ export class KeyManagementService {
 
       // store ratchet state
       await db.ratchetStates.put({ contactId: messageDetail.senderEmail!, ...ratchetState });
-
-      // delete used one-time prekey from storage
-      if (messageDetail.usedOneTimePreKeyId) {
-        await this.deleteOneTimePreKey(messageDetail.usedOneTimePreKeyId);
-      }
     } else {
       // if there is an existing state, use it to decrypt the message
       plaintext = await this.decryptMessage(state, messageDetail.encryptedMessage);

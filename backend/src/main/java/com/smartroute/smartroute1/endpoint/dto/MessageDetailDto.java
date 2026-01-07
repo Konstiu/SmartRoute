@@ -11,6 +11,7 @@ public class MessageDetailDto {
     private String senderEmail;
     private String recipientEmail;
     private String senderIdentityKey;
+    private String senderIdentityDHKey;
     private String senderEphemeralKey;
     private UUID usedOneTimePreKeyId;
     private EncryptedMessageDto encryptedMessage;

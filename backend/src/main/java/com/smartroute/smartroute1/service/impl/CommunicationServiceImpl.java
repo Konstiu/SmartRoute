@@ -42,10 +42,11 @@ public class CommunicationServiceImpl implements CommunicationService {
 
     @Override
     @Transactional
-    public ApplicationUser uploadIdentityKey(String email, String publicKey) {
-        LOGGER.trace("uploadIdentityKey({}, {})", email, publicKey);
+    public ApplicationUser uploadIdentityKey(String email, String publicKey, String publicDHKey) {
+        LOGGER.trace("uploadIdentityKey({}, {}, {})", email, publicKey, publicDHKey);
         ApplicationUser user = userService.findApplicationUserByEmail(email);
         user.setPublicIdentityKey(publicKey);
+        user.setPublicIdentityDHKey(publicDHKey);
         userRepository.save(user);
         return user;
     }
@@ -115,6 +116,7 @@ public class CommunicationServiceImpl implements CommunicationService {
         ApplicationUser friend = userService.findApplicationUserByEmail(friendEmail);
         KeysDto keysDto = new KeysDto();
         keysDto.setIdentityKey(friend.getPublicIdentityKey());
+        keysDto.setIdentityDHKey(friend.getPublicIdentityDHKey());
         keysDto.setSignedPreKey(friend.getPublicPreKey());
         keysDto.setSignedPreKeySignature(friend.getPreKeySignature());
 
@@ -168,9 +170,6 @@ public class CommunicationServiceImpl implements CommunicationService {
         }
         ApplicationUser user = userService.findApplicationUserByEmail(userEmail);
         ApplicationUser friend = userService.findApplicationUserByEmail(friendEmail);
-
-        System.out.println("\n\n\n");
-        System.out.println("Retrieving messages since: " + timestamp);
 
         return messageRepository.findConversationSince(user, friend, timestamp);
     }

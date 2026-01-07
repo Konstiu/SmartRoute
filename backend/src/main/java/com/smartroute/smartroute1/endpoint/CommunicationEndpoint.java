@@ -48,7 +48,11 @@ public class CommunicationEndpoint {
     public UserDetailDto uploadIdentityKey(@RequestBody UploadIdentityDto uploadIdentityDto) {
         LOGGER.info("POST /api/v1/communication/upload-identity-key");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        ApplicationUser updatedUser = communicationService.uploadIdentityKey(authentication.getName(), uploadIdentityDto.getPublicKey());
+        ApplicationUser updatedUser = communicationService.uploadIdentityKey(
+                authentication.getName(),
+                uploadIdentityDto.getPublicKey(),
+                uploadIdentityDto.getPublicDHKey()
+        );
         return userMapper.applicationUserToDetailDto(updatedUser);
     }
 

@@ -17,8 +17,10 @@ public interface CommunicationService {
      *
      * @param email the email of the user
      * @param publicKey the public identity key to be uploaded
+     * @param publicDHKey the public Diffie-Hellman key to be uploaded
+     * @return the updated ApplicationUser entity
      */
-    ApplicationUser uploadIdentityKey(String email, String publicKey);
+    ApplicationUser uploadIdentityKey(String email, String publicKey, String publicDHKey);
 
     /**
      * Uploads the signed pre-key for a user.

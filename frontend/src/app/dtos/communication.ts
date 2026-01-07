@@ -5,6 +5,7 @@ export interface OneTimePreKeyDto {
 
 export interface KeysDto {
   identityKey: string,
+  identityDHKey: string,
   signedPreKey: string,
   signedPreKeySignature: string,
   oneTimePreKey: OneTimePreKeyDto | null
@@ -23,6 +24,7 @@ export interface MessageDetailDto {
   recipientEmail: string;
   // on first message
   senderIdentityKey: string | null;
+  senderIdentityDHKey: string | null;
   senderEphemeralKey: string | null;
   usedOneTimePreKeyId: string | null;
   // for every message
