@@ -1,3 +1,5 @@
+import { Platform } from '@ionic/angular';
+import { KeyManagementService } from 'src/services/key-management.service';
 import {AfterViewInit, Component, ElementRef, OnInit, ViewChild, ChangeDetectorRef} from '@angular/core';
 import {PushNotificationService} from "../../services/push-notification.service";
 import {Gesture, GestureController, AlertController, ToastController} from '@ionic/angular';
@@ -54,10 +56,14 @@ export class AppComponent implements OnInit, AfterViewInit {
     private userService: UserService,
     private toastController: ToastController,
     private authService: AuthService,
+    private platform: Platform,
+    private keyManagementService: KeyManagementService,
   ) {
   }
 
   ngOnInit() {
+    this.initializeApp();
+
     // Listen for incoming notifications
     this.pushService.listenToNotifications();
 
@@ -304,5 +310,19 @@ export class AppComponent implements OnInit, AfterViewInit {
       ]
     });
     await toast.present();
+  }
+
+  initializeApp() {
+    this.platform.ready().then(async () => {
+      // if the user is logged in, ensure that the signed pre-key is up to date
+      // and that there are enough one-time pre-keys available
+      if (this.authService.isLoggedIn()) {
+        const updated = await this.keyManagementService.updateSignedPreKeyIfNecessary();
+        if (updated) {
+          await this.keyManagementService.uploadPublicSignedPreKey();
+        };
+        await this.keyManagementService.generateStoreAndUploadOneTimePreKeysIfNecessary();
+      }
+    });
   }
 }
