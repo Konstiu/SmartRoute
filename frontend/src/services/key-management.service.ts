@@ -189,7 +189,7 @@ export class KeyManagementService {
     }
     const payload = { 
       publicKey: publicSignKey,
-      publicDHKey: publicDHKey
+      publicDhKey: publicDHKey
     };
     await firstValueFrom(this.httpClient.put<void>(`${this.authBaseUri}/upload-identity-key`, payload));
   }
@@ -461,7 +461,7 @@ export class KeyManagementService {
     // and declare shorter variable names
     const IK_A = myIdentityDHKeyPair;
     const EK_A = myEphemeralKeyPair;
-    const IK_B = naclUtil.decodeBase64(friendKeysDto.identityDHKey);
+    const IK_B = naclUtil.decodeBase64(friendKeysDto.identityDhKey);
     const SPK_B = naclUtil.decodeBase64(friendKeysDto.signedPreKey);
     const OPK_B = friendKeysDto.oneTimePreKey ? naclUtil.decodeBase64(friendKeysDto.oneTimePreKey.publicKey) : null;
 
@@ -965,7 +965,7 @@ export class KeyManagementService {
       const messageDetail: MessageDetailDto = {
         recipientEmail: friendEmail,
         senderIdentityKey: naclUtil.encodeBase64(myIdentityKeyPair.publicKey),
-        senderIdentityDHKey: naclUtil.encodeBase64(myIdentityDHKeyPair.publicKey),
+        senderIdentityDhKey: naclUtil.encodeBase64(myIdentityDHKeyPair.publicKey),
         senderEphemeralKey: naclUtil.encodeBase64(ephemeralPublicKey),
         usedOneTimePreKeyId: friendKeysDto.oneTimePreKey ? friendKeysDto.oneTimePreKey.uuid : null,
         encryptedMessage: encryptedMessage
@@ -983,7 +983,7 @@ export class KeyManagementService {
       const messageDetail: MessageDetailDto = {
         recipientEmail: friendEmail,
         senderIdentityKey: null, // not needed for existing sessions
-        senderIdentityDHKey: null, // not needed for existing sessions
+        senderIdentityDhKey: null, // not needed for existing sessions
         senderEphemeralKey: null, // not needed for existing sessions
         usedOneTimePreKeyId: null, // not needed for existing sessions
         encryptedMessage: encryptedMessage
@@ -1032,7 +1032,7 @@ export class KeyManagementService {
       }
 
       const { sharedSecret } = await this.receiveX3DH(
-        messageDetail.senderIdentityDHKey!,
+        messageDetail.senderIdentityDhKey!,
         messageDetail.senderEphemeralKey!,
         messageDetail.usedOneTimePreKeyId
           ? { uuid: messageDetail.usedOneTimePreKeyId, publicKey: '' }

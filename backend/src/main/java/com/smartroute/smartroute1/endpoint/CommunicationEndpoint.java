@@ -51,7 +51,7 @@ public class CommunicationEndpoint {
         ApplicationUser updatedUser = communicationService.uploadIdentityKey(
                 authentication.getName(),
                 uploadIdentityDto.getPublicKey(),
-                uploadIdentityDto.getPublicDHKey()
+                uploadIdentityDto.getPublicDhKey()
         );
         return userMapper.applicationUserToDetailDto(updatedUser);
     }

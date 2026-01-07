@@ -5,5 +5,5 @@ import lombok.Data;
 @Data
 public class UploadIdentityDto {
     private String publicKey;
-    private String publicDHKey;
+    private String publicDhKey;
 }

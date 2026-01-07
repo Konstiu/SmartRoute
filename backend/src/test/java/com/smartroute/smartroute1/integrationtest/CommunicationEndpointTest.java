@@ -68,7 +68,7 @@ public class CommunicationEndpointTest {
 
         String requestJson = objectMapper.writeValueAsString(Map.of(
                 "publicKey", publicKey,
-                "publicDHKey", publicDHKey
+                "publicDhKey", publicDHKey
         ));
 
         mockMvc.perform(put("/api/v1/communication/upload-identity-key")

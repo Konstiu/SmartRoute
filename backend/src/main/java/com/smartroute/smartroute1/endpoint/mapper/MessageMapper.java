@@ -24,7 +24,7 @@ public interface MessageMapper {
         messageDetailDto.setSenderEmail(message.getSender().getEmail());
         messageDetailDto.setRecipientEmail(message.getRecipient().getEmail());
         messageDetailDto.setSenderIdentityKey(message.getSenderIdentityKey());
-        messageDetailDto.setSenderIdentityDHKey(message.getSenderIdentityDHKey());
+        messageDetailDto.setSenderIdentityDhKey(message.getSenderIdentityDhKey());
         messageDetailDto.setSenderEphemeralKey(message.getSenderEphemeralKey());
         messageDetailDto.setUsedOneTimePreKeyId(message.getUsedOneTimePreKeyId());
 
@@ -56,7 +56,7 @@ public interface MessageMapper {
         message.setSender(sender);
         message.setRecipient(recipient);
         message.setSenderIdentityKey(messageDetailDto.getSenderIdentityKey());
-        message.setSenderIdentityDHKey(messageDetailDto.getSenderIdentityDHKey());
+        message.setSenderIdentityDhKey(messageDetailDto.getSenderIdentityDhKey());
         message.setSenderEphemeralKey(messageDetailDto.getSenderEphemeralKey());
         message.setUsedOneTimePreKeyId(messageDetailDto.getUsedOneTimePreKeyId());
         message.setCiphertext(messageDetailDto.getEncryptedMessage().getCiphertext());
