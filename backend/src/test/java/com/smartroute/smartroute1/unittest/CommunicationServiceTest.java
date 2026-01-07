@@ -61,16 +61,18 @@ class CommunicationServiceTest {
         ApplicationUser updated = communicationService.uploadIdentityKey(user.getEmail(), publicKey, publicDHKey);
 
         // assert
-        assertNotNull(updated);
-        assertAll(
+        assertAll("updated and persisted user",
+            () -> assertNotNull(updated),
             () -> assertEquals(user.getEmail(), updated.getEmail()),
             () -> assertEquals(publicKey, updated.getPublicIdentityKey())
         );
 
         // verify persisted
         ApplicationUser fromDb = userRepository.findUserByEmail(user.getEmail());
-        assertNotNull(fromDb);
-        assertEquals(publicKey, fromDb.getPublicIdentityKey());
+        assertAll("from DB",
+            () -> assertNotNull(fromDb),
+            () -> assertEquals(publicKey, fromDb.getPublicIdentityKey())
+        );
     }
 
     @Test
@@ -91,8 +93,8 @@ class CommunicationServiceTest {
         ApplicationUser updated = communicationService.uploadSignedPreKey(user.getEmail(), publicPreKey, signature);
 
         // assert
-        assertNotNull(updated);
-        assertAll(
+        assertAll("updated signed prekey",
+            () -> assertNotNull(updated),
             () -> assertEquals(user.getEmail(), updated.getEmail()),
             () -> assertEquals(publicPreKey, updated.getPublicPreKey()),
             () -> assertEquals(signature, updated.getPreKeySignature())
@@ -100,8 +102,8 @@ class CommunicationServiceTest {
 
         // verify persisted
         ApplicationUser fromDb = userRepository.findUserByEmail(user.getEmail());
-        assertNotNull(fromDb);
-        assertAll(
+        assertAll("from DB signed prekey",
+            () -> assertNotNull(fromDb),
             () -> assertEquals(publicPreKey, fromDb.getPublicPreKey()),
             () -> assertEquals(signature, fromDb.getPreKeySignature())
         );
@@ -132,12 +134,12 @@ class CommunicationServiceTest {
         communicationService.uploadOneTimePreKeys(user.getEmail(), List.of(dto1, dto2));
 
         // assert
-        long count = preKeyRepository.countByUserId(user.getId());
-        assertEquals(2, count, "Two pre-keys should have been persisted");
-
         ApplicationUser fromDb = userRepository.findUserByEmail(user.getEmail());
-        assertNotNull(fromDb);
-        assertEquals(2, fromDb.getOneTimePreKeys().size());
+        assertAll("from DB prekeys",
+            () -> assertEquals(2, preKeyRepository.countByUserId(user.getId()), "Two pre-keys should have been persisted"),
+            () -> assertNotNull(fromDb),
+            () -> assertEquals(2, fromDb.getOneTimePreKeys().size())
+        );
     }
 
     @Test
@@ -229,11 +231,13 @@ class CommunicationServiceTest {
         KeysDto keys = communicationService.getKeysOfFriend(friend.getEmail(), user.getEmail());
 
         // assert
-        assertNotNull(keys);
-        assertEquals("IDENTITY_KEY_D", keys.getIdentityKey());
-        assertEquals("SIGNED_PREKEY_D", keys.getSignedPreKey());
-        assertEquals("SIGNATURE_D", keys.getSignedPreKeySignature());
-        assertNull(keys.getOneTimePreKey(), "No one-time pre-key should be returned");
+        assertAll("keys content",
+            () -> assertNotNull(keys),
+            () -> assertEquals("IDENTITY_KEY_D", keys.getIdentityKey()),
+            () -> assertEquals("SIGNED_PREKEY_D", keys.getSignedPreKey()),
+            () -> assertEquals("SIGNATURE_D", keys.getSignedPreKeySignature()),
+            () -> assertNull(keys.getOneTimePreKey(), "No one-time pre-key should be returned")
+        );
     }
 
     @Test
@@ -266,12 +270,11 @@ class CommunicationServiceTest {
         KeysDto keys = communicationService.getKeysOfFriend(friend.getEmail(), user.getEmail());
 
         // assert
-        assertNotNull(keys);
-        assertEquals("ONE_TIME_F", keys.getOneTimePreKey().getPublicKey());
-
-        // ensure prekey was deleted
-        long remaining = preKeyRepository.countByUserId(friend.getId());
-        assertEquals(0, remaining, "One-time pre-key should have been deleted after retrieval");
+        assertAll("keys and cleanup",
+            () -> assertNotNull(keys),
+            () -> assertEquals("ONE_TIME_F", keys.getOneTimePreKey().getPublicKey()),
+            () -> assertEquals(0, preKeyRepository.countByUserId(friend.getId()), "One-time pre-key should have been deleted after retrieval")
+        );
     }
 
     @Test
@@ -343,19 +346,19 @@ class CommunicationServiceTest {
 
         Message saved = communicationService.sendEncryptedMessage(sender.getEmail(), dto);
 
-        assertNotNull(saved, "Saved message should not be null");
-        assertEquals(sender.getEmail(), saved.getSender().getEmail());
-        assertEquals(recipient.getEmail(), saved.getRecipient().getEmail());
-
-        assertEquals(dto.getSenderIdentityKey(), saved.getSenderIdentityKey());
-        assertEquals(dto.getSenderEphemeralKey(), saved.getSenderEphemeralKey());
-        assertEquals(dto.getUsedOneTimePreKeyId(), saved.getUsedOneTimePreKeyId());
-
-        assertNotNull(saved.getCiphertext());
-        assertEquals(enc.getCiphertext(), saved.getCiphertext());
-        assertEquals(enc.getNonce(), saved.getNonce());
-        assertEquals(enc.getMessageNumber(), saved.getMessageNumber());
-        assertEquals(enc.getRatchetPublicKey(), saved.getRatchetPublicKey());
+        assertAll("saved message",
+            () -> assertNotNull(saved, "Saved message should not be null"),
+            () -> assertEquals(sender.getEmail(), saved.getSender().getEmail()),
+            () -> assertEquals(recipient.getEmail(), saved.getRecipient().getEmail()),
+            () -> assertEquals(dto.getSenderIdentityKey(), saved.getSenderIdentityKey()),
+            () -> assertEquals(dto.getSenderEphemeralKey(), saved.getSenderEphemeralKey()),
+            () -> assertEquals(dto.getUsedOneTimePreKeyId(), saved.getUsedOneTimePreKeyId()),
+            () -> assertNotNull(saved.getCiphertext()),
+            () -> assertEquals(enc.getCiphertext(), saved.getCiphertext()),
+            () -> assertEquals(enc.getNonce(), saved.getNonce()),
+            () -> assertEquals(enc.getMessageNumber(), saved.getMessageNumber()),
+            () -> assertEquals(enc.getRatchetPublicKey(), saved.getRatchetPublicKey())
+        );
     }
 
     @Test
@@ -372,7 +375,7 @@ class CommunicationServiceTest {
     }
 
     @Test
-    void retrieveMessagesByFriendAndTimestamp_whenFriends_returnsMessagesSinceTimestamp() {
+    void retrieveMessagesByFriendAndTimestamp_whenFriends_returnsMessagesSinceTimestamp() throws InterruptedException {
         ApplicationUser user = new ApplicationUser("rm_user2@example.com", "pw", "R", "Two");
         ApplicationUser friend = new ApplicationUser("rm_friend2@example.com", "pw", "R", "Friend2");
         userRepository.save(user);
@@ -384,34 +387,33 @@ class CommunicationServiceTest {
         f.setStatus(FriendshipStatus.ACCEPTED);
         friendshipRepository.save(f);
 
-        // prepare timestamps
-        Instant base = Instant.now();
-        Instant older = base.minusSeconds(3600);
-        Instant newer = base.plusSeconds(10);
-
-        // message before since
         Message mOld = new Message();
         mOld.setSender(user);
         mOld.setRecipient(friend);
         mOld.setCiphertext("OLD");
-        mOld.setTimestamp(older);
         messageRepository.save(mOld);
 
-        // message after since
+        Thread.sleep(1000); // ensure timestamp difference
+
         Message mNew = new Message();
         mNew.setSender(friend);
         mNew.setRecipient(user);
         mNew.setCiphertext("NEW");
-        mNew.setTimestamp(newer);
         messageRepository.save(mNew);
+
+        messageRepository.flush();
+
+        Message persistedOld = messageRepository.findById(mOld.getId()).orElseThrow();
+        Instant base = persistedOld.getTimestamp().plusMillis(100); // slightly after old message
 
         // retrieve messages since 'base'
         var results = communicationService.retrieveMessagesByFriendAndTimestamp(user.getEmail(), friend.getEmail(), base);
 
-        assertNotNull(results);
-        assertEquals(1, results.size(), "Only the message with timestamp > base should be returned");
-        Message returned = results.getFirst();
-        assertEquals("NEW", returned.getCiphertext());
+        assertAll("results",
+            () -> assertNotNull(results),
+            () -> assertEquals(1, results.size(), "Only the message with timestamp > base should be returned"),
+            () -> assertEquals("NEW", results.getFirst().getCiphertext())
+        );
     }
 
 }
