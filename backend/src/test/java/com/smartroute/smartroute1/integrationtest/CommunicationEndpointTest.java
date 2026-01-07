@@ -55,6 +55,7 @@ public class CommunicationEndpointTest {
     @WithMockUser(username = "test@email.com")
     void uploadIdentityKey_withRoleUser_returnsUserDetailDto() throws Exception {
         String publicKey = "my-public-key";
+        String publicDHKey = "my-public-dh-key";
         ApplicationUser returnedUser = new ApplicationUser();
         returnedUser.setEmail("test@email.com");
         returnedUser.setPublicIdentityKey(publicKey);
@@ -62,10 +63,13 @@ public class CommunicationEndpointTest {
         UserDetailDto detailDto = new UserDetailDto();
         detailDto.setEmail("test@email.com");
 
-        when(communicationService.uploadIdentityKey(eq("test@email.com"), eq(publicKey))).thenReturn(returnedUser);
+        when(communicationService.uploadIdentityKey(eq("test@email.com"), eq(publicKey), eq(publicDHKey))).thenReturn(returnedUser);
         when(userMapper.applicationUserToDetailDto(returnedUser)).thenReturn(detailDto);
 
-        String requestJson = objectMapper.writeValueAsString(Map.of("publicKey", publicKey));
+        String requestJson = objectMapper.writeValueAsString(Map.of(
+                "publicKey", publicKey,
+                "publicDHKey", publicDHKey
+        ));
 
         mockMvc.perform(put("/api/v1/communication/upload-identity-key")
                         .contentType(MediaType.APPLICATION_JSON)

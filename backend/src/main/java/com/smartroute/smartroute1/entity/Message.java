@@ -36,6 +36,8 @@ public class Message {
 
     private String senderIdentityKey;
 
+    private String senderIdentityDHKey;
+
     private String senderEphemeralKey;
 
     private UUID usedOneTimePreKeyId;

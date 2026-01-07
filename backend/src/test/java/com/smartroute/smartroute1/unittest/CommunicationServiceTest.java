@@ -55,9 +55,10 @@ class CommunicationServiceTest {
         userRepository.save(user);
 
         String publicKey = "PUBLIC_KEY_ABC123";
+        String publicDHKey = "PUBLIC_DH_KEY_XYZ789";
 
         // act
-        ApplicationUser updated = communicationService.uploadIdentityKey(user.getEmail(), publicKey);
+        ApplicationUser updated = communicationService.uploadIdentityKey(user.getEmail(), publicKey, publicDHKey);
 
         // assert
         assertNotNull(updated);
@@ -74,7 +75,7 @@ class CommunicationServiceTest {
 
     @Test
     void uploadIdentityKey_withNonExistingUser_shouldThrowNotFoundException() {
-        assertThrows(NotFoundException.class, () -> communicationService.uploadIdentityKey("unknown@example.com", "KEY"));
+        assertThrows(NotFoundException.class, () -> communicationService.uploadIdentityKey("unknown@example.com", "KEY", "DHKEY"));
     }
 
     @Test
@@ -408,7 +409,7 @@ class CommunicationServiceTest {
         var results = communicationService.retrieveMessagesByFriendAndTimestamp(user.getEmail(), friend.getEmail(), base);
 
         assertNotNull(results);
-        assertEquals(1, results.size(), "Only the message with timestamp >= base should be returned");
+        assertEquals(1, results.size(), "Only the message with timestamp > base should be returned");
         Message returned = results.getFirst();
         assertEquals("NEW", returned.getCiphertext());
     }
