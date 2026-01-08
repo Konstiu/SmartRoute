@@ -631,7 +631,7 @@ public class AddStopsServiceImpl implements AddStopsService {
         double low = Math.max(minLoop, (originalLength - diff) * 0.5);
         double high = (originalLength - diff) * (1 + toleranceFactor) * 2;
 
-        final int maxIterations = 2;
+        final int maxIterations = 3;
 
         List<GeoJsonPosition> bestRoute = null;
         double bestError = Double.MAX_VALUE;
@@ -639,12 +639,12 @@ public class AddStopsServiceImpl implements AddStopsService {
         GeoJsonDto candidate = new GeoJsonDto();
 
         for (int i = 0; i < maxIterations; i++) {
-            double requested = (low + high) / 3.0; // more aggressive than 2.0 to favour routes that are shorter than too long
+            double requested = (low + high) / 2.5;
 
-            GeoJsonDto dto = orsService.generateRoundTrip(List.of(originalRoute.getFirst()), (int) requested, roundness, seed);
-            //GeoJsonDto dto = orsService.generateRoundTrip(List.of(loopCenter), (int) requested, roundness, seed);
+            //GeoJsonDto dto = orsService.generateRoundTrip(List.of(originalRoute.getFirst()), (int) requested, roundness, seed);
+            GeoJsonDto dto = orsService.generateRoundTrip(List.of(loopCenter), (int) requested, roundness, seed);
             List<GeoJsonPosition> loop = dto.getFeatures().getFirst().getGeometry().getCoordinates();
-            //loop = rotateToStart(loop, originalRoute.getFirst());
+            loop = rotateToStart(loop, originalRoute.getFirst());
 
             AddStopsDto candidateStopsDto = new AddStopsDto(
                     toStopPoint(loop),
