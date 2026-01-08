@@ -18,7 +18,7 @@ import { MapComponent } from '../map/map.component';
 import { Icon, icon, latLng, LatLng, Layer, marker, polyline } from 'leaflet';
 import { RouteService } from 'src/services/route.service';
 import { convertPolylineToCoordinateList } from 'src/services/utils';
-import { ModalController } from '@ionic/angular';
+import { ModalController, ViewDidEnter} from '@ionic/angular';
 import { WeatherInfoComponent } from '../weather/weather.component';
 import { MapModalComponent } from '../map/mapModal.component'
 import { Polyline, Marker, LatLngBounds } from "leaflet";
@@ -38,6 +38,7 @@ import 'leaflet-polylinedecorator';
   imports: [IonicModule, CommonModule, MapComponent]
 })
 export class TrainingPlanPage implements OnInit {
+  @ViewChild(MapComponent) mapComponent!: MapComponent;
 
   private readonly router: Router = inject(Router);
   private readonly service: TrainingPlanService = inject(TrainingPlanService);
@@ -123,11 +124,15 @@ export class TrainingPlanPage implements OnInit {
         console.log(this.recommendedActivity);
         this.error = null;
         this.isLoading = false;
+
+        // wait for Angular to render <app-map>
+        setTimeout(() => this.forceMapResize(), 0);
       },
       error: err => {
         console.error(err);
         this.isLoading = false;
         this.error = "Failed to load Training Plan.";
+        setTimeout(() => this.forceMapResize(), 0);
       }
     });
   }
@@ -231,18 +236,25 @@ export class TrainingPlanPage implements OnInit {
 
   alertController = inject(AlertController);
 
-  async onGeolocationError(_error: GeolocationPositionError) {
+async onExactLocationFailed() {
+  const alert = await this.alertController.create({
+    header: 'Precise location unavailable',
+    message: 'Trying to determine your location with reduced accuracy.',
+    buttons: ['OK'],
+  });
 
-    let alert = await this.alertController.create({
-      header: "Unable to determine location.",
-      message: "Please add a marker to the map to select the starting point of the route.",
-      buttons: ["Okay"]
-    });
+  await alert.present();
+}
 
-    await alert.present();
-  }
+async onGeolocationError() {
+  const alert = await this.alertController.create({
+    header: 'Unable to determine location',
+    message: 'Please add a marker to the map to select the starting point.',
+    buttons: ['OK'],
+  });
 
-  @ViewChild(MapComponent) mapComponent!: MapComponent;
+  await alert.present();
+}
 
 
   onLocationSelected(location: LatLng) {
@@ -278,13 +290,19 @@ export class TrainingPlanPage implements OnInit {
           this.originalDistance = e.distance;
           this.originalElevation = e.elevation;
 
-          // also ensure originalStartLatLng exists
+          // ensure originalStartLatLng exists
           if (!this.originalStart) this.originalStart = location;
         }
 
         this.rebuildLayers();
 
-        this.mapComponent?.map?.fitBounds(this.routeBounds!, { padding: [30, 30] });
+        const map = this.mapComponent?.map;
+        if (map && this.routeBounds) {
+          requestAnimationFrame(() => {
+            map.invalidateSize(true);
+            map.fitBounds(this.routeBounds!, { padding: [30, 30], animate: true });
+          });
+        }
       });
   }
 
@@ -674,6 +692,18 @@ private async changeStartLocation(newStart: LatLng): Promise<{ layers: Layer[]; 
   await this.generateRouteFromLocationAsync(newStart, false);
 
   return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
+}
+
+viewDidEnter() {
+  // page is now visible -> Leaflet can compute sizes correctly
+  this.forceMapResize();
+}
+
+private forceMapResize() {
+  // a few retries covers: transitions, permission prompts, fonts, etc.
+  requestAnimationFrame(() => this.mapComponent?.map?.invalidateSize(true));
+  setTimeout(() => this.mapComponent?.map?.invalidateSize(true), 150);
+  setTimeout(() => this.mapComponent?.map?.invalidateSize(true), 400);
 }
 
 
