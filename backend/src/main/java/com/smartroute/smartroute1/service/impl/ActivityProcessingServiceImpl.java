@@ -406,17 +406,19 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         final double minChange;           // Minimum change to consider (bpm or m/s)
         final double maxSpikeDuration;    // Max seconds for the change to occur
         final double minSustainDuration;  // Must stay changed for at least this long
+        final double minSustainThreshold;  // Below which value relative to baseline must a spike drop before it is not sustained
         final double baselineWindow;      // Seconds to calculate baseline
         final double noiseThreshold;      // Std devs for outlier filtering
         final double minRateOfChange;     // Minimum rate of change per second
         final boolean detectIncreases;    // true = detect increases, false = detect decreases
 
-        SpikeConfig(double minChange, double maxSpikeDuration, double minSustainDuration,
+        SpikeConfig(double minChange, double maxSpikeDuration, double minSustainDuration, double minSustainThreshold,
                     double baselineWindow, double noiseThreshold, double minRateOfChange,
                     boolean detectIncreases) {
             this.minChange = minChange;
             this.maxSpikeDuration = maxSpikeDuration;
             this.minSustainDuration = minSustainDuration;
+            this.minSustainThreshold = minSustainThreshold;
             this.baselineWindow = baselineWindow;
             this.noiseThreshold = noiseThreshold;
             this.minRateOfChange = minRateOfChange;
@@ -429,6 +431,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 14.0,   // 14 bpm increase
                 15.0,   // within 15 seconds
                 3.0,    // sustained for 3 seconds
+                0.7,    // 70% of hr before spike is not sustained
                 30.0,   // 30 second baseline
                 2.5,    // noise threshold
                 2,    // 2 bpm/second minimum
@@ -439,12 +442,13 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         // Preset for pace spikes (sudden accelerations = speed increases)
         static SpikeConfig forPace() {
             return new SpikeConfig(
-                0.9,    // 0.9 m/s increase in speed
-                10.0,    // within 10 seconds
-                3.2,    // sustained for 3.2 seconds
-                16.0,   // 16 second baseline
+                0.95,    // 0.9 m/s increase in speed
+                15.0,    // within 15 seconds
+                10.0,    // sustained for 10 seconds
+                0.90,    // 90% of pace before spike is not sustained
+                25.0,   // 25 second baseline
                 2.5,    // noise threshold
-                0.2,    // 0.2 m/s per second minimum
+                0.25,    // 0.25 m/s per second minimum
                 true    // detect increases
             );
         }
@@ -454,15 +458,15 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
      * Spike detection algorithm.
      * Works for both HR spikes and pace spikes with appropriate configuration.
      */
-    private int detectSpikesWithTime(double[] time, double[] data, SpikeConfig config) {
+    private List<Integer> detectSpikesWithTime(double[] time, double[] data, SpikeConfig config) {
         if (data == null || time == null || data.length != time.length || data.length < 5) {
-            return -1;
+            return null;
         }
 
         // Filter out single-point outliers
-        double[] filtered = filterOutliers(time, data, config.noiseThreshold);
+        double[] filtered = filterOutliers(data, config.noiseThreshold);
 
-        int spikes = 0;
+        List<Integer> spikeIndices = new ArrayList<>();
         int i = 0;
 
         while (i < filtered.length - 1) {
@@ -478,7 +482,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 // Verify the spike is sustained
                 int endIndex = getSustainEndIndex(time, filtered, candidate, config, baseline);
                 if (endIndex >= 0) {
-                    spikes++;
+                    spikeIndices.add(candidate.peakIndex);
                     i = endIndex; // Skip past this spike
                     continue;
                 }
@@ -487,13 +491,13 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             i++;
         }
 
-        return spikes;
+        return spikeIndices;
     }
 
     /**
      * Filter out single-point outliers using median-based approach.
      */
-    private double[] filterOutliers(double[] time, double[] data, double threshold) {
+    private double[] filterOutliers(double[] data, double threshold) {
         double[] filtered = new double[data.length];
 
         for (int i = 0; i < data.length; i++) {
@@ -514,7 +518,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 deviations[j] = Math.abs(window[j] - median);
             }
             Arrays.sort(deviations);
-            double mad = deviations[2] * 1.4826;
+            double mad = deviations[2];
 
             // If point is too far from median, replace with median
             if (Math.abs(data[i] - median) > threshold * mad && mad > 0) {
@@ -615,8 +619,8 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
     ) {
         int sustainStart = spike.peakIndex;
         double threshold = config.detectIncreases
-            ? baseline + (spike.change * 0.7)  // 70% above baseline
-            : baseline - (spike.change * 0.7); // 70% below baseline
+            ? baseline + (spike.change * config.minSustainThreshold)  // above baseline
+            : baseline - (spike.change * config.minSustainThreshold); // below baseline
 
         int lastSustainedIndex = spike.peakIndex;
         double sustainedTime = 0;
@@ -672,7 +676,11 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             throw new IllegalStateException("HR and time arrays must match");
         }
 
-        return detectSpikesWithTime(timeArray, hrArray, SpikeConfig.forHeartRate());
+        List<Integer> spikes = detectSpikesWithTime(timeArray, hrArray, SpikeConfig.forHeartRate());
+        if (spikes == null) {
+            return -1;
+        }
+        return spikes.size();
     }
 
     @Override
@@ -692,7 +700,11 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         // Compute smoothed speed (m/s) using rolling average to reduce GPS noise
         double[] speed = computeSmoothedSpeed(distanceArray, timeArray, 5); // 5-point smoothing
 
-        return detectSpikesWithTime(timeArray, speed, SpikeConfig.forPace());
+        List<Integer> spikes = detectSpikesWithTime(timeArray, speed, SpikeConfig.forPace());
+        if (spikes == null) {
+            return -1;
+        }
+        return spikes.size();
     }
 
     /**
