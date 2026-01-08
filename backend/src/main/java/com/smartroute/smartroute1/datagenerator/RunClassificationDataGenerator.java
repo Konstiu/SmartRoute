@@ -32,15 +32,15 @@ public class RunClassificationDataGenerator {
     private static final int NUMBER_OF_RUNS = 10000;
     private static final Path CSV_PATH = Paths.get("backend", "target", "RunDataset.csv");
     private static final String CSV_HEADER =
-            "duration,duration_pct_pb_20,distance,distance_pct_pb_20,"
-                    + "pace,pace_pct_pb_20,elevation_gain,session_load,"
-                    + "num_pace_spikes,readiness_score,consistency_score,tsb,"
-                    + "age,weight,height,sex,experience_level,injury_index,"
-                    + "hr_avg,hr_avg_missing,hr_max,hr_max_missing,"
-                    + "zone1,zone1_missing,zone2,zone2_missing,"
-                    + "zone3,zone3_missing,zone4,zone4_missing,"
-                    + "zone5,zone5_missing,num_hr_spikes,num_hr_spikes_missing,"
-                    + "windSpeed10m,temperature2m,uv_index,precipitation,snowDepth,run_type";
+        "duration,duration_pct_pb_20,distance,distance_pct_pb_20,"
+            + "pace,pace_pct_pb_20,elevation_gain,session_load,"
+            + "num_pace_spikes,readiness_score,consistency_score,tsb,"
+            + "age,weight,height,sex,experience_level,injury_index,"
+            + "hr_avg,hr_avg_missing,hr_max,hr_max_missing,"
+            + "zone1,zone1pct,zone1_missing,zone2,zone2pct,zone2_missing,"
+            + "zone3,zone3pct,zone3_missing,zone4,zone4pct,zone4_missing,"
+            + "zone5,zone5pct,zone5_missing,num_hr_spikes,num_hr_spikes_missing,"
+            + "windSpeed10m,temperature2m,uv_index,precipitation,snowDepth,run_type";
     private static final int K1 = 30;
     private static final int K2 = 60;
     private static final int K3 = 120;
@@ -52,39 +52,39 @@ public class RunClassificationDataGenerator {
     private static RunnerProfile runnerProfile(ExperienceLevel level) {
         return switch (level) {
             case BEGINNER -> new RunnerProfile(
-                    18, 60,
-                    6.5, 8.0,
-                    8.0,
-                    185,
-                    1.4
+                18, 60,
+                6.5, 8.0,
+                8.0,
+                185,
+                1.4
             );
             case CASUAL -> new RunnerProfile(
-                    18, 65,
-                    5.8, 7.2,
-                    12.0,
-                    190,
-                    1.2
+                18, 65,
+                5.8, 7.2,
+                12.0,
+                190,
+                1.2
             );
             case INTERMEDIATE -> new RunnerProfile(
-                    18, 65,
-                    4.8, 6.2,
-                    20.0,
-                    195,
-                    1.0
+                18, 65,
+                4.8, 6.2,
+                20.0,
+                195,
+                1.0
             );
             case ADVANCED -> new RunnerProfile(
-                    18, 55,
-                    4.0, 5.2,
-                    30.0,
-                    200,
-                    0.8
+                18, 55,
+                4.0, 5.2,
+                30.0,
+                200,
+                0.8
             );
             case COMPETITIVE_ATHLETE -> new RunnerProfile(
-                    18, 45,
-                    3.2, 4.5,
-                    42.0,
-                    205,
-                    0.6
+                18, 45,
+                3.2, 4.5,
+                42.0,
+                205,
+                0.6
             );
         };
     }
@@ -92,53 +92,53 @@ public class RunClassificationDataGenerator {
     private static RunTypeProfile runTypeProfile(RunType type) {
         return switch (type) {
             case EASY_RUN -> new RunTypeProfile(
-                    1.15,
-                    0.7,
-                    0.6,
-                    10,
-                    1,
-                    0,
-                    0,
-                    0.1,
-                    0.55,
-                    0.45
+                1.25,
+                0.7,
+                0.6,
+                10,
+                1,
+                0,
+                0,
+                0.1,
+                0.55,
+                0.45
             );
             case TEMPO_RUN -> new RunTypeProfile(
-                    0.95,
-                    0.8,
-                    0.8,
-                    35,
-                    2,
-                    0.05,
-                    0.1,
-                    0.4,
-                    0.35,
-                    0.1
+                0.9,
+                0.8,
+                0.8,
+                35,
+                1,
+                0.05,
+                0.1,
+                0.4,
+                0.35,
+                0.1
 
             );
             case INTERVAL_RUN -> new RunTypeProfile(
-                    0.85,
-                    0.5,
-                    0.7,
-                    60,
-                    6,
-                    0.15,
-                    0.2,
-                    0.2,
-                    0.3,
-                    0.15
+                0.95,
+                0.65,
+                0.7,
+                60,
+                9,
+                0.15,
+                0.2,
+                0.2,
+                0.3,
+                0.15
             );
             case LONG_RUN -> new RunTypeProfile(
-                    1.10,
-                    1.3,
-                    1.1,
-                    25,
-                    3,
-                    0.02,
-                    0.03,
-                    0.15,
-                    0.6,
-                    0.2
+                1.10,
+                1.35,
+                1.1,
+                25,
+                1,
+                0.02,
+                0.03,
+                0.15,
+                0.6,
+                0.2
             );
         };
     }
@@ -178,12 +178,12 @@ public class RunClassificationDataGenerator {
         int duration = (int) (distance * pace * 60);
 
 
-        double[] base = new double[]{
-                type.zone5p(),
-                type.zone4p(),
-                type.zone3p(),
-                type.zone2p(),
-                type.zone1p(),
+        double[] base = new double[] {
+            type.zone5p(),
+            type.zone4p(),
+            type.zone3p(),
+            type.zone2p(),
+            type.zone1p(),
         };
 
         double[] min = new double[5];
@@ -196,6 +196,15 @@ public class RunClassificationDataGenerator {
 
         BoundedDirichletDistributor distributor = new BoundedDirichletDistributor();
         double[] distribution = distributor.distribute(base, min, max, 0.2);
+
+
+        Map<Integer, Float> zonePcts = new HashMap<>();
+
+        zonePcts.put(1, (float) Math.round(distribution[4]));
+        zonePcts.put(2, (float) Math.round(distribution[3]));
+        zonePcts.put(3, (float) Math.round(distribution[2]));
+        zonePcts.put(4, (float) Math.round(distribution[1]));
+        zonePcts.put(5, (float) Math.round(distribution[0]));
 
         Map<Integer, Float> zoneTimes = new HashMap<>();
 
@@ -234,7 +243,7 @@ public class RunClassificationDataGenerator {
         boolean hrMaxMissing = false;
         boolean[] zoneMissing = {false, false, false, false, false};
 
-        if (random.nextDouble() < 0.07) {
+        if (random.nextDouble() < 0.15) {
             if (random.nextBoolean()) {
                 hrAvgMissing = true;
                 hrAvg = -1;
@@ -244,7 +253,9 @@ public class RunClassificationDataGenerator {
                 hrMax = -1;
             }
             if (random.nextBoolean()) {
-                zoneMissing = new boolean[]{true, true, true, true, true};
+                zonePcts.forEach((k, v) -> zoneTimes.put(k, -1f));
+                zoneTimes.forEach((k, v) -> zoneTimes.put(k, -1f));
+                zoneMissing = new boolean[] {true, true, true, true, true};
             }
         }
         double temperature = rand(-5, 30);
@@ -281,7 +292,7 @@ public class RunClassificationDataGenerator {
             distance *= rand(0.6, 0.85);
             hrAvg *= rand(1.05, 1.15);
             hrMax *= rand(1.05, 1.1);
-            paceSpikes += randInt(2, 6);
+            paceSpikes += randInt(2, 4);
         }
 
         // Treadmill runs
@@ -300,7 +311,7 @@ public class RunClassificationDataGenerator {
 
         // Runs with someone else
         if (random.nextDouble() < 0.06) {
-            paceSpikes += randInt(4, 8);
+            paceSpikes += randInt(2, 4);
             hrAvg *= rand(0.95, 1.0);
             readinessScore = randInt(50, 80);
         }
@@ -320,90 +331,100 @@ public class RunClassificationDataGenerator {
         }
 
         return new RunClassificationResultDto(new RunClassificationDto(
-                duration,               //duration
-                runType == RunType.LONG_RUN ? rand(0.8, 1.5) :
-                        runType == RunType.EASY_RUN ? rand(0.2, 0.5) : rand(0.4, 0.9),         //duration_pct_pb_20
-                distance,               //distance
-                runType == RunType.LONG_RUN ? rand(0.8, 1.5) :
-                        runType == RunType.EASY_RUN ? rand(0.2, 0.5) : rand(0.4, 0.9),         //distance_pct_pb_20
-                pace,                   // pace
-                runType == RunType.TEMPO_RUN ? rand(0.8, 1.5) :
-                        runType == RunType.EASY_RUN ? rand(0.5, 0.8) : rand(0.65, 0.9),         //pace_pct_pb_20
-                elevation,              //elevation gain
-                (double) calculateTrimp(zoneTimes), //Session load
-                (int) Math.round(paceSpikes * randDouble(0.5, 2) * (((double) duration / 3600))),   //num pace spikes
-                readinessScore,    // readiness score
-                rand(0.3, 1.0),     // consistency score
-                rand(-20, 20),      //tsb
-                randInt(18, 60),    //age
-                weight,       // weight
-                randInt(155, 195),  //height
-                randomEnum(Sex.class),  //sex
-                exp,       //experience level
-                randInt(0, 100) < 50 ? athlete.injuryRiskFactor() * rand(0.1, 0.5) : 0, //injury index
-                hrAvg,      //hr avg
-                hrAvgMissing,
-                hrMax,  //hr max
-                hrMaxMissing,
-                zoneMissing[0] ? -1 : (int) (float) zoneTimes.get(1), zoneMissing[0],   //zone 1
-                zoneMissing[1] ? -1 : (int) (float) zoneTimes.get(2), zoneMissing[1],   //zone 2
-                zoneMissing[2] ? -1 : (int) (float) zoneTimes.get(3), zoneMissing[2],   //zone 3
-                zoneMissing[3] ? -1 : (int) (float) zoneTimes.get(4), zoneMissing[3],   //zone 4
-                zoneMissing[4] ? -1 : (int) (float) zoneTimes.get(5), zoneMissing[4],   //zone 5
-                runType == RunType.INTERVAL_RUN ? randInt(5, 10) * (duration / 3600) : randInt(0, 2) * (duration / 3600),   // num hr spikes
-                false,
-                rand(0, 12),    //winds peed
-                temperature,    //temperature
-                randInt(0, 10), //uv index
-                randInt(0, 100) < 20 ? rand(0, 5) : 0, // precipitation
-                snowDepth //snow depth
+            duration,               //duration
+            runType == RunType.LONG_RUN ? rand(0.8, 1.5) :
+                runType == RunType.EASY_RUN ? rand(0.2, 0.6) : rand(0.4, 0.9),         //duration_pct_pb_20
+            distance,               //distance
+            runType == RunType.LONG_RUN ? rand(0.8, 1.5) :
+                runType == RunType.EASY_RUN ? rand(0.2, 0.6) : rand(0.4, 0.9),         //distance_pct_pb_20
+            pace,                   // pace
+            runType == RunType.TEMPO_RUN ? rand(0.8, 1.5) :
+                runType == RunType.EASY_RUN ? rand(0.45, 0.8) : rand(0.65, 0.9),         //pace_pct_pb_20
+            elevation,              //elevation gain
+            (double) calculateTrimp(zoneTimes), //Session load
+            (int) Math.round(paceSpikes * randDouble(0.5, 2) * (((double) duration / 3600))),   //num pace spikes
+            readinessScore,    // readiness score
+            rand(0.3, 1.0),     // consistency score
+            rand(-20, 20),      //tsb
+            randInt(18, 60),    //age
+            weight,       // weight
+            randInt(155, 195),  //height
+            randomEnum(Sex.class),  //sex
+            exp,       //experience level
+            randInt(0, 100) < 50 ? athlete.injuryRiskFactor() * rand(0.1, 0.5) : 0, //injury index
+            hrAvg,      //hr avg
+            hrAvgMissing,
+            hrMax,  //hr max
+            hrMaxMissing,
+            zoneMissing[0] ? -1 : (int) (float) zoneTimes.get(1),   //zone 1
+            zoneMissing[0] ? -1 : zonePcts.get(1), zoneMissing[0],   //zone 1 pct
+            zoneMissing[1] ? -1 : (int) (float) zoneTimes.get(2),   //zone 2
+            zoneMissing[1] ? -1 : zonePcts.get(2), zoneMissing[1],   //zone 2 pct
+            zoneMissing[2] ? -1 : (int) (float) zoneTimes.get(3),   //zone 3
+            zoneMissing[2] ? -1 : zonePcts.get(3), zoneMissing[2],   //zone 3 pct
+            zoneMissing[3] ? -1 : (int) (float) zoneTimes.get(4),   //zone 4
+            zoneMissing[3] ? -1 : zonePcts.get(4), zoneMissing[3],   //zone 4 pct
+            zoneMissing[4] ? -1 : (int) (float) zoneTimes.get(5),   //zone 5
+            zoneMissing[4] ? -1 : zonePcts.get(5), zoneMissing[4],   //zone 5 pct
+            runType == RunType.INTERVAL_RUN ? randInt(3, 8) * (duration / 3600) : randInt(0, 2) * (duration / 3600),   // num hr spikes
+            false,
+            rand(0, 12),    //winds peed
+            temperature,    //temperature
+            randInt(0, 10), //uv index
+            randInt(0, 100) < 20 ? rand(0, 5) : 0, // precipitation
+            snowDepth //snow depth
 
         ),
-                runType);   //runtype
+            runType);   //runtype
     }
 
     private String toCsv(RunClassificationResultDto dto) {
         return String.join(",",
-                dto.getRun().getDuration().toString(),
-                dto.getRun().getDurationPb20().toString(),
-                dto.getRun().getDistance().toString(),
-                dto.getRun().getDistancePb20().toString(),
-                dto.getRun().getPace().toString(),
-                dto.getRun().getPacePb20().toString(),
-                dto.getRun().getElevationGain().toString(),
-                dto.getRun().getSessionLoad().toString(),
-                dto.getRun().getNumPaceSpikes().toString(),
-                dto.getRun().getReadinessScore().toString(),
-                dto.getRun().getConsistencyScore().toString(),
-                dto.getRun().getTsb().toString(),
-                dto.getRun().getAge().toString(),
-                dto.getRun().getWeight().toString(),
-                dto.getRun().getHeight().toString(),
-                dto.getRun().getSex().name(),
-                dto.getRun().getExperienceLevel().name(),
-                dto.getRun().getInjuryIndex().toString(),
-                dto.getRun().getHrAvg().toString(),
-                dto.getRun().getHrAvgMissing().toString(),
-                dto.getRun().getHrMax().toString(),
-                dto.getRun().getHrMaxMissing().toString(),
-                dto.getRun().getZone1().toString(),
-                dto.getRun().getZone1Missing().toString(),
-                dto.getRun().getZone2().toString(),
-                dto.getRun().getZone2Missing().toString(),
-                dto.getRun().getZone3().toString(),
-                dto.getRun().getZone3Missing().toString(),
-                dto.getRun().getZone4().toString(),
-                dto.getRun().getZone4Missing().toString(),
-                dto.getRun().getZone5().toString(),
-                dto.getRun().getZone5Missing().toString(),
-                dto.getRun().getNumHrSpikes().toString(),
-                dto.getRun().getNumHrSpikesMissing().toString(),
-                dto.getRun().getWindSpeed10m().toString(),
-                dto.getRun().getTemperature2m().toString(),
-                dto.getRun().getUvIndex().toString(),
-                dto.getRun().getPrecipitation().toString(),
-                dto.getRun().getSnowDepth().toString(),
-                dto.getClassification().name()
+            dto.getRun().getDuration().toString(),
+            dto.getRun().getDurationPb20().toString(),
+            dto.getRun().getDistance().toString(),
+            dto.getRun().getDistancePb20().toString(),
+            dto.getRun().getPace().toString(),
+            dto.getRun().getPacePb20().toString(),
+            dto.getRun().getElevationGain().toString(),
+            dto.getRun().getSessionLoad().toString(),
+            dto.getRun().getNumPaceSpikes().toString(),
+            dto.getRun().getReadinessScore().toString(),
+            dto.getRun().getConsistencyScore().toString(),
+            dto.getRun().getTsb().toString(),
+            dto.getRun().getAge().toString(),
+            dto.getRun().getWeight().toString(),
+            dto.getRun().getHeight().toString(),
+            dto.getRun().getSex().name(),
+            dto.getRun().getExperienceLevel().name(),
+            dto.getRun().getInjuryIndex().toString(),
+            dto.getRun().getHrAvg().toString(),
+            dto.getRun().getHrAvgMissing().toString(),
+            dto.getRun().getHrMax().toString(),
+            dto.getRun().getHrMaxMissing().toString(),
+            dto.getRun().getZone1().toString(),
+            dto.getRun().getZone1pct().toString(),
+            dto.getRun().getZone1Missing().toString(),
+            dto.getRun().getZone2().toString(),
+            dto.getRun().getZone2pct().toString(),
+            dto.getRun().getZone2Missing().toString(),
+            dto.getRun().getZone3().toString(),
+            dto.getRun().getZone3pct().toString(),
+            dto.getRun().getZone3Missing().toString(),
+            dto.getRun().getZone4().toString(),
+            dto.getRun().getZone4pct().toString(),
+            dto.getRun().getZone4Missing().toString(),
+            dto.getRun().getZone5().toString(),
+            dto.getRun().getZone5pct().toString(),
+            dto.getRun().getZone5Missing().toString(),
+            dto.getRun().getNumHrSpikes().toString(),
+            dto.getRun().getNumHrSpikesMissing().toString(),
+            dto.getRun().getWindSpeed10m().toString(),
+            dto.getRun().getTemperature2m().toString(),
+            dto.getRun().getUvIndex().toString(),
+            dto.getRun().getPrecipitation().toString(),
+            dto.getRun().getSnowDepth().toString(),
+            dto.getClassification().name()
 
         );
     }

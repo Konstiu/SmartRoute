@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static java.lang.Float.parseFloat;
+
 @Service
 public class RunTrainingTrainingClassificationServiceImpl implements RunTrainingClassificationService {
 
@@ -249,14 +251,19 @@ public class RunTrainingTrainingClassificationServiceImpl implements RunTraining
                 parseDouble(c[i++]),           // hr_max
                 parseBoolean(c[i++]),          // hr_max_missing
                 parseInt(c[i++]),              // zone1
+                parseFloat(c[i++]),              // zone1pct
                 parseBoolean(c[i++]),          // zone1_missing
                 parseInt(c[i++]),              // zone2
+                parseFloat(c[i++]),              // zone2pct
                 parseBoolean(c[i++]),          // zone2_missing
                 parseInt(c[i++]),              // zone3
+                parseFloat(c[i++]),              // zone3pct
                 parseBoolean(c[i++]),          // zone3_missing
                 parseInt(c[i++]),              // zone4
+                parseFloat(c[i++]),              // zone4pct
                 parseBoolean(c[i++]),          // zone4_missing
                 parseInt(c[i++]),              // zone5
+                parseFloat(c[i++]),              // zone5pct
                 parseBoolean(c[i++]),          // zone5_missing
                 parseInt(c[i++]),              // num_hr_spikes
                 parseBoolean(c[i++]),          // num_hr_spikes_missing

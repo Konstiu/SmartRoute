@@ -132,6 +132,11 @@ public class RunClassificationDto {
     private Integer zone1;
 
     /**
+     * zone1 percent.
+     */
+    private Float zone1pct;
+
+    /**
      * zone1_missing.
      */
     private Boolean zone1Missing;
@@ -140,6 +145,11 @@ public class RunClassificationDto {
      * zone2.
      */
     private Integer zone2;
+
+    /**
+     * zone2 percent.
+     */
+    private Float zone2pct;
 
     /**
      * zone2_missing.
@@ -152,6 +162,11 @@ public class RunClassificationDto {
     private Integer zone3;
 
     /**
+     * zone3 percent.
+     */
+    private Float zone3pct;
+
+    /**
      * zone3_missing.
      */
     private Boolean zone3Missing;
@@ -162,6 +177,11 @@ public class RunClassificationDto {
     private Integer zone4;
 
     /**
+     * zone4 percent.
+     */
+    private Float zone4pct;
+
+    /**
      * zone4_missing.
      */
     private Boolean zone4Missing;
@@ -170,6 +190,11 @@ public class RunClassificationDto {
      * zone5.
      */
     private Integer zone5;
+
+    /**
+     * zone5 percent.
+     */
+    private Float zone5pct;
 
     /**
      * zone5_missing.

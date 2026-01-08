@@ -51,7 +51,8 @@ def train_model(data, test=False, debug_perf=False, export=False):
 
     rf_classifier = RandomForestClassifier(
         n_estimators=250,
-        max_depth=12,
+        max_depth=10,
+        max_features="log2",
         random_state=42,
         n_jobs=-1
     )

@@ -16,6 +16,7 @@ import com.smartroute.smartroute1.repository.RunClassificationDecisionRepository
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import com.smartroute.smartroute1.service.FatigueAndOverloadService;
+import com.smartroute.smartroute1.service.FitnessScoreService;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import com.smartroute.smartroute1.service.ReadinessScoreService;
 import com.smartroute.smartroute1.service.RunClassificationService;
@@ -63,11 +64,12 @@ public class RunClassificationServiceImpl implements RunClassificationService {
     private final List<OutputField> outputFields;
     private final RunClassificationMapper mapper;
     private final RunClassificationDecisionRepository runClassificationDecisionRepository;
+    private final FitnessScoreService fitnessScoreService;
 
     public RunClassificationServiceImpl(ActivityRepository activityRepository, ActivityProcessingService activityProcessingService, ReadinessScoreService readinessScoreService, ConsistencyAnalyzerService consistencyAnalyzerService,
                                         InjuryAwareTrainingService injuryAwareTrainingService,
-                                        FatigueAndOverloadService fatigueAndOverloadService, RunClassificationMapper mapper, RunClassificationDecisionRepository runClassificationDecisionRepository)
-            throws IOException, JAXBException, SAXException, ParserConfigurationException {
+                                        FatigueAndOverloadService fatigueAndOverloadService, RunClassificationMapper mapper, RunClassificationDecisionRepository runClassificationDecisionRepository, FitnessScoreService fitnessScoreService)
+        throws IOException, JAXBException, SAXException, ParserConfigurationException {
         this.activityRepository = activityRepository;
         this.activityProcessingService = activityProcessingService;
         this.readinessScoreService = readinessScoreService;
@@ -76,14 +78,15 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         this.runClassificationDecisionRepository = runClassificationDecisionRepository;
 
         this.evaluator = new LoadingModelEvaluatorBuilder()
-                .load(new ClassPathResource("models/run_classifier.pmml").getInputStream())
-                .build();
+            .load(new ClassPathResource("models/run_classifier.pmml").getInputStream())
+            .build();
         this.evaluator.verify();
 
         this.targetFields = evaluator.getTargetFields();
         this.outputFields = evaluator.getOutputFields();
         this.fatigueAndOverloadService = fatigueAndOverloadService;
         this.injuryAwareTrainingService = injuryAwareTrainingService;
+        this.fitnessScoreService = fitnessScoreService;
     }
 
     private static RunClassificationDecisionDto getRunClassificationDecisionDto(Object targetValue, Map<RunType, Double> probabilities) {
@@ -228,7 +231,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
             case "elevation_gain" -> activity.getTotalElevationGain();
 
-            case "session_load" -> activity.getSessionLoad();
+            case "session_load" -> activity.getSessionLoad() == null ? fitnessScoreService.calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain()) : activity.getSessionLoad();
 
             case "num_pace_spikes" -> activityProcessingService.detectPaceSpikes(activity);
 
@@ -263,23 +266,27 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             case "hr_avg" -> activity.getMaxHeartrate() != null ? getMaxHrPercentageRelativeToAllRuns(activity) : -1;
             case "hr_avg_missing" -> activity.getMaxHeartrate() != null ? 0 : 1;
 
-            case "hr_max" ->
-                    activity.getAverageHeartrate() != null ? getMaxAverageHrPercentageRelativeToAllRuns(activity) : -1;
+            case "hr_max" -> activity.getAverageHeartrate() != null ? getMaxAverageHrPercentageRelativeToAllRuns(activity) : -1;
             case "hr_max_missing" -> activity.getAverageHeartrate() != null ? 0 : 1;
 
-            case "zone1" -> activity.getTimeZ1() != null ? activity.getTimeZ1() : 0;
+            case "zone1" -> activity.getTimeZ1() != null ? activity.getTimeZ1() : -1;
+            case "zone1pct" -> activity.getTimeZ1() != null ? (double) activity.getTimeZ1() / activity.getMovingTime() : -1;
             case "zone1_missing" -> activity.getTimeZ1() != null ? 0 : 1;
 
             case "zone2" -> activity.getTimeZ2() != null ? activity.getTimeZ2() : -1;
+            case "zone2pct" -> activity.getTimeZ2() != null ? (double) activity.getTimeZ2() / activity.getMovingTime() : -1;
             case "zone2_missing" -> activity.getTimeZ2() != null ? 0 : 1;
 
             case "zone3" -> activity.getTimeZ3() != null ? activity.getTimeZ3() : -1;
+            case "zone3pct" -> activity.getTimeZ3() != null ? (double) activity.getTimeZ3() / activity.getMovingTime() : -1;
             case "zone3_missing" -> activity.getTimeZ3() != null ? 0 : 1;
 
             case "zone4" -> activity.getTimeZ4() != null ? activity.getTimeZ4() : -1;
+            case "zone4pct" -> activity.getTimeZ4() != null ? (double) activity.getTimeZ4() / activity.getMovingTime() : -1;
             case "zone4_missing" -> activity.getTimeZ4() != null ? 0 : 1;
 
             case "zone5" -> activity.getTimeZ5() != null ? activity.getTimeZ5() : -1;
+            case "zone5pct" -> activity.getTimeZ5() != null ? (double) activity.getTimeZ5() / activity.getMovingTime() : -1;
             case "zone5_missing" -> activity.getTimeZ5() != null ? 0 : 1;
 
             case "num_hr_spikes" -> activityProcessingService.detectHeartRateSpikes(activity);
@@ -478,42 +485,42 @@ public class RunClassificationServiceImpl implements RunClassificationService {
         switch (runType) {
             case EASY_RUN -> {
                 map.replace(RunType.TEMPO_RUN,
-                        map.get(RunType.TEMPO_RUN) + user.getCorrectionMap().getEasyToTempo());
+                    map.get(RunType.TEMPO_RUN) + user.getCorrectionMap().getEasyToTempo());
                 map.replace(RunType.INTERVAL_RUN,
-                        map.get(RunType.INTERVAL_RUN) + user.getCorrectionMap().getEasyToInterval());
+                    map.get(RunType.INTERVAL_RUN) + user.getCorrectionMap().getEasyToInterval());
                 map.replace(RunType.LONG_RUN,
-                        map.get(RunType.LONG_RUN) + user.getCorrectionMap().getEasyToLong());
+                    map.get(RunType.LONG_RUN) + user.getCorrectionMap().getEasyToLong());
             }
             case TEMPO_RUN -> {
                 map.replace(RunType.EASY_RUN,
-                        map.get(RunType.EASY_RUN) + user.getCorrectionMap().getTempoToEasy());
+                    map.get(RunType.EASY_RUN) + user.getCorrectionMap().getTempoToEasy());
                 map.replace(RunType.INTERVAL_RUN,
-                        map.get(RunType.INTERVAL_RUN) + user.getCorrectionMap().getTempoToInterval());
+                    map.get(RunType.INTERVAL_RUN) + user.getCorrectionMap().getTempoToInterval());
                 map.replace(RunType.LONG_RUN,
-                        map.get(RunType.LONG_RUN) + user.getCorrectionMap().getTempoToLong());
+                    map.get(RunType.LONG_RUN) + user.getCorrectionMap().getTempoToLong());
             }
             case INTERVAL_RUN -> {
                 map.replace(RunType.EASY_RUN,
-                        map.get(RunType.EASY_RUN) + user.getCorrectionMap().getIntervalToEasy());
+                    map.get(RunType.EASY_RUN) + user.getCorrectionMap().getIntervalToEasy());
                 map.replace(RunType.TEMPO_RUN,
-                        map.get(RunType.TEMPO_RUN) + user.getCorrectionMap().getIntervalToTempo());
+                    map.get(RunType.TEMPO_RUN) + user.getCorrectionMap().getIntervalToTempo());
                 map.replace(RunType.LONG_RUN,
-                        map.get(RunType.LONG_RUN) + user.getCorrectionMap().getIntervalToLong());
+                    map.get(RunType.LONG_RUN) + user.getCorrectionMap().getIntervalToLong());
             }
             case LONG_RUN -> {
                 map.replace(RunType.EASY_RUN,
-                        map.get(RunType.EASY_RUN) + user.getCorrectionMap().getLongToEasy());
+                    map.get(RunType.EASY_RUN) + user.getCorrectionMap().getLongToEasy());
                 map.replace(RunType.TEMPO_RUN,
-                        map.get(RunType.TEMPO_RUN) + user.getCorrectionMap().getLongToTempo());
+                    map.get(RunType.TEMPO_RUN) + user.getCorrectionMap().getLongToTempo());
                 map.replace(RunType.INTERVAL_RUN,
-                        map.get(RunType.INTERVAL_RUN) + user.getCorrectionMap().getLongToInterval());
+                    map.get(RunType.INTERVAL_RUN) + user.getCorrectionMap().getLongToInterval());
             }
             default -> throw new IllegalStateException("Unknown run type: " + runType);
         }
         RunType winner = map.entrySet().stream()
-                .max(Map.Entry.comparingByValue())
-                .orElseThrow()
-                .getKey();
+            .max(Map.Entry.comparingByValue())
+            .orElseThrow()
+            .getKey();
 
 
         return new RunClassificationDecisionDto(winner, map);
