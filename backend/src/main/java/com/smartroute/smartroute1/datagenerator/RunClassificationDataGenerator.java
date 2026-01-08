@@ -165,18 +165,9 @@ public class RunClassificationDataGenerator {
     }
 
     private RunClassificationResultDto generate() {
-        ExperienceLevel exp = randomEnum(ExperienceLevel.class);
         RunType runType = randomEnum(RunType.class);
 
-        RunnerProfile athlete = runnerProfile(exp);
         RunTypeProfile type = runTypeProfile(runType);
-
-        double basePace = rand(athlete.minPace(), athlete.maxPace());
-        double pace = basePace * type.paceMultiplier();
-
-        double distance = rand(3.0, athlete.maxDistance()) * type.distanceMultiplier();
-        int duration = (int) (distance * pace * 60);
-
 
         double[] base = new double[] {
             type.zone5p(),
@@ -207,6 +198,13 @@ public class RunClassificationDataGenerator {
         zonePcts.put(5, (float) Math.round(distribution[0]));
 
         Map<Integer, Float> zoneTimes = new HashMap<>();
+
+        ExperienceLevel exp = randomEnum(ExperienceLevel.class);
+        RunnerProfile athlete = runnerProfile(exp);
+        double basePace = rand(athlete.minPace(), athlete.maxPace());
+        double pace = basePace * type.paceMultiplier();
+        double distance = rand(3.0, athlete.maxDistance()) * type.distanceMultiplier();
+        int duration = (int) (distance * pace * 60);
 
         zoneTimes.put(1, (float) Math.round(distribution[4] * duration));
         zoneTimes.put(2, (float) Math.round(distribution[3] * duration));
