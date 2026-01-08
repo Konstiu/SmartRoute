@@ -31,7 +31,7 @@ EXPERIENCE_MAP = {
     "CASUAL": 1,
     "INTERMEDIATE": 2,
     "ADVANCED": 3,
-    "PROFESSIONAL": 4
+    "COMPETITIVE_ATHLETE": 4
 }
 
 def train_model(data, test=False, debug_perf=False, export=False):
@@ -107,4 +107,4 @@ def train_model(data, test=False, debug_perf=False, export=False):
 df_runs = pd.read_csv("datasets/RunDataset.csv")
 
 
-train_model(df_runs, test=True, debug_perf=True, export=True)
+train_model(df_runs, test=True, debug_perf=True, export=False)
