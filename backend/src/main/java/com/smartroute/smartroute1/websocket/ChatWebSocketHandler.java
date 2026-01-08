@@ -38,8 +38,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
     }
 
-    public static void notifyUser(String userId, String friendId) {
-        String sessionKey = userId + "_" + friendId;
+    public static void notifyUser(String receiverId, String senderId) {
+        String sessionKey = receiverId + "_" + senderId;
         WebSocketSession session = sessions.get(sessionKey);
         if (session != null && session.isOpen()) {
             try {

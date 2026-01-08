@@ -14,6 +14,7 @@ import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.CommunicationService;
 import com.smartroute.smartroute1.service.FriendshipService;
 import com.smartroute.smartroute1.service.UserService;
+import com.smartroute.smartroute1.websocket.ChatWebSocketHandler;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -146,7 +147,11 @@ public class CommunicationServiceImpl implements CommunicationService {
         ApplicationUser friend = userService.findApplicationUserByEmail(messageDetailDto.getRecipientEmail());
         Message message = messageMapper.messageDetailDtoToEntity(messageDetailDto, user, friend);
 
-        return messageRepository.save(message);
+        Message savedMessage = messageRepository.save(message);
+
+        ChatWebSocketHandler.notifyUser(friend.getEmail(), user.getEmail());
+
+        return savedMessage;
     }
 
     private void validateMessageDetailDto(MessageDetailDto messageDetailDto) throws ValidationException {
