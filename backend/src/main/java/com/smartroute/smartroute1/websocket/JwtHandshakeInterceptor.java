@@ -43,7 +43,6 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
 
             // URL decode
             String token = URLDecoder.decode(rawToken, StandardCharsets.UTF_8);
-            String friendId = URLDecoder.decode(rawFriendId, StandardCharsets.UTF_8);
 
             // parse token
             if (!token.startsWith("Bearer ")) {
@@ -59,6 +58,8 @@ public class JwtHandshakeInterceptor implements HandshakeInterceptor {
             if (extractedUser == null) {
                 return false;
             }
+
+            String friendId = URLDecoder.decode(rawFriendId, StandardCharsets.UTF_8);
 
             // Check that socket user is not the same as friendId
             if (extractedUser.equals(friendId)) {
