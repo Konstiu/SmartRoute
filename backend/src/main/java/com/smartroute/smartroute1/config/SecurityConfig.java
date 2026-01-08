@@ -47,8 +47,7 @@ public class SecurityConfig {
                             "https://*.apps.student.inso-w.at",     // deployed fronend
                             "http://localhost:8100",    // ionic frontend
                             "http://localhost",         // Android
-                            "capacitor://localhost",
-                            "*"// IOS
+                            "capacitor://localhost"// IOS
                     )
                     .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD");
         }
