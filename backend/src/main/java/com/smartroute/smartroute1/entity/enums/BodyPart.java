@@ -13,5 +13,6 @@ public enum BodyPart {
     RESPIRATION_REGION,
     SPINAL_INJURY,
     BONE_FRACTURE,
+    HIP,
 
 }
