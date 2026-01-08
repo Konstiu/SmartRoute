@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { IonicModule } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { KeyManagementService } from 'src/services/key-management.service';
 import { db } from 'src/db/encryption';
+import { ChatSocketService } from 'src/services/chat-socket.service';
 
 // Temporary interface for chat messages - will be replaced with actual DTO later
 interface ChatMessage {
@@ -21,7 +22,7 @@ interface ChatMessage {
   standalone: true,
   imports: [IonicModule, CommonModule, FormsModule]
 })
-export class ChatPage implements OnInit {
+export class ChatPage implements OnInit, OnDestroy {
   friendName: string = '';
   friendEmail: string = '';
   messageText: string = '';
@@ -29,7 +30,8 @@ export class ChatPage implements OnInit {
 
   constructor(
     private route: ActivatedRoute,
-    private keyManagementService: KeyManagementService
+    private keyManagementService: KeyManagementService,
+    private chatSocketService: ChatSocketService
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -50,12 +52,31 @@ export class ChatPage implements OnInit {
       isOwnMessage: msg.direction === 'sent'
     }));
 
+    // Fetch new messages from backend
+    await this.fetchNewMessages();
+
+    // Connect websocket for real-time updates
+    this.chatSocketService.connect(this.friendEmail);
+
+    // Subscribe to new message notifications
+    this.chatSocketService.onNewMessage().subscribe(async () => {
+      console.log('New message notification received via WebSocket');
+      await this.fetchNewMessages();
+    });
+
+  }
+
+  ngOnDestroy(): void {
+    this.chatSocketService.disconnect();
+  }
+
+  async fetchNewMessages() {
     // Get latest timestamp from local messages
-    const latestLocalTimestamp = localMessages.length > 0
-      ? localMessages[localMessages.length - 1].timestamp
+    const latestLocalTimestamp = this.messages.length > 0
+      ? this.messages[this.messages.length - 1].timestamp
       : new Date(0);
-    const latestId = localMessages.length > 0
-      ? localMessages[localMessages.length - 1].id
+    const latestId = this.messages.length > 0
+      ? this.messages[this.messages.length - 1].id
       : 0;
 
     // Get messages from backend
@@ -81,37 +102,9 @@ export class ChatPage implements OnInit {
         isOwnMessage: false
       });
     }
-
-    
-
-    // Mock messages for UI demonstration
-    // this.messages = [
-    //   {
-    //     id: 1,
-    //     text: 'Hey! How are you doing?',
-    //     timestamp: new Date(Date.now() - 3600000),
-    //     isOwnMessage: false
-    //   },
-    //   {
-    //     id: 2,
-    //     text: 'Hi! I\'m doing great, thanks! Just finished a long run.',
-    //     timestamp: new Date(Date.now() - 3000000),
-    //     isOwnMessage: true
-    //   },
-    //   {
-    //     id: 3,
-    //     text: 'That\'s awesome! How many kilometers?',
-    //     timestamp: new Date(Date.now() - 2400000),
-    //     isOwnMessage: false
-    //   },
-    //   {
-    //     id: 4,
-    //     text: 'About 10km in 50 minutes. Pretty happy with the pace!',
-    //     timestamp: new Date(Date.now() - 1800000),
-    //     isOwnMessage: true
-    //   }
-    // ];
   }
+
+
 
   // Placeholder method for sending messages
   async sendMessage(): Promise<void> {
