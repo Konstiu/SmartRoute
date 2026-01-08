@@ -84,13 +84,13 @@ public class RunTrainingClassificationServiceTest {
         String header = "duration,pace_pct_pb_20,distance,distance_pct_pb_20,pace,pace_pct_pb_20,"
             + "elevation_gain,session_load,num_pace_spikes,readiness_score,consistency_score,"
             + "tsb,age,weight,height,sex,experience_level,injury_index,hr_avg,hr_avg_missing,"
-            + "hr_max,hr_max_missing,zone1,zone1_missing,zone2,zone2_missing,zone3,zone3_missing,"
-            + "zone4,zone4_missing,zone5,zone5_missing,num_hr_spikes,num_hr_spikes_missing,"
+            + "hr_max,hr_max_missing,zone1,zone1pct,zone1_missing,zone2,zone2pct,zone2_missing,zone3,zone3pct,zone3_missing,"
+            + "zone4,zone4pct,zone4_missing,zone5,zone5pct,zone5_missing,num_hr_spikes,num_hr_spikes_missing,"
             + "windSpeed10m,temperature2m,uv_index,precipitation,snowDepth";
 
         String data =
             "3600,0.9,10,0.9,5,0.9,100,400,2,80,0.8,10,30,70,175,MALE,INTERMEDIATE,"
-                + "0.1,0.75,false,190,false,10,false,20,false,15,false,5,false,0,false,"
+                + "0.1,0.75,false,190,false,10,20,false,20,40,false,15,30,false,5,10,false,0,0,false,"
                 + "3,false,3,15,3,0,0";
 
         BufferedReader reader = Mockito.mock(BufferedReader.class);
