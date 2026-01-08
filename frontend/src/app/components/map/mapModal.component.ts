@@ -2,7 +2,7 @@ import { Component, Input, ViewChild } from '@angular/core';
 import { IonicModule, ModalController, ToastController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms'
-import { LatLngBounds, LatLng, Layer, marker, Marker } from 'leaflet';
+import { LatLngBounds, LatLng, latLng, Layer, marker, Marker } from 'leaflet';
 import { MapComponent } from './map.component';
 import { MAP_MARKER_COLORS, coloredMarker } from './map-icon';
 import { GeocodingService, GeocodeResult } from 'src/services/geocoding.service';
@@ -55,6 +55,9 @@ export class MapModalComponent {
   candidateMarker: Marker | null = null;
   private candidatePos: LatLng | null = null;
 
+  private readonly fallbackCenter = latLng(48.208169, 16.373817);
+  private readonly fallbackZoom = 10;
+
   constructor(
     private modalCtrl: ModalController,
     private toastCtrl: ToastController,
@@ -91,22 +94,31 @@ export class MapModalComponent {
     this.centerRouteInitially();
   }
 
-  private centerRouteInitially() {
-    this.isMapReady = false;
-    this.loadingMessage = 'Centering route…';
+private centerRouteInitially() {
+  requestAnimationFrame(() => {
+    const map = this.mapComponent?.map;
+    if (!map) return;
 
-    requestAnimationFrame(() => {
-      const map = this.mapComponent?.map;
-      if (!map || !this.routeBounds) return;
+    map.invalidateSize(true);
 
-      map.invalidateSize();
+    if (this.routeBounds) {
+      this.isMapReady = false;
+      this.loadingMessage = 'Centering route…';
+
       map.fitBounds(this.routeBounds, { padding: [50, 50], animate: false });
 
       setTimeout(() => {
         this.isMapReady = true;
+        this.loadingMessage = '';
       }, 80);
-    });
-  }
+    } else {
+      // ✅ No route -> show something sensible, and don't pretend we're "centering route"
+      map.setView(this.fallbackCenter, this.fallbackZoom, { animate: false });
+      this.isMapReady = true;
+      this.loadingMessage = '';
+    }
+  });
+}
 
   centerRoute() {
     const map = this.mapComponent?.map;
