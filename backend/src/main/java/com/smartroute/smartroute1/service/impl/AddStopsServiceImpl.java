@@ -7,6 +7,7 @@ import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonFeature;
 import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonGeometryLineString;
 import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonDto;
 import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonProperties;
+import com.smartroute.smartroute1.exception.StopTooFarFromRouteException;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.AddStopsService;
 import com.smartroute.smartroute1.service.OpenRouteServiceService;
@@ -32,7 +33,7 @@ import java.util.TreeSet;
 public class AddStopsServiceImpl implements AddStopsService {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final double EARTH_RADIUS_METERS = 6371000.0;
-    private static final double MAX_DISTANCE_FROM_ROUTE_METERS = 2000.0; // 1 km
+    private static final double MAX_DISTANCE_FROM_ROUTE_METERS = 1000.0; // 1 km
 
     private final AddStopsValidator validator;
     private final OpenRouteServiceService orsService;
@@ -352,7 +353,9 @@ public class AddStopsServiceImpl implements AddStopsService {
             throws ValidationException {
 
         ClosestPointResult closest = findClosestPoint(route, newPoint);
-        validator.validateMaxDetourDistance(MAX_DISTANCE_FROM_ROUTE_METERS, closest.distanceMeters);
+        if (closest.distanceMeters > MAX_DISTANCE_FROM_ROUTE_METERS) {
+            throw new StopTooFarFromRouteException(MAX_DISTANCE_FROM_ROUTE_METERS, closest.distanceMeters);
+        }
 
         // Find protected boundaries for this insertion
         int prevProtected = findPreviousProtectedIndex(closest.segmentIndex);

@@ -112,7 +112,7 @@ private centerRouteInitially() {
         this.loadingMessage = '';
       }, 80);
     } else {
-      // ✅ No route -> show something sensible, and don't pretend we're "centering route"
+      // No route
       map.setView(this.fallbackCenter, this.fallbackZoom, { animate: false });
       this.isMapReady = true;
       this.loadingMessage = '';
@@ -360,8 +360,20 @@ private async addPointToRoute(point: LatLng, mode: AddStopsMode) {
       map.invalidateSize();
       map.fitBounds(this.routeBounds, { padding: [50, 50], animate: true });
     });
-  } catch (e) {
-    console.error('Add to route failed', e);
+  } catch (e: any) {
+      const code = e?.error?.code;
+
+      if (code === 'STOP_TOO_FAR_FROM_ROUTE') {
+        const max = e.error.details?.maxAllowedMeters;
+        const actual = e.error.details?.actualMeters;
+
+        await this.showToast(
+          `Point too far from route (allowed ${Math.round(max)}m, got ${Math.round(actual)}m).`
+        );
+        return;
+      }
+      console.error('Add to route failed', e);
+      await this.showToast('Could not add point to route.');
   } finally {
     setTimeout(() => (this.isProcessing = false), 120);
   }
@@ -429,6 +441,20 @@ private clearSearchMarker() {
   this.searchMarker = null;
   this.searchMarkerPos = null;
   this.rebuildEditorLayers();
+}
+
+private async showToast(message: string) {
+  const toast = await this.toastCtrl.create({
+    message,
+    duration: 3000,
+    position: 'top',
+    color: 'warning',
+    cssClass: 'toast-above-modal',
+    buttons: [{ text: 'OK', role: 'cancel' }]
+  });
+
+  console.log('presenting toast:', message);
+  await toast.present();
 }
 }
 
