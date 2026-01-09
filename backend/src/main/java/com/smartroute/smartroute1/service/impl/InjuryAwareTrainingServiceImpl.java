@@ -86,7 +86,7 @@ public class InjuryAwareTrainingServiceImpl implements InjuryAwareTrainingServic
 
     private boolean hasFullStopInjury(List<Injuries> injuries) {
         LocalDate today = LocalDate.now();
-        int windowDays = 14;
+        int windowDays = 56;
 
         for (Injuries injury : injuries) {
             BodyPart area = injury.getAffectedArea();
@@ -94,7 +94,8 @@ public class InjuryAwareTrainingServiceImpl implements InjuryAwareTrainingServic
             if (lastInjuryDate == null) {
                 if (area == BodyPart.BONE_FRACTURE
                         || area == BodyPart.SPINAL_INJURY
-                        || area == BodyPart.RESPIRATION_REGION) {
+                        || area == BodyPart.RESPIRATION_REGION
+                        || area == BodyPart.HIP) {
                     return true;
                 } else {
                     continue;
@@ -105,12 +106,19 @@ public class InjuryAwareTrainingServiceImpl implements InjuryAwareTrainingServic
             if (daysAgo > windowDays) {
                 continue;
             }
-            if (area == BodyPart.BONE_FRACTURE
-                    || area == BodyPart.SPINAL_INJURY
-                    || area == BodyPart.RESPIRATION_REGION) {
+
+            if (area == BodyPart.BONE_FRACTURE && daysAgo <= windowDays) {
                 return true;
             }
-
+            if (area == BodyPart.SPINAL_INJURY && daysAgo <= windowDays) {
+                return true;
+            }
+            if (area == BodyPart.HIP && daysAgo <= windowDays) {
+                return true;
+            }
+            if (area == BodyPart.RESPIRATION_REGION && daysAgo <= 14) { //Shorter than the others on average
+                return true;
+            }
 
         }
         return false;

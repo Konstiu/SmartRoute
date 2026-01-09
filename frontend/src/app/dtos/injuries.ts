@@ -11,7 +11,8 @@ export enum BodyPart {
   LOWER_LEG_REGION = 'LOWER_LEG_REGION',
   RESPIRATION_REGION = 'RESPIRATION_REGION',
   SPINAL_INJURY = 'SPINAL_INJURY',
-  BONE_FRACTURE = 'BONE_FRACTURE'
+  BONE_FRACTURE = 'BONE_FRACTURE',
+  HIP = "HIP"
 }
 
 /**
@@ -62,16 +63,17 @@ export interface BodyPartInfo {
  * Constant array of body parts with display information
  */
 export const BODY_PARTS: BodyPartInfo[] = [
-  { value: BodyPart.NECK_REGION, label: 'Neck', icon: 'body-outline' },
-  { value: BodyPart.UPPER_REGION, label: 'Upper Body', icon: 'fitness-outline' },
-  { value: BodyPart.CORE_REGION, label: 'Core', icon: 'ellipse-outline' },
-  { value: BodyPart.UPPER_LEG_REGION, label: 'Upper Leg', icon: 'walk-outline' },
-  { value: BodyPart.KNEE_REGION, label: 'Knee', icon: 'radio-button-on-outline' },
-  { value: BodyPart.LOWER_LEG_REGION, label: 'Lower Leg', icon: 'walk-outline' },
-  { value: BodyPart.FEET_REGION, label: 'Feet', icon: 'footsteps-outline' },
-  { value: BodyPart.RESPIRATION_REGION, label: 'Respiratory', icon: 'heart-outline' },
-  { value: BodyPart.SPINAL_INJURY, label: 'Spinal Injury', icon: 'warning-outline' },
-  { value: BodyPart.BONE_FRACTURE, label: 'Bone Fracture', icon: 'alert-circle-outline' }
+  {value: BodyPart.NECK_REGION, label: 'Neck', icon: 'body-outline'},
+  {value: BodyPart.UPPER_REGION, label: 'Upper Body', icon: 'fitness-outline'},
+  {value: BodyPart.CORE_REGION, label: 'Core', icon: 'ellipse-outline'},
+  {value: BodyPart.UPPER_LEG_REGION, label: 'Upper Leg', icon: 'walk-outline'},
+  {value: BodyPart.KNEE_REGION, label: 'Knee', icon: 'radio-button-on-outline'},
+  {value: BodyPart.LOWER_LEG_REGION, label: 'Lower Leg', icon: 'walk-outline'},
+  {value: BodyPart.FEET_REGION, label: 'Feet', icon: 'footsteps-outline'},
+  {value: BodyPart.RESPIRATION_REGION, label: 'Respiratory', icon: 'heart-outline'},
+  {value: BodyPart.SPINAL_INJURY, label: 'Spinal Injury', icon: 'warning-outline'},
+  {value: BodyPart.BONE_FRACTURE, label: 'Bone Fracture', icon: 'alert-circle-outline'},
+  {value: BodyPart.HIP, label: 'Hip', icon: 'body-outline'}
 ];
 
 /**
