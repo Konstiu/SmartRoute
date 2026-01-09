@@ -11,6 +11,7 @@ import com.smartroute.smartroute1.exception.garmin.GarminException;
 import com.smartroute.smartroute1.exception.garmin.GarminNoDataException;
 import com.smartroute.smartroute1.exception.garmin.GarminScriptException;
 import com.smartroute.smartroute1.exception.StopTooFarFromRouteException;
+import com.smartroute.smartroute1.exception.RouteNotFoundException;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.slf4j.Logger;
@@ -168,5 +169,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
         return handleExceptionInternal(ex, body, new HttpHeaders(), HttpStatus.UNPROCESSABLE_ENTITY, request);
     }
+
+    @ExceptionHandler(RouteNotFoundException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    protected ResponseEntity<Object> handleRouteNotFound(
+            RouteNotFoundException ex,
+            WebRequest request
+    ) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("message", ex.getMessage());
+        body.put("code", "ROUTE_NOT_FOUND");
+
+        return handleExceptionInternal(
+                ex,
+                body,
+                new HttpHeaders(),
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                request
+        );
+    }
+
 
 }
