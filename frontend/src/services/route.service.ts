@@ -1,8 +1,9 @@
-import { HttpClient } from "@angular/common/http";
-import { inject, Injectable } from "@angular/core";
-import { BehaviorSubject, Observable } from "rxjs";
-import { Globals } from "src/global/globals";
-import { GeneratedRouteDto } from "src/app/dtos/route";
+import {HttpClient} from "@angular/common/http";
+import {inject, Injectable} from "@angular/core";
+import {BehaviorSubject, Observable} from "rxjs";
+import {Globals} from "src/global/globals";
+import {GeneratedRouteDto} from "src/app/dtos/route";
+import {SaveRouteDto, ViewRouteDto} from "../app/dtos/recommended-activity";
 
 @Injectable({
   providedIn: 'root',
@@ -19,11 +20,40 @@ export class RouteService {
    * Generate route for ('lat', 'long') with length 'length'.
    */
   getGeneratedRoute(lat: number, long: number, length: number): Observable<GeneratedRouteDto> {
-    let route = this.httpClient.get<GeneratedRouteDto>(this.routeBaseUri, { params: { "lat": lat, "long": long, "length": length } });
+    let route = this.httpClient.get<GeneratedRouteDto>(this.routeBaseUri, {
+      params: {
+        "lat": lat,
+        "long": long,
+        "length": length
+      }
+    });
     return route;
   }
 
   getLastGeneratedRoute(): GeneratedRouteDto | null {
     return this.lastRoute;
+  }
+
+  /**
+   * Save Route to user
+   * @param dto
+   */
+  saveRoute(dto: SaveRouteDto) {
+    return this.httpClient.post(this.routeBaseUri + '/save', dto);
+  }
+
+  /**
+   * Get one route by id
+   * @param id
+   */
+  getRoute(id: number): Observable<ViewRouteDto> {
+    return this.httpClient.get<ViewRouteDto>(`${this.routeBaseUri}/${id}`);
+  }
+
+  /**
+   * Get all saved routes from the user
+   */
+  getRoutes(): Observable<ViewRouteDto[]> {
+    return this.httpClient.get<ViewRouteDto[]>(this.routeBaseUri + '/get');
   }
 }

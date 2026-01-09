@@ -1,17 +1,46 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
-    <ion-title>
-      Routes
-    </ion-title>
+    <ion-title>Your Saved Routes</ion-title>
   </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Routes</ion-title>
-    </ion-toolbar>
-  </ion-header>
+  <ion-refresher (ionRefresh)="doRefresh($event)" slot="fixed">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
 
-  <app-explore-container name="Route"></app-explore-container>
+  <!-- Loading -->
+  <div *ngIf="isLoading && savedRoutes.length === 0" class="loading-container">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Loading Routes...</p>
+  </div>
+
+  <!-- Error -->
+  <div *ngIf="error && savedRoutes.length === 0" class="error-container">
+    <ion-icon color="danger" name="alert-circle-outline"></ion-icon>
+    <p>{{ error }}</p>
+    <ion-button (click)="loadRoutes()">Retry</ion-button>
+  </div>
+
+  <!-- Routes List -->
+  <ion-list *ngIf="!isLoading || savedRoutes.length > 0">
+    <ion-item (click)="openRoute(savedRoute)" *ngFor="let savedRoute of savedRoutes" button detail="true">
+      <ion-icon color="primary" name="barbell-outline" slot="start"></ion-icon>
+      <ion-label>
+        <h2>{{ savedRoute.name }}</h2>
+        <p>{{ formatDistance(savedRoute.distance) }},
+          <!-- <ion-icon name="navigate-outline"></ion-icon> -->
+          {{ formatElevation(savedRoute.elevation) }}
+          <ion-icon name="trending-up-outline"></ion-icon>
+        </p>
+      </ion-label>
+    </ion-item>
+  </ion-list>
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && savedRoutes.length === 0 && !error" class="empty-container">
+    <h2>No favorite routes yet</h2>
+    <p>Your favorite routes will appear here</p>
+  </div>
+
 </ion-content>
+
