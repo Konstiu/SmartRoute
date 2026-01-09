@@ -57,6 +57,7 @@ export interface MessageDetailDto {
   // Always present
   encryptedMessage: EncryptedMessage;
   timestamp?: string;  // ISO 8601
+  conversationMessageId: string;
 }
 
 /**

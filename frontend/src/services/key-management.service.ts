@@ -6,13 +6,15 @@ import {Globals} from '../global/globals';
 import {HttpClient} from '@angular/common/http';
 import {firstValueFrom, Observable} from 'rxjs';
 import {
-    DeviceKeyBundleDto,
+  DeviceKeyBundleDto,
   EncryptedMessage,
   FriendDeviceBundlesDto,
   MessageDetailDto,
   OneTimePreKeyDto
 } from 'src/app/dtos/communication';
 import {db, KeyPair, Message, RatchetState} from 'src/db/encryption';
+import {UserDetailDto} from "../app/dtos/user";
+import {UserService} from "./user.service";
 
 
 @Injectable({
@@ -25,7 +27,8 @@ export class KeyManagementService {
 
   constructor(
     private globals: Globals,
-    private httpClient: HttpClient
+    private httpClient: HttpClient,
+    private userService: UserService
   ) {
     this.initializeDeviceId();
   }
@@ -442,6 +445,12 @@ export class KeyManagementService {
     );
   }
 
+  getKeysOfAllMyDevices(): Observable<FriendDeviceBundlesDto> {
+    return this.httpClient.get<FriendDeviceBundlesDto>(
+      `${this.authBaseUri}/keys-of-my-devices`
+    );
+  }
+
   /**
    * Get list of device IDs for a friend
    */
@@ -468,7 +477,8 @@ export class KeyManagementService {
   async sendMessageToFriendDevice(
     friendEmail: string,
     theirDeviceId: string,
-    plaintext: string
+    plaintext: string,
+    conversationMessageId: string
   ): Promise<Message> {
     const myDeviceId = await this.getCurrentDeviceId();
 
@@ -483,12 +493,14 @@ export class KeyManagementService {
         friendEmail,
         myDeviceId,
         theirDeviceId,
-        plaintext
+        plaintext,
+        conversationMessageId
       );
     } else {
       // Existing session - encrypt with ratchet
       const encryptedMessage = await this.encryptMessage(state, plaintext);
       await db.saveRatchetState(state);
+
 
       const messageDetail: MessageDetailDto = {
         recipientEmail: friendEmail,
@@ -498,8 +510,11 @@ export class KeyManagementService {
         senderIdentityDhKey: null,
         senderEphemeralKey: null,
         usedOneTimePreKeyId: null,
-        encryptedMessage
+        encryptedMessage,
+        conversationMessageId
       };
+      console.log(messageDetail);
+
 
       savedMessage = await this.uploadMessage(messageDetail);
     }
@@ -514,8 +529,11 @@ export class KeyManagementService {
       recipientDeviceId: theirDeviceId,
       plaintext,
       timestamp: savedMessage.timestamp ? new Date(savedMessage.timestamp) : new Date(),
-      direction: 'sent'
+      direction: 'sent',
+      conversationMessageId: conversationMessageId,
     };
+
+    console.log(messageRecord);
 
     await db.messages.add(messageRecord);
     return messageRecord;
@@ -528,15 +546,13 @@ export class KeyManagementService {
     friendEmail: string,
     myDeviceId: string,
     theirDeviceId: string,
-    plaintext: string
+    plaintext: string,
+    conversationMessageId: string
   ): Promise<MessageDetailDto> {
     // Get friend's key bundle for specific device
     const friendDeviceBundles = await firstValueFrom(
       this.getKeysOfFriendAllDevices(friendEmail)
     );
-
-    console.log('friendDeviceBundles raw:', friendDeviceBundles);
-    console.log('friendDeviceBundles keys:', friendDeviceBundles && Object.keys(friendDeviceBundles));
 
     const bundles =
       friendDeviceBundles?.devices ??
@@ -597,7 +613,8 @@ export class KeyManagementService {
       senderIdentityDhKey: naclUtil.encodeBase64(myIdentityDHKeyPair.publicKey),
       senderEphemeralKey: naclUtil.encodeBase64(ephemeralPublicKey),
       usedOneTimePreKeyId: friendKeyBundle.oneTimePreKey?.uuid ?? null,
-      encryptedMessage
+      encryptedMessage,
+      conversationMessageId
     };
 
     return await this.uploadMessage(messageDetail);
@@ -606,7 +623,7 @@ export class KeyManagementService {
   /**
    * Send message to all devices of a friend
    */
-  async sendMessageToFriend(friendEmail: string, plaintext: string): Promise<Message[]> {
+  async sendMessageToFriend(friendEmail: string, plaintext: string, conversationMessageId: string): Promise<Message[]> {
     const deviceIds = await this.getDevicesOfFriend(friendEmail);
 
     if (deviceIds.length === 0) {
@@ -621,7 +638,8 @@ export class KeyManagementService {
         const message = await this.sendMessageToFriendDevice(
           friendEmail,
           deviceId,
-          plaintext
+          plaintext,
+          conversationMessageId
         );
         messages.push(message);
       } catch (error) {
@@ -673,7 +691,8 @@ export class KeyManagementService {
       recipientDeviceId: myDeviceId,
       plaintext,
       timestamp: messageDetail.timestamp ? new Date(messageDetail.timestamp) : new Date(),
-      direction: 'received'
+      direction: 'received',
+      conversationMessageId: messageDetail.conversationMessageId
     };
 
     await db.messages.add(messageRecord);
@@ -757,6 +776,13 @@ export class KeyManagementService {
     console.log('Uploading message to backend:', message);
     return await firstValueFrom(
       this.httpClient.post<MessageDetailDto>(`${this.authBaseUri}/messages`, message)
+    );
+  }
+
+  async uploadMessageMyDevice(message: MessageDetailDto): Promise<MessageDetailDto> {
+    console.log('Uploading message to backend:', message);
+    return await firstValueFrom(
+      this.httpClient.post<MessageDetailDto>(`${this.authBaseUri}/messages_my_devices`, message)
     );
   }
 
@@ -905,9 +931,19 @@ export class KeyManagementService {
 
     // decode friend's keys from base64
     // and declare shorter variable names
-    const IK_B = myIdentityDHKeyPair;
-    const SPK_B = mySignedPreKeyPair;
-    const OPK_B = myOneTimePreKeyPair;
+    const IK_B = {
+      publicKey: myIdentityDHKeyPair.publicKey,
+      privateKey: myIdentityDHKeyPair.privateKey.slice(0, 32)
+    };
+    const SPK_B = {
+      publicKey: mySignedPreKeyPair.publicKey,
+      privateKey: mySignedPreKeyPair.privateKey.slice(0, 32)
+    };
+    const OPK_B = myOneTimePreKeyPair ? {
+      publicKey: myOneTimePreKeyPair.publicKey,
+      privateKey: myOneTimePreKeyPair.privateKey.slice(0, 32)
+    } : null;
+
     const IK_A = naclUtil.decodeBase64(friendIdentityDHKey);
     const EK_A = naclUtil.decodeBase64(friendEphemeralKey);
 
@@ -1262,9 +1298,185 @@ export class KeyManagementService {
     return true;
   }
 
+  async getMyEmail(): Promise<string> {
+    const userData: UserDetailDto = await firstValueFrom(this.userService.getUserData());
+    return userData.email;
+  }
 
+  async sendMessageToMyDevices(friendEmail: string, plaintext: string, conversationMessageId: string): Promise<Message[]> {
+    const myDeviceId = await this.getCurrentDeviceId();
+    const allMyDevices = await this.getMyDevices();
 
+    // Filter out current device
+    const otherDevices = allMyDevices.filter(deviceId => deviceId !== myDeviceId);
 
+    if (otherDevices.length === 0) {
+      console.log('No other devices to sync to');
+      return [];
+    }
+
+    const messages: Message[] = [];
+
+    // Send to each of my other devices
+    // We pass friendEmail so the conversation context is preserved
+    for (const deviceId of otherDevices) {
+      try {
+        const message = await this.sendMessageToMyOwnDevice(
+          friendEmail,  // Keep the conversation context
+          deviceId,
+          plaintext,
+          conversationMessageId
+        );
+        messages.push(message);
+      } catch (error) {
+        console.error(`Failed to send to my device ${deviceId}:`, error);
+      }
+    }
+
+    return messages;
+  }
+
+  /**
+   * Send message to one of my own devices (for syncing)
+   */
+  private async sendMessageToMyOwnDevice(
+    friendEmail: string,  // The conversation partner
+    myOtherDeviceId: string,
+    plaintext: string,
+    conversationMessageId: string
+  ): Promise<Message> {
+    const myDeviceId = await this.getCurrentDeviceId();
+
+    // Get my own email for encryption purposes
+    const myEmail = await this.getMyEmail();
+
+    // Check for existing ratchet state between my two devices
+    // Use myEmail for the ratchet session, not friendEmail
+    const state = await db.getRatchetState(myEmail, myDeviceId, myOtherDeviceId);
+
+    let savedMessage: MessageDetailDto;
+
+    if (!state) {
+      // Initialize session with MY OWN other device
+      savedMessage = await this.initializeSessionWithMyDevice(
+        myEmail,
+        friendEmail,  // Pass both for context
+        myDeviceId,
+        myOtherDeviceId,
+        plaintext,
+        conversationMessageId
+      );
+    } else {
+      // Existing session - encrypt with ratchet
+      const encryptedMessage = await this.encryptMessage(state, plaintext);
+      await db.saveRatchetState(state);
+
+      const messageDetail: MessageDetailDto = {
+        recipientEmail: friendEmail,  // Keep conversation context!
+        recipientDeviceId: myOtherDeviceId,
+        senderDeviceId: myDeviceId,
+        senderIdentityKey: null,
+        senderIdentityDhKey: null,
+        senderEphemeralKey: null,
+        usedOneTimePreKeyId: null,
+        encryptedMessage,
+        conversationMessageId
+      };
+
+      savedMessage = await this.uploadMessageMyDevice(messageDetail);
+    }
+
+    // Save to local database
+    const messageRecord: Message = {
+      id: savedMessage.id!,
+      conversationId: friendEmail,  // Conversation is still with friend
+      senderId: 'me',
+      senderDeviceId: myDeviceId,
+      recipientId: friendEmail,  // Keep it as friend
+      recipientDeviceId: myOtherDeviceId,
+      plaintext,
+      timestamp: savedMessage.timestamp ? new Date(savedMessage.timestamp) : new Date(),
+      direction: 'sent',
+      conversationMessageId: conversationMessageId,
+    };
+
+    await db.messages.add(messageRecord);
+    return messageRecord;
+  }
+
+  /**
+   * Initialize session with my own other device
+   */
+  private async initializeSessionWithMyDevice(
+    myEmail: string,
+    friendEmail: string,
+    myDeviceId: string,
+    myOtherDeviceId: string,
+    plaintext: string,
+    conversationMessageId: string
+  ): Promise<MessageDetailDto> {
+    // Get MY OWN key bundle for my other device
+    const myDeviceBundles = await firstValueFrom(
+      this.getKeysOfAllMyDevices()  // Get MY bundles
+    );
+
+    const bundles = myDeviceBundles?.devices ?? [];
+
+    const myOtherDeviceBundle = bundles.find(
+      (bundle: { deviceId: string }) => bundle?.deviceId === myOtherDeviceId
+    );
+
+    if (!myOtherDeviceBundle) {
+      throw new Error(`No key bundle found for my device ${myOtherDeviceId}`);
+    }
+
+    // Get my keys
+    const myIdentityDHKeyPair = await this.getIdentityDHKey();
+    const myIdentityKeyPair = await this.getIdentityKey();
+
+    if (!myIdentityDHKeyPair || !myIdentityKeyPair) {
+      throw new Error('Identity keys not found');
+    }
+
+    // Perform X3DH with my own other device
+    const {sharedSecret, ephemeralPublicKey} = await this.performX3DH(
+      myOtherDeviceBundle,
+      myIdentityDHKeyPair
+    );
+
+    // Initialize ratchet
+    const ratchetState = await this.initializeForSender(
+      sharedSecret,
+      naclUtil.decodeBase64(myOtherDeviceBundle.signedPreKey)
+    );
+
+    // Encrypt message
+    const encryptedMessage = await this.encryptMessage(ratchetState, plaintext);
+
+    // Store ratchet state using myEmail for the session
+    await db.saveRatchetState({
+      ...ratchetState,
+      sessionId: `${myEmail}:${myDeviceId}:${myOtherDeviceId}`,
+      contactId: myEmail,  // Session is with myself
+      myDeviceId,
+      theirDeviceId: myOtherDeviceId
+    });
+
+    // Create message detail - use friendEmail to preserve conversation context
+    const messageDetail: MessageDetailDto = {
+      recipientEmail: friendEmail,  // Preserve conversation context!
+      recipientDeviceId: myOtherDeviceId,
+      senderDeviceId: myDeviceId,
+      senderIdentityKey: naclUtil.encodeBase64(myIdentityKeyPair.publicKey),
+      senderIdentityDhKey: naclUtil.encodeBase64(myIdentityDHKeyPair.publicKey),
+      senderEphemeralKey: naclUtil.encodeBase64(ephemeralPublicKey),
+      usedOneTimePreKeyId: myOtherDeviceBundle.oneTimePreKey?.uuid ?? null,
+      encryptedMessage,
+      conversationMessageId
+    };
+
+    return await this.uploadMessageMyDevice(messageDetail);
+  }
 
 
 }

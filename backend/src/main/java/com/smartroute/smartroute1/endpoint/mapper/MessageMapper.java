@@ -39,6 +39,7 @@ public interface MessageMapper {
 
         messageDetailDto.setRecipientDeviceId(message.getRecipientDeviceId());
         messageDetailDto.setSenderDeviceId(message.getSenderDeviceId());
+        messageDetailDto.setConversationMessageId(message.getConversationMessageId());
 
         return messageDetailDto;
     }
@@ -70,6 +71,7 @@ public interface MessageMapper {
 
         message.setSenderDeviceId(messageDetailDto.getSenderDeviceId());
         message.setRecipientDeviceId(messageDetailDto.getRecipientDeviceId());
+        message.setConversationMessageId(messageDetailDto.getConversationMessageId());
 
         return message;
     }

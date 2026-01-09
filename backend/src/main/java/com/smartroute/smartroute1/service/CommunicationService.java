@@ -58,6 +58,9 @@ public interface CommunicationService {
      */
     FriendDeviceBundlesDto getKeysOfFriendAllDevices(String friendEmail, String userEmail);
 
+    FriendDeviceBundlesDto getKeysOfAllMyDevices(String userEmail);
+
+
     /**
      * Sends an encrypted message from one user to another.
      *
@@ -66,6 +69,8 @@ public interface CommunicationService {
      * @return the Message entity representing the sent message
      */
     Message sendEncryptedMessage(String senderEmail, MessageDetailDto messageDetailDto) throws ValidationException;
+
+    Message sendEncryptedMessageToMyDevices(String senderEmail, MessageDetailDto messageDetailDto) throws ValidationException;
 
     /**
      * Retrieves messages exchanged between a user and a friend after a specific timestamp.

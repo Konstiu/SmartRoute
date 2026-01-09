@@ -30,7 +30,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.lang.invoke.MethodHandles;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/communication")
@@ -103,6 +106,24 @@ public class CommunicationEndpoint {
         return communicationService.getKeysOfFriendAllDevices(friendEmail, authentication.getName());
     }
 
+    @GetMapping("/keys-of-my-devices")
+    @Secured("ROLE_USER")
+    @Operation(summary = "Get keys of all friend devices", description = "A user can get the communication keys of all devices belonging to a him")
+    public FriendDeviceBundlesDto getKeysOfAllMyDevices() {
+        LOGGER.info("GET /api/v1/communication/keys-of-my-devices/");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return communicationService.getKeysOfAllMyDevices(authentication.getName());
+    }
+
+    @PostMapping("/messages_my_devices")
+    @Secured("ROLE_USER")
+    @Operation(summary = "Send encrypted message", description = "A user can send an encrypted message to another user's specific device")
+    public MessageDetailDto sendEncryptedMessageToMyDevices(@RequestBody MessageDetailDto messageDetailDto) throws ValidationException {
+        LOGGER.info("POST /api/v1/communication/messages_my_devices");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return messageMapper.entityToMessageDetailDto(communicationService.sendEncryptedMessageToMyDevices(authentication.getName(), messageDetailDto));
+    }
+
     @PostMapping("/messages")
     @Secured("ROLE_USER")
     @Operation(summary = "Send encrypted message", description = "A user can send an encrypted message to another user's specific device")
@@ -119,9 +140,19 @@ public class CommunicationEndpoint {
         LOGGER.info("GET /api/v1/communication/messages/{}?timestamp={}?deviceId={}", friendEmail, timestamp, deviceId);
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         List<Message> messages = communicationService.retrieveMessagesByFriendAndTimestamp(authentication.getName(), friendEmail, timestamp, deviceId);
-        return messages.stream()
-                .map(messageMapper::entityToMessageDetailDto)
-                .toList();
+        Map<String, MessageDetailDto> uniqueMessages = new LinkedHashMap<>();
+
+        for (Message message : messages) {
+            if (message.getSender().equals(authentication)) {
+                String conversationMsgId = message.getConversationMessageId();
+                if (!uniqueMessages.containsKey(conversationMsgId)) {
+                    uniqueMessages.put(conversationMsgId, messageMapper.entityToMessageDetailDto(message));
+                }
+            } else {
+                uniqueMessages.put(message.getId().toString(), messageMapper.entityToMessageDetailDto(message));
+            }
+        }
+        return new ArrayList<>(uniqueMessages.values());
     }
 
     @GetMapping("/devices/{friendEmail}")
