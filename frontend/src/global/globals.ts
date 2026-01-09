@@ -7,7 +7,6 @@ export class Globals {
   readonly backendWsUri: string = this.findBackendWsUrl();
 
   private findBackendUrl(): string {
-    return "https://backend.unterweger.tech/api/v1"
     if (Capacitor.isNativePlatform()){
       // return the deployment right now because when we are on the native phone capacitor, we need to know where the backend is.
       return "https://25ws-ase-pr-inso-05.apps.student.inso-w.at/api/v1"

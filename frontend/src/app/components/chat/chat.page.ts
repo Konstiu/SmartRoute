@@ -1,19 +1,14 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
-import { IonicModule } from '@ionic/angular';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import {interval, Subscription} from 'rxjs';
+import { KeyManagementService } from '../../../services/key-management.service';
+import { ChatSocketService } from '../../../services/chat-socket.service';
+import { db, Message } from '../../../db/encryption';
+import {IonicModule} from "@ionic/angular";
+import {CommonModule} from "@angular/common";
+import {FormsModule} from "@angular/forms";
 import { ActivatedRoute } from '@angular/router';
-import { KeyManagementService } from 'src/services/key-management.service';
-import { db } from 'src/db/encryption';
-import { ChatSocketService } from 'src/services/chat-socket.service';
 
-// Temporary interface for chat messages - will be replaced with actual DTO later
-interface ChatMessage {
-  id: number;
-  text: string;
-  timestamp: Date;
-  isOwnMessage: boolean;
-}
+
 
 @Component({
   selector: 'app-chat',
@@ -23,10 +18,17 @@ interface ChatMessage {
   imports: [IonicModule, CommonModule, FormsModule]
 })
 export class ChatPage implements OnInit, OnDestroy {
-  friendName: string = '';
-  friendEmail: string = '';
-  messageText: string = '';
-  messages: ChatMessage[] = [];
+  friendEmail = 'friend@example.com';
+  messages: Message[] = [];
+  messageText = '';
+  myDeviceId = '';
+  friendDevices: string[] = [];
+
+  showDeviceInfo = false;
+
+  private pollingSub?: Subscription;
+
+  private subscriptions: Subscription[] = [];
 
   constructor(
     private route: ActivatedRoute,
@@ -34,113 +36,168 @@ export class ChatPage implements OnInit, OnDestroy {
     private chatSocketService: ChatSocketService
   ) {}
 
-  async ngOnInit(): Promise<void> {
-    // Get friend name from route parameters
+  async ngOnInit() {
     this.route.queryParams.subscribe(params => {
-      this.friendName = decodeURIComponent(params['friendName'] || 'Friend');
       this.friendEmail = decodeURIComponent(params['friendEmail'] || '');
     });
 
-    // Get message history from local database
-    const localMessages = await db.getMessagesWithFriend(this.friendEmail);
+    // Initialize device ID
+    this.myDeviceId = await this.keyManagementService.getCurrentDeviceId();
 
-    // Map local messages to ChatMessage format
-    this.messages = localMessages.map((msg, index) => ({
-      id: index + 1,
-      text: msg.plaintext,
-      timestamp: msg.timestamp,
-      isOwnMessage: msg.direction === 'sent'
-    }));
+    // Load friend's devices
+    this.friendDevices = await this.keyManagementService.getDevicesOfFriend(
+      this.friendEmail
+    );
 
-    // Fetch new messages from backend
+    // Load existing messages
+    await this.loadMessages();
+
     await this.fetchNewMessages();
 
-    // Connect websocket for real-time updates
-    this.chatSocketService.connect(this.friendEmail);
-
-    // Subscribe to new message notifications
-    this.chatSocketService.onNewMessage().subscribe(async () => {
-      console.log('New message notification received via WebSocket');
-      await this.fetchNewMessages();
+    this.pollingSub = interval(2000).subscribe(() => {
+      this.fetchNewMessages();
     });
 
+    // Connect to WebSocket
+    //await this.chatSocketService.connect();
+
+    // Listen for new messages
+    /*const newMessageSub = this.chatSocketService.onNewMessage().subscribe(
+      async (event) => {
+        if (event.friendEmail === this.friendEmail) {
+          // Fetch and decrypt the new message
+          await this.fetchNewMessages();
+        }
+      }
+    );
+    this.subscriptions.push(newMessageSub);
+
+    // Listen for connection status
+    const statusSub = this.chatSocketService.onConnectionStatus().subscribe(
+      (status) => {
+        console.log('WebSocket status:', status);
+        if (status === 'connected') {
+          // Sync messages when reconnected
+          this.fetchNewMessages();
+        }
+      }
+    );
+    this.subscriptions.push(statusSub);*/
   }
 
-  ngOnDestroy(): void {
+  ngOnDestroy() {
+    this.subscriptions.forEach(sub => sub.unsubscribe());
     this.chatSocketService.disconnect();
   }
 
-  async fetchNewMessages() {
-    // Get latest timestamp from local messages
-    const latestLocalTimestamp = this.messages.length > 0
-      ? this.messages[this.messages.length - 1].timestamp
-      : new Date(0);
-    const latestId = this.messages.length > 0
-      ? this.messages[this.messages.length - 1].id
-      : 0;
+  /**
+   * Load messages from local database
+   */
+  async loadMessages() {
+    this.messages = await db.getMessagesWithFriend(this.friendEmail);
+  }
 
-    // Get messages from backend
-    const newMessages = await this.keyManagementService.getMessagesFromBackendAfter(
+  /**
+   * Send message to all friend's devices
+   */
+  async sendMessage() {
+    if (!this.messageText.trim()) return;
+
+    try {
+      // Send to all of friend's devices
+      const sentMessages = await this.keyManagementService.sendMessageToFriend(
+        this.friendEmail,
+        this.messageText
+      );
+
+      console.log(`Message sent to ${sentMessages.length} devices`);
+
+      // Add to local display (only show one copy)
+      this.messages.push(sentMessages[0]);
+      this.messageText = '';
+
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      alert('Failed to send message. Please try again.');
+    }
+  }
+
+  /**
+   * Fetch new messages from backend
+   */
+  async fetchNewMessages() {
+    try {
+      // Get timestamp of last message
+      const lastMessage = this.messages[this.messages.length - 1];
+      const since = lastMessage
+        ? lastMessage.timestamp
+        : new Date(0);
+
+      // Fetch from backend
+      const newMessages = await this.keyManagementService
+        .getMessagesFromBackendAfter(this.friendEmail, since);
+
+      // Decrypt each message
+      for (const msgDto of newMessages) {
+        try {
+          const decryptedMsg = await this.keyManagementService
+            .receiveMessageFromFriend(msgDto);
+
+          // Add to display
+          this.messages.push(decryptedMsg);
+        } catch (error) {
+          console.error('Failed to decrypt message:', error);
+        }
+      }
+
+    } catch (error) {
+      console.error('Failed to fetch new messages:', error);
+    }
+  }
+
+  /**
+   * Show device-specific message history
+   */
+  async showDevicePairMessages(theirDeviceId: string) {
+    const deviceMessages = await db.getMessagesForDevicePair(
       this.friendEmail,
-      latestLocalTimestamp
+      this.myDeviceId,
+      theirDeviceId
     );
 
-    // filter out sent messages and duplicates if any
-    const newMessagesFiltered = newMessages.filter(msg => {
-      return msg.senderEmail === this.friendEmail && msg.id! > latestId;
-    });
-
-    console.log('New messages from backend:', newMessagesFiltered);
-
-    for (const messageDetail of newMessagesFiltered) {
-      // Process and store each new message
-      const message = await this.keyManagementService.receiveMessageFromFriend(messageDetail);
-      this.messages.push({
-        id: this.messages.length + 1,
-        text: message.plaintext,
-        timestamp: message.timestamp ? new Date(message.timestamp) : new Date(),
-        isOwnMessage: false
-      });
-    }
+    console.log(`Messages with device ${theirDeviceId}:`, deviceMessages);
   }
 
+  /**
+   * Initialize session with a specific device
+   */
+  async sendToSpecificDevice(deviceId: string) {
+    if (!this.messageText.trim()) return;
 
+    try {
+      const message = await this.keyManagementService.sendMessageToFriendDevice(
+        this.friendEmail,
+        deviceId,
+        this.messageText
+      );
 
-  // Placeholder method for sending messages
-  async sendMessage(): Promise<void> {
-    if (this.messageText.trim()) {
-      // TODO: Implement actual message sending logic
-      console.log('Sending message:', this.messageText);
-      
-      // Send the message using KeyManagementService
-      const messageDetail = await this.keyManagementService.sendMessageToFriend(this.friendEmail, this.messageText);
-
-      // Add the message to the local messages array for UI update
-      this.messages.push({
-        id: this.messages.length + 1,
-        text: messageDetail.plaintext,
-        timestamp: messageDetail.timestamp ? new Date(messageDetail.timestamp) : new Date(),
-        isOwnMessage: true
-      });
-      
+      this.messages.push(message);
       this.messageText = '';
+
+    } catch (error) {
+      console.error('Failed to send to specific device:', error);
     }
   }
 
-  // Helper method to format timestamp
-  formatTime(date: Date): string {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+  formatTime(ts: any): string {
+    if (!ts) return '';
+    const d = ts instanceof Date ? ts : new Date(ts);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
 
-    if (diffMins < 1) return 'Just now';
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays === 1) return 'Yesterday';
-    if (diffDays < 7) return `${diffDays}d ago`;
-    
-    return date.toLocaleDateString();
+  // optional helper if you want to toggle the info panel
+  toggleDeviceInfo(): void {
+    this.showDeviceInfo = !this.showDeviceInfo;
   }
 }
