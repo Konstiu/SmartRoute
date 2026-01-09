@@ -5,6 +5,7 @@ import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../../services/activities.service';
 import {DetailedActivity} from '../../../dtos/Activity';
 import * as L from 'leaflet';
+import {decodePolyline} from "../../../util/polyline-encode-decode";
 
 @Component({
   selector: 'app-activity-detail',
@@ -98,7 +99,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
       return;
     }
 
-    const coordinates = this.decodePolyline(polyline);
+    const coordinates = decodePolyline(polyline);
 
     if (coordinates.length > 0) {
       allCoordinates.push(...coordinates);
@@ -120,45 +121,6 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
     }
   }
 
-  // Polyline decoding algorithm (Google's encoded polyline format)
-  decodePolyline(encoded: string): L.LatLng[] {
-    const points: L.LatLng[] = [];
-    let index = 0;
-    const len = encoded.length;
-    let lat = 0;
-    let lng = 0;
-
-    while (index < len) {
-      let b: number;
-      let shift = 0;
-      let result = 0;
-
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-
-      const dlat = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
-      lat += dlat;
-
-      shift = 0;
-      result = 0;
-
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-
-      const dlng = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
-      lng += dlng;
-
-      points.push(L.latLng(lat / 1e5, lng / 1e5));
-    }
-
-    return points;
-  }
 
   formatDuration(seconds: number): string {
     const h = Math.floor(seconds / 3600);
@@ -167,7 +129,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
     return `${h}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
-  formatDistance(dist: number) : string{
+  formatDistance(dist: number): string {
     dist = dist / 1000; // convert meters to km
     return dist.toFixed(2)
   }
@@ -214,7 +176,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
 
     if (diffDays === 1) return `Today at ${timeString}`;
     if (diffDays === 2) return `Yesterday at ${timeString}`;
-    if (diffDays < 8) return `${diffDays-1} days ago at ${timeString}`;
+    if (diffDays < 8) return `${diffDays - 1} days ago at ${timeString}`;
 
     const dateStr = date.toLocaleDateString('en-US', {
       month: 'short',
