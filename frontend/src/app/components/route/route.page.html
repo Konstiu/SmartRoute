@@ -1,46 +1,55 @@
-<ion-header [translucent]="true">
+<ion-header>
   <ion-toolbar>
-    <ion-title>Your Saved Routes</ion-title>
+    <ion-title>Your saved routes</ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
+<ion-content>
   <ion-refresher (ionRefresh)="doRefresh($event)" slot="fixed">
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
 
-  <!-- Loading -->
+  <!-- Loading State -->
   <div *ngIf="isLoading && savedRoutes.length === 0" class="loading-container">
     <ion-spinner name="crescent"></ion-spinner>
-    <p>Loading Routes...</p>
+    <p>Loading activities...</p>
   </div>
 
-  <!-- Error -->
+  <!-- Error State -->
   <div *ngIf="error && savedRoutes.length === 0" class="error-container">
     <ion-icon color="danger" name="alert-circle-outline"></ion-icon>
     <p>{{ error }}</p>
     <ion-button (click)="loadRoutes()">Retry</ion-button>
   </div>
 
-  <!-- Routes List -->
+  <!-- Activities List -->
   <ion-list *ngIf="!isLoading || savedRoutes.length > 0">
-    <ion-item (click)="openRoute(savedRoute)" *ngFor="let savedRoute of savedRoutes" button detail="true">
-      <ion-icon color="primary" name="barbell-outline" slot="start"></ion-icon>
+    <ion-item (click)="openRoute(savedRoute)" *ngFor="let savedRoute of savedRoutes" [button]="true" detail="true">
+      <ion-icon
+        [color]="'primary'"
+        [name]="'footsteps-outline'"
+        slot="start">
+      </ion-icon>
+
       <ion-label>
         <h2>{{ savedRoute.name }}</h2>
-        <p>{{ formatDistance(savedRoute.distance) }},
-          <!-- <ion-icon name="navigate-outline"></ion-icon> -->
-          {{ formatElevation(savedRoute.elevation) }}
-          <ion-icon name="trending-up-outline"></ion-icon>
+        <!--<h3>{{ this.formatDate(savedRoute.cre) }}</h3> -->
+        <p class="activity-stats">
+          <span><ion-icon name="navigate-outline"></ion-icon>
+            {{ formatDistance(savedRoute.distance) }}</span>
+          <span><ion-icon name="time-outline"></ion-icon>
+            {{ formatPace(savedRoute.pace) }}</span>
+          <span><ion-icon name="trending-up-outline"></ion-icon>
+            {{ formatElevation(savedRoute.elevation) }}</span>
         </p>
       </ion-label>
     </ion-item>
   </ion-list>
+
   <!-- Empty State -->
   <div *ngIf="!isLoading && savedRoutes.length === 0 && !error" class="empty-container">
-    <h2>No favorite routes yet</h2>
-    <p>Your favorite routes will appear here</p>
+    <ion-icon color="medium" name="fitness-outline"></ion-icon>
+    <h2>No Activities Yet</h2>
+    <p>Your recent activities will appear here</p>
   </div>
-
 </ion-content>
-
