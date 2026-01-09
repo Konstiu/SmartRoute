@@ -21,8 +21,9 @@ public interface MessageRepository extends JpaRepository<Message, Long> {
             (m.sender = :user2 AND m.recipient = :user1)
           )
           AND m.timestamp > :since
+          AND (m.senderDeviceId = :device OR m.recipientDeviceId = :device)
         ORDER BY m.timestamp ASC
         """)
-    List<Message> findConversationSince(@Param("user1") ApplicationUser user1, @Param("user2") ApplicationUser user2, @Param("since") Instant since);
+    List<Message> findConversationSince(@Param("user1") ApplicationUser user1, @Param("user2") ApplicationUser user2, @Param("since") Instant since, @Param("device") String deviceId);
 
 }

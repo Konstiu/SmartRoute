@@ -3,7 +3,7 @@
     <ion-buttons slot="start">
       <ion-back-button defaultHref="/tabs/friends"></ion-back-button>
     </ion-buttons>
-    <ion-title>{{ friendName }}</ion-title>
+    <ion-title>{{ friendEmail }}</ion-title>
   </ion-toolbar>
 </ion-header>
 
@@ -12,13 +12,23 @@
     <!-- Messages list -->
     <div class="messages-list">
       @for (message of messages; track message.id) {
-        <div class="message-wrapper" [ngClass]="message.isOwnMessage ? 'own-message' : 'friend-message'">
+        <div class="message-wrapper"
+             [ngClass]="message.direction === 'sent' ? 'own-message' : 'friend-message'">
           <div class="message-bubble">
-            <div class="message-text">{{ message.text }}</div>
-            <div class="message-timestamp">{{ formatTime(message.timestamp) }}</div>
+            <div class="message-text">{{ message.plaintext }}</div>
+            <div class="message-meta">
+              <small class="device-id">Device: {{ message.senderDeviceId }}</small>
+              <span class="message-timestamp">{{ formatTime(message.timestamp) }}</span>
+            </div>
           </div>
         </div>
       }
+    </div>
+
+    <!-- Device info (optional - can be hidden or shown on demand) -->
+    <div class="device-info" *ngIf="showDeviceInfo">
+      <p><strong>Your device:</strong> {{ myDeviceId }}</p>
+      <p><strong>Friend's devices:</strong> {{ friendDevices.join(', ') }}</p>
     </div>
   </div>
 </ion-content>
@@ -32,8 +42,8 @@
         class="message-input"
         (keydown.enter)="sendMessage()"
       ></ion-input>
-      <ion-button 
-        (click)="sendMessage()" 
+      <ion-button
+        (click)="sendMessage()"
         [disabled]="!messageText.trim()"
         class="send-button"
       >

@@ -36,6 +36,10 @@ public interface MessageMapper {
 
         messageDetailDto.setEncryptedMessage(encryptedMessageDto);
         messageDetailDto.setTimestamp(message.getTimestamp());
+
+        messageDetailDto.setRecipientDeviceId(message.getRecipientDeviceId());
+        messageDetailDto.setSenderDeviceId(message.getSenderDeviceId());
+
         return messageDetailDto;
     }
 
@@ -63,6 +67,10 @@ public interface MessageMapper {
         message.setNonce(messageDetailDto.getEncryptedMessage().getNonce());
         message.setMessageNumber(messageDetailDto.getEncryptedMessage().getMessageNumber());
         message.setRatchetPublicKey(messageDetailDto.getEncryptedMessage().getRatchetPublicKey());
+
+        message.setSenderDeviceId(messageDetailDto.getSenderDeviceId());
+        message.setRecipientDeviceId(messageDetailDto.getRecipientDeviceId());
+
         return message;
     }
 }

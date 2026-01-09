@@ -50,6 +50,12 @@ public class Message {
 
     private String ratchetPublicKey;
 
+    @Column(nullable = false)
+    private String senderDeviceId;
+
+    @Column(nullable = false)
+    private String recipientDeviceId;
+
     @Column(nullable = false, updatable = false)
     @CreationTimestamp
     private Instant timestamp;

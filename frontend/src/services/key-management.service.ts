@@ -1,13 +1,18 @@
-import { Injectable } from '@angular/core';
-import { SecureStoragePlugin } from 'capacitor-secure-storage-plugin';
+import {Injectable} from '@angular/core';
+import {SecureStoragePlugin} from 'capacitor-secure-storage-plugin';
 import nacl from 'tweetnacl';
 import naclUtil from 'tweetnacl-util';
-import { Globals } from '../global/globals';
-import { HttpClient } from '@angular/common/http';
-import { firstValueFrom, Observable } from 'rxjs';
-import { EncryptedMessage, KeysDto, MessageDetailDto, OneTimePreKeyDto } from 'src/app/dtos/communication';
-import { db, KeyPair, Message, RatchetState } from 'src/db/encryption';
-
+import {Globals} from '../global/globals';
+import {HttpClient} from '@angular/common/http';
+import {firstValueFrom, Observable} from 'rxjs';
+import {
+    DeviceKeyBundleDto,
+  EncryptedMessage,
+  FriendDeviceBundlesDto,
+  MessageDetailDto,
+  OneTimePreKeyDto
+} from 'src/app/dtos/communication';
+import {db, KeyPair, Message, RatchetState} from 'src/db/encryption';
 
 
 @Injectable({
@@ -16,11 +21,28 @@ import { db, KeyPair, Message, RatchetState } from 'src/db/encryption';
 export class KeyManagementService {
 
   private authBaseUri: string = this.globals.backendUri + '/communication';
+  private currentDeviceId: string | null = null;
 
   constructor(
     private globals: Globals,
     private httpClient: HttpClient
-  ) {}
+  ) {
+    this.initializeDeviceId();
+  }
+
+  private async initializeDeviceId(): Promise<void> {
+    this.currentDeviceId = await db.getCurrentDeviceId();
+  }
+
+  /**
+   * Get the current device ID, ensuring it's initialized
+   */
+  async getCurrentDeviceId(): Promise<string> {
+    if (!this.currentDeviceId) {
+      this.currentDeviceId = await db.getCurrentDeviceId();
+    }
+    return this.currentDeviceId;
+  }
 
   // constants for storage names
   static IDENTITY_PUBLIC_KEY = 'identity_public_key';
@@ -38,13 +60,13 @@ export class KeyManagementService {
   /**
    * Safely retrieves a value from secure storage by key.
    * Returns null if the key does not exist or an error occurs.
-   * 
+   *
    * @param key The key to retrieve from secure storage
    * @returns A promise resolving to the stored value or null
    */
   private async getFromStorageSafe(key: string): Promise<{ value: string } | null> {
     try {
-      const result = await SecureStoragePlugin.get({ key: key });
+      const result = await SecureStoragePlugin.get({key: key});
       return result;
     } catch {
       return null;
@@ -53,7 +75,7 @@ export class KeyManagementService {
 
   /**
    * Get the identity key pair from secure storage
-   * 
+   *
    * @returns The identity key pair or null if not found
    */
   async getIdentityKey(): Promise<KeyPair | null> {
@@ -78,7 +100,7 @@ export class KeyManagementService {
 
   /**
    * Get the DH identity key pair from secure storage
-   * 
+   *
    * @returns The DH identity key pair or null if not found
    */
   async getIdentityDHKey(): Promise<KeyPair | null> {
@@ -103,7 +125,7 @@ export class KeyManagementService {
 
   /**
    * Get the public identity key from secure storage
-   * 
+   *
    * @returns The public identity key as a string or null if not found
    */
   async getPublicIdentityKey(): Promise<string | null> {
@@ -120,7 +142,7 @@ export class KeyManagementService {
 
   /**
    * Get the public DH identity key from secure storage
-   * 
+   *
    * @returns The public DH identity key as a string or null if not found
    */
   async getPublicIdentityDHKey(): Promise<string | null> {
@@ -138,17 +160,17 @@ export class KeyManagementService {
   /**
    * Generate new identity key pairs (both sign and DH), store them securely.
    * Sign key pair is used for signatures, DH key pair is used for X3DH.
-   * 
+   *
    * @returns a Promise that resolves when the operation is complete
    */
   async generateAndStoreIdentityKey(): Promise<void> {
 
     // Generate new Ed25519 key pair for signatures
     const signKeyPair = nacl.sign.keyPair();
-    
+
     // Generate new Curve25519 key pair for DH operations
     const dhKeyPair = nacl.box.keyPair();
-    
+
     // Convert to Base64 for storage
     const signPublicKey = naclUtil.encodeBase64(signKeyPair.publicKey);
     const signPrivateKey = naclUtil.encodeBase64(signKeyPair.secretKey);
@@ -179,19 +201,25 @@ export class KeyManagementService {
   }
 
   /**
-   * Upload the public identity keys (both sign and DH) to the backend.
+   * Upload the public identity keys with device ID
    */
   async uploadPublicIdentityKey(): Promise<void> {
     const publicSignKey = await this.getPublicIdentityKey();
     const publicDHKey = await this.getPublicIdentityDHKey();
+    const deviceId = await this.getCurrentDeviceId();
+
     if (!publicSignKey || !publicDHKey) {
       throw new Error('No public identity keys found');
     }
-    const payload = { 
+    const payload = {
+      deviceId,
       publicKey: publicSignKey,
       publicDhKey: publicDHKey
     };
-    await firstValueFrom(this.httpClient.put<void>(`${this.authBaseUri}/upload-identity-key`, payload));
+
+    await firstValueFrom(
+      this.httpClient.put<void>(`${this.authBaseUri}/upload-identity-key`, payload)
+    );
   }
 
   /**
@@ -200,10 +228,10 @@ export class KeyManagementService {
    */
   async deleteIdentityKey(): Promise<void> {
     try {
-      await SecureStoragePlugin.remove({ key: KeyManagementService.IDENTITY_PRIVATE_KEY });
-      await SecureStoragePlugin.remove({ key: KeyManagementService.IDENTITY_PUBLIC_KEY });
-      await SecureStoragePlugin.remove({ key: KeyManagementService.IDENTITY_DH_PRIVATE_KEY });
-      await SecureStoragePlugin.remove({ key: KeyManagementService.IDENTITY_DH_PUBLIC_KEY });
+      await SecureStoragePlugin.remove({key: KeyManagementService.IDENTITY_PRIVATE_KEY});
+      await SecureStoragePlugin.remove({key: KeyManagementService.IDENTITY_PUBLIC_KEY});
+      await SecureStoragePlugin.remove({key: KeyManagementService.IDENTITY_DH_PRIVATE_KEY});
+      await SecureStoragePlugin.remove({key: KeyManagementService.IDENTITY_DH_PUBLIC_KEY});
     } catch (error) {
       console.error('Error on deleteIdentityKey:', error);
     }
@@ -228,7 +256,7 @@ export class KeyManagementService {
 
     // Generate new signed pre-key
     const preKeyPair = nacl.box.keyPair();
-    
+
     // Get identity key
     const identityKey = await this.getIdentityKey();
     if (!identityKey) {
@@ -264,17 +292,19 @@ export class KeyManagementService {
   }
 
   /**
-   * Upload the public signed pre-key to the backend.
+   * Upload the public signed pre-key with device ID
    */
   async uploadPublicSignedPreKey(): Promise<void> {
     const publicKeyResult = await this.getFromStorageSafe(KeyManagementService.SIGNED_PRE_KEY_PUBLIC);
     const signatureResult = await this.getFromStorageSafe(KeyManagementService.SIGNED_PRE_KEY_SIGNATURE);
+    const deviceId = await this.getCurrentDeviceId();
 
-    if (!publicKeyResult || !publicKeyResult.value || !signatureResult || !signatureResult.value) {
+    if (!publicKeyResult?.value || !signatureResult?.value) {
       throw new Error('No signed pre-key found');
     }
 
     const payload = {
+      deviceId,
       publicPreKey: publicKeyResult.value,
       signature: signatureResult.value
     };
@@ -283,7 +313,7 @@ export class KeyManagementService {
 
   /**
    * Get the signed pre-key pair from secure storage
-   * @returns 
+   * @returns
    */
   async getSignedPreKeyPair(): Promise<KeyPair | null> {
     try {
@@ -315,18 +345,21 @@ export class KeyManagementService {
   }
 
   /**
-   * Get the count of one-time pre-keys stored on the backend.
-   * 
-   * @returns The number of one-time pre-keys stored on the backend 
+   * Get amount of one-time pre-keys for current device
    */
   async getOneTimePreKeysCount(): Promise<number> {
-    return await firstValueFrom(this.httpClient.get<number>(`${this.authBaseUri}/amount-of-one-time-pre-keys`));
+    const deviceId = await this.getCurrentDeviceId();
+    return await firstValueFrom(
+      this.httpClient.get<number>(
+        `${this.authBaseUri}/amount-of-one-time-pre-keys?deviceId=${deviceId}`
+      )
+    );
   }
 
   /**
    * Generate a batch of one-time pre-keys and store them securely.
    * These keys can be uploaded to the backend for use in establishing sessions.
-   * 
+   *
    * @param numberOfKeys The number of one-time pre-keys to generate
    * @returns An array of generated one-time pre-keys with their UUIDs and public keys
    */
@@ -337,12 +370,12 @@ export class KeyManagementService {
       const publicKeyBase64 = naclUtil.encodeBase64(keyPair.publicKey);
       const privateKeyBase64 = naclUtil.encodeBase64(keyPair.secretKey);
       const uuid = crypto.randomUUID();
-      oneTimePreKeys.push({ uuid: uuid, publicKey: publicKeyBase64 });
+      oneTimePreKeys.push({uuid: uuid, publicKey: publicKeyBase64});
       // Store each one-time pre-key securely with a unique key
       const keyName = KeyManagementService.ONE_TIME_PRE_KEY_PREFIX + uuid;
       await SecureStoragePlugin.set({
         key: keyName,
-        value: JSON.stringify({ uuid: uuid, publicKey: publicKeyBase64, privateKey: privateKeyBase64 })
+        value: JSON.stringify({uuid: uuid, publicKey: publicKeyBase64, privateKey: privateKeyBase64})
       });
     }
 
@@ -351,9 +384,9 @@ export class KeyManagementService {
 
   /**
    * Get a one-time pre-key pair by its UUID from secure storage.
-   * 
-   * @param uuid 
-   * @returns 
+   *
+   * @param uuid
+   * @returns
    */
   async getOneTimePreKeyPairByUuid(uuid: string): Promise<KeyPair | null> {
     const keyName = KeyManagementService.ONE_TIME_PRE_KEY_PREFIX + uuid;
@@ -374,36 +407,368 @@ export class KeyManagementService {
 
   /**
    * Delete a one-time pre-key from secure storage after it has been used.
-   * 
-   * @param uuid the UUID of the one-time pre-key to delete 
+   *
+   * @param uuid the UUID of the one-time pre-key to delete
    */
   async deleteOneTimePreKey(uuid: string): Promise<void> {
     const keyName = KeyManagementService.ONE_TIME_PRE_KEY_PREFIX + uuid;
     try {
-      await SecureStoragePlugin.remove({ key: keyName });
+      await SecureStoragePlugin.remove({key: keyName});
+    } catch (_) {
     }
-    catch (_) {}
   }
 
   /**
-   * Upload a batch of one-time pre-keys to the backend.
-   * 
-   * @param preKeys 
+   * Upload one-time pre-keys for current device
    */
   async uploadOneTimePreKeys(preKeys: OneTimePreKeyDto[]): Promise<void> {
-    const payload = { oneTimePreKeys: preKeys };
-    await firstValueFrom(this.httpClient.put<void>(`${this.authBaseUri}/upload-one-time-pre-keys`, payload));
+    const deviceId = await this.getCurrentDeviceId();
+    const payload = {
+      deviceId,
+      oneTimePreKeys: preKeys
+    };
+
+    await firstValueFrom(
+      this.httpClient.put<void>(`${this.authBaseUri}/upload-one-time-pre-keys`, payload)
+    );
+  }
+
+  /**
+   * Get all device bundles for a friend
+   */
+  getKeysOfFriendAllDevices(friendEmail: string): Observable<FriendDeviceBundlesDto> {
+    return this.httpClient.get<FriendDeviceBundlesDto>(
+      `${this.authBaseUri}/keys-of-friend-devices/${encodeURIComponent(friendEmail)}`
+    );
+  }
+
+  /**
+   * Get list of device IDs for a friend
+   */
+  async getDevicesOfFriend(friendEmail: string): Promise<string[]> {
+    return await firstValueFrom(
+      this.httpClient.get<string[]>(
+        `${this.authBaseUri}/devices/${encodeURIComponent(friendEmail)}`
+      )
+    );
+  }
+
+  /**
+   * Get list of my device IDs
+   */
+  async getMyDevices(): Promise<string[]> {
+    return await firstValueFrom(
+      this.httpClient.get<string[]>(`${this.authBaseUri}/my-devices`)
+    );
+  }
+
+  /**
+   * Sends an encrypted message to a specific device of a friend
+   */
+  async sendMessageToFriendDevice(
+    friendEmail: string,
+    theirDeviceId: string,
+    plaintext: string
+  ): Promise<Message> {
+    const myDeviceId = await this.getCurrentDeviceId();
+
+    // Check for existing ratchet state for this device pair
+    const state = await db.getRatchetState(friendEmail, myDeviceId, theirDeviceId);
+
+    let savedMessage: MessageDetailDto;
+
+    if (!state) {
+      // No existing session - perform X3DH
+      savedMessage = await this.initializeSessionAndSend(
+        friendEmail,
+        myDeviceId,
+        theirDeviceId,
+        plaintext
+      );
+    } else {
+      // Existing session - encrypt with ratchet
+      const encryptedMessage = await this.encryptMessage(state, plaintext);
+      await db.saveRatchetState(state);
+
+      const messageDetail: MessageDetailDto = {
+        recipientEmail: friendEmail,
+        recipientDeviceId: theirDeviceId,
+        senderDeviceId: myDeviceId,
+        senderIdentityKey: null,
+        senderIdentityDhKey: null,
+        senderEphemeralKey: null,
+        usedOneTimePreKeyId: null,
+        encryptedMessage
+      };
+
+      savedMessage = await this.uploadMessage(messageDetail);
+    }
+
+    // Save to local database
+    const messageRecord: Message = {
+      id: savedMessage.id!,
+      conversationId: friendEmail,
+      senderId: 'me',
+      senderDeviceId: myDeviceId,
+      recipientId: friendEmail,
+      recipientDeviceId: theirDeviceId,
+      plaintext,
+      timestamp: savedMessage.timestamp ? new Date(savedMessage.timestamp) : new Date(),
+      direction: 'sent'
+    };
+
+    await db.messages.add(messageRecord);
+    return messageRecord;
+  }
+
+  /**
+   * Initialize a new session with X3DH and send first message
+   */
+  private async initializeSessionAndSend(
+    friendEmail: string,
+    myDeviceId: string,
+    theirDeviceId: string,
+    plaintext: string
+  ): Promise<MessageDetailDto> {
+    // Get friend's key bundle for specific device
+    const friendDeviceBundles = await firstValueFrom(
+      this.getKeysOfFriendAllDevices(friendEmail)
+    );
+
+    console.log('friendDeviceBundles raw:', friendDeviceBundles);
+    console.log('friendDeviceBundles keys:', friendDeviceBundles && Object.keys(friendDeviceBundles));
+
+    const bundles =
+      friendDeviceBundles?.devices ??
+      (Array.isArray(friendDeviceBundles) ? friendDeviceBundles : []);
+
+    if (!Array.isArray(bundles) || bundles.length === 0) {
+      throw new Error(
+        `No device bundles returned for ${friendEmail}. Response keys: ${Object.keys(friendDeviceBundles ?? {}).join(', ')}`
+      );
+    }
+
+    const friendKeyBundle = bundles.find(
+      (bundle: { deviceId: string }) => bundle?.deviceId === theirDeviceId
+    );
+
+    if (!friendKeyBundle) {
+      throw new Error(`No key bundle found for device ${theirDeviceId}`);
+    }
+
+    // Get my keys
+    const myIdentityDHKeyPair = await this.getIdentityDHKey();
+    const myIdentityKeyPair = await this.getIdentityKey();
+
+    if (!myIdentityDHKeyPair || !myIdentityKeyPair) {
+      throw new Error('Identity keys not found');
+    }
+
+    // Perform X3DH
+    const {sharedSecret, ephemeralPublicKey} = await this.performX3DH(
+      friendKeyBundle,
+      myIdentityDHKeyPair
+    );
+
+    // Initialize ratchet
+    const ratchetState = await this.initializeForSender(
+      sharedSecret,
+      naclUtil.decodeBase64(friendKeyBundle.signedPreKey)
+    );
+
+    // Encrypt message
+    const encryptedMessage = await this.encryptMessage(ratchetState, plaintext);
+
+    // Store ratchet state with device IDs
+    await db.saveRatchetState({
+      ...ratchetState,
+      sessionId: `${friendEmail}:${myDeviceId}:${theirDeviceId}`,
+      contactId: friendEmail,
+      myDeviceId,
+      theirDeviceId
+    });
+
+    // Create message detail
+    const messageDetail: MessageDetailDto = {
+      recipientEmail: friendEmail,
+      recipientDeviceId: theirDeviceId,
+      senderDeviceId: myDeviceId,
+      senderIdentityKey: naclUtil.encodeBase64(myIdentityKeyPair.publicKey),
+      senderIdentityDhKey: naclUtil.encodeBase64(myIdentityDHKeyPair.publicKey),
+      senderEphemeralKey: naclUtil.encodeBase64(ephemeralPublicKey),
+      usedOneTimePreKeyId: friendKeyBundle.oneTimePreKey?.uuid ?? null,
+      encryptedMessage
+    };
+
+    return await this.uploadMessage(messageDetail);
+  }
+
+  /**
+   * Send message to all devices of a friend
+   */
+  async sendMessageToFriend(friendEmail: string, plaintext: string): Promise<Message[]> {
+    const deviceIds = await this.getDevicesOfFriend(friendEmail);
+
+    if (deviceIds.length === 0) {
+      throw new Error('Friend has no registered devices');
+    }
+
+    const messages: Message[] = [];
+
+    // Send to each device
+    for (const deviceId of deviceIds) {
+      try {
+        const message = await this.sendMessageToFriendDevice(
+          friendEmail,
+          deviceId,
+          plaintext
+        );
+        messages.push(message);
+      } catch (error) {
+        console.error(`Failed to send to device ${deviceId}:`, error);
+        // Continue with other devices
+      }
+    }
+
+    if (messages.length === 0) {
+      throw new Error('Failed to send message to any device');
+    }
+
+    return messages;
+  }
+
+  /**
+   * Receive and decrypt a message from a friend's device
+   */
+  async receiveMessageFromFriend(messageDetail: MessageDetailDto): Promise<Message> {
+    const myDeviceId = await this.getCurrentDeviceId();
+    const theirDeviceId = messageDetail.senderDeviceId!;
+    const friendEmail = messageDetail.senderEmail!;
+
+    // Check for existing ratchet state
+    const state = await db.getRatchetState(friendEmail, myDeviceId, theirDeviceId);
+
+    let plaintext: string;
+
+    if (!state) {
+      // No existing session - perform X3DH from receiver side
+      plaintext = await this.receiveFirstMessageAndInitialize(
+        messageDetail,
+        myDeviceId,
+        theirDeviceId
+      );
+    } else {
+      // Existing session - decrypt with ratchet
+      plaintext = await this.decryptMessage(state, messageDetail.encryptedMessage);
+      await db.saveRatchetState(state);
+    }
+
+    // Save to local database
+    const messageRecord: Message = {
+      id: messageDetail.id!,
+      conversationId: friendEmail,
+      senderId: friendEmail,
+      senderDeviceId: theirDeviceId,
+      recipientId: 'me',
+      recipientDeviceId: myDeviceId,
+      plaintext,
+      timestamp: messageDetail.timestamp ? new Date(messageDetail.timestamp) : new Date(),
+      direction: 'received'
+    };
+
+    await db.messages.add(messageRecord);
+    return messageRecord;
+  }
+
+  /**
+   * Receive first message and initialize ratchet state
+   */
+  private async receiveFirstMessageAndInitialize(
+    messageDetail: MessageDetailDto,
+    myDeviceId: string,
+    theirDeviceId: string
+  ): Promise<string> {
+    const friendEmail = messageDetail.senderEmail!;
+
+    // Get my keys
+    const myIdentityDHKeyPair = await this.getIdentityDHKey();
+    const mySignedPreKeyPair = await this.getSignedPreKeyPair();
+    const myOneTimePreKeyPair = messageDetail.usedOneTimePreKeyId
+      ? await this.getOneTimePreKeyPairByUuid(messageDetail.usedOneTimePreKeyId)
+      : null;
+
+    if (!myIdentityDHKeyPair || !mySignedPreKeyPair) {
+      throw new Error('Required keys not found');
+    }
+
+    // Perform X3DH from receiver side
+    const {sharedSecret} = await this.receiveX3DH(
+      messageDetail.senderIdentityDhKey!,
+      messageDetail.senderEphemeralKey!,
+      messageDetail.usedOneTimePreKeyId
+        ? {uuid: messageDetail.usedOneTimePreKeyId, publicKey: ''}
+        : null,
+      myIdentityDHKeyPair,
+      mySignedPreKeyPair,
+      myOneTimePreKeyPair
+    );
+
+    // Initialize ratchet
+    const ratchetState = await this.initializeForReceiver(
+      sharedSecret,
+      mySignedPreKeyPair
+    );
+
+    // Decrypt message
+    const plaintext = await this.decryptMessage(
+      ratchetState,
+      messageDetail.encryptedMessage
+    );
+
+    // Store ratchet state
+    await db.saveRatchetState({
+      ...ratchetState,
+      sessionId: `${friendEmail}:${myDeviceId}:${theirDeviceId}`,
+      contactId: friendEmail,
+      myDeviceId,
+      theirDeviceId
+    });
+
+    return plaintext;
+  }
+
+  /**
+   * Fetch messages from backend for current device
+   */
+  async getMessagesFromBackendAfter(
+    friendEmail: string,
+    timestamp: Date
+  ): Promise<MessageDetailDto[]> {
+    const deviceId = await this.getCurrentDeviceId();
+
+    return await firstValueFrom(
+      this.httpClient.get<MessageDetailDto[]>(
+        `${this.authBaseUri}/messages/${encodeURIComponent(friendEmail)}?timestamp=${timestamp.toISOString()}&deviceId=${deviceId}`
+      )
+    );
+  }
+
+  async uploadMessage(message: MessageDetailDto): Promise<MessageDetailDto> {
+    console.log('Uploading message to backend:', message);
+    return await firstValueFrom(
+      this.httpClient.post<MessageDetailDto>(`${this.authBaseUri}/messages`, message)
+    );
   }
 
   /**
    * Get the communication keys of a friend by their email.
-   * 
+   *
    * @param friendEmail the email of the friend whose keys are to be retrieved
    * @returns An observable that yields the friend's communication keys
    */
-  getKeysOfFriend(friendEmail: string): Observable<KeysDto> {
-    return this.httpClient.get<KeysDto>(`${this.authBaseUri}/keys-of-friend/${encodeURIComponent(friendEmail)}`);
-  } 
+  getKeysOfFriend(friendEmail: string): Observable<any> {
+    return this.httpClient.get<any>(`${this.authBaseUri}/keys-of-friend/${encodeURIComponent(friendEmail)}`);
+  }
 
   /**
    * Performs the X3DH (Extended Triple Diffie-Hellman) key agreement.
@@ -432,9 +797,9 @@ export class KeyManagementService {
    *   - sharedSecret: The derived shared secret as a Uint8Array
    *   - ephemeralPublicKey: The public key of the ephemeral key pair used in the exchange
    */
-  async performX3DH(friendKeysDto: KeysDto, myIdentityDHKeyPair: KeyPair, myEphemeralKeyPair?: KeyPair): 
+  async performX3DH(friendKeysDto: DeviceKeyBundleDto, myIdentityDHKeyPair: KeyPair, myEphemeralKeyPair?: KeyPair):
     Promise<{ sharedSecret: Uint8Array, ephemeralPublicKey: Uint8Array }> {
-      
+
     // verify the signature of the prekey using the friend's sign identity key
     console.log("Initiator performing X3DH with friend's keys:", friendKeysDto);
 
@@ -567,13 +932,13 @@ export class KeyManagementService {
     // derive shared secret from concatenated DH results
     const sharedSecret = nacl.hash(dhResult).slice(0, 32);
 
-    return { sharedSecret };
+    return {sharedSecret};
   }
 
 
   /**
    * Verify the signature of the signed pre key.
-   * 
+   *
    * @param signedPreKey the friend's signed prekey in base64
    * @param signature the signature of the signed prekey in base64
    * @param publicIdentityKey the friend's public identity key
@@ -593,30 +958,30 @@ export class KeyManagementService {
 
   /**
    * Concatenate multiple Uint8Array instances into one.
-   * 
-   * @param arrays An array of Uint8Array instances to concatenate 
-   * @returns A single Uint8Array containing all input arrays concatenated 
+   *
+   * @param arrays An array of Uint8Array instances to concatenate
+   * @returns A single Uint8Array containing all input arrays concatenated
    */
   private concatenate(arrays: Uint8Array[]): Uint8Array {
     const totalLength = arrays.reduce((sum, arr) => sum + arr.length, 0);
     const result = new Uint8Array(totalLength);
     let offset = 0;
-    
+
     for (const arr of arrays) {
       result.set(arr, offset);
       offset += arr.length;
     }
-    
+
     return result;
   }
 
 
   /**
    * Initializes the Double Ratchet state for the sender after X3DH key agreement.
-   * 
-   * @param sharedSecret 
-   * @param theirSignedPrekeyPublicKey 
-   * @returns 
+   *
+   * @param sharedSecret
+   * @param theirSignedPrekeyPublicKey
+   * @returns
    */
   async initializeForSender(
     sharedSecret: Uint8Array,
@@ -633,7 +998,7 @@ export class KeyManagementService {
     const dhOutput = nacl.scalarMult(myRatchetKeyPair.secretKey, theirSignedPrekeyPublicKey);
 
     // Derive new root key and sending chain key
-    const { newRootKey, chainKey } = this.deriveRatchetKeys(rootKey, dhOutput);
+    const {newRootKey, chainKey} = this.deriveRatchetKeys(rootKey, dhOutput);
 
     return {
       rootKey: newRootKey,
@@ -652,10 +1017,10 @@ export class KeyManagementService {
 
   /**
    * Initializes the Double Ratchet state for the receiver after X3DH key agreement.
-   * 
-   * @param sharedSecret 
-   * @param mySignedPreKeyPair 
-   * @returns 
+   *
+   * @param sharedSecret
+   * @param mySignedPreKeyPair
+   * @returns
    */
   async initializeForReceiver(
     sharedSecret: Uint8Array,
@@ -682,14 +1047,14 @@ export class KeyManagementService {
 
   /**
    * Encrypts a message using the Double Ratchet algorithm.
-   * 
-   * @param state 
-   * @param plaintext 
-   * @returns 
+   *
+   * @param state
+   * @param plaintext
+   * @returns
    */
   async encryptMessage(state: RatchetState, plaintext: string): Promise<EncryptedMessage> {
     // Derive message key from sending chain key
-    const { messageKey, newChainKey } = await this.deriveMessageKey(state.sendingChainKey);
+    const {messageKey, newChainKey} = await this.deriveMessageKey(state.sendingChainKey);
 
     // Encrypt the plaintext
     const nonce = nacl.randomBytes(nacl.secretbox.nonceLength);
@@ -718,10 +1083,10 @@ export class KeyManagementService {
 
   /**
    * Decrypts a message using the Double Ratchet algorithm.
-   * 
-   * @param state 
-   * @param encryptedMessage 
-   * @returns 
+   *
+   * @param state
+   * @param encryptedMessage
+   * @returns
    */
   async decryptMessage(state: RatchetState, encryptedMessage: EncryptedMessage): Promise<string> {
     const theirRatchetkey = naclUtil.decodeBase64(encryptedMessage.ratchetPublicKey);
@@ -733,7 +1098,7 @@ export class KeyManagementService {
     }
 
     // Derive message key from receiving chain key
-    const { messageKey, newChainKey } = await this.deriveMessageKey(state.receivingChainKey);
+    const {messageKey, newChainKey} = await this.deriveMessageKey(state.receivingChainKey);
     state.receivingChainKey = newChainKey;
 
     // Decrypt the ciphertext
@@ -755,12 +1120,12 @@ export class KeyManagementService {
 
   /**
    * Performs a DH ratchet step when a new ratchet public key is received.
-   * 
-   * @param state 
-   * @param theirNewRatchetKey 
+   *
+   * @param state
+   * @param theirNewRatchetKey
    */
   private performDHRatchetStep(state: RatchetState, theirNewRatchetKey: Uint8Array): void {
-    
+
     // save friend's new ratchet public key
     const previousRatchetKey = state.theirCurrentRatchetPublicKey;
     state.theirCurrentRatchetPublicKey = theirNewRatchetKey;
@@ -769,7 +1134,7 @@ export class KeyManagementService {
     const dhOutput = nacl.scalarMult(state.myCurrentRatchetKeyPair.privateKey, theirNewRatchetKey);
 
     // derive new root key and receiving chain key
-    const { newRootKey, chainKey } = this.deriveRatchetKeys(state.rootKey, dhOutput);
+    const {newRootKey, chainKey} = this.deriveRatchetKeys(state.rootKey, dhOutput);
     state.rootKey = newRootKey;
     state.receivingChainKey = chainKey;
     state.previousSendingChainLength = state.sendMessageNumber;
@@ -786,7 +1151,7 @@ export class KeyManagementService {
     const dhOutput2 = nacl.scalarMult(state.myCurrentRatchetKeyPair.privateKey, theirNewRatchetKey);
 
     // derive new root key and sending chain key
-    const { newRootKey: finalRootKey, chainKey: newSendingChainKey } = this.deriveRatchetKeys(state.rootKey, dhOutput2);
+    const {newRootKey: finalRootKey, chainKey: newSendingChainKey} = this.deriveRatchetKeys(state.rootKey, dhOutput2);
 
     state.rootKey = finalRootKey;
     state.sendingChainKey = newSendingChainKey;
@@ -795,9 +1160,9 @@ export class KeyManagementService {
 
   /**
    * Derives the message key and the next chain key from the current chain key.
-   * 
-   * @param chainKey 
-   * @returns 
+   *
+   * @param chainKey
+   * @returns
    */
   private async deriveMessageKey(chainKey: Uint8Array): Promise<{
     messageKey: Uint8Array;
@@ -805,16 +1170,16 @@ export class KeyManagementService {
   }> {
     const messageKey = await this.hkdf(chainKey, new Uint8Array(1).fill(0x01), 'WhisperMessageKeys', 32);
     const newChainKey = await this.hkdf(chainKey, new Uint8Array(1).fill(0x02), 'WhisperMessageKeys', 32);
-    
-    return { messageKey, newChainKey };
+
+    return {messageKey, newChainKey};
   }
 
   /**
    * Derives new root key and chain key using the Double Ratchet KDF.
-   * 
-   * @param rootKey 
-   * @param dhOutput 
-   * @returns 
+   *
+   * @param rootKey
+   * @param dhOutput
+   * @returns
    */
   private deriveRatchetKeys(rootKey: Uint8Array, dhOutput: Uint8Array): {
     newRootKey: Uint8Array;
@@ -823,9 +1188,9 @@ export class KeyManagementService {
     const combined = new Uint8Array(rootKey.length + dhOutput.length);
     combined.set(rootKey);
     combined.set(dhOutput, rootKey.length);
-    
+
     const hash = nacl.hash(combined);
-    
+
     return {
       newRootKey: hash.slice(0, 32),
       chainKey: hash.slice(32, 64)
@@ -834,7 +1199,7 @@ export class KeyManagementService {
 
   /**
    * Derives cryptographic key material using HKDF (RFC 5869) with SHA-256.
-   * 
+   *
    * @param inputKeyMaterial Input key material (shared secret)
    * @param salt Optional random salt value
    * @param info Contextual information to bind the derived key to a specific use
@@ -884,10 +1249,10 @@ export class KeyManagementService {
 
   /**
    * Compares two Uint8Array instances for equality.
-   * 
-   * @param a 
-   * @param b 
-   * @returns 
+   *
+   * @param a
+   * @param b
+   * @returns
    */
   private keysEqual(a: Uint8Array, b: Uint8Array): boolean {
     if (a.length !== b.length) return false;
@@ -897,182 +1262,9 @@ export class KeyManagementService {
     return true;
   }
 
-  /**
-   * Uploads an encrypted message to the backend.
-   * 
-   * @param message 
-   */
-  async uploadMessage(message: MessageDetailDto): Promise<MessageDetailDto> {
-    console.log('Uploading message to backend:', message);
-    return await firstValueFrom(this.httpClient.post<MessageDetailDto>(`${this.authBaseUri}/messages`, message));
-  }
 
-  /**
-   * Fetches messages from the backend sent by a friend after a specific timestamp.
-   * 
-   * @param friendEmail 
-   * @param timestamp 
-   * @returns 
-   */
-  async getMessagesFromBackendAfter(friendEmail: string, timestamp: Date): Promise<MessageDetailDto[]> {
-    return await firstValueFrom(this.httpClient.get<MessageDetailDto[]>(
-      `${this.authBaseUri}/messages/${encodeURIComponent(friendEmail)}?timestamp=${timestamp.toISOString()}`
-    ));
-  }
 
-  /**
-   * Sends an encrypted message to a friend.
-   * 
-   * @param friendEmail
-   * @param plaintext 
-   */
-  async sendMessageToFriend(friendEmail: string, plaintext: string): Promise<Message> {
-    // Check if there is an existing ratchet state with the friend
-    const state = await db.ratchetStates.get(friendEmail);
 
-    let savedMessage: MessageDetailDto;
-    if (!state) {
-      // if there is no existing state, perform X3DH and initialize ratchet
 
-      // get friend's keys
-      const friendKeysDto = await firstValueFrom(this.getKeysOfFriend(friendEmail));
-
-      // get my DH identity key
-      const myIdentityDHKeyPair = await this.getIdentityDHKey();
-      if (!myIdentityDHKeyPair) {
-        throw new Error('No DH identity key found');
-      }
-
-      // get my sign identity key for sending
-      const myIdentityKeyPair = await this.getIdentityKey();
-      if (!myIdentityKeyPair) {
-        throw new Error('No sign identity key found');
-      }
-
-      // perform X3DH
-      const { sharedSecret, ephemeralPublicKey } = await this.performX3DH(friendKeysDto, myIdentityDHKeyPair);
-
-      // initialize ratchet state
-      const ratchetState = await this.initializeForSender(sharedSecret, naclUtil.decodeBase64(friendKeysDto.signedPreKey));
-
-      // encrypt message
-      const encryptedMessage = await this.encryptMessage(ratchetState, plaintext);
-
-      // store ratchet state
-      await db.ratchetStates.put({ contactId: friendEmail, ...ratchetState });
-
-      // send encrypted message to friend via backend
-      const messageDetail: MessageDetailDto = {
-        recipientEmail: friendEmail,
-        senderIdentityKey: naclUtil.encodeBase64(myIdentityKeyPair.publicKey),
-        senderIdentityDhKey: naclUtil.encodeBase64(myIdentityDHKeyPair.publicKey),
-        senderEphemeralKey: naclUtil.encodeBase64(ephemeralPublicKey),
-        usedOneTimePreKeyId: friendKeysDto.oneTimePreKey ? friendKeysDto.oneTimePreKey.uuid : null,
-        encryptedMessage: encryptedMessage
-      };
-      savedMessage = await this.uploadMessage(messageDetail);
-    } else {
-      // if there is an existing state, use it to encrypt the message
-      const encryptedMessage = await this.encryptMessage(state, plaintext);
-
-      // update ratchet state in database
-      // encrypt message did change the state
-      await db.ratchetStates.put(state);
-
-      // send encrypted message to friend via backend
-      const messageDetail: MessageDetailDto = {
-        recipientEmail: friendEmail,
-        senderIdentityKey: null, // not needed for existing sessions
-        senderIdentityDhKey: null, // not needed for existing sessions
-        senderEphemeralKey: null, // not needed for existing sessions
-        usedOneTimePreKeyId: null, // not needed for existing sessions
-        encryptedMessage: encryptedMessage
-      };
-      savedMessage = await this.uploadMessage(messageDetail);
-    }
-
-    // save the message to local database
-    const messageRecord: Message = {
-      id: savedMessage.id!,
-      conversationId: '',
-      senderId: 'me',
-      recipientId: friendEmail,
-      plaintext,
-      timestamp: savedMessage.timestamp ? new Date(savedMessage.timestamp) : new Date(),
-      direction: 'sent',
-    }
-    await db.messages.add(messageRecord);
-
-    return messageRecord;
-  }
-
-  /**
-   * Receives and decrypts a message from a friend.
-   * 
-   * @param messageDetail 
-   * @returns 
-   */
-  async receiveMessageFromFriend(messageDetail: MessageDetailDto): Promise<Message> {
-    // Check if there is an existing ratchet state with the friend
-    const state = await db.ratchetStates.get(messageDetail.senderEmail!);
-
-    let plaintext: string;
-    if (!state) {
-      // if there is no existing state, perform X3DH and initialize ratchet
-
-      // receive X3DH
-      const myIdentityDHKeyPair = await this.getIdentityDHKey();
-      const mySignedPreKeyPair = await this.getSignedPreKeyPair();
-      const myOneTimePreKeyPair = messageDetail.usedOneTimePreKeyId
-        ? await this.getOneTimePreKeyPairByUuid(messageDetail.usedOneTimePreKeyId)
-        : null;
-
-      if (!myIdentityDHKeyPair) {
-        throw new Error('No DH identity key found');
-      }
-
-      const { sharedSecret } = await this.receiveX3DH(
-        messageDetail.senderIdentityDhKey!,
-        messageDetail.senderEphemeralKey!,
-        messageDetail.usedOneTimePreKeyId
-          ? { uuid: messageDetail.usedOneTimePreKeyId, publicKey: '' }
-          : null,
-        myIdentityDHKeyPair,
-        mySignedPreKeyPair!,
-        myOneTimePreKeyPair
-      );
-
-      // initialize ratchet state
-      const ratchetState = await this.initializeForReceiver(sharedSecret, mySignedPreKeyPair!);
-
-      // decrypt message
-      plaintext = await this.decryptMessage(ratchetState, messageDetail.encryptedMessage);
-
-      // store ratchet state
-      await db.ratchetStates.put({ contactId: messageDetail.senderEmail!, ...ratchetState });
-    } else {
-      // if there is an existing state, use it to decrypt the message
-      plaintext = await this.decryptMessage(state, messageDetail.encryptedMessage);
-
-      // update ratchet state in database
-      // decrypt message did change the state
-      await db.ratchetStates.put(state);
-
-    }
-
-    // save the message to local database
-    const messageRecord: Message = {
-      id: messageDetail.id!,
-      conversationId: '',
-      senderId: messageDetail.senderEmail!,
-      recipientId: 'me',
-      plaintext,
-      timestamp: messageDetail.timestamp ? new Date(messageDetail.timestamp) : new Date(),
-      direction: 'received',
-    }
-    await db.messages.add(messageRecord);
-
-    return messageRecord;
-  }
 
 }

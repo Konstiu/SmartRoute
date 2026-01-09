@@ -6,4 +6,5 @@ import lombok.Data;
 public class UploadIdentityDto {
     private String publicKey;
     private String publicDhKey;
+    private String deviceId;
 }

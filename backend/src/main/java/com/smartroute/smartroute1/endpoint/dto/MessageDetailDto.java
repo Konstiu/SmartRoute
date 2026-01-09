@@ -16,4 +16,7 @@ public class MessageDetailDto {
     private UUID usedOneTimePreKeyId;
     private EncryptedMessageDto encryptedMessage;
     private Instant timestamp;
+
+    private String senderDeviceId;
+    private String recipientDeviceId;
 }
