@@ -1,13 +1,13 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import {Component, OnInit, OnDestroy} from '@angular/core';
 import {interval, Subscription} from 'rxjs';
-import { KeyManagementService } from '../../../services/key-management.service';
-import { ChatSocketService } from '../../../services/chat-socket.service';
-import { db, Message } from '../../../db/encryption';
+import {KeyManagementService} from '../../../services/key-management.service';
+import {ChatSocketService} from '../../../services/chat-socket.service';
+import {db, Message} from '../../../db/encryption';
 import {IonicModule} from "@ionic/angular";
 import {CommonModule} from "@angular/common";
 import {FormsModule} from "@angular/forms";
-import { ActivatedRoute } from '@angular/router';
-
+import {ActivatedRoute} from '@angular/router';
+import {UserService} from "../../../services/user.service";
 
 
 @Component({
@@ -23,18 +23,18 @@ export class ChatPage implements OnInit, OnDestroy {
   messageText = '';
   myDeviceId = '';
   friendDevices: string[] = [];
+  myDevices: string[]= [];
 
   showDeviceInfo = false;
-
-  private pollingSub?: Subscription;
 
   private subscriptions: Subscription[] = [];
 
   constructor(
     private route: ActivatedRoute,
     private keyManagementService: KeyManagementService,
-    private chatSocketService: ChatSocketService
-  ) {}
+    private chatSocketService: ChatSocketService,
+  ) {
+  }
 
   async ngOnInit() {
     this.route.queryParams.subscribe(params => {
@@ -49,12 +49,14 @@ export class ChatPage implements OnInit, OnDestroy {
       this.friendEmail
     );
 
+    this.myDevices = await this.keyManagementService.getMyDevices();
+
     // Load existing messages
     await this.loadMessages();
 
     await this.fetchNewMessages();
 
-    this.pollingSub = interval(2000).subscribe(() => {
+    interval(2000).subscribe(() => {
       this.fetchNewMessages();
     });
 
@@ -94,7 +96,17 @@ export class ChatPage implements OnInit, OnDestroy {
    * Load messages from local database
    */
   async loadMessages() {
-    this.messages = await db.getMessagesWithFriend(this.friendEmail);
+    const allMessages = await db.getMessagesWithFriend(this.friendEmail);
+
+    // Deduplicate by conversationMessageId - keep only first occurrence
+    const seen = new Set<string>();
+    this.messages = allMessages.filter(msg => {
+      if (seen.has(msg.conversationMessageId)) {
+        return false; // Skip duplicates
+      }
+      seen.add(msg.conversationMessageId);
+      return true;
+    });
   }
 
   /**
@@ -102,18 +114,28 @@ export class ChatPage implements OnInit, OnDestroy {
    */
   async sendMessage() {
     if (!this.messageText.trim()) return;
+    const conversationMessageId = crypto.randomUUID(); // Generate ONCE
 
     try {
       // Send to all of friend's devices
       const sentMessages = await this.keyManagementService.sendMessageToFriend(
         this.friendEmail,
-        this.messageText
+        this.messageText,
+        conversationMessageId
       );
 
       console.log(`Message sent to ${sentMessages.length} devices`);
 
+      const sentMessagesMyDevices = await this.keyManagementService.sendMessageToMyDevices(this.friendEmail,
+        this.messageText,
+        conversationMessageId
+      )
+
+      console.log(`Message sent to ${sentMessagesMyDevices.length} of my devices`);
+
+
       // Add to local display (only show one copy)
-      this.messages.push(sentMessages[0]);
+      await this.loadMessages();
       this.messageText = '';
 
     } catch (error) {
@@ -136,15 +158,16 @@ export class ChatPage implements OnInit, OnDestroy {
       // Fetch from backend
       const newMessages = await this.keyManagementService
         .getMessagesFromBackendAfter(this.friendEmail, since);
-
       // Decrypt each message
       for (const msgDto of newMessages) {
         try {
           const decryptedMsg = await this.keyManagementService
             .receiveMessageFromFriend(msgDto);
 
-          // Add to display
-          this.messages.push(decryptedMsg);
+          // Only add if we don't already have this conversation message
+          if (!this.hasConversationMessage(decryptedMsg.conversationMessageId)) {
+            this.messages.push(decryptedMsg);
+          }
         } catch (error) {
           console.error('Failed to decrypt message:', error);
         }
@@ -155,49 +178,16 @@ export class ChatPage implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Show device-specific message history
-   */
-  async showDevicePairMessages(theirDeviceId: string) {
-    const deviceMessages = await db.getMessagesForDevicePair(
-      this.friendEmail,
-      this.myDeviceId,
-      theirDeviceId
-    );
-
-    console.log(`Messages with device ${theirDeviceId}:`, deviceMessages);
-  }
-
-  /**
-   * Initialize session with a specific device
-   */
-  async sendToSpecificDevice(deviceId: string) {
-    if (!this.messageText.trim()) return;
-
-    try {
-      const message = await this.keyManagementService.sendMessageToFriendDevice(
-        this.friendEmail,
-        deviceId,
-        this.messageText
-      );
-
-      this.messages.push(message);
-      this.messageText = '';
-
-    } catch (error) {
-      console.error('Failed to send to specific device:', error);
-    }
-  }
-
   formatTime(ts: any): string {
     if (!ts) return '';
     const d = ts instanceof Date ? ts : new Date(ts);
     if (isNaN(d.getTime())) return '';
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
   }
 
-  // optional helper if you want to toggle the info panel
-  toggleDeviceInfo(): void {
-    this.showDeviceInfo = !this.showDeviceInfo;
+  private hasConversationMessage(id: string): boolean {
+    return this.messages.some(
+      m => m.conversationMessageId === id
+    );
   }
 }

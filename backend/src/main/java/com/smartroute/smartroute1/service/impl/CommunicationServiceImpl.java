@@ -28,7 +28,9 @@ import org.springframework.stereotype.Service;
 
 import java.lang.invoke.MethodHandles;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -161,6 +163,16 @@ public class CommunicationServiceImpl implements CommunicationService {
     }
 
     @Override
+    public FriendDeviceBundlesDto getKeysOfAllMyDevices(String userEmail) {
+        LOGGER.trace("getKeysOfAllMyDevices({})", userEmail);
+        ApplicationUser user = userService.findApplicationUserByEmail(userEmail);
+        List<UserDevice> devices = deviceRepository.findAllByUser(user);
+        FriendDeviceBundlesDto out = new FriendDeviceBundlesDto();
+        out.setDevices(devices.stream().map(this::getDeviceKeysDto).toList());
+        return out;
+    }
+
+    @Override
     @Transactional
     public Message sendEncryptedMessage(String senderEmail, MessageDetailDto messageDetailDto) throws ValidationException {
         LOGGER.trace("sendEncryptedMessage({}, {})", senderEmail, messageDetailDto);
@@ -191,6 +203,35 @@ public class CommunicationServiceImpl implements CommunicationService {
         // Notify recipient user; their clients will filter by recipientDeviceId
         ChatWebSocketHandler.notifyUser(recipient.getEmail(), sender.getEmail());
 
+        return saved;
+    }
+
+    @Override
+    public Message sendEncryptedMessageToMyDevices(String senderEmail, MessageDetailDto messageDetailDto) throws ValidationException {
+        LOGGER.trace("sendEncryptedMessageToMyDevices({}, {})", senderEmail, messageDetailDto);
+
+        validateMessageDetailDto(messageDetailDto);
+
+        ApplicationUser sender = userService.findApplicationUserByEmail(senderEmail);
+        ApplicationUser recipient = userService.findApplicationUserByEmail(senderEmail);
+
+        // Validate sender device
+        UserDevice senderDevice = deviceRepository.findByUserAndDeviceId(sender, messageDetailDto.getSenderDeviceId())
+                .orElseThrow(() -> new ValidationException("Unknown sender device", List.of()));
+
+        // Validate recipient device
+        UserDevice recipientDevice = deviceRepository.findByUserAndDeviceId(sender, messageDetailDto.getRecipientDeviceId())
+                .orElseThrow(() -> new ValidationException("Unknown recipient device", List.of()));
+
+        // Map & persist (Message must store senderDeviceId/recipientDeviceId)
+        Message message = messageMapper.messageDetailDtoToEntity(messageDetailDto, sender, recipient);
+        message.setSenderDeviceId(senderDevice.getDeviceId());
+        message.setRecipientDeviceId(recipientDevice.getDeviceId());
+
+        Message saved = messageRepository.save(message);
+
+        // Notify recipient user; their clients will filter by recipientDeviceId
+        ChatWebSocketHandler.notifyUser(recipient.getEmail(), sender.getEmail());
         return saved;
     }
 

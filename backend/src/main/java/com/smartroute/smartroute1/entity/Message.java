@@ -59,4 +59,7 @@ public class Message {
     @Column(nullable = false, updatable = false)
     @CreationTimestamp
     private Instant timestamp;
+
+    @Column(nullable = false)
+    private String conversationMessageId;
 }

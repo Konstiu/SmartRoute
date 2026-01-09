@@ -53,6 +53,7 @@ export interface Message {
   plaintext: string;
   timestamp: Date;  // Indexed
   direction: 'sent' | 'received';
+  conversationMessageId: string;
 }
 
 // Store current device ID
