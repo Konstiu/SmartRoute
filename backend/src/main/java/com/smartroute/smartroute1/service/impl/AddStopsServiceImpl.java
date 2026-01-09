@@ -7,6 +7,7 @@ import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonFeature;
 import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonGeometryLineString;
 import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonDto;
 import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonProperties;
+import com.smartroute.smartroute1.exception.RouteNotFoundException;
 import com.smartroute.smartroute1.exception.StopTooFarFromRouteException;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.AddStopsService;
@@ -62,7 +63,7 @@ public class AddStopsServiceImpl implements AddStopsService {
                 || forwardDto.getFeatures().isEmpty()
                 || forwardDto.getFeatures().getFirst().getGeometry() == null
                 || forwardDto.getFeatures().getFirst().getGeometry().getCoordinates() == null) {
-            throw new ValidationException("ORS failed to generate forward route (null/empty response).");
+            throw new RouteNotFoundException("No route could be generated for the selected location");
         }
 
         List<GeoJsonPosition> forwardPath = forwardDto.getFeatures().getFirst().getGeometry().getCoordinates();
@@ -79,6 +80,14 @@ public class AddStopsServiceImpl implements AddStopsService {
         // fallback
         if (returnDto == null) {
             returnDto = orsService.generateRoute(List.of(via, end));
+
+            if (returnDto == null
+                    || returnDto.getFeatures() == null
+                    || returnDto.getFeatures().isEmpty()
+                    || returnDto.getFeatures().getFirst().getGeometry() == null
+                    || returnDto.getFeatures().getFirst().getGeometry().getCoordinates() == null) {
+                throw new RouteNotFoundException("No route could be generated for the selected location");
+            }
         }
         List<GeoJsonPosition> returnPath = returnDto.getFeatures().getFirst().getGeometry().getCoordinates();
 
@@ -600,6 +609,13 @@ public class AddStopsServiceImpl implements AddStopsService {
         required.add(originalRoute.getLast());
 
         GeoJsonDto baselineDto = orsService.generateRoute(required);
+        if (baselineDto == null
+                || baselineDto.getFeatures() == null
+                || baselineDto.getFeatures().isEmpty()
+                || baselineDto.getFeatures().getFirst().getGeometry() == null
+                || baselineDto.getFeatures().getFirst().getGeometry().getCoordinates() == null) {
+            throw new RouteNotFoundException("No route could be generated for the selected location");
+        }
         List<GeoJsonPosition> baseline = baselineDto.getFeatures().getFirst().getGeometry().getCoordinates();
 
         double baselineLength = computeLength(baseline);
@@ -643,6 +659,13 @@ public class AddStopsServiceImpl implements AddStopsService {
 
             //GeoJsonDto dto = orsService.generateRoundTrip(List.of(originalRoute.getFirst()), (int) requested, roundness, seed);
             GeoJsonDto dto = orsService.generateRoundTrip(List.of(loopCenter), (int) requested, roundness, seed);
+            if (dto == null
+                    || dto.getFeatures() == null
+                    || dto.getFeatures().isEmpty()
+                    || dto.getFeatures().getFirst().getGeometry() == null
+                    || dto.getFeatures().getFirst().getGeometry().getCoordinates() == null) {
+                throw new RouteNotFoundException("No route could be generated for the selected location");
+            }
             List<GeoJsonPosition> loop = dto.getFeatures().getFirst().getGeometry().getCoordinates();
             loop = rotateToStart(loop, originalRoute.getFirst());
 

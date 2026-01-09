@@ -18,7 +18,7 @@ import { MapComponent } from '../map/map.component';
 import { Icon, icon, latLng, LatLng, Layer, marker, polyline } from 'leaflet';
 import { RouteService } from 'src/services/route.service';
 import { convertPolylineToCoordinateList } from 'src/services/utils';
-import { ModalController, ViewDidEnter} from '@ionic/angular';
+import { ModalController, ViewDidEnter, ToastController} from '@ionic/angular';
 import { WeatherInfoComponent } from '../weather/weather.component';
 import { MapModalComponent } from '../map/mapModal.component'
 import { Polyline, Marker, LatLngBounds } from "leaflet";
@@ -54,6 +54,7 @@ export class TrainingPlanPage implements OnInit {
   private originalDistance: number | null = null;
   private originalElevation: number | null = null;
   private originalStart: LatLng | null = null;
+  private toastCtrl = inject(ToastController);
 
 
   date: string = new Date().toLocaleDateString();
@@ -268,12 +269,13 @@ async onGeolocationError() {
     this.generateRouteFromLocation(location, true);
   }
 
-  private generateRouteFromLocation(location: LatLng, updateBaseline: boolean) {
-    this.committedStops = [];
+private generateRouteFromLocation(location: LatLng, updateBaseline: boolean) {
+  this.committedStops = [];
 
-    this.routeService
-      .getGeneratedRoute(location.lat, location.lng, this.recommendedActivity!.route!.distance)
-      .subscribe(e => {
+  this.routeService
+    .getGeneratedRoute(location.lat, location.lng, this.recommendedActivity!.route!.distance)
+    .subscribe({
+      next: e => {
         this.recommendedActivity!.route!.distance = e.distance;
         this.recommendedActivity!.route!.elevation = e.elevation;
 
@@ -300,43 +302,79 @@ async onGeolocationError() {
         if (map && this.routeBounds) {
           requestAnimationFrame(() => {
             map.invalidateSize(true);
-            map.fitBounds(this.routeBounds!, { padding: [30, 30], animate: true });
+            // (optional) cap zoom a bit
+            map.fitBounds(this.routeBounds!, { padding: [30, 30], animate: true, maxZoom: 16 });
           });
         }
-      });
-  }
+      },
+
+      error: async (err) => {
+        if (err?.error?.code === 'ROUTE_NOT_FOUND') {
+          await this.showToast(
+            'No route could be generated here (e.g., water/no paths). Please choose a different starting point.',
+            4500,
+            'warning'
+          );
+          return;
+        }
+
+        console.error('Failed to generate route', err);
+        await this.showToast('Failed to generate route. Please try another location.', 3500, 'danger');
+
+        this.resetRouteToOriginal();
+      }
+    });
+}
+
+
 
 private async generateRouteFromLocationAsync(location: LatLng, updateBaseline: boolean): Promise<void> {
   this.committedStops = [];
 
-  const e = await firstValueFrom(
-    this.routeService.getGeneratedRoute(
-      location.lat,
-      location.lng,
-      this.recommendedActivity!.route!.distance
-    )
-  );
+  try {
+    const e = await firstValueFrom(
+      this.routeService.getGeneratedRoute(
+        location.lat,
+        location.lng,
+        this.recommendedActivity!.route!.distance
+      )
+    );
 
-  this.recommendedActivity!.route!.distance = e.distance;
-  this.recommendedActivity!.route!.elevation = e.elevation;
+    this.recommendedActivity!.route!.distance = e.distance;
+    this.recommendedActivity!.route!.elevation = e.elevation;
 
-  this.routeLine = polyline(
-    convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1]))
-  );
+    this.routeLine = polyline(
+      convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1]))
+    );
 
-  this.latlngs = this.routeLine.getLatLngs() as LatLng[];
-  this.routeBounds = this.routeLine.getBounds();
+    this.latlngs = this.routeLine.getLatLngs() as LatLng[];
+    this.routeBounds = this.routeLine.getBounds();
 
-  if (updateBaseline) {
-    this.originalLatlngs = [...this.latlngs];
-    this.originalRouteBounds = this.routeBounds;
-    this.originalDistance = e.distance;
-    this.originalElevation = e.elevation;
-    if (!this.originalStart) this.originalStart = location;
+    if (updateBaseline) {
+      this.originalLatlngs = [...this.latlngs];
+      this.originalRouteBounds = this.routeBounds;
+      this.originalDistance = e.distance;
+      this.originalElevation = e.elevation;
+      if (!this.originalStart) this.originalStart = location;
+    }
+
+    this.rebuildLayers();
+    this.refitPreviewMap();
+
+  } catch (err: any) {
+    if (err?.error?.code === 'ROUTE_NOT_FOUND') {
+      await this.showToast(
+        'No route could be generated here (e.g., water/no paths). Please choose a different starting point.',
+        4500,
+        'warning'
+      );
+      return;
+    }
+
+    console.error('Failed to generate route', err);
+    await this.showToast('Failed to generate route. Please try another location.', 3500, 'danger');
+    this.resetRouteToOriginal();
   }
-
-  this.rebuildLayers();
-  this.refitPreviewMap();
 }
 
 
@@ -775,6 +813,19 @@ private refitPreviewMap() {
   });
 }
 
+private async showToast(
+  message: string,
+  duration = 3500,
+  color: 'primary' | 'success' | 'warning' | 'danger' = 'warning'
+) {
+  const toast = await this.toastCtrl.create({
+    message,
+    duration,
+    position: 'bottom',
+    color,
+  });
+  await toast.present();
+}
 
   protected readonly SessionType = SessionType;
   protected readonly formatDistance = formatDistance;
