@@ -336,6 +336,7 @@ private async generateRouteFromLocationAsync(location: LatLng, updateBaseline: b
   }
 
   this.rebuildLayers();
+  this.refitPreviewMap();
 }
 
 
@@ -581,6 +582,7 @@ async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH
     }
 
     this.rebuildLayers();
+    this.refitPreviewMap();
   }
 
   private buildDirectionArrows(route: Polyline): Layer {
@@ -755,6 +757,24 @@ private forceMapResize() {
 
     return gpx;
   }
+
+private refitPreviewMap() {
+  const map = this.mapComponent?.map;
+  const bounds = this.routeBounds;
+
+  if (!map) return;
+
+  requestAnimationFrame(() => {
+    map.invalidateSize(true);
+
+    if (bounds) {
+      requestAnimationFrame(() => {
+        map.fitBounds(bounds, { padding: [30, 30], animate: true, maxZoom: 16 });
+      });
+    }
+  });
+}
+
 
   protected readonly SessionType = SessionType;
   protected readonly formatDistance = formatDistance;
