@@ -30,7 +30,7 @@ import {encodePolyline} from "../../util/polyline-encode-decode";
   imports: [IonicModule, CommonModule, MapComponent]
 })
 export class TrainingPlanPage implements OnInit {
-
+  isRouteSaved = false;
   date: string = new Date().toLocaleDateString();
   recommendedActivity: RecommendedActivityDto | undefined = {
     name: "Gym Session",
@@ -341,6 +341,10 @@ export class TrainingPlanPage implements OnInit {
   }
 
   saveRoute() {
+    if (this.isRouteSaved) {
+      return;
+    }
+
     if (!this.latlngs || this.latlngs.length === 0) {
       console.warn('No route to export (latlngs is null or empty).');
       return;
@@ -366,6 +370,7 @@ export class TrainingPlanPage implements OnInit {
     this.routeService.saveRoute(dto).subscribe({
       next: () => {
         console.log('Route saved successfully');
+        this.isRouteSaved = true;
       },
       error: err => {
         console.error('Failed to save route', err);

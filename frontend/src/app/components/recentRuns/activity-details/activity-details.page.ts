@@ -1,11 +1,13 @@
-import {Component, OnInit, AfterViewInit, ViewChild, ElementRef} from '@angular/core';
+import {Component, OnInit, AfterViewInit, ViewChild, ElementRef, inject} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
 import {IonicModule} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../../services/activities.service';
 import {DetailedActivity} from '../../../dtos/Activity';
 import * as L from 'leaflet';
-import {decodePolyline} from "../../../util/polyline-encode-decode";
+import {decodePolyline, encodePolyline} from "../../../util/polyline-encode-decode";
+import {SaveRouteDto} from "../../../dtos/recommended-activity";
+import {RouteService} from "../../../../services/route.service";
 
 @Component({
   selector: 'app-activity-detail',
@@ -21,6 +23,8 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
   isLoading = true;
   error: string | null = null;
   map: L.Map | null = null;
+  isRouteSaved = false;
+  private routeService = inject(RouteService);
 
   constructor(
     private route: ActivatedRoute,
@@ -185,5 +189,41 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
     });
 
     return `${dateStr} at ${timeString}`;
+  }
+
+  saveRoute() {
+    if (this.isRouteSaved) {
+      return;
+    }
+
+    if (this.isLoading) {
+      console.warn('Acitivity hasnt been loaded yet');
+      return;
+    }
+    // Convert Leaflet LatLng objects to [lat, lng] for polyline encoding
+    //const encodedRoute = encodePolyline(this.latlngs);
+
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString("en-US", {day: "2-digit", month: "short", year: "numeric"}); // "09 Jan 2026"
+    const name = `Activity, ${formattedDate}`;  //TODO: Rename it with Runtype Classification when branches are merged
+
+    const dto: SaveRouteDto = {
+      name: name,
+      distance: this.activity?.distance ?? 0,
+      pace: this.activity?.movingTime ?? 0,
+      elevation: this.activity?.totalElevationGain ?? 0,
+      route: this.activity?.summaryPolyline ?? ''
+    };
+    this.routeService.saveRoute(dto).subscribe({
+      next: () => {
+        console.log('Route saved successfully');
+        this.isRouteSaved = true;
+      },
+      error: err => {
+        console.error('Failed to save route', err);
+      }
+    });
+
+
   }
 }
