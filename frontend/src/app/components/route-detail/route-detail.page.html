@@ -37,10 +37,26 @@
       <!-- Header card with name + date -->
       <ion-card>
         <ion-card-header>
-          <ion-card-title>{{ savedRoute.name }}</ion-card-title>
-          <ion-card-subtitle>
-            <!--{{ savedRoute.sportType }} · {{ formatDate(savedRoute.crea) }} -->
-          </ion-card-subtitle>
+          <ion-toolbar>
+            <ion-title>
+              {{ savedRoute.name }}
+            </ion-title>
+            @if (!isLoading) {
+              <ion-buttons slot="end">
+                <ion-button
+                  size="small"
+                  fill="clear"
+                  class="delete-btn"
+                  (click)="showCancelRequestDialog()"
+                >
+                  <ion-icon
+                    slot="icon-only"
+                    [name]="'trash-outline'">
+                  </ion-icon>
+                </ion-button>
+              </ion-buttons>
+            }
+          </ion-toolbar>
         </ion-card-header>
       </ion-card>
 
