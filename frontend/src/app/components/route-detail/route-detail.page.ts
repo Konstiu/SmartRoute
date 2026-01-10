@@ -1,12 +1,14 @@
-import {AfterViewInit, Component, ElementRef, OnInit, ViewChild} from "@angular/core";
-import {IonicModule, ModalController} from "@ionic/angular";
+import {AfterViewInit, Component, ElementRef, inject, OnInit, ViewChild} from "@angular/core";
+import {AlertController, IonicModule, ModalController, ToastController} from "@ionic/angular";
 import {CommonModule} from "@angular/common";
-import {ActivatedRoute} from "@angular/router";
+import {ActivatedRoute, Router} from "@angular/router";
 import {RouteService} from "../../../services/route.service";
 import {ViewRouteDto} from "../../dtos/recommended-activity";
 import * as L from "leaflet";
 import {formatDistance, formatPace} from "../../util/formatters";
 import {decodePolyline} from "../../util/polyline-encode-decode";
+import {trash} from "ionicons/icons";
+import {FriendshipDetailDto} from "../../dtos/friendship";
 
 @Component({
   selector: 'app-route-detail',
@@ -24,6 +26,10 @@ export class RouteDetailPage implements OnInit, AfterViewInit {
   map: L.Map | null = null;
   protected readonly formatDistance = formatDistance;
   protected readonly formatPace = formatPace;
+  protected readonly trash = trash;
+  private alertCtrl = inject(AlertController);
+  private router = inject(Router);
+  private toastCtrl = inject(ToastController);
 
   constructor(private route: ActivatedRoute, private routeService: RouteService, private modalCtrl: ModalController) {
   }
@@ -101,11 +107,60 @@ export class RouteDetailPage implements OnInit, AfterViewInit {
     this.map.fitBounds(L.latLngBounds(latLngs), {padding: [50, 50]});
   }
 
+  deleteRoute() {
+    const id = Number(this.route.snapshot.paramMap.get('id'));
+    if (!id) return;
+
+    this.routeService.delete(id).subscribe({
+      next: () => {
+        this.showToast()
+        this.router.navigate(['/tabs/route']);
+      },
+      error: (err) => {
+        console.error(err);
+        this.error = 'Failed to delete route.';
+      }
+    });
+  }
+
+  async showCancelRequestDialog() {
+    const alert = await this.alertCtrl.create({
+      header: 'Remove Route from Favorites',
+      message: `Are you sure you want to delete Route ${this.savedRoute?.name}? \n
+                You might not be able to retrieve it later`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: () => {
+            this.deleteRoute();
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
   private tryInitMap() {
     if (!this.mapElement?.nativeElement) return;
     if (!this.savedRoute?.route) return;
     if (this.map) return; // prevent double init
 
     this.initMap();
+  }
+
+  private async showToast() {
+    const toast = await this.toastCtrl.create({
+      message: "Route deleted successfully",
+      duration: 3000,
+      color: 'success',
+      position: 'top'
+    });
+    await toast.present();
   }
 }

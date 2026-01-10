@@ -56,4 +56,12 @@ export class RouteService {
   getRoutes(): Observable<ViewRouteDto[]> {
     return this.httpClient.get<ViewRouteDto[]>(this.routeBaseUri + '/get');
   }
+
+  /**
+   * delete route with id
+   * @param id
+   */
+  delete(id: number) {
+    return this.httpClient.delete(this.routeBaseUri + `/${id}`);
+  }
 }
