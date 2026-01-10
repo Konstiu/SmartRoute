@@ -38,7 +38,6 @@ public class RouteServiceTest {
 
     @BeforeEach
     void setUp() {
-        userRepository.deleteAll();
         user = new ApplicationUser("test@email.com", "Password123!", "John", "Doe");
         user = userRepository.save(user);
     }
@@ -55,7 +54,7 @@ public class RouteServiceTest {
         routeService.saveRoute(dto, user);
 
 
-        List<Route> routes = routeRepository.findRoutesByUserId(user.getId());
+        List<Route> routes = routeRepository.findRoutesByUserIdOrderByCreationDateDesc(user.getId());
         assertEquals(1, routes.size());
         Route saved = routes.get(0);
         assertEquals("Integration Test Route", saved.getName());

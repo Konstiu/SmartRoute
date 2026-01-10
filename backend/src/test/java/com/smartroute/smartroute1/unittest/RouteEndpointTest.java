@@ -15,12 +15,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 
 import java.util.List;
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 
 import static org.mockito.ArgumentMatchers.any;
@@ -119,6 +117,13 @@ public class RouteEndpointTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidJson))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @WithMockUser(username = "test@test.com", roles = "USER")
+    void testDeleteRoute_ShouldReturn200() throws Exception {
+        mockMvc.perform(delete("/api/v1/route/-4"))
+                .andExpect(status().isOk());
     }
 
 

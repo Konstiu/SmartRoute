@@ -57,6 +57,11 @@ public class RouteServiceImpl implements RouteService {
         return routeToDto(route);
     }
 
+    @Override
+    public void deleteRoute(Long id) {
+        routeRepository.deleteById(id);
+    }
+
     private ViewRouteDto routeToDto(Route route) {
         return new ViewRouteDto(
                 route.getId(),

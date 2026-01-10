@@ -88,5 +88,14 @@ public class RouteEndpoint {
         return routeService.getRoutes(user);
     }
 
+    @Secured("ROLE_USER")
+    @DeleteMapping("{id}")
+    @ResponseStatus(HttpStatus.OK)
+    public void deleteRoute(@PathVariable("id") long id) {
+        LOGGER.info("Deleting route: {}", id);
+
+        routeService.deleteRoute(id);
+    }
+
 
 }
