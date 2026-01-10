@@ -81,4 +81,9 @@ public class RouteServiceTest {
         });
 
     }
+
+    @Test
+    void testDeleteRoute() {
+        routeService.deleteRoute(-1L);
+    }
 }

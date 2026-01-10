@@ -25,7 +25,7 @@ public interface RouteService {
     List<ViewRouteDto> getRoutes(ApplicationUser user);
 
     /**
-     * Get one route by id
+     * Get one route by id.
      *
      * @param id the id
      * @return the ViewRouteDto
@@ -33,7 +33,7 @@ public interface RouteService {
     ViewRouteDto getRoute(Long id);
 
     /**
-     * Delete one by id
+     * Delete one by id.
      *
      * @param id the id
      */
