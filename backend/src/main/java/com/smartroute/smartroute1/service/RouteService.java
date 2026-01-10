@@ -31,4 +31,12 @@ public interface RouteService {
      * @return the ViewRouteDto
      */
     ViewRouteDto getRoute(Long id);
+
+    /**
+     * Delete one by id
+     *
+     * @param id the id
+     */
+    void deleteRoute(Long id);
+
 }
