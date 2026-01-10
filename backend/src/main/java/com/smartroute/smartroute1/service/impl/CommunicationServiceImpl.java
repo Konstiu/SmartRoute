@@ -213,7 +213,7 @@ public class CommunicationServiceImpl implements CommunicationService {
         validateMessageDetailDto(messageDetailDto);
 
         ApplicationUser sender = userService.findApplicationUserByEmail(senderEmail);
-        ApplicationUser recipient = userService.findApplicationUserByEmail(senderEmail);
+        ApplicationUser recipient = userService.findApplicationUserByEmail(messageDetailDto.getRecipientEmail());
 
         // Validate sender device
         UserDevice senderDevice = deviceRepository.findByUserAndDeviceId(sender, messageDetailDto.getSenderDeviceId())
@@ -229,6 +229,9 @@ public class CommunicationServiceImpl implements CommunicationService {
         message.setRecipientDeviceId(recipientDevice.getDeviceId());
 
         Message saved = messageRepository.save(message);
+
+        LOGGER.info(recipientDevice.getDeviceId(), senderDevice.getDeviceId());
+        LOGGER.info(saved.toString());
 
         // Notify recipient user; their clients will filter by recipientDeviceId
         ChatWebSocketHandler.notifyUser(recipient.getEmail(), sender.getEmail());

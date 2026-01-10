@@ -62,4 +62,21 @@ public class Message {
 
     @Column(nullable = false)
     private String conversationMessageId;
+
+
+    @Override
+    public String toString() {
+        return "Message{"
+                + "id=" + id
+                + ", senderId=" + (sender != null ? sender.getId() : null)
+                + ", recipientId=" + (recipient != null ? recipient.getId() : null)
+                + ", senderDeviceId='" + senderDeviceId + '\''
+                + ", recipientDeviceId='" + recipientDeviceId + '\''
+                + ", messageNumber=" + messageNumber
+                + ", conversationMessageId='" + conversationMessageId + '\''
+                + ", ratchetPublicKey='"
+                + (ratchetPublicKey != null ? ratchetPublicKey.substring(0, Math.min(12, ratchetPublicKey.length())) + "…" : null)
+                + ", timestamp=" + timestamp + '}';
+    }
+
 }

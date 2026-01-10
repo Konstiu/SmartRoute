@@ -24,6 +24,7 @@ export class KeyManagementService {
 
   private authBaseUri: string = this.globals.backendUri + '/communication';
   private currentDeviceId: string | null = null;
+  private myEmail: string = '';
 
   constructor(
     private globals: Globals,
@@ -679,6 +680,27 @@ export class KeyManagementService {
       // Existing session - decrypt with ratchet
       plaintext = await this.decryptMessage(state, messageDetail.encryptedMessage);
       await db.saveRatchetState(state);
+    }
+
+    if (this.myEmail === ''){
+      this.myEmail = await this.getMyEmail();
+    }
+
+    if (messageDetail.senderEmail === this.myEmail){
+      const messageRecord: Message = {
+        id: messageDetail.id!,
+        conversationId: messageDetail.recipientEmail,
+        senderId: 'me',
+        senderDeviceId: theirDeviceId,
+        recipientId: messageDetail.recipientEmail,
+        recipientDeviceId: myDeviceId,
+        plaintext,
+        timestamp: messageDetail.timestamp ? new Date(messageDetail.timestamp) : new Date(),
+        direction: 'sent',
+        conversationMessageId: messageDetail.conversationMessageId
+      };
+      await db.messages.add(messageRecord);
+      return messageRecord;
     }
 
     // Save to local database
