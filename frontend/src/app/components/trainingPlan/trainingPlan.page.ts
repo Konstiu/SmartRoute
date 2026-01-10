@@ -55,6 +55,7 @@ export class TrainingPlanPage implements OnInit {
   private originalDistance: number | null = null;
   private originalElevation: number | null = null;
   private originalStart: LatLng | null = null;
+  private originalRouteLineGeoPosition: GeoJsonPosition[] = [];
   private toastCtrl = inject(ToastController);
 
 
@@ -295,6 +296,7 @@ private generateRouteFromLocation(location: LatLng, updateBaseline: boolean) {
 
         if (updateBaseline) {
           this.originalLatlngs = [...this.latlngs];
+          this.originalRouteLineGeoPosition = this.routeLineGeoPosition;
           this.originalRouteBounds = this.routeBounds;
           this.originalDistance = e.distance;
           this.originalElevation = e.elevation;
@@ -365,6 +367,7 @@ private async generateRouteFromLocationAsync(location: LatLng, updateBaseline: b
 
     if (updateBaseline) {
       this.originalLatlngs = [...this.latlngs];
+      this.originalRouteLineGeoPosition = this.routeLineGeoPosition;
       this.originalRouteBounds = this.routeBounds;
       this.originalDistance = e.distance;
       this.originalElevation = e.elevation;
@@ -625,6 +628,7 @@ async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH
     this.committedStops = [];
 
     this.routeLine = polyline(this.originalLatlngs);
+    this.routeLineGeoPosition = this.originalRouteLineGeoPosition;
     this.latlngs = this.routeLine.getLatLngs() as LatLng[];
     this.routeBounds = this.routeLine.getBounds();
 
