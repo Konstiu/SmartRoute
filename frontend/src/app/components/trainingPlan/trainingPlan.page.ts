@@ -43,6 +43,7 @@ export class TrainingPlanPage implements OnInit {
   private readonly router: Router = inject(Router);
   private readonly service: TrainingPlanService = inject(TrainingPlanService);
   private routeLine: Polyline | null = null;
+  private routeLineGeoPosition: GeoJsonPosition[] = [];
   private userLocationMarker: Marker | null = null;
   private routeBounds: LatLngBounds | null = null;
   private stopsService = inject(StopsService);
@@ -279,6 +280,12 @@ private generateRouteFromLocation(location: LatLng, updateBaseline: boolean) {
         this.recommendedActivity!.route!.distance = e.distance;
         this.recommendedActivity!.route!.elevation = e.elevation;
 
+        this.routeLineGeoPosition = e.coordinates3d.map(([lat, lng, alt]) => ({
+          latitude: lat,
+          longitude: lng,
+          altitude: alt,
+        }));
+
         this.routeLine = polyline(
           convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1]))
         );
@@ -342,6 +349,12 @@ private async generateRouteFromLocationAsync(location: LatLng, updateBaseline: b
 
     this.recommendedActivity!.route!.distance = e.distance;
     this.recommendedActivity!.route!.elevation = e.elevation;
+
+    this.routeLineGeoPosition = e.coordinates3d.map(([lat, lng, alt]) => ({
+      latitude: lat,
+      longitude: lng,
+      altitude: alt,
+    }));
 
     this.routeLine = polyline(
       convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1]))
@@ -526,7 +539,8 @@ async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH
   this.committedStops = this.addUniqueStops(this.committedStops, points);
 
   const request: AddStopsRequest = {
-    originalRoute: this.routeLineToGeoJson(this.routeLine),
+    //originalRoute: this.routeLineToGeoJson(this.routeLine),
+    originalRoute: this.routeLineGeoPosition,
     newPoints: this.committedStops.map(p => this.toGeoJsonPosition(p)),
   };
 
@@ -549,7 +563,7 @@ async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH
   // update the UI stats
   if (this.recommendedActivity?.route) {
     this.recommendedActivity.route.distance = e.distance;
-    //this.recommendedActivity.route.elevation = e.elevation; // @TODO add elevation
+    this.recommendedActivity.route.elevation = e.elevation; // @TODO add elevation
   }
 
   // rebuild preview layers (new array reference)
