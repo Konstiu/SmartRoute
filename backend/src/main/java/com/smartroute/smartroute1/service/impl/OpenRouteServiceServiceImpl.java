@@ -46,7 +46,7 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
                     .uri("https://api.openrouteservice.org/v2/directions/foot-walking/geojson")
                     .header("Authorization", orsAccessToken)
                     .header("Content-Type", "application/json")
-                    .bodyValue("{\"coordinates\":" + coords + "}")
+                    .bodyValue("{\"coordinates\":" + coords + ",\"elevation\":true,\"language\":\"en\",\"units\":\"m\"}")
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
@@ -98,6 +98,9 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
 
         Map<String, Object> body = Map.of(
                 "coordinates", coords,
+                "elevation", true,
+                "language", "en",
+                "units", "m",
                 "options", Map.of(
                         "avoid_polygons", Map.of(
                                 "type", "Polygon",

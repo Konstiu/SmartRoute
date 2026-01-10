@@ -12,6 +12,7 @@ export class StopsService {
   private readonly baseUri: string = this.globals.backendUri + '/stops';
 
   insertStops(req: AddStopsRequest): Observable<GeneratedRouteDto> {
+    console.log("AddStopsRequest payload:", JSON.stringify(req));
     return this.httpClient.post<GeneratedRouteDto>(this.baseUri + '/insert', req)
   }
 
