@@ -7,4 +7,5 @@ import java.util.List;
 @Data
 public class UploadOneTimePreKeysDto {
     private List<OneTimePreKeyDto> oneTimePreKeys;
+    private String deviceId;
 }
