@@ -1,5 +1,5 @@
 import {Component, OnInit, OnDestroy} from '@angular/core';
-import {interval, Subscription} from 'rxjs';
+import {Subscription} from 'rxjs';
 import {KeyManagementService} from '../../../services/key-management.service';
 import {ChatSocketService} from '../../../services/chat-socket.service';
 import {db, Message} from '../../../db/encryption';
@@ -7,8 +7,15 @@ import {IonicModule} from "@ionic/angular";
 import {CommonModule} from "@angular/common";
 import {FormsModule} from "@angular/forms";
 import {ActivatedRoute} from '@angular/router';
-import {UserService} from "../../../services/user.service";
 
+export interface ParsedMessage {
+  type: string;
+  text: string;
+  timestamp: Date;
+  senderDeviceId: string;
+  direction: 'sent' | 'received';
+  conversationMessageId: string;
+}
 
 @Component({
   selector: 'app-chat',
@@ -19,7 +26,7 @@ import {UserService} from "../../../services/user.service";
 })
 export class ChatPage implements OnInit, OnDestroy {
   friendEmail = 'friend@example.com';
-  messages: Message[] = [];
+  messages: ParsedMessage[] = [];
   messageText = '';
   myDeviceId = '';
   friendDevices: string[] = [];
@@ -100,7 +107,8 @@ export class ChatPage implements OnInit, OnDestroy {
       }
       seen.add(msg.conversationMessageId);
       return true;
-    });
+    })
+    .map(msg => this.parseMessage(msg));
   }
 
   /**
@@ -110,18 +118,23 @@ export class ChatPage implements OnInit, OnDestroy {
     if (!this.messageText.trim()) return;
     const conversationMessageId = crypto.randomUUID(); // Generate ONCE
 
+    const messageJson = JSON.stringify({
+      type: 'text',
+      text: this.messageText,
+    });
+
     try {
       // Send to all of friend's devices
       const sentMessages = await this.keyManagementService.sendMessageToFriend(
         this.friendEmail,
-        this.messageText,
+        messageJson,
         conversationMessageId
       );
 
       console.log(`Message sent to ${sentMessages.length} devices`);
 
       const sentMessagesMyDevices = await this.keyManagementService.sendMessageToMyDevices(this.friendEmail,
-        this.messageText,
+        messageJson,
         conversationMessageId
       )
 
@@ -167,7 +180,7 @@ export class ChatPage implements OnInit, OnDestroy {
           const decryptedMsg = await this.keyManagementService
             .receiveMessageFromFriend(msgDto);
 
-          this.messages.push(decryptedMsg);
+          this.messages.push(this.parseMessage(decryptedMsg));
 
         } catch (error) {
           console.error('Failed to decrypt message:', error);
@@ -179,6 +192,21 @@ export class ChatPage implements OnInit, OnDestroy {
     }
   }
 
+  parseMessage(msg: Message): ParsedMessage {
+    const messageObj = JSON.parse(msg.plaintext);
+    if (messageObj.type === 'text') {
+      return {
+        type: 'text',
+        text: messageObj.text,
+        timestamp: msg.timestamp,
+        senderDeviceId: msg.senderDeviceId,
+        direction: msg.direction,
+        conversationMessageId: msg.conversationMessageId
+      }
+    }
+    throw new Error('Unknown message type');
+  }
+
   formatTime(ts: any): string {
     if (!ts) return '';
     const d = ts instanceof Date ? ts : new Date(ts);
@@ -187,8 +215,12 @@ export class ChatPage implements OnInit, OnDestroy {
   }
 
   private hasConversationMessage(id: string): boolean {
-    return this.messages.some(
-      m => m.conversationMessageId === id
-    );
+    // start from the end for efficiency
+    for (let i = this.messages.length - 1; i >= 0; i--) {
+      if (this.messages[i].conversationMessageId === id) {
+        return true;
+      }
+    }
+    return false;
   }
 }
