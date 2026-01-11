@@ -48,9 +48,6 @@ export class RegisterPage {
 
     this.userService.createUser(this.createUser).subscribe({
       next: async () => {
-        // the user is now registered, create the public identity key
-        await this.keyManagementService.generateAndStoreIdentityKey();
-
         // attempt automatic login
         const authRequest: AuthRequest = {
           email: this.createUser.email,
@@ -58,8 +55,11 @@ export class RegisterPage {
         }
         this.authService.loginUser(authRequest).subscribe({
           next: async () => {
-            // the user is now logged in, proceed to upload the public identity key
+            // the user is now logged in
             try {
+              // create the public identity key
+              await this.keyManagementService.generateAndStoreIdentityKey();
+              // proceed to upload the public identity key
               await this.keyManagementService.uploadPublicIdentityKey();
               // now generate and upload the signed pre-key
               const updated = await this.keyManagementService.updateSignedPreKeyIfNecessary();
