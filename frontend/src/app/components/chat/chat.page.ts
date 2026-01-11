@@ -7,6 +7,9 @@ import {IonicModule} from "@ionic/angular";
 import {CommonModule} from "@angular/common";
 import {FormsModule} from "@angular/forms";
 import {ActivatedRoute} from '@angular/router';
+import { ChatMessageService } from 'src/services/chat-message.service';
+import { MapComponent } from '../map/map.component';
+import { icon, Icon, latLng, LatLng, Layer, marker } from 'leaflet';
 
 export interface ParsedMessage {
   type: string;
@@ -15,6 +18,8 @@ export interface ParsedMessage {
   senderDeviceId: string;
   direction: 'sent' | 'received';
   conversationMessageId: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 @Component({
@@ -22,7 +27,7 @@ export interface ParsedMessage {
   templateUrl: './chat.page.html',
   styleUrls: ['./chat.page.scss'],
   standalone: true,
-  imports: [IonicModule, CommonModule, FormsModule]
+  imports: [IonicModule, CommonModule, FormsModule, MapComponent]
 })
 export class ChatPage implements OnInit, OnDestroy {
   friendEmail = 'friend@example.com';
@@ -40,6 +45,7 @@ export class ChatPage implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private keyManagementService: KeyManagementService,
     private chatSocketService: ChatSocketService,
+    private chatMessageService: ChatMessageService
   ) {
   }
 
@@ -116,41 +122,14 @@ export class ChatPage implements OnInit, OnDestroy {
    * Send message to all friend's devices
    */
   async sendMessage() {
-    if (!this.messageText.trim()) return;
-    const conversationMessageId = crypto.randomUUID(); // Generate ONCE
-
-    const messageJson = JSON.stringify({
-      type: 'text',
-      text: this.messageText,
-    });
-
-    const mySocketId = this.chatSocketService.getCurrentSocketId();
-
     try {
-      // Send to all of friend's devices
-      const sentMessages = await this.keyManagementService.sendMessageToFriend(
-        this.friendEmail,
-        messageJson,
-        conversationMessageId,
-        mySocketId
-      );
-
-      console.log(`Message sent to ${sentMessages.length} devices`);
-
-      const sentMessagesMyDevices = await this.keyManagementService.sendMessageToMyDevices(
-        this.friendEmail,
-        messageJson,
-        conversationMessageId,
-        mySocketId
-      )
-
-      console.log(`Message sent to ${sentMessagesMyDevices.length} of my devices`);
-
+      await this.chatMessageService.sendTextMessage(this.messageText, this.friendEmail);
 
       // Add to local display (only show one copy)
       await this.loadMessages();
-      this.messageText = '';
 
+      // Clear input
+      this.messageText = '';
     } catch (error) {
       console.error('Failed to send message:', error);
       alert('Failed to send message. Please try again.');
@@ -209,6 +188,17 @@ export class ChatPage implements OnInit, OnDestroy {
         direction: msg.direction,
         conversationMessageId: msg.conversationMessageId
       }
+    } else if (messageObj.type === 'location') {
+      return {
+        type: 'location',
+        text: messageObj.text,
+        timestamp: msg.timestamp,
+        senderDeviceId: msg.senderDeviceId,
+        direction: msg.direction,
+        conversationMessageId: msg.conversationMessageId,
+        longitude: messageObj.longitude,
+        latitude: messageObj.latitude
+      }
     }
     throw new Error('Unknown message type');
   }
@@ -228,5 +218,22 @@ export class ChatPage implements OnInit, OnDestroy {
       }
     }
     return false;
+  }
+
+  markerOptions = {
+    icon: icon({
+      ...Icon.Default.prototype.options,
+      iconUrl: 'assets/marker-icon.png',
+      iconRetinaUrl: 'assets/marker-icon-2x.png',
+      shadowUrl: 'assets/marker-shadow.png'
+    })
+  };
+
+  getLocationLayers(latitude: number, longitude: number): Layer[] {
+    return [marker(latLng(latitude, longitude), this.markerOptions)];
+  }
+
+  getLocationCenter(latitude: number, longitude: number): LatLng {
+    return latLng(latitude, longitude);
   }
 }

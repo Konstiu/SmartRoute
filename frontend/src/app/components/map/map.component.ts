@@ -14,6 +14,8 @@ export class MapComponent implements OnInit {
   @Input() showLocation = false;
   @Input() route: Polyline | null = null;
   @Input() layers: Layer[] = [];
+  @Input() zoom: number = 10;
+  @Input() center: LatLng = latLng(48.2081693881957, 16.3738174047985);
 
   @Output() onGeolocationError = new EventEmitter();
   @Output() onNewLocationRegisterd = new EventEmitter();
@@ -42,8 +44,6 @@ export class MapComponent implements OnInit {
     zoomAnimation: true,
     zoomAnimationThreshold: 0,
   };
-  zoom = 10;
-  center = latLng(48.2081693881957, 16.3738174047985);
   markerSelection: Marker | null = null;
 
   touchTimeout: any;
