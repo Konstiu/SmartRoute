@@ -15,6 +15,7 @@ import {
 import {db, KeyPair, Message, RatchetState} from 'src/db/encryption';
 import {UserDetailDto} from "../app/dtos/user";
 import {UserService} from "./user.service";
+import {AuthService} from "./auth.service";
 
 
 @Injectable({
@@ -29,18 +30,9 @@ export class KeyManagementService {
   constructor(
     private globals: Globals,
     private httpClient: HttpClient,
-    private userService: UserService
+    private userService: UserService,
+    private authService: AuthService
   ) {}
-
-  /**
-   * Get the current device ID, ensuring it's initialized
-   */
-  async getCurrentDeviceId(): Promise<string> {
-    if (!this.currentDeviceId) {
-      this.currentDeviceId = await db.getCurrentDeviceId();
-    }
-    return this.currentDeviceId;
-  }
 
   // constants for storage names
   static IDENTITY_PUBLIC_KEY = 'identity_public_key';
@@ -54,6 +46,35 @@ export class KeyManagementService {
   static ONE_TIME_PRE_KEY_PREFIX = 'one_time_pre_key_';
 
   static ONE_TIME_PRE_KEYS_BATCH_SIZE = 150;
+
+  /**
+   * Get the current device ID, ensuring it's initialized
+   */
+  async getCurrentDeviceId(): Promise<string> {
+    if (!this.currentDeviceId) {
+      const userEmail = this.authService.getUserEmail();
+      if (!userEmail) {
+        throw new Error('User not logged in - cannot get device ID');
+      }
+      this.currentDeviceId = await db.getCurrentDeviceId(userEmail);
+    }
+    return this.currentDeviceId;
+  }
+
+  /**
+   * Generate a user-specific storage key by prefixing with the user's email
+   * This ensures keys are isolated per user account
+   * If the user is not logged in, returns the base key as is.
+   * 
+   * @param baseKey The base key name
+   */
+  private getUserSpecificKey(baseKey: string): string {
+    const userEmail = this.authService.getUserEmail();
+    if (!userEmail) {
+      throw new Error('User not logged in - cannot generate user-specific storage key');
+    }
+    return `${userEmail}:${baseKey}`;
+  }
 
   /**
    * Safely retrieves a value from secure storage by key.
@@ -78,8 +99,8 @@ export class KeyManagementService {
    */
   async getIdentityKey(): Promise<KeyPair | null> {
     try {
-      const publicKeyResult = await this.getFromStorageSafe(KeyManagementService.IDENTITY_PUBLIC_KEY);
-      const privateKeyResult = await this.getFromStorageSafe(KeyManagementService.IDENTITY_PRIVATE_KEY);
+      const publicKeyResult = await this.getFromStorageSafe(this.getUserSpecificKey(KeyManagementService.IDENTITY_PUBLIC_KEY));
+      const privateKeyResult = await this.getFromStorageSafe(this.getUserSpecificKey(KeyManagementService.IDENTITY_PRIVATE_KEY));
 
       if (!publicKeyResult || !publicKeyResult.value || !privateKeyResult || !privateKeyResult.value) {
         console.log('Identity key not found');
@@ -103,8 +124,8 @@ export class KeyManagementService {
    */
   async getIdentityDHKey(): Promise<KeyPair | null> {
     try {
-      const publicKeyResult = await this.getFromStorageSafe(KeyManagementService.IDENTITY_DH_PUBLIC_KEY);
-      const privateKeyResult = await this.getFromStorageSafe(KeyManagementService.IDENTITY_DH_PRIVATE_KEY);
+      const publicKeyResult = await this.getFromStorageSafe(this.getUserSpecificKey(KeyManagementService.IDENTITY_DH_PUBLIC_KEY));
+      const privateKeyResult = await this.getFromStorageSafe(this.getUserSpecificKey(KeyManagementService.IDENTITY_DH_PRIVATE_KEY));
 
       if (!publicKeyResult || !publicKeyResult.value || !privateKeyResult || !privateKeyResult.value) {
         console.log('DH identity key not found');
@@ -128,7 +149,7 @@ export class KeyManagementService {
    */
   async getPublicIdentityKey(): Promise<string | null> {
     try {
-      const result = await this.getFromStorageSafe(KeyManagementService.IDENTITY_PUBLIC_KEY);
+      const result = await this.getFromStorageSafe(this.getUserSpecificKey(KeyManagementService.IDENTITY_PUBLIC_KEY));
       if (!result || !result.value) {
         return null;
       }
@@ -145,7 +166,7 @@ export class KeyManagementService {
    */
   async getPublicIdentityDHKey(): Promise<string | null> {
     try {
-      const result = await this.getFromStorageSafe(KeyManagementService.IDENTITY_DH_PUBLIC_KEY);
+      const result = await this.getFromStorageSafe(this.getUserSpecificKey(KeyManagementService.IDENTITY_DH_PUBLIC_KEY));
       if (!result || !result.value) {
         return null;
       }
@@ -163,6 +184,7 @@ export class KeyManagementService {
    */
   async generateAndStoreIdentityKey(): Promise<boolean> {
 
+    // Check if identity key already exists
     if (await this.getIdentityKey() !== null) {
       // Identity key already exists
       return false;
@@ -182,23 +204,23 @@ export class KeyManagementService {
 
     // Store sign keys securely
     await SecureStoragePlugin.set({
-      key: KeyManagementService.IDENTITY_PRIVATE_KEY,
+      key: this.getUserSpecificKey(KeyManagementService.IDENTITY_PRIVATE_KEY),
       value: signPrivateKey
     });
 
     await SecureStoragePlugin.set({
-      key: KeyManagementService.IDENTITY_PUBLIC_KEY,
+      key: this.getUserSpecificKey(KeyManagementService.IDENTITY_PUBLIC_KEY),
       value: signPublicKey
     });
 
     // Store DH keys securely
     await SecureStoragePlugin.set({
-      key: KeyManagementService.IDENTITY_DH_PRIVATE_KEY,
+      key: this.getUserSpecificKey(KeyManagementService.IDENTITY_DH_PRIVATE_KEY),
       value: dhPrivateKey
     });
 
     await SecureStoragePlugin.set({
-      key: KeyManagementService.IDENTITY_DH_PUBLIC_KEY,
+      key: this.getUserSpecificKey(KeyManagementService.IDENTITY_DH_PUBLIC_KEY),
       value: dhPublicKey
     });
 
@@ -233,10 +255,10 @@ export class KeyManagementService {
    */
   async deleteIdentityKey(): Promise<void> {
     try {
-      await SecureStoragePlugin.remove({key: KeyManagementService.IDENTITY_PRIVATE_KEY});
-      await SecureStoragePlugin.remove({key: KeyManagementService.IDENTITY_PUBLIC_KEY});
-      await SecureStoragePlugin.remove({key: KeyManagementService.IDENTITY_DH_PRIVATE_KEY});
-      await SecureStoragePlugin.remove({key: KeyManagementService.IDENTITY_DH_PUBLIC_KEY});
+      await SecureStoragePlugin.remove({key: this.getUserSpecificKey(KeyManagementService.IDENTITY_PRIVATE_KEY)});
+      await SecureStoragePlugin.remove({key: this.getUserSpecificKey(KeyManagementService.IDENTITY_PUBLIC_KEY)});
+      await SecureStoragePlugin.remove({key: this.getUserSpecificKey(KeyManagementService.IDENTITY_DH_PRIVATE_KEY)});
+      await SecureStoragePlugin.remove({key: this.getUserSpecificKey(KeyManagementService.IDENTITY_DH_PUBLIC_KEY)});
     } catch (error) {
       console.error('Error on deleteIdentityKey:', error);
     }
@@ -248,7 +270,7 @@ export class KeyManagementService {
    * Returns true if a new signed pre-key was generated, false otherwise.
    */
   async updateSignedPreKeyIfNecessary(): Promise<boolean> {
-    const signedPreKeyTimestampResult = await this.getFromStorageSafe(KeyManagementService.SIGNED_PRE_KEY_TIMESTAMP);
+    const signedPreKeyTimestampResult = await this.getFromStorageSafe(this.getUserSpecificKey(KeyManagementService.SIGNED_PRE_KEY_TIMESTAMP));
     const now = Date.now();
     if (signedPreKeyTimestampResult && signedPreKeyTimestampResult.value) {
       const timestamp = parseInt(signedPreKeyTimestampResult.value, 10);
@@ -277,19 +299,19 @@ export class KeyManagementService {
     const preKeySignatureBase64 = naclUtil.encodeBase64(preKeySignature);
 
     await SecureStoragePlugin.set({
-      key: KeyManagementService.SIGNED_PRE_KEY_PUBLIC,
+      key: this.getUserSpecificKey(KeyManagementService.SIGNED_PRE_KEY_PUBLIC),
       value: preKeyPublicBase64
     });
     await SecureStoragePlugin.set({
-      key: KeyManagementService.SIGNED_PRE_KEY_PRIVATE,
+      key: this.getUserSpecificKey(KeyManagementService.SIGNED_PRE_KEY_PRIVATE),
       value: preKeyPrivateBase64
     });
     await SecureStoragePlugin.set({
-      key: KeyManagementService.SIGNED_PRE_KEY_SIGNATURE,
+      key: this.getUserSpecificKey(KeyManagementService.SIGNED_PRE_KEY_SIGNATURE),
       value: preKeySignatureBase64
     });
     await SecureStoragePlugin.set({
-      key: KeyManagementService.SIGNED_PRE_KEY_TIMESTAMP,
+      key: this.getUserSpecificKey(KeyManagementService.SIGNED_PRE_KEY_TIMESTAMP),
       value: now.toString()
     });
 
@@ -300,8 +322,8 @@ export class KeyManagementService {
    * Upload the public signed pre-key with device ID
    */
   async uploadPublicSignedPreKey(): Promise<void> {
-    const publicKeyResult = await this.getFromStorageSafe(KeyManagementService.SIGNED_PRE_KEY_PUBLIC);
-    const signatureResult = await this.getFromStorageSafe(KeyManagementService.SIGNED_PRE_KEY_SIGNATURE);
+    const publicKeyResult = await this.getFromStorageSafe(this.getUserSpecificKey(KeyManagementService.SIGNED_PRE_KEY_PUBLIC));
+    const signatureResult = await this.getFromStorageSafe(this.getUserSpecificKey(KeyManagementService.SIGNED_PRE_KEY_SIGNATURE));
     const deviceId = await this.getCurrentDeviceId();
 
     if (!publicKeyResult?.value || !signatureResult?.value) {
@@ -322,8 +344,8 @@ export class KeyManagementService {
    */
   async getSignedPreKeyPair(): Promise<KeyPair | null> {
     try {
-      const publicKeyResult = await this.getFromStorageSafe(KeyManagementService.SIGNED_PRE_KEY_PUBLIC);
-      const privateKeyResult = await this.getFromStorageSafe(KeyManagementService.SIGNED_PRE_KEY_PRIVATE);
+      const publicKeyResult = await this.getFromStorageSafe(this.getUserSpecificKey(KeyManagementService.SIGNED_PRE_KEY_PUBLIC));
+      const privateKeyResult = await this.getFromStorageSafe(this.getUserSpecificKey(KeyManagementService.SIGNED_PRE_KEY_PRIVATE));
       if (!publicKeyResult || !publicKeyResult.value || !privateKeyResult || !privateKeyResult.value) {
         return null;
       }
@@ -377,7 +399,7 @@ export class KeyManagementService {
       const uuid = crypto.randomUUID();
       oneTimePreKeys.push({uuid: uuid, publicKey: publicKeyBase64});
       // Store each one-time pre-key securely with a unique key
-      const keyName = KeyManagementService.ONE_TIME_PRE_KEY_PREFIX + uuid;
+      const keyName = this.getUserSpecificKey(KeyManagementService.ONE_TIME_PRE_KEY_PREFIX + uuid);
       await SecureStoragePlugin.set({
         key: keyName,
         value: JSON.stringify({uuid: uuid, publicKey: publicKeyBase64, privateKey: privateKeyBase64})
@@ -394,7 +416,7 @@ export class KeyManagementService {
    * @returns
    */
   async getOneTimePreKeyPairByUuid(uuid: string): Promise<KeyPair | null> {
-    const keyName = KeyManagementService.ONE_TIME_PRE_KEY_PREFIX + uuid;
+    const keyName = this.getUserSpecificKey(KeyManagementService.ONE_TIME_PRE_KEY_PREFIX + uuid);
     try {
       const result = await this.getFromStorageSafe(keyName);
       if (!result || !result.value) {
@@ -416,7 +438,7 @@ export class KeyManagementService {
    * @param uuid the UUID of the one-time pre-key to delete
    */
   async deleteOneTimePreKey(uuid: string): Promise<void> {
-    const keyName = KeyManagementService.ONE_TIME_PRE_KEY_PREFIX + uuid;
+    const keyName = this.getUserSpecificKey(KeyManagementService.ONE_TIME_PRE_KEY_PREFIX + uuid);
     try {
       await SecureStoragePlugin.remove({key: keyName});
     } catch (_) {
