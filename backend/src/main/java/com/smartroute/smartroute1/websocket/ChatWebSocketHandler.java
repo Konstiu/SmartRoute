@@ -7,6 +7,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Executors;
@@ -41,11 +42,18 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         String friendId = (String) session.getAttributes().get("friendId");
         String sessionKey = userId + "_" + friendId;
 
+        // Generate a unique socket ID and store it in session attributes
+        String socketId = UUID.randomUUID().toString();
+        session.getAttributes().put("socketId", socketId);
+
         // Get or create the set for this sessionKey
         sessions.computeIfAbsent(sessionKey, k -> new CopyOnWriteArraySet<>()).add(session);
 
         // Start heartbeat timer for this session
         scheduleHeartbeatTimeout(session);
+
+        // Send welcome message with socket ID
+        sendWelcomeMessage(session);
     }
 
     /**
@@ -72,6 +80,19 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 
         // Stop and remove heartbeat timer
         cancelHeartbeatTimeout(session);
+    }
+
+    /**
+     * Sends a welcome message with the generated socket id to the client upon connection establishment.
+     *
+     * @param session the WebSocket session
+     */
+    private void sendWelcomeMessage(WebSocketSession session) {
+        try {
+            session.sendMessage(new TextMessage("WELCOME: " + session.getAttributes().get("socketId")));
+        } catch (IOException e) {
+            // Ignore error
+        }
     }
 
     /**
@@ -106,7 +127,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
      * @param receiverId the ID of the message receiver
      * @param senderId   the ID of the message sender
      */
-    public static void notifyUser(String receiverId, String senderId) {
+    public static void notifyUser(String receiverId, String senderId, String senderSocketId) {
         String sessionKey = receiverId + "_" + senderId;
         String reverseSessionKey = senderId + "_" + receiverId;
         Set<WebSocketSession> sessionSet = sessions.get(sessionKey);
@@ -122,11 +143,16 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         if (sessionSet != null && !sessionSet.isEmpty()) {
             // Send message to all sessions of this user
             sessionSet.forEach(session -> {
+                // Do not notify the sender's own socket
+                var senderSocketIdAttr = session.getAttributes().get("socketId");
+                if (senderSocketId != null && senderSocketId.equals(senderSocketIdAttr)) {
+                    return;
+                }
                 if (session.isOpen()) {
                     try {
                         session.sendMessage(new TextMessage("NEW_MESSAGE"));
                     } catch (IOException e) {
-                        // Optional: Logging oder Fehlerbehandlung
+                        // ignore error
                     }
                 }
             });

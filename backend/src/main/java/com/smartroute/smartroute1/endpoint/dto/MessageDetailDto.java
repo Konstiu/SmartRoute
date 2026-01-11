@@ -20,4 +20,6 @@ public class MessageDetailDto {
     private String senderDeviceId;
     private String recipientDeviceId;
     private String conversationMessageId;
+
+    private String senderSocketId;
 }

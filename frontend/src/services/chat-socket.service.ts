@@ -23,6 +23,8 @@ export class ChatSocketService {
 
   private currentFriendId: string | null = null;
 
+  private currentSocketId: string | null = null;
+
   
   async connect(friendId: string | null) {
     const token = this.authService.getToken();
@@ -56,9 +58,16 @@ export class ChatSocketService {
     this.socket.onmessage = (msg) => {
       console.log('Message via WS:', msg.data);
 
+      if (msg.data.startsWith('WELCOME')) {
+        // extract socket id
+        const socketId = msg.data.slice("WELCOME: ".length);
+        if (socketId) {
+          console.log('WebSocket session established with ID:', socketId);
+          this.currentSocketId = socketId;
+        }
+      }
       if (msg.data === 'PONG') {
         // consume pong response
-        return;
       } else if (msg.data === 'NEW_MESSAGE') {
         // Notify subscribers of new message
         this.newMessage$.next();
@@ -77,6 +86,7 @@ export class ChatSocketService {
 
       // Stop ping interval
       this.stopPingInterval();
+      this.currentSocketId = null;
 
       // Attempt to reconnect if not a normal closure
       if (event.code !== 1000 && this.reconnectAttempts < this.maxReconnectAttempts) {
@@ -153,6 +163,10 @@ export class ChatSocketService {
    */
   send(message: any): void {
     if (this.socket?.readyState === WebSocket.OPEN) {
+      // add socketId to message if available
+      if (this.currentSocketId) {
+        message.socketId = this.currentSocketId;
+      }
       this.socket.send(JSON.stringify(message));
     } else {
       console.warn('WebSocket is not connected, cannot send message');
@@ -165,11 +179,21 @@ export class ChatSocketService {
   disconnect() {
     // Stop ping interval
     this.stopPingInterval()
+    this.currentSocketId = null;
 
     // Close the socket if it exists
     if (this.socket) {
       this.socket.close(1000, 'Client disconnecting');
       this.socket = undefined;
     }
+  }
+
+  /**
+   * Get the current WebSocket session ID
+   * 
+   * @returns The current socket ID or null if not connected 
+   */
+  getCurrentSocketId(): string | null {
+    return this.currentSocketId;
   }
 }

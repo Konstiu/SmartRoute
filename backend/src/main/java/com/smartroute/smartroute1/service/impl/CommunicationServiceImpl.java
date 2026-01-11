@@ -201,7 +201,7 @@ public class CommunicationServiceImpl implements CommunicationService {
         Message saved = messageRepository.save(message);
 
         // Notify recipient user; their clients will filter by recipientDeviceId
-        ChatWebSocketHandler.notifyUser(recipient.getEmail(), sender.getEmail());
+        ChatWebSocketHandler.notifyUser(recipient.getEmail(), sender.getEmail(), messageDetailDto.getSenderSocketId());
 
         return saved;
     }
@@ -234,7 +234,7 @@ public class CommunicationServiceImpl implements CommunicationService {
         LOGGER.info(saved.toString());
 
         // Notify recipient user; their clients will filter by recipientDeviceId
-        ChatWebSocketHandler.notifyUser(recipient.getEmail(), sender.getEmail());
+        ChatWebSocketHandler.notifyUser(recipient.getEmail(), sender.getEmail(), messageDetailDto.getSenderSocketId());
         return saved;
     }
 

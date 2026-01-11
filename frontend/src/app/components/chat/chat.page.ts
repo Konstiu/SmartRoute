@@ -44,6 +44,7 @@ export class ChatPage implements OnInit, OnDestroy {
   }
 
   async ngOnInit() {
+
     this.route.queryParams.subscribe(async params => {
       this.friendEmail = decodeURIComponent(params['friendEmail'] || '');
 
@@ -123,19 +124,24 @@ export class ChatPage implements OnInit, OnDestroy {
       text: this.messageText,
     });
 
+    const mySocketId = this.chatSocketService.getCurrentSocketId();
+
     try {
       // Send to all of friend's devices
       const sentMessages = await this.keyManagementService.sendMessageToFriend(
         this.friendEmail,
         messageJson,
-        conversationMessageId
+        conversationMessageId,
+        mySocketId
       );
 
       console.log(`Message sent to ${sentMessages.length} devices`);
 
-      const sentMessagesMyDevices = await this.keyManagementService.sendMessageToMyDevices(this.friendEmail,
+      const sentMessagesMyDevices = await this.keyManagementService.sendMessageToMyDevices(
+        this.friendEmail,
         messageJson,
-        conversationMessageId
+        conversationMessageId,
+        mySocketId
       )
 
       console.log(`Message sent to ${sentMessagesMyDevices.length} of my devices`);
