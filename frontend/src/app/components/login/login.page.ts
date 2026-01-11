@@ -1,9 +1,10 @@
 import {Component} from '@angular/core';
 import {CommonModule} from '@angular/common';
-import {FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators} from '@angular/forms';
+import {FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
 import {IonicModule, LoadingController, ToastController} from '@ionic/angular';
 import {Router} from '@angular/router';
 import {AuthService} from '../../../services/auth.service';
+import {PushNotificationService} from '../../../services/push-notification.service'
 import {KeyManagementService} from "../../../services/key-management.service";
 
 @Component({
@@ -28,6 +29,7 @@ export class LoginPage {
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController,
     private fb: FormBuilder,
+    private pushNotificationService: PushNotificationService,
     private keyManagementService: KeyManagementService
   ) {
     this.loginForm = this.fb.group({
@@ -84,10 +86,6 @@ export class LoginPage {
     });
   }
 
-  private redirectBasedOnRole() {
-    this.router.navigate(['/tabs/trainingPlan']);
-  }
-
   togglePasswordVisibility() {
     this.showPassword = !this.showPassword;
   }
@@ -99,6 +97,12 @@ export class LoginPage {
   goToPasswordReset() {
     this.router.navigate(['/request-password-reset']);
   }
+
+  private async redirectBasedOnRole() {
+    await this.router.navigate(['/tabs/trainingPlan']);
+    this.pushNotificationService.autoInitialize().catch(err => {
+      console.error('Push notification setup failed:', err);
+    });  }
 
   private async showToast(message: string, color: string) {
     const toast = await this.toastCtrl.create({
