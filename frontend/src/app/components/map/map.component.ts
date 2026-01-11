@@ -19,6 +19,8 @@ export class MapComponent implements OnInit {
   @Output() onNewLocationRegisterd = new EventEmitter();
   @Output() geoLocation = new EventEmitter();
 
+  @Output() leafletMapReady = new EventEmitter<Map>();
+
   public map: Map | null = null;
 
   constructor() { }
@@ -50,7 +52,7 @@ export class MapComponent implements OnInit {
   onMapReady(map: Map) {
     setTimeout(() => map.invalidateSize(), 100); // See https://github.com/bluehalo/ngx-leaflet/issues/104
     this.map = map;
-
+    this.leafletMapReady.emit(map);
     // register events to detect new markers
     map.getContainer().addEventListener("touchstart", (e) => {
       this.touched = true;
