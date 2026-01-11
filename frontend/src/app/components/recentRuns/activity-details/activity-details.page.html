@@ -27,9 +27,9 @@
   <!-- Content - only show when NOT loading and activity exists -->
   @if (!isLoading && activity) {
     <!-- Map -->
-    @if (activity.summaryPolyline) {
+    @if (activity.summaryPolyline && mapLayers.length > 0) {
       <div class="map-container">
-        <div #map id="map"></div>
+        <app-map [layers]="mapLayers"></app-map>
       </div>
     }
 
