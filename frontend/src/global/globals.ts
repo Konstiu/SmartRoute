@@ -5,6 +5,8 @@ import {Capacitor} from "@capacitor/core";
 export class Globals {
   readonly backendUri: string = this.findBackendUrl();
   readonly backendWsUri: string = this.findBackendWsUrl();
+  readonly vapidPublicKey: string = 'BHpFgSD4JeTk9Y5NsOBYs8hxqXBS1ocDB1CCkedh45gvRBnlaDOh9lQI8wUOEfr5olcx4m-MpnRL9T2oaTBTec4';
+
 
   private findBackendUrl(): string {
     //return "https://backend.unterweger.tech/api/v1"
