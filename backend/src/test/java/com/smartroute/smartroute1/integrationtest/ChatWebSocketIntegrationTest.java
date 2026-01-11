@@ -350,7 +350,7 @@ class ChatWebSocketIntegrationTest extends BaseTest implements TestData {
                 "Connection establishment should not throw exception");
 
         // Act: Send notification
-        assertDoesNotThrow(() -> ChatWebSocketHandler.notifyUser(USER1_EMAIL, USER2_EMAIL),
+        assertDoesNotThrow(() -> ChatWebSocketHandler.notifyUser(USER1_EMAIL, USER2_EMAIL, null),
                 "Notifying user should not throw exception");
     }
 
@@ -359,7 +359,7 @@ class ChatWebSocketIntegrationTest extends BaseTest implements TestData {
         // Arrange: No active session registered
 
         // Act & Assert: Notifying without active session should not throw exception
-        assertDoesNotThrow(() -> ChatWebSocketHandler.notifyUser(USER1_EMAIL, USER2_EMAIL),
+        assertDoesNotThrow(() -> ChatWebSocketHandler.notifyUser(USER1_EMAIL, USER2_EMAIL, null),
                 "Notifying user without active session should not throw exception");
     }
 

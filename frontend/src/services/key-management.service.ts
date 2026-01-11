@@ -502,7 +502,8 @@ export class KeyManagementService {
     friendEmail: string,
     theirDeviceId: string,
     plaintext: string,
-    conversationMessageId: string
+    conversationMessageId: string,
+    mySocketId: string | null = null
   ): Promise<Message> {
     const myDeviceId = await this.getCurrentDeviceId();
 
@@ -535,7 +536,8 @@ export class KeyManagementService {
         senderEphemeralKey: null,
         usedOneTimePreKeyId: null,
         encryptedMessage,
-        conversationMessageId
+        conversationMessageId,
+        senderSocketId: mySocketId
       };
       console.log(messageDetail);
 
@@ -571,7 +573,8 @@ export class KeyManagementService {
     myDeviceId: string,
     theirDeviceId: string,
     plaintext: string,
-    conversationMessageId: string
+    conversationMessageId: string,
+    senderSocketId: string | null = null
   ): Promise<MessageDetailDto> {
     // Get friend's key bundle for specific device
     const friendDeviceBundles = await firstValueFrom(
@@ -638,7 +641,8 @@ export class KeyManagementService {
       senderEphemeralKey: naclUtil.encodeBase64(ephemeralPublicKey),
       usedOneTimePreKeyId: friendKeyBundle.oneTimePreKey?.uuid ?? null,
       encryptedMessage,
-      conversationMessageId
+      conversationMessageId,
+      senderSocketId
     };
 
     return await this.uploadMessage(messageDetail);
@@ -647,7 +651,7 @@ export class KeyManagementService {
   /**
    * Send message to all devices of a friend
    */
-  async sendMessageToFriend(friendEmail: string, plaintext: string, conversationMessageId: string): Promise<Message[]> {
+  async sendMessageToFriend(friendEmail: string, plaintext: string, conversationMessageId: string, mySocketId: string | null): Promise<Message[]> {
     const deviceIds = await this.getDevicesOfFriend(friendEmail);
 
     if (deviceIds.length === 0) {
@@ -663,7 +667,8 @@ export class KeyManagementService {
           friendEmail,
           deviceId,
           plaintext,
-          conversationMessageId
+          conversationMessageId,
+          mySocketId
         );
         messages.push(message);
       } catch (error) {
@@ -1348,7 +1353,7 @@ export class KeyManagementService {
     return userData.email;
   }
 
-  async sendMessageToMyDevices(friendEmail: string, plaintext: string, conversationMessageId: string): Promise<Message[]> {
+  async sendMessageToMyDevices(friendEmail: string, plaintext: string, conversationMessageId: string, mySocketId: string | null): Promise<Message[]> {
     const myDeviceId = await this.getCurrentDeviceId();
     const allMyDevices = await this.getMyDevices();
 
@@ -1370,7 +1375,8 @@ export class KeyManagementService {
           friendEmail,  // Keep the conversation context
           deviceId,
           plaintext,
-          conversationMessageId
+          conversationMessageId,
+          mySocketId
         );
         messages.push(message);
       } catch (error) {
@@ -1388,7 +1394,8 @@ export class KeyManagementService {
     friendEmail: string,  // The conversation partner
     myOtherDeviceId: string,
     plaintext: string,
-    conversationMessageId: string
+    conversationMessageId: string,
+    senderSocketId: string | null = null
   ): Promise<Message> {
     const myDeviceId = await this.getCurrentDeviceId();
 
@@ -1409,7 +1416,7 @@ export class KeyManagementService {
         myDeviceId,
         myOtherDeviceId,
         plaintext,
-        conversationMessageId
+        conversationMessageId,
       );
     } else {
       // Existing session - encrypt with ratchet
@@ -1425,7 +1432,8 @@ export class KeyManagementService {
         senderEphemeralKey: null,
         usedOneTimePreKeyId: null,
         encryptedMessage,
-        conversationMessageId
+        conversationMessageId,
+        senderSocketId
       };
 
       savedMessage = await this.uploadMessageMyDevice(messageDetail);
@@ -1458,7 +1466,8 @@ export class KeyManagementService {
     myDeviceId: string,
     myOtherDeviceId: string,
     plaintext: string,
-    conversationMessageId: string
+    conversationMessageId: string,
+    senderSocketId: string | null = null
   ): Promise<MessageDetailDto> {
     // Get MY OWN key bundle for my other device
     const myDeviceBundles = await firstValueFrom(
@@ -1517,7 +1526,8 @@ export class KeyManagementService {
       senderEphemeralKey: naclUtil.encodeBase64(ephemeralPublicKey),
       usedOneTimePreKeyId: myOtherDeviceBundle.oneTimePreKey?.uuid ?? null,
       encryptedMessage,
-      conversationMessageId
+      conversationMessageId,
+      senderSocketId
     };
 
     return await this.uploadMessageMyDevice(messageDetail);

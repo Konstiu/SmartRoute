@@ -58,6 +58,9 @@ export interface MessageDetailDto {
   encryptedMessage: EncryptedMessage;
   timestamp?: string;  // ISO 8601
   conversationMessageId: string;
+
+  // Socket ID
+  senderSocketId: string | null;
 }
 
 /**
