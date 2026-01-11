@@ -82,6 +82,9 @@
               <div class="friend-name">{{ f.firstName }} {{ f.lastName }}</div>
               <div class="friend-email">{{ f.email }}</div>
             </ion-label>
+            <ion-button slot="end" fill="clear" (click)="startConversationWithFriend(f)">
+              <ion-icon slot="icon-only" name="chatbubble-ellipses-outline"></ion-icon>
+            </ion-button>
             <ion-button slot="end" fill="clear" [id]="'menu-trigger-' + $index">
               <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
             </ion-button>

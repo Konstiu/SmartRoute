@@ -101,6 +101,9 @@ export class AccountPage implements OnInit {
   navigateToFriends() {
     this.router.navigate(['/friends']);
   }
+  navigateToKeySync(){
+    this.router.navigate(['/account/key-sync']);
+  }
 
   logout() {
     this.authService.logoutUser();
