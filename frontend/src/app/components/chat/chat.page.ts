@@ -159,13 +159,16 @@ export class ChatPage implements OnInit, OnDestroy {
       // Decrypt each message
       for (const msgDto of newMessages) {
         try {
+          // Only decrypt and add if we don't already have this conversation message
+          if (this.hasConversationMessage(msgDto.conversationMessageId)) {
+            continue;
+          }
+
           const decryptedMsg = await this.keyManagementService
             .receiveMessageFromFriend(msgDto);
 
-          // Only add if we don't already have this conversation message
-          if (!this.hasConversationMessage(decryptedMsg.conversationMessageId)) {
-            this.messages.push(decryptedMsg);
-          }
+          this.messages.push(decryptedMsg);
+
         } catch (error) {
           console.error('Failed to decrypt message:', error);
         }

@@ -58,7 +58,7 @@ export interface Message {
 
 // Store current device ID
 export interface DeviceInfo {
-  id: 'current';  // Single row
+  id: string;  // userEmail as Primary Key
   deviceId: string;
 }
 
@@ -85,17 +85,22 @@ class EncryptionDatabase extends Dexie {
   }
 
   /**
-   * Get or create the current device ID
+   * Get or create the current device ID for a specific user
+   * @param userEmail The email of the current user
    */
-  async getCurrentDeviceId(): Promise<string> {
-    let info = await this.deviceInfo.get('current');
+  async getCurrentDeviceId(userEmail: string): Promise<string> {
+    if (!userEmail) {
+      throw new Error('User email is required to get device ID');
+    }
 
-    console.log("previous", info?.deviceId);
+    let info = await this.deviceInfo.get(userEmail);
+
+    console.log("previous device ID for", userEmail, ":", info?.deviceId);
     if (!info) {
-      // Generate new device ID
+      // Generate new device ID for this user
       const deviceId = crypto.randomUUID();
-      await this.deviceInfo.put({ id: 'current', deviceId });
-      console.log("changed", deviceId);
+      await this.deviceInfo.put({ id: userEmail, deviceId });
+      console.log("generated new device ID for", userEmail, ":", deviceId);
       return deviceId;
     }
 
