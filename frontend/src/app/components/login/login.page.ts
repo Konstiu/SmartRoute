@@ -5,6 +5,7 @@ import {IonicModule, LoadingController, ToastController} from '@ionic/angular';
 import {Router} from '@angular/router';
 import {AuthService} from '../../../services/auth.service';
 import {PushNotificationService} from '../../../services/push-notification.service'
+import {KeyManagementService} from "../../../services/key-management.service";
 
 @Component({
   selector: 'app-login',
@@ -28,7 +29,8 @@ export class LoginPage {
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController,
     private fb: FormBuilder,
-    private pushNotificationService: PushNotificationService
+    private pushNotificationService: PushNotificationService,
+    private keyManagementService: KeyManagementService
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
@@ -50,7 +52,31 @@ export class LoginPage {
       next: async () => {
         await loading.dismiss();
         this.showToast('Login successful!', 'success');
-        await this.redirectBasedOnRole();
+
+        try {
+          // generate and upload identity key if necessary
+          const generated = await this.keyManagementService.generateAndStoreIdentityKey();
+          if (generated) {
+            await this.keyManagementService.uploadPublicIdentityKey();
+          }
+          // now generate and upload the signed pre-key if necessary
+          const updated = await this.keyManagementService.updateSignedPreKeyIfNecessary();
+          if (updated) {
+            await this.keyManagementService.uploadPublicSignedPreKey();
+          }
+          // now generate and upload one-time pre-keys
+          await this.keyManagementService.generateStoreAndUploadOneTimePreKeysIfNecessary();
+        } catch (uploadErr) {
+          // this should never happen, but in case it does, inform the user
+          console.error('Failed to upload communication keys', uploadErr);
+          const toast = await this.toastCtrl.create({
+            message: 'Registration succeeded, but uploading communication keys failed.',
+            color: 'warning',
+            duration: 3000
+          });
+          await toast.present();
+        }
+        this.redirectBasedOnRole();
       },
       error: async (error) => {
         await loading.dismiss();

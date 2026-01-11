@@ -6,6 +6,7 @@ import { FriendshipService } from 'src/services/friendship.service';
 import { PushNotificationService } from 'src/services/push-notification.service';
 import { UserService } from 'src/services/user.service';
 import { AuthService } from 'src/services/auth.service';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-friends',
@@ -29,7 +30,7 @@ export class FriendsPage implements OnInit {
     private pushService: PushNotificationService,
     private userService: UserService,
     private toastController: ToastController,
-
+    private router: Router
   ) {}
 
   ngOnInit(): void {
@@ -337,8 +338,6 @@ export class FriendsPage implements OnInit {
       });
   }
 
-
-
   private async showToast(message: string, color: string = 'primary', duration: number = 2000) {
     const toast = await this.toastController.create({
       message: message,
@@ -353,6 +352,15 @@ export class FriendsPage implements OnInit {
       ]
     });
     await toast.present();
+  }
+
+  startConversationWithFriend(friend: FriendInfoDto) {
+    this.router.navigate(['/chat'], {
+      queryParams: {
+        friendName: encodeURIComponent(`${friend.firstName} ${friend.lastName}`), 
+        friendEmail: encodeURIComponent(friend.email) 
+      }
+    });
   }
 
 }
