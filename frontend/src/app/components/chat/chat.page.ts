@@ -37,54 +37,48 @@ export class ChatPage implements OnInit, OnDestroy {
   }
 
   async ngOnInit() {
-    this.route.queryParams.subscribe(params => {
+    this.route.queryParams.subscribe(async params => {
       this.friendEmail = decodeURIComponent(params['friendEmail'] || '');
-    });
 
-    // Initialize device ID
-    this.myDeviceId = await this.keyManagementService.getCurrentDeviceId();
+      // Initialize device ID
+      this.myDeviceId = await this.keyManagementService.getCurrentDeviceId();
 
-    // Load friend's devices
-    this.friendDevices = await this.keyManagementService.getDevicesOfFriend(
-      this.friendEmail
-    );
+      // Load friend's devices
+      this.friendDevices = await this.keyManagementService.getDevicesOfFriend(
+        this.friendEmail
+      );
 
-    this.myDevices = await this.keyManagementService.getMyDevices();
+      this.myDevices = await this.keyManagementService.getMyDevices();
 
-    // Load existing messages
-    await this.loadMessages();
+      // Load existing messages
+      await this.loadMessages();
 
-    await this.fetchNewMessages();
+      // Fetch new messages from backend
+      await this.fetchNewMessages();
 
-    interval(2000).subscribe(() => {
-      this.fetchNewMessages();
-    });
+      // Connect to WebSocket
+      await this.chatSocketService.connect(this.friendEmail);
 
-    // Connect to WebSocket
-    //await this.chatSocketService.connect();
-
-    // Listen for new messages
-    /*const newMessageSub = this.chatSocketService.onNewMessage().subscribe(
-      async (event) => {
-        if (event.friendEmail === this.friendEmail) {
-          // Fetch and decrypt the new message
+      // Listen for new messages
+      const newMessageSub = this.chatSocketService.onNewMessage().subscribe(
+        async () => {
           await this.fetchNewMessages();
         }
-      }
-    );
-    this.subscriptions.push(newMessageSub);
+      );
+      this.subscriptions.push(newMessageSub);
 
-    // Listen for connection status
-    const statusSub = this.chatSocketService.onConnectionStatus().subscribe(
-      (status) => {
-        console.log('WebSocket status:', status);
-        if (status === 'connected') {
-          // Sync messages when reconnected
-          this.fetchNewMessages();
+      // Listen for connection status
+      const statusSub = this.chatSocketService.onConnectionStatus().subscribe(
+        (status) => {
+          console.log('WebSocket status:', status);
+          if (status === 'connected') {
+            // Sync messages when reconnected
+            this.fetchNewMessages();
+          }
         }
-      }
-    );
-    this.subscriptions.push(statusSub);*/
+      );
+      this.subscriptions.push(statusSub);
+    });
   }
 
   ngOnDestroy() {
@@ -158,6 +152,10 @@ export class ChatPage implements OnInit, OnDestroy {
       // Fetch from backend
       const newMessages = await this.keyManagementService
         .getMessagesFromBackendAfter(this.friendEmail, since);
+
+      console.log("New messags");
+      console.log(newMessages);
+
       // Decrypt each message
       for (const msgDto of newMessages) {
         try {

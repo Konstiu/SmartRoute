@@ -49,7 +49,8 @@ export class RegisterPage {
     this.userService.createUser(this.createUser).subscribe({
       next: async () => {
         // the user is now registered, create the public identity key
-        await this.keyManagementService.generateAndStoreIdentityKey();
+        const generated = await this.keyManagementService.generateAndStoreIdentityKey();
+        console.log("Generated identity key on registration:", generated);
 
         // attempt automatic login
         const authRequest: AuthRequest = {
