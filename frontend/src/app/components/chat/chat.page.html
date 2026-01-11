@@ -11,11 +11,11 @@
   <div class="chat-container">
     <!-- Messages list -->
     <div class="messages-list">
-      @for (message of messages; track message.id) {
+      @for (message of messages; track message.conversationMessageId) {
         <div class="message-wrapper"
              [ngClass]="message.direction === 'sent' ? 'own-message' : 'friend-message'">
           <div class="message-bubble">
-            <div class="message-text">{{ message.plaintext }}</div>
+            <div class="message-text">{{ message.text }}</div>
             <div class="message-meta">
               <small class="device-id">Device: {{ message.senderDeviceId }}</small>
               <span class="message-timestamp">{{ formatTime(message.timestamp) }}</span>
