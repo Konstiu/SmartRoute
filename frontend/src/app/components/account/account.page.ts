@@ -86,6 +86,9 @@ export class AccountPage {
   navigateToFriends() {
     this.router.navigate(['/friends']);
   }
+  navigateToKeySync(){
+    this.router.navigate(['/account/key-sync']);
+  }
 
   logout() {
     this.authService.logoutUser();
