@@ -15,7 +15,20 @@
         <div class="message-wrapper"
              [ngClass]="message.direction === 'sent' ? 'own-message' : 'friend-message'">
           <div class="message-bubble">
-            <div class="message-text">{{ message.text }}</div>
+            @if (message.type === 'text') {
+              <div class="message-text">{{ message.text }}</div>
+            } @else if (message.type === 'location') {
+              <div class="message-location">
+                <div class="location-text">{{ message.text }}</div>
+                <div class="location-map">
+                  <app-map
+                    [layers]="getLocationLayers(message.latitude!, message.longitude!)"
+                    [center]="getLocationCenter(message.latitude!, message.longitude!)"
+                    [zoom]="15"
+                  ></app-map>
+                </div>
+              </div>
+            }
             <div class="message-meta">
               <small class="device-id">Device: {{ message.senderDeviceId }}</small>
               <span class="message-timestamp">{{ formatTime(message.timestamp) }}</span>
