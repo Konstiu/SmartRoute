@@ -30,13 +30,7 @@ export class KeyManagementService {
     private globals: Globals,
     private httpClient: HttpClient,
     private userService: UserService
-  ) {
-    this.initializeDeviceId();
-  }
-
-  private async initializeDeviceId(): Promise<void> {
-    this.currentDeviceId = await db.getCurrentDeviceId();
-  }
+  ) {}
 
   /**
    * Get the current device ID, ensuring it's initialized
@@ -165,9 +159,14 @@ export class KeyManagementService {
    * Generate new identity key pairs (both sign and DH), store them securely.
    * Sign key pair is used for signatures, DH key pair is used for X3DH.
    *
-   * @returns a Promise that resolves when the operation is complete
+   * @returns True if new keys were generated, false if they already existed
    */
-  async generateAndStoreIdentityKey(): Promise<void> {
+  async generateAndStoreIdentityKey(): Promise<boolean> {
+
+    if (await this.getIdentityKey() !== null) {
+      // Identity key already exists
+      return false;
+    }
 
     // Generate new Ed25519 key pair for signatures
     const signKeyPair = nacl.sign.keyPair();
@@ -202,6 +201,8 @@ export class KeyManagementService {
       key: KeyManagementService.IDENTITY_DH_PUBLIC_KEY,
       value: dhPublicKey
     });
+
+    return true;
   }
 
   /**

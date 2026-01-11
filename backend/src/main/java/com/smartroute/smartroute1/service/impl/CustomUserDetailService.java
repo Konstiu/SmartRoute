@@ -159,7 +159,8 @@ public class CustomUserDetailService implements UserService {
         userDto.setEmail(toCreate.email);
         userDto.setFirstname(toCreate.firstname);
         userDto.setLastname(toCreate.lastname);
-        emailService.sendVerificationEmail(userDto, origin);
+        // TODO: uncomment this
+        //emailService.sendVerificationEmail(userDto, origin);
 
         String encodedPassword = passwordEncoder.encode(toCreate.password);
         final ApplicationUser applicationUser = new ApplicationUser(

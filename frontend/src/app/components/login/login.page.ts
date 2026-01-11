@@ -50,11 +50,14 @@ export class LoginPage {
       next: async () => {
         await loading.dismiss();
         this.showToast('Login successful!', 'success');
-        await this.keyManagementService.generateAndStoreIdentityKey();
 
         try {
-          await this.keyManagementService.uploadPublicIdentityKey();
-          // now generate and upload the signed pre-key
+          // generate and upload identity key if necessary
+          const generated = await this.keyManagementService.generateAndStoreIdentityKey();
+          if (generated) {
+            await this.keyManagementService.uploadPublicIdentityKey();
+          }
+          // now generate and upload the signed pre-key if necessary
           const updated = await this.keyManagementService.updateSignedPreKeyIfNecessary();
           if (updated) {
             await this.keyManagementService.uploadPublicSignedPreKey();
