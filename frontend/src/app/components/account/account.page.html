@@ -81,7 +81,16 @@
         </ion-list>
       </ion-card-content>
     </ion-card-->
-
+    <ion-card>
+      <ion-item button (click)="navigateToKeySync()">
+        <ion-icon name="key-outline" slot="start"></ion-icon>
+        <ion-label>
+          <h2>Sync Encryption Keys</h2>
+          <p>Transfer keys to another device</p>
+        </ion-label>
+        <ion-icon name="chevron-forward" slot="end"></ion-icon>
+      </ion-item>
+    </ion-card>
     <!-- Logout -->
     <div style="padding: 16px;">
       <ion-button expand="block" color="danger" fill="outline" (click)="presentLogoutConfirm()">
