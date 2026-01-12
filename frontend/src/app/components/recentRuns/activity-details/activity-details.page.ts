@@ -1,9 +1,13 @@
-import {ChangeDetectorRef, Component, OnInit, ViewChild} from '@angular/core';
+import {Component, OnInit, ViewChild, inject, ChangeDetectorRef} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
 import {IonicModule} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../../services/activities.service';
 import {DetailedActivity} from '../../../dtos/Activity';
+import * as L from 'leaflet';
+import {decodePolyline, encodePolyline} from "../../../util/polyline-encode-decode";
+import {SaveRouteDto} from "../../../dtos/recommended-activity";
+import {RouteService} from "../../../../services/route.service";
 import {Layer, polyline} from 'leaflet';
 import {MapComponent} from '../../../components/map/map.component';
 
@@ -18,6 +22,9 @@ export class ActivityDetailPage implements OnInit {
   activity: DetailedActivity | null = null;
   isLoading = true;
   error: string | null = null;
+  map: L.Map | null = null;
+  isRouteSaved = false;
+  private routeService = inject(RouteService);
   mapLayers: Layer[] = [];
   routePolyline: any = null;
   @ViewChild(MapComponent) mapComponent!: MapComponent;
@@ -93,6 +100,36 @@ export class ActivityDetailPage implements OnInit {
     });
   }
 
+  addEncodedRoutes(polyline: string | null) {
+    if (!this.map) return;
+
+    const allCoordinates: L.LatLng[] = [];
+    if (polyline == null) {
+      return;
+    }
+
+    const coordinates = decodePolyline(polyline);
+
+    if (coordinates.length > 0) {
+      allCoordinates.push(...coordinates);
+
+      // Add polyline to map
+      L.polyline(coordinates, {
+        color: '#FC4C02', // Strava orange color
+        weight: 3,
+        opacity: 0.8,
+        lineJoin: 'round'
+      }).addTo(this.map);
+    }
+
+
+    // Fit map to show all routes
+    if (allCoordinates.length > 0) {
+      const bounds = L.latLngBounds(allCoordinates);
+      this.map.fitBounds(bounds, {padding: [50, 50]});
+    }
+  }
+
   decodePolyline(encoded: string): [number, number][] {
     const points: [number, number][] = [];
     let index = 0;
@@ -138,8 +175,8 @@ export class ActivityDetailPage implements OnInit {
   }
 
   formatDistance(dist: number): string {
-    dist = dist / 1000;
-    return dist.toFixed(2);
+    dist = dist / 1000; // convert meters to km
+    return dist.toFixed(2)
   }
 
   formatPace(averageSpeed: number): string {
@@ -191,5 +228,41 @@ export class ActivityDetailPage implements OnInit {
     });
 
     return `${dateStr} at ${timeString}`;
+  }
+
+  saveRoute() {
+    if (this.isRouteSaved) {
+      return;
+    }
+
+    if (this.isLoading) {
+      console.warn('Acitivity hasnt been loaded yet');
+      return;
+    }
+    // Convert Leaflet LatLng objects to [lat, lng] for polyline encoding
+    //const encodedRoute = encodePolyline(this.latlngs);
+
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString("en-US", {day: "2-digit", month: "short", year: "numeric"}); // "09 Jan 2026"
+    const name = `Activity, ${formattedDate}`;  //TODO: Rename it with Runtype Classification when branches are merged
+
+    const dto: SaveRouteDto = {
+      name: name,
+      distance: this.activity?.distance ?? 0,
+      pace: this.activity?.movingTime ?? 0,
+      elevation: this.activity?.totalElevationGain ?? 0,
+      route: this.activity?.summaryPolyline ?? ''
+    };
+    this.routeService.saveRoute(dto).subscribe({
+      next: () => {
+        console.log('Route saved successfully');
+        this.isRouteSaved = true;
+      },
+      error: err => {
+        console.error('Failed to save route', err);
+      }
+    });
+
+
   }
 }
