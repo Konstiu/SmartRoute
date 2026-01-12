@@ -539,49 +539,58 @@ async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH
     return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
   }
 
-  this.committedStops = this.addUniqueStops(this.committedStops, points);
+  const prevStops = [...this.committedStops];
+  const candidateStops = this.addUniqueStops(prevStops, points);
 
   const request: AddStopsRequest = {
-    //originalRoute: this.routeLineToGeoJson(this.routeLine),
     originalRoute: this.routeLineGeoPosition,
-    newPoints: this.committedStops.map(p => this.toGeoJsonPosition(p)),
+    newPoints: candidateStops.map(p => this.toGeoJsonPosition(p)),
   };
 
-  // wait for backend response
-  const e = await firstValueFrom(
-    mode === 'KEEP_SHAPE'
-      ? this.stopsService.insertStops(request)
-      : this.stopsService.reshape(request)
-  );
+  try {
+    // wait for backend response
+    const e = await firstValueFrom(
+      mode === 'KEEP_SHAPE'
+        ? this.stopsService.insertStops(request)
+        : this.stopsService.reshape(request)
+    );
 
-  // rebuild routeLine from returned polyline
-  this.routeLine = polyline(
-    convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1]))
-  );
+    this.committedStops = this.addUniqueStops(this.committedStops, points);
 
-  this.latlngs = this.routeLine.getLatLngs() as LatLng[];
+    // rebuild routeLine from returned polyline
+    this.routeLine = polyline(
+      convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1]))
+    );
 
-  this.routeBounds = this.routeLine.getBounds();
+    this.latlngs = this.routeLine.getLatLngs() as LatLng[];
 
-  // update the UI stats
-  if (this.recommendedActivity?.route) {
-    this.recommendedActivity.route.distance = e.distance;
-    this.recommendedActivity.route.elevation = e.elevation; // @TODO add elevation
-  }
+    this.routeBounds = this.routeLine.getBounds();
 
-  // rebuild preview layers (new array reference)
-  this.rebuildLayers();
+    // update the UI stats
+    if (this.recommendedActivity?.route) {
+      this.recommendedActivity.route.distance = e.distance;
+      this.recommendedActivity.route.elevation = e.elevation; // @TODO add elevation
+    }
 
-  // force leaflet preview map redraw
-  requestAnimationFrame(() => {
-    const map = this.mapComponent?.map;
-    if (!map || !this.routeBounds) return;
+    // rebuild preview layers (new array reference)
+    this.rebuildLayers();
 
-    map.invalidateSize();
-    map.fitBounds(this.routeBounds, { padding: [30, 30], animate: true });
-  });
+    // force leaflet preview map redraw
+    requestAnimationFrame(() => {
+      const map = this.mapComponent?.map;
+      if (!map || !this.routeBounds) return;
 
-  return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
+      map.invalidateSize();
+      map.fitBounds(this.routeBounds, { padding: [30, 30], animate: true });
+    });
+
+    return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
+  } catch (err) {
+      this.committedStops = prevStops;
+      this.rebuildLayers();
+
+      throw err;
+    }
 }
 
   private toGeoJsonPosition(p: LatLng): GeoJsonPosition {
