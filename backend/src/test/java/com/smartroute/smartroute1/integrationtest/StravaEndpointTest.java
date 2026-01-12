@@ -1,7 +1,8 @@
-package com.smartroute.smartroute1.unittest;
+package com.smartroute.smartroute1.integrationtest;
 
 import com.smartroute.smartroute1.basetest.BaseTest;
 import com.smartroute.smartroute1.endpoint.dto.AthleteDetailDto;
+import com.smartroute.smartroute1.endpoint.dto.StravaAccountConnectionStateDto;
 import com.smartroute.smartroute1.endpoint.dto.StravaZoneDataDto;
 import com.smartroute.smartroute1.service.StravaService;
 import com.smartroute.smartroute1.service.StravaOauthService;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -22,10 +24,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static com.smartroute.smartroute1.basetest.TestData.DEFAULT_USER_EMAIL;
-import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -140,5 +142,112 @@ class StravaEndpointTest extends BaseTest {
         mockMvc.perform(get("/api/v1/strava/callback")
                         .param("state", state))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = {"USER"})
+    void connect_authenticatedUser_returnsStravaAuthUrl() throws Exception {
+        when(stravaOauthService.createState(anyString(), eq("register")))
+            .thenReturn("state123");
+
+        var response = mockMvc.perform(get("/api/v1/strava/connect")
+                .param("origin", "register"))
+            .andExpect(status().isOk())
+            .andReturn()
+            .getResponse();
+
+        String body = response.getContentAsString();
+
+        assertAll(
+            () -> Assertions.assertTrue(body.contains("https://www.strava.com/oauth/authorize")),
+            () -> Assertions.assertTrue(body.contains("state=state123"))
+        );
+
+        verify(stravaOauthService).createState(anyString(), eq("register"));
+    }
+
+    @Test
+    void connect_unauthenticated_returns403() throws Exception {
+        mockMvc.perform(get("/api/v1/strava/connect")
+                .param("origin", "register"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = {"USER"})
+    void getConnectionState_authenticated_returnsState() throws Exception {
+        when(stravaOauthService.getConnectionState(anyString()))
+            .thenReturn(new StravaAccountConnectionStateDto(true, "read"));
+
+        mockMvc.perform(get("/api/v1/strava/connection-state"))
+            .andExpect(status().isOk());
+
+        verify(stravaOauthService).getConnectionState(anyString());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = {"USER"})
+    void disconnect_authenticated_returnsState() throws Exception {
+        when(stravaOauthService.disconnectStravaAccount(anyString()))
+            .thenReturn(new StravaAccountConnectionStateDto(true, "read"));
+
+        mockMvc.perform(delete("/api/v1/strava/disconnect"))
+            .andExpect(status().isOk());
+
+        verify(stravaOauthService).disconnectStravaAccount(anyString());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = {"USER"})
+    void getZones_authenticated_callsService() throws Exception {
+        when(stravaService.importStravaZoneData(anyString()))
+            .thenReturn(new StravaZoneDataDto());
+
+        mockMvc.perform(get("/api/v1/strava/zones"))
+            .andExpect(status().isOk());
+
+        verify(stravaService).importStravaZoneData(anyString());
+    }
+
+    @Test
+    void getZones_unauthenticated_returns403() throws Exception {
+        mockMvc.perform(get("/api/v1/strava/zones"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = {"USER"})
+    void getActivities_authenticated_callsService() throws Exception {
+        when(stravaService.importStravaActivities(anyString(), eq(50)))
+            .thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/strava/activities"))
+            .andExpect(status().isOk());
+
+        verify(stravaService).importStravaActivities(anyString(), eq(50));
+    }
+
+    @Test
+    void getActivities_unauthenticated_returns403() throws Exception {
+        mockMvc.perform(get("/api/v1/strava/activities"))
+            .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = DEFAULT_USER_EMAIL, roles = {"USER"})
+    void getAthlete_authenticated_callsService() throws Exception {
+        when(stravaService.importStravaAthlete(anyString()))
+            .thenReturn(new AthleteDetailDto());
+
+        mockMvc.perform(get("/api/v1/strava/athlete"))
+            .andExpect(status().isOk());
+
+        verify(stravaService).importStravaAthlete(anyString());
+    }
+
+    @Test
+    void getAthlete_unauthenticated_returns403() throws Exception {
+        mockMvc.perform(get("/api/v1/strava/athlete"))
+            .andExpect(status().isForbidden());
     }
 }

@@ -8,6 +8,7 @@ import com.smartroute.smartroute1.service.FitnessScoreService;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import jakarta.transaction.Transactional;
 import okhttp3.mockwebserver.MockResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -27,7 +28,7 @@ import static org.mockito.Mockito.*;
 @SpringBootTest
 @ActiveProfiles({"test", "generateData"})
 @Transactional
-public class ActivityProcessingServiceTest extends BaseTest {
+class ActivityProcessingServiceTest extends BaseTest {
     
     @MockitoBean
     private FitnessScoreService fitnessScoreService;
@@ -60,6 +61,11 @@ public class ActivityProcessingServiceTest extends BaseTest {
         activity.setUser(null);
 
         return activity;
+    }
+
+    @BeforeEach
+    void setup() {
+        reset(fitnessScoreService);
     }
 
     @Test
@@ -115,6 +121,168 @@ public class ActivityProcessingServiceTest extends BaseTest {
                 () -> assertEquals(123, activitiesWithSessionLoad.get(0).getSessionLoad()),
                 () -> assertEquals(123, activitiesWithSessionLoad.get(1).getSessionLoad())
         );
+    }
+
+    @Test
+    void testFetchHeartRateDataForActivities_withStravaSufferScore_setsSessionLoad() {
+        activityRepository.deleteAll();
+        activityRepository.flush();
+        ApplicationUser user = userRepository.findAll().getFirst();
+        Activity act1 = getStravaActivity();
+        act1.setUser(user);
+        act1.setStravaId(1L);
+        act1.setName("TestActivity1");
+        act1.setSufferScore(123);
+        Activity act2 = getStravaActivity();
+        act2.setUser(user);
+        act2.setName("TestActivity2");
+        act2.setStravaId(2L);
+        act2.setSufferScore(456);
+
+        List<Activity> activities = List.of(
+            act1,
+            act2
+        );
+
+        activityRepository.saveAll(activities);
+
+        when(fitnessScoreService.calculateSessionLoad(anyInt(), anyFloat()))
+            .thenReturn(129).thenReturn(459);
+
+        doAnswer(invocation -> {
+            Runnable task = invocation.getArgument(0);
+            task.run();
+            return null;
+        }).when(taskScheduler).schedule(any(Runnable.class), any(Instant.class));
+
+        activityProcessingService.fetchHeartRateDataForActivities(1, activities, "token");
+
+        List<Activity> activitiesWithSessionLoad = activityRepository.findByUser(user);
+
+        assertAll(
+            () -> assertEquals(2, activitiesWithSessionLoad.size()),
+            () -> assertEquals(129, activitiesWithSessionLoad.get(0).getSessionLoad()),
+            () -> assertEquals(459, activitiesWithSessionLoad.get(1).getSessionLoad())
+        );
+
+        verify(fitnessScoreService, times(2)).calculateSessionLoad(anyInt(), anyFloat());
+    }
+
+    @Test
+    void testFetchHeartRateDataForActivities_withPowerBasedMethod_setsSessionLoad() {
+        activityRepository.deleteAll();
+        activityRepository.flush();
+        ApplicationUser user = userRepository.findAll().getFirst();
+        user.setFtp(150);
+        userRepository.save(user);
+        Activity act1 = getStravaActivity();
+        act1.setUser(user);
+        act1.setStravaId(null);
+        act1.setName("TestActivity1");
+        act1.setAverageWatts(150f);
+
+        List<Activity> activities = List.of(
+            act1
+        );
+
+        activityRepository.saveAll(activities);
+
+        when(fitnessScoreService.calculateSessionLoad(anyInt(), anyInt(), anyFloat(), anyFloat()))
+            .thenReturn(123);
+
+        doAnswer(invocation -> {
+            Runnable task = invocation.getArgument(0);
+            task.run();
+            return null;
+        }).when(taskScheduler).schedule(any(Runnable.class), any(Instant.class));
+
+        activityProcessingService.fetchHeartRateDataForActivities(1, activities, "token");
+
+        List<Activity> activitiesWithSessionLoad = activityRepository.findByUser(user);
+
+        assertAll(
+            () -> assertEquals(1, activitiesWithSessionLoad.size()),
+            () -> assertEquals(123, activitiesWithSessionLoad.get(0).getSessionLoad())
+        );
+
+        verify(fitnessScoreService, times(1)).calculateSessionLoad(anyInt(), anyInt(), anyFloat(), anyFloat());
+    }
+
+    @Test
+    void testFetchHeartRateDataForActivities_withEnergyBasedMethod_setsSessionLoad() {
+        activityRepository.deleteAll();
+        activityRepository.flush();
+        ApplicationUser user = userRepository.findAll().getFirst();
+        user.setFtp(150);
+        userRepository.save(user);
+        Activity act1 = getStravaActivity();
+        act1.setUser(user);
+        act1.setStravaId(null);
+        act1.setName("TestActivity1");
+        act1.setKilojoules(150f);
+
+        List<Activity> activities = List.of(
+            act1
+        );
+
+        activityRepository.saveAll(activities);
+
+        when(fitnessScoreService.calculateSessionLoad(anyFloat(), anyFloat(), anyFloat()))
+            .thenReturn(123);
+
+        doAnswer(invocation -> {
+            Runnable task = invocation.getArgument(0);
+            task.run();
+            return null;
+        }).when(taskScheduler).schedule(any(Runnable.class), any(Instant.class));
+
+        activityProcessingService.fetchHeartRateDataForActivities(1, activities, "token");
+
+        List<Activity> activitiesWithSessionLoad = activityRepository.findByUser(user);
+
+        assertAll(
+            () -> assertEquals(1, activitiesWithSessionLoad.size()),
+            () -> assertEquals(123, activitiesWithSessionLoad.get(0).getSessionLoad())
+        );
+
+        verify(fitnessScoreService, times(1)).calculateSessionLoad(anyFloat(), anyFloat(), anyFloat());
+    }
+
+    @Test
+    void testFetchHeartRateDataForActivities_withFallbackMethod_setsSessionLoad() {
+        activityRepository.deleteAll();
+        activityRepository.flush();
+        ApplicationUser user = userRepository.findAll().getFirst();
+        Activity act1 = getStravaActivity();
+        act1.setUser(user);
+        act1.setStravaId(null);
+        act1.setName("TestActivity1");
+
+        List<Activity> activities = List.of(
+            act1
+        );
+
+        activityRepository.saveAll(activities);
+
+        when(fitnessScoreService.calculateSessionLoad(anyFloat(), anyInt(), anyFloat()))
+            .thenReturn(123);
+
+        doAnswer(invocation -> {
+            Runnable task = invocation.getArgument(0);
+            task.run();
+            return null;
+        }).when(taskScheduler).schedule(any(Runnable.class), any(Instant.class));
+
+        activityProcessingService.fetchHeartRateDataForActivities(1, activities, "token");
+
+        List<Activity> activitiesWithSessionLoad = activityRepository.findByUser(user);
+
+        assertAll(
+            () -> assertEquals(1, activitiesWithSessionLoad.size()),
+            () -> assertEquals(123, activitiesWithSessionLoad.get(0).getSessionLoad())
+        );
+
+        verify(fitnessScoreService, times(1)).calculateSessionLoad(anyFloat(), anyInt(), anyFloat());
     }
 
     @Test
