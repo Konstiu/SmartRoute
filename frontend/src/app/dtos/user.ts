@@ -35,3 +35,37 @@ export class UserDetailDto {
   experienceLevel!: string;
   activeWeekdays!: [string];
 }
+
+
+
+export interface ConsistencyData {
+  finalScore: number;
+  frequencyConsistency: number;
+  regularityConsistency: number;
+}
+
+
+export interface Injury {
+  injuryId?: number;
+  injuryIndex: number;
+  affectedArea: string;
+  lastHealthyDate: string;
+  lastInjuryDate: string;
+}
+export interface InjuryHistory {
+  noOfInjuries?: number;
+  injuriesList: Injury[];
+}
+
+export interface StatisticalData {
+  consistencyHistory: {
+    consistencyHistory: { [key: string]: ConsistencyData };
+    ctlHistory: { [key: string]: number };
+    atlHistory: { [key: string]: number };
+    tsbHistory: { [key: string]: number };
+  };
+  injuryHistory: {
+    injuriesList: Injury[];
+  };
+  gymHistory: any;
+}

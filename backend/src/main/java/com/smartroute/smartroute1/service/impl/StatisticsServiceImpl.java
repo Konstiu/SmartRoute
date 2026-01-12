@@ -1,10 +1,14 @@
 package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.endpoint.dto.ConsistencyScoreResultDto;
+import com.smartroute.smartroute1.endpoint.dto.DetailedActivityDto;
+import com.smartroute.smartroute1.endpoint.dto.ViewInjuryDto;
 import com.smartroute.smartroute1.endpoint.dto.statistics.ConsistencyHistoryDto;
 import com.smartroute.smartroute1.endpoint.dto.statistics.GymHistoryDto;
 import com.smartroute.smartroute1.endpoint.dto.statistics.InjuryHistoryDto;
 import com.smartroute.smartroute1.endpoint.dto.statistics.RunHistoryDto;
+import com.smartroute.smartroute1.endpoint.mapper.InjuryMapper;
+import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.GymWorkout;
@@ -44,13 +48,15 @@ public class StatisticsServiceImpl implements StatisticsService {
             WorkoutType.LONG_RUN,
             WorkoutType.TEMPO_RUN
     );
+    private final InjuryMapper injuryMapper;
+    private final StravaActivityMapper stravaActivityMapper;
     private int numberOfDaysInYear;     //For checking leap years
 
     public StatisticsServiceImpl(FatigueAndOverloadService fatigueAndOverloadService,
                                  ConsistencyAnalyzerService consistencyAnalyzerService,
                                  ActivityRepository activityRepository,
                                  GymWorkoutRepository gymWorkoutRepository,
-                                 InjuryRepository injuryRepository) {
+                                 InjuryRepository injuryRepository, InjuryMapper injuryMapper, StravaActivityMapper stravaActivityMapper) {
         this.fatigueAndOverloadService = fatigueAndOverloadService;
         this.consistencyAnalyzerService = consistencyAnalyzerService;
         this.activityRepository = activityRepository;
@@ -60,13 +66,18 @@ public class StatisticsServiceImpl implements StatisticsService {
         if (Year.isLeap(LocalDate.now().getYear())) {
             numberOfDaysInYear = 366;
         }
+        this.injuryMapper = injuryMapper;
+        this.stravaActivityMapper = stravaActivityMapper;
     }
 
 
     @Override
     public InjuryHistoryDto getInjuryHistory(ApplicationUser user) {
         List<Injuries> injuries = injuryRepository.getAllByUserBetweenDateOrderByDateAsc(user, (LocalDate.now().minusDays(numberOfDaysInYear)), LocalDate.now());
-        return new InjuryHistoryDto(injuries.size(), injuries);
+        List<ViewInjuryDto> injuryDtos = injuries.stream()
+                .map(injuryMapper::entitytoDto)
+                .toList();
+        return new InjuryHistoryDto(injuries.size(), injuryDtos);
     }
 
     @Override
@@ -77,7 +88,10 @@ public class StatisticsServiceImpl implements StatisticsService {
         double distance = runs.stream().mapToDouble(Activity::getDistance).sum();
         double time = runs.stream().mapToDouble(Activity::getElapsedTime).sum();
         int numberOfRuns = runs.size();
-        return new RunHistoryDto(numberOfRuns, time, distance, runs);
+        List<DetailedActivityDto> activityDtos = runs.stream()
+                .map(stravaActivityMapper::toDetailedViewDto)
+                .toList();
+        return new RunHistoryDto(numberOfRuns, time, distance, activityDtos);
     }
 
     @Override

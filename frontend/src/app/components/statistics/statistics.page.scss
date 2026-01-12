@@ -1,0 +1,267 @@
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 1.5rem 0 1rem 0;
+  color: var(--ion-color-dark);
+}
+
+.summary-section {
+  margin-bottom: 1rem;
+}
+
+.summary-card {
+  margin: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  ion-card-subtitle {
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-top: 0.5rem;
+  }
+}
+
+.ctl-card {
+  .metric-value {
+    color: #3b82f6;
+  }
+}
+
+.atl-card {
+  .metric-value {
+    color: #ef4444;
+  }
+}
+
+.tsb-card {
+  .metric-value {
+    color: #10b981;
+  }
+}
+
+.consistency-card {
+  .metric-value {
+    color: #8b5cf6;
+  }
+}
+
+.chart-section {
+  margin-bottom: 1.5rem;
+
+  ion-card {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+}
+
+.chart-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.range-buttons {
+  display: flex;
+  gap: 0.5rem;
+
+  ion-button {
+    --padding-start: 0.75rem;
+    --padding-end: 0.75rem;
+    font-size: 0.875rem;
+  }
+}
+
+.chart-container {
+  width: 100%;
+  height: 400px;
+  min-height: 300px;
+}
+
+.injury-section {
+  margin-top: 2rem;
+
+  ion-card {
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  ion-card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  ion-card-subtitle {
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+  }
+}
+
+.injury-progress-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: var(--ion-color-medium);
+}
+
+ion-progress-bar {
+  height: 8px;
+  border-radius: 4px;
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .chart-container {
+    height: 300px;
+  }
+
+  .range-buttons {
+    flex-wrap: wrap;
+  }
+
+  .summary-card .metric-value {
+    font-size: 1.75rem;
+  }
+}
+.summary-section {
+  margin-bottom: 2rem;
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--ion-text-color);
+}
+
+.summary-card {
+  text-align: center;
+
+  ion-card-subtitle {
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  .metric-value {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-top: 0.5rem;
+  }
+
+  &.ctl-card .metric-value {
+    color: #3b82f6;
+  }
+
+  &.atl-card .metric-value {
+    color: #ef4444;
+  }
+
+  &.tsb-card .metric-value {
+    color: #10b981;
+  }
+
+  &.consistency-card .metric-value {
+    color: #8b5cf6;
+  }
+}
+
+.chart-section {
+  margin-bottom: 2rem;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .range-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+}
+
+.chart-container {
+  height: 400px;
+  width: 100%;
+}
+
+.injury-section {
+  margin-bottom: 2rem;
+}
+
+.injury-card {
+  padding: 1rem;
+  border-radius: 8px;
+  background: var(--ion-color-step-50);
+  border-left: 4px solid;
+  margin-bottom: 1rem;
+
+  &.high-risk {
+    border-left-color: var(--ion-color-danger);
+    background: rgba(var(--ion-color-danger-rgb), 0.05);
+  }
+
+  &.medium-risk {
+    border-left-color: var(--ion-color-warning);
+    background: rgba(var(--ion-color-warning-rgb), 0.05);
+  }
+
+  &.low-risk {
+    border-left-color: var(--ion-color-success);
+    background: rgba(var(--ion-color-success-rgb), 0.05);
+  }
+
+  .injury-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+
+    h3 {
+      margin: 0;
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+
+    ion-badge {
+      font-size: 0.875rem;
+      padding: 0.25rem 0.75rem;
+    }
+  }
+
+  .injury-card-dates {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+
+    .injury-date {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.875rem;
+
+      .label {
+        color: var(--ion-color-medium);
+        font-weight: 500;
+      }
+
+      .value {
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .chart-container {
+    height: 300px;
+  }
+
+  .range-buttons {
+    flex-wrap: wrap;
+  }
+}
