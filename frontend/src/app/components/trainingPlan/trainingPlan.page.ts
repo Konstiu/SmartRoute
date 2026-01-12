@@ -23,7 +23,6 @@ import { MAP_MARKER_COLORS, coloredMarker } from '../map/map-icon';
 import { StopsService } from 'src/services/add-stops.service';
 import { firstValueFrom } from 'rxjs';
 import { GeoJsonPosition, AddStopsRequest } from '../../dtos/add-stops';
-
 import { latLng, LatLng, Layer, marker, polyline, Polyline, Marker, LatLngBounds } from 'leaflet';
 import L from 'leaflet';
 import 'leaflet-polylinedecorator';
@@ -42,6 +41,8 @@ export class TrainingPlanPage implements OnInit {
 
   private readonly router: Router = inject(Router);
   private readonly service: TrainingPlanService = inject(TrainingPlanService);
+  private readonly ROUTE_NOT_FOUND_CODE = 'ROUTE_NOT_FOUND';
+
   private routeLine: Polyline | null = null;
   private routeLineGeoPosition: GeoJsonPosition[] = [];
   private userLocationMarker: Marker | null = null;
@@ -49,15 +50,21 @@ export class TrainingPlanPage implements OnInit {
   private stopsService = inject(StopsService);
   private committedStops: LatLng[] = [];
 
+  private initialPlanLoaded = false;
+  private initialPlanLocation: LatLng | null = null;
+  private initialRouteFitDone = false;
+  private pendingInitialLocation: LatLng | null = null;
+  private initialRouteGenerated = false;
+  private applyingStart = false;
+
   private originalRouteBounds: LatLngBounds | null = null;
   private originalLatlngs: LatLng[] | null = null;
   private originalDistance: number | null = null;
   private originalElevation: number | null = null;
   private originalStart: LatLng | null = null;
   private originalRouteLineGeoPosition: GeoJsonPosition[] = [];
-  private toastCtrl = inject(ToastController);
 
-  private readonly ROUTE_NOT_FOUND_CODE = 'ROUTE_NOT_FOUND';
+  private toastCtrl = inject(ToastController);
 
   error: string | null = null;
   isLoading: boolean = true;
@@ -133,32 +140,73 @@ export class TrainingPlanPage implements OnInit {
   // Training plan loading
   // =====================================================
 
-  loadTrainingPlan(): void {
+  loadTrainingPlan(location?: LatLng): void {
     this.isLoading = true;
     this.error = null;
 
-    // TODO change position dynamically - current lat, long: ~Vienna
-    this.service.getTrainingPlan(48.21, 16.36,).subscribe({
+    const lat = location?.lat ?? 48.21;
+    const lng = location?.lng ?? 16.36;
+
+    this.service.getTrainingPlan(lat, lng).subscribe({
       next: res => {
         this.recommendedActivity = res;
         console.log(this.recommendedActivity);
         this.error = null;
         this.isLoading = false;
 
-        // wait for Angular to render <app-map>
-        setTimeout(() => this.forceMapResize(), 0);
+        if (this.pendingInitialLocation && !this.initialRouteGenerated) {
+          this.initialRouteGenerated = true;
+          const loc = this.pendingInitialLocation;
+          this.pendingInitialLocation = null;
+
+          this.generateRouteFromLocation(loc, true);
+        }
+
       },
       error: err => {
         console.error(err);
         this.isLoading = false;
         this.error = "Failed to load Training Plan.";
-        setTimeout(() => this.forceMapResize(), 0);
       }
     });
   }
 
   navigateToGymExercise(exerciseId: number) {
     this.router.navigate(['tabs/gym/' + exerciseId]);
+  }
+
+  private async applyStartLocation(location: LatLng, updateBaseline: boolean) {
+    this.committedStops = [];
+
+    if (this.applyingStart) {
+      return;
+      }
+
+    this.applyingStart = true;
+
+    try {
+      // ensure marker exists (you can also move it only after success if you want)
+      if (!this.userLocationMarker) {
+        this.userLocationMarker = marker(location, { icon: coloredMarker(MAP_MARKER_COLORS.start) });
+      } else {
+        this.userLocationMarker.setLatLng(location);
+      }
+
+      // 1) refresh training plan for this location
+      const plan = await firstValueFrom(this.service.getTrainingPlan(location.lat, location.lng));
+      this.recommendedActivity = plan;
+
+      // 2) generate route using the new plan distance
+      await this.generateRouteFromLocationAsync(location, updateBaseline);
+
+      // (generateRouteFromLocationAsync already rebuilds layers + refits)
+    } catch (err: any) {
+      console.error('applyStartLocation failed', err);
+      await this.showToast('Could not refresh plan/route for this location.', 3500, 'danger');
+      // optionally rollback marker here if you keep a snapshot
+    } finally {
+      this.applyingStart = false;
+    }
   }
 
   // =====================================================
@@ -215,14 +263,9 @@ export class TrainingPlanPage implements OnInit {
   }
 
 
-  onLocationSelected(location: LatLng) {
-    if (this.userLocationMarker) {
-      return;
-      }
-
-    this.userLocationMarker = marker(location, {icon: coloredMarker(MAP_MARKER_COLORS.start)});
+  async onLocationSelected(location: LatLng) {
     this.originalStart = location;
-    this.generateRouteFromLocation(location, true);
+    await this.applyStartLocation(location, true);
   }
 
   // =====================================================
@@ -234,8 +277,6 @@ export class TrainingPlanPage implements OnInit {
   }
 
   private async generateRouteFromLocationAsync(location: LatLng, updateBaseline: boolean): Promise<void> {
-    this.committedStops = [];
-
     try {
       const e = await firstValueFrom(
         this.routeService.getGeneratedRoute(
@@ -511,10 +552,8 @@ export class TrainingPlanPage implements OnInit {
   // Reset / baseline
   // =====================================================
 
-  resetRouteToOriginal() {
-    if (!this.originalLatlngs || this.originalLatlngs.length === 0) {
-      return;
-      }
+  async resetRouteToOriginal() {
+    if (!this.originalLatlngs || this.originalLatlngs.length === 0) return;
 
     if (this.originalStart) {
       if (!this.userLocationMarker) {
@@ -544,20 +583,29 @@ export class TrainingPlanPage implements OnInit {
 
     this.rebuildLayers();
     this.refitPreviewMap();
+
+    // refresh training plan based on reset start
+    if (this.originalStart) {
+      await this.refreshTrainingPlanFor(this.originalStart);
+    }
   }
 
   private async changeStartLocation(newStart: LatLng): Promise<{ layers: Layer[]; bounds: LatLngBounds | null }> {
-    if (!this.userLocationMarker) {
-      this.userLocationMarker = marker(newStart, { icon: coloredMarker(MAP_MARKER_COLORS.start) });
-    } else {
-      this.userLocationMarker.setLatLng(newStart);
-    }
-
-    // regenerate route BUT do NOT overwrite original baseline
-    await this.generateRouteFromLocationAsync(newStart, false);
-
+    // refresh plan + route, but do NOT overwrite original baseline
+    await this.applyStartLocation(newStart, false);
     return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
   }
+
+  private async refreshTrainingPlanFor(location: LatLng) {
+    try {
+      const plan = await firstValueFrom(this.service.getTrainingPlan(location.lat, location.lng));
+      this.recommendedActivity = plan;
+    } catch (e) {
+      console.error('Failed to refresh training plan', e);
+      await this.showToast('Failed to refresh training plan.', 3000, 'danger');
+    }
+  }
+
 
   // =====================================================
   // Weather
