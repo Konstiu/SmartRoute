@@ -82,7 +82,12 @@ public class RouteEndpoint {
     @ResponseStatus(HttpStatus.OK)
     public ViewRouteDto getRoute(@PathVariable("id") long id) {
         LOGGER.info("Getting route: {}", id);
-        return routeService.getRoute(id);
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+
+        return routeService.getRoute(id, email);
     }
 
     @Secured("ROLE_USER")
@@ -103,8 +108,9 @@ public class RouteEndpoint {
     @ResponseStatus(HttpStatus.OK)
     public void deleteRoute(@PathVariable("id") long id) {
         LOGGER.info("Deleting route: {}", id);
-
-        routeService.deleteRoute(id);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        routeService.deleteRoute(id, email);
     }
 
 
