@@ -3,6 +3,7 @@ package com.smartroute.smartroute1.entity;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.Sex;
 import com.smartroute.smartroute1.entity.enums.Weekday;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -12,12 +13,15 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Column;
+import jakarta.persistence.OneToMany;
 import lombok.Data;
 import lombok.ToString;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 
@@ -66,6 +70,10 @@ public class ApplicationUser {
     @Enumerated(EnumType.STRING)
     @ToString.Exclude
     private Set<Weekday> activeWeekdays = new HashSet<>();
+
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserDevice> devices = new ArrayList<>();
 
     public ApplicationUser() {
     }

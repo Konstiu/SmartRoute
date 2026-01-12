@@ -359,4 +359,45 @@ class FriendshipServiceTest {
             () -> assertTrue(outgoingList.stream().anyMatch(f -> f.getReceiver().getEmail().equals("bob@example.com")))
         );
     }
+
+    @Test
+    void areFriends_returnsTrue_forAcceptedFriendship_bothDirections() {
+        Friendship f = new Friendship();
+        f.setSender(alice);
+        f.setReceiver(bob);
+        f.setStatus(FriendshipStatus.ACCEPTED);
+        friendshipRepository.save(f);
+
+        assertAll(
+            () -> assertTrue(friendshipService.areFriends("alice@example.com", "bob@example.com")),
+            () -> assertTrue(friendshipService.areFriends("bob@example.com", "alice@example.com"))
+        );
+    }
+
+    @Test
+    void areFriends_returnsFalse_forPendingFriendship() {
+        Friendship f = new Friendship();
+        f.setSender(alice);
+        f.setReceiver(bob);
+        f.setStatus(FriendshipStatus.PENDING);
+        friendshipRepository.save(f);
+
+        assertAll(
+            () -> assertFalse(friendshipService.areFriends("alice@example.com", "bob@example.com")),
+            () -> assertFalse(friendshipService.areFriends("bob@example.com", "alice@example.com"))
+        );
+    }
+
+    @Test
+    void areFriends_returnsFalse_whenNoFriendshipExists() {
+        // no friendship created in setup
+        assertFalse(friendshipService.areFriends("alice@example.com", "bob@example.com"));
+    }
+
+    @Test
+    void areFriends_throwsNotFoundException_whenUserOrFriendDoesNotExist() {
+        assertThrows(NotFoundException.class, () -> friendshipService.areFriends("nonexistent@example.com", "bob@example.com"));
+        assertThrows(NotFoundException.class, () -> friendshipService.areFriends("alice@example.com", "nonexistent_friend@example.com"));
+    }
+
 }

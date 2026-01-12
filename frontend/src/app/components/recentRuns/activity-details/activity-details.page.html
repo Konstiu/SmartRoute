@@ -27,9 +27,9 @@
   <!-- Content - only show when NOT loading and activity exists -->
   @if (!isLoading && activity) {
     <!-- Map -->
-    @if (activity.summaryPolyline) {
+    @if (activity.summaryPolyline && mapLayers.length > 0) {
       <div class="map-container">
-        <div #map id="map"></div>
+        <app-map [layers]="mapLayers"></app-map>
       </div>
     }
 
@@ -38,12 +38,33 @@
       <!-- Header card with name + date -->
       <ion-card>
         <ion-card-header>
-          <ion-card-title>{{ activity.name }}</ion-card-title>
-          <ion-card-subtitle>
-            {{ activity.sportType }} · {{ formatDate(activity.startDateLocal) }}
-          </ion-card-subtitle>
+          <ion-toolbar>
+            <ion-title>
+              {{ activity.name }}
+              <ion-card-subtitle>
+                {{ activity.sportType }} · {{ formatDate(activity.startDateLocal) }}
+              </ion-card-subtitle>
+            </ion-title>
+            @if (activity.summaryPolyline) {
+              <ion-buttons slot="end">
+                <ion-button
+                  size="small"
+                  fill="clear"
+                  class="favorite-btn"
+                  [class.saved]="isRouteSaved"
+                  (click)="saveRoute()"
+                >
+                  <ion-icon
+                    slot="icon-only"
+                    [name]="isRouteSaved ? 'heart' : 'heart-outline'">
+                  </ion-icon>
+                </ion-button>
+              </ion-buttons>
+            }
+          </ion-toolbar>
         </ion-card-header>
       </ion-card>
+
 
       <!-- Overview: key metrics -->
       <ion-card>
