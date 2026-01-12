@@ -175,6 +175,10 @@ export class TrainingPlanPage implements OnInit {
     this.router.navigate(['tabs/gym/' + exerciseId]);
   }
 
+  /**
+   * Applies a new start location:
+   * refreshes training plan and regenerates route accordingly
+   */
   private async applyStartLocation(location: LatLng, updateBaseline: boolean) {
     this.committedStops = [];
 
@@ -213,12 +217,14 @@ export class TrainingPlanPage implements OnInit {
   // Map lifecycle + resize helpers
   // =====================================================
 
+  /** Forces Leaflet to recalculate map size (used after layout changes) */
   private forceMapResize() {
     requestAnimationFrame(() => this.mapComponent?.map?.invalidateSize(true));
     setTimeout(() => this.mapComponent?.map?.invalidateSize(true), 150);
     setTimeout(() => this.mapComponent?.map?.invalidateSize(true), 400);
   }
 
+  /** Fits the preview map to the current route bounds */
   private refitPreviewMap() {
     const map = this.mapComponent?.map;
     const bounds = this.routeBounds;
@@ -242,6 +248,7 @@ export class TrainingPlanPage implements OnInit {
   // Geolocation UI handlers
   // =====================================================
 
+  /** Called when precise geolocation fails and fallback will be attempted */
   async onExactLocationFailed() {
     const alert = await this.alertController.create({
       header: 'Precise location unavailable',
@@ -252,6 +259,7 @@ export class TrainingPlanPage implements OnInit {
     await alert.present();
   }
 
+  /** Called when no geolocation is available and user must place marker manually */
   async onGeolocationError() {
     const alert = await this.alertController.create({
       header: 'Unable to determine location',
@@ -262,7 +270,7 @@ export class TrainingPlanPage implements OnInit {
     await alert.present();
   }
 
-
+  /** Handles the first or updated start location selection */
   async onLocationSelected(location: LatLng) {
     this.originalStart = location;
     await this.applyStartLocation(location, true);
@@ -272,10 +280,12 @@ export class TrainingPlanPage implements OnInit {
   // Route generation (ORS)
   // =====================================================
 
+  /** Generates a route for the current start using Observable API */
   private generateRouteFromLocation(location: LatLng, updateBaseline: boolean) {
     void this.generateRouteFromLocationAsync(location, updateBaseline);
   }
 
+  /** Generates a route for the current start using async/await */
   private async generateRouteFromLocationAsync(location: LatLng, updateBaseline: boolean): Promise<void> {
     try {
       const e = await firstValueFrom(
@@ -335,6 +345,7 @@ export class TrainingPlanPage implements OnInit {
   // Stops / reshape / insert
   // =====================================================
 
+  /** Opens the fullscreen map modal for route editing */
   async openMapModal() {
     const modal = await this.modalCtrl.create({
       component: MapModalComponent,
@@ -367,6 +378,10 @@ export class TrainingPlanPage implements OnInit {
     await modal.present();
   }
 
+  /**
+   * Inserts or reshapes the route with additional stops
+   * and updates the preview on success
+   */
   async handleAdditionalPoints(points: LatLng[], mode: 'KEEP_SHAPE' | 'KEEP_LENGTH'): Promise<RouteUpdate> {
     if (!this.routeLine || points.length === 0) {
       return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
@@ -426,6 +441,7 @@ export class TrainingPlanPage implements OnInit {
       }
   }
 
+  /** Adds incoming stops only if they are not already near existing ones */
   private addUniqueStops(existing: LatLng[], incoming: LatLng[], epsMeters = 5): LatLng[] {
      const isNear = (a: LatLng, b: LatLng) => a.distanceTo(b) <= epsMeters;
 
@@ -436,6 +452,7 @@ export class TrainingPlanPage implements OnInit {
      return out;
   }
 
+  /** Converts a Leaflet LatLng into backend GeoJSON format */
   private toGeoJsonPosition(p: LatLng): GeoJsonPosition {
     return {
       latitude: p.lat,
@@ -448,6 +465,7 @@ export class TrainingPlanPage implements OnInit {
   // Map rendering (layers / decorators)
   // =====================================================
 
+  /** Rebuilds all visible map layers (route, start, committed stops) */
   private rebuildLayers() {
     const layers: Layer[] = [];
 
@@ -467,6 +485,7 @@ export class TrainingPlanPage implements OnInit {
     this.layers = layers;
   }
 
+  /** Adds directional arrows along the route polyline */
   private buildDirectionArrows(route: Polyline): Layer {
     const latlngs = route.getLatLngs() as LatLng[];
 
@@ -494,6 +513,7 @@ export class TrainingPlanPage implements OnInit {
   // Modals
   // =====================================================
 
+  /** Clones current layers for display inside the modal */
   private cloneLayersForModal(): Layer[] {
     const cloned: Layer[] = [];
 
@@ -523,6 +543,7 @@ export class TrainingPlanPage implements OnInit {
     return cloned;
   }
 
+  /** Clones the original baseline layers for modal reset */
   private cloneOriginalLayersForModal(): Layer[] {
     const cloned: Layer[] = [];
 
@@ -552,6 +573,7 @@ export class TrainingPlanPage implements OnInit {
   // Reset / baseline
   // =====================================================
 
+  /** Resets the route, stops, and start marker to the original baseline */
   async resetRouteToOriginal() {
     if (!this.originalLatlngs || this.originalLatlngs.length === 0) return;
 
@@ -590,12 +612,14 @@ export class TrainingPlanPage implements OnInit {
     }
   }
 
+  /** Changes the start location from the map modal */
   private async changeStartLocation(newStart: LatLng): Promise<{ layers: Layer[]; bounds: LatLngBounds | null }> {
     // refresh plan + route, but do NOT overwrite original baseline
     await this.applyStartLocation(newStart, false);
     return { layers: this.cloneLayersForModal(), bounds: this.routeBounds };
   }
 
+  /** Refreshes the training plan for a specific location */
   private async refreshTrainingPlanFor(location: LatLng) {
     try {
       const plan = await firstValueFrom(this.service.getTrainingPlan(location.lat, location.lng));
@@ -627,6 +651,7 @@ export class TrainingPlanPage implements OnInit {
 
   private modalCtrl = inject(ModalController);
 
+  /** Opens a modal explaining the weather conditions */
   async openWeatherExplanation() {
     const summary = this.recommendedActivity!.weather.weatherSummary;
     const modal = await this.modalCtrl.create({
@@ -789,6 +814,7 @@ export class TrainingPlanPage implements OnInit {
     return "danger";
   }
 
+  /** Displays a toast message to the user */
   private async showToast(
     message: string,
     duration = 3500,
