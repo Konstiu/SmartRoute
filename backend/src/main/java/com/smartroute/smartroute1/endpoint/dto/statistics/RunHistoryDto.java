@@ -1,5 +1,7 @@
 package com.smartroute.smartroute1.endpoint.dto.statistics;
 
+import com.smartroute.smartroute1.endpoint.dto.ActivityDto;
+import com.smartroute.smartroute1.endpoint.dto.DetailedActivityDto;
 import com.smartroute.smartroute1.entity.Activity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -14,5 +16,5 @@ public class RunHistoryDto {
     double totalRunTime;
     double totalDistance;
 
-    List<Activity> runHistory;
+    List<DetailedActivityDto> runHistory;
 }

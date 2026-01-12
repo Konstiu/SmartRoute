@@ -19,6 +19,10 @@ const routes: Routes = [
     // NO canActivate - public route!
   },
   {
+    path: 'stats',
+    loadComponent: () => import('./statistics/statistics.page').then(m => m.StatsPage)
+  },
+  {
     path: 'request-password-reset',
     loadComponent: () => import('./resetPassword/request-password-reset/request-reset-password.page').then(m => m.RequestResetPasswordPage),
   },

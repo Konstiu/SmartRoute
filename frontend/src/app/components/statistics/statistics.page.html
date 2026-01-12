@@ -1,0 +1,239 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Runner Dashboard</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  @if (!loading && !noData) {
+    <!-- Summary Cards -->
+    <div class="summary-section">
+      <h2 class="section-title">Today's Metrics</h2>
+      <ion-grid>
+        <ion-row>
+          <ion-col size="12" size-md="3">
+            <ion-card class="summary-card ctl-card">
+              <ion-card-header>
+                <ion-card-subtitle>Fitness (CTL)</ion-card-subtitle>
+              </ion-card-header>
+              <ion-card-content>
+                <div class="metric-value">{{ todayCtl !== null ? (todayCtl | number:'1.1-1') : '?' }}</div>
+              </ion-card-content>
+            </ion-card>
+          </ion-col>
+
+          <ion-col size="12" size-md="3">
+            <ion-card class="summary-card atl-card">
+              <ion-card-header>
+                <ion-card-subtitle>Fatigue (ATL)</ion-card-subtitle>
+              </ion-card-header>
+              <ion-card-content>
+                <div class="metric-value">{{ todayAtl !== null ? (todayAtl | number:'1.1-1') : '?' }}</div>
+              </ion-card-content>
+            </ion-card>
+          </ion-col>
+
+          <ion-col size="12" size-md="3">
+            <ion-card class="summary-card tsb-card">
+              <ion-card-header>
+                <ion-card-subtitle>Freshness (TSB)</ion-card-subtitle>
+              </ion-card-header>
+              <ion-card-content>
+                <div class="metric-value">{{ todayTsb !== null ? (todayTsb | number:'1.1-1') : '?' }}</div>
+              </ion-card-content>
+            </ion-card>
+          </ion-col>
+
+          <ion-col size="12" size-md="3">
+            <ion-card class="summary-card consistency-card">
+              <ion-card-header>
+                <ion-card-subtitle>Consistency</ion-card-subtitle>
+              </ion-card-header>
+              <ion-card-content>
+                <div class="metric-value">
+                  {{ todayConsistency !== null ? ((todayConsistency * 100) | number:'1.0-0') + '%' : '?' }}
+                </div>
+              </ion-card-content>
+            </ion-card>
+          </ion-col>
+        </ion-row>
+      </ion-grid>
+    </div>
+
+    <!-- Fitness Chart -->
+    <div class="chart-section">
+      <ion-card>
+        <ion-card-header>
+          <div class="chart-header">
+            <div class="range-buttons">
+              <ion-button
+                size="small"
+                [fill]="fitnessRange === 30 ? 'solid' : 'outline'"
+                (click)="setFitnessRange(30)">
+                30d
+              </ion-button>
+              <ion-button
+                size="small"
+                [fill]="fitnessRange === 90 ? 'solid' : 'outline'"
+                (click)="setFitnessRange(90)">
+                90d
+              </ion-button>
+              <ion-button
+                size="small"
+                [fill]="fitnessRange === 180 ? 'solid' : 'outline'"
+                (click)="setFitnessRange(180)">
+                180d
+              </ion-button>
+              <ion-button
+                size="small"
+                [fill]="fitnessRange === -1 ? 'solid' : 'outline'"
+                (click)="setFitnessRange(-1)">
+                All
+              </ion-button>
+            </div>
+          </div>
+        </ion-card-header>
+        <ion-card-content>
+          <div id="fitness-chart" class="chart-container"></div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Consistency Chart -->
+    <div class="chart-section">
+      <ion-card>
+        <ion-card-header>
+          <div class="chart-header">
+            <div class="range-buttons">
+              <ion-button
+                size="small"
+                [fill]="consistencyRange === 30 ? 'solid' : 'outline'"
+                (click)="setConsistencyRange(30)">
+                30d
+              </ion-button>
+              <ion-button
+                size="small"
+                [fill]="consistencyRange === 90 ? 'solid' : 'outline'"
+                (click)="setConsistencyRange(90)">
+                90d
+              </ion-button>
+              <ion-button
+                size="small"
+                [fill]="consistencyRange === 180 ? 'solid' : 'outline'"
+                (click)="setConsistencyRange(180)">
+                180d
+              </ion-button>
+              <ion-button
+                size="small"
+                [fill]="consistencyRange === -1 ? 'solid' : 'outline'"
+                (click)="setConsistencyRange(-1)">
+                All
+              </ion-button>
+            </div>
+          </div>
+        </ion-card-header>
+        <ion-card-content>
+          <div id="consistency-chart" class="chart-container"></div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Injury Section -->
+    @if (injuries.length > 0) {
+      <div class="injury-section">
+        <h2 class="section-title">Injury Monitor</h2>
+
+        <!-- Injury Timeline Chart -->
+        <div class="chart-section">
+          <ion-card>
+            <ion-card-header>
+              <div class="chart-header">
+                <div class="range-buttons">
+                  <ion-button
+                    size="small"
+                    [fill]="injuryRange === 30 ? 'solid' : 'outline'"
+                    (click)="setInjuryRange(30)">
+                    30d
+                  </ion-button>
+                  <ion-button
+                    size="small"
+                    [fill]="injuryRange === 90 ? 'solid' : 'outline'"
+                    (click)="setInjuryRange(90)">
+                    90d
+                  </ion-button>
+                  <ion-button
+                    size="small"
+                    [fill]="injuryRange === 180 ? 'solid' : 'outline'"
+                    (click)="setInjuryRange(180)">
+                    180d
+                  </ion-button>
+                  <ion-button
+                    size="small"
+                    [fill]="injuryRange === -1 ? 'solid' : 'outline'"
+                    (click)="setInjuryRange(-1)">
+                    All
+                  </ion-button>
+                </div>
+              </div>
+            </ion-card-header>
+            <ion-card-content>
+              <div id="injury-chart" class="chart-container"></div>
+            </ion-card-content>
+          </ion-card>
+        </div>
+
+        <!-- Current Injury Summary -->
+        <ion-card>
+          <ion-card-header>
+            <ion-card-title>Current Injury Status</ion-card-title>
+            <ion-card-subtitle>{{ injuries.length }} tracked injuries</ion-card-subtitle>
+          </ion-card-header>
+          <ion-card-content>
+            <ion-grid>
+              <ion-row>
+                @for (injury of injuries; track injury.injuryId || injury.affectedArea) {
+                  <ion-col size="12" size-md="6" size-lg="4">
+                    <div class="injury-card" [class.high-risk]="injury.injuryIndex >= 0.7"
+                         [class.medium-risk]="injury.injuryIndex >= 0.4 && injury.injuryIndex < 0.7"
+                         [class.low-risk]="injury.injuryIndex < 0.4">
+                      <div class="injury-card-header">
+                        <h3>{{ formatInjuryArea(injury.affectedArea) }}</h3>
+                        <ion-badge [color]="getInjuryColor(injury.injuryIndex)">
+                          {{ (injury.injuryIndex * 100).toFixed(0) }}%
+                        </ion-badge>
+                      </div>
+                      <div class="injury-card-dates">
+                        <div class="injury-date">
+                          <span class="label">End of Injury:</span>
+                          <span class="value">{{ formatDate(injury.lastInjuryDate) }}</span>
+                        </div>
+                        <div class="injury-date">
+                          <span class="label">Start of Injury:</span>
+                          <span class="value">{{ formatDate(injury.lastHealthyDate) }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </ion-col>
+                }
+              </ion-row>
+            </ion-grid>
+          </ion-card-content>
+        </ion-card>
+      </div>
+    } @else {
+    }
+  } @else if (noData){
+    <div class="empty-state">
+      <ion-icon name="analytics-outline" size="large"></ion-icon>
+      <h2>No training statistics yet</h2>
+      <ion-text color="medium">
+        We’ll start showing fitness, fatigue, and consistency once you’ve logged activities.
+      </ion-text>
+    </div>
+  } @else {
+    <div class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Anaylzing your training...</p>
+    </div>
+  }
+</ion-content>
