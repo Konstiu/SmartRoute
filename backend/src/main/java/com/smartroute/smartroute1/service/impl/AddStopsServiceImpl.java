@@ -438,7 +438,7 @@ public class AddStopsServiceImpl implements AddStopsService {
         double routeLength = closest.totalLengthRoute;
 
         // Reasonable bound: allow larger detours only for long routes
-        double minAnchorDistance = Math.min(closest.distanceMeters, routeLength / 4); // limit to half the original route
+        double minAnchorDistance = Math.min(closest.distanceMeters * 2, routeLength / 4); // limit to half the original route
         //double minAnchorDistance = routeLength / 4;
 
         // Walk outward respecting curvature
@@ -637,7 +637,7 @@ public class AddStopsServiceImpl implements AddStopsService {
             return addWaypoints(addStopsDto);
         }
 
-        final double minLoop = 400; // needed for ORS stability
+        final double minLoop = 50; // needed for ORS stability
         GeoJsonPosition loopCenter = computeCentroid(required);
 
         // binary search
@@ -647,12 +647,16 @@ public class AddStopsServiceImpl implements AddStopsService {
         double low = Math.max(minLoop, (originalLength - diff) * 0.5);
         double high = (originalLength - diff) * (1 + toleranceFactor) * 2;
 
-        final int maxIterations = 3;
+        final int maxIterations = 2;
 
         List<GeoJsonPosition> bestRoute = null;
         double bestError = Double.MAX_VALUE;
 
         GeoJsonDto candidate = new GeoJsonDto();
+
+        List<GeoJsonPosition> requiredWithoutLast = new ArrayList<>();
+        requiredWithoutLast.add(originalRoute.getFirst());
+        requiredWithoutLast.addAll(newPoints);
 
         for (int i = 0; i < maxIterations; i++) {
             double requested = (low + high) / 2.5;
@@ -667,14 +671,14 @@ public class AddStopsServiceImpl implements AddStopsService {
                 throw new RouteNotFoundException("No route could be generated for the selected location");
             }
             List<GeoJsonPosition> loop = dto.getFeatures().getFirst().getGeometry().getCoordinates();
-            loop = rotateToStart(loop, originalRoute.getFirst());
 
             AddStopsDto candidateStopsDto = new AddStopsDto(
                     toStopPoint(loop),
-                    toStopPoint(newPoints)
+                    toStopPoint(requiredWithoutLast)
             );
 
             candidate = addWaypoints(candidateStopsDto);
+            loop = rotatePolylineToStart(loop, originalRoute.getFirst());
             double length = computeLength(candidate.getFeatures().getFirst().getGeometry().getCoordinates());
 
             double error = Math.abs(length - originalLength);
@@ -697,45 +701,29 @@ public class AddStopsServiceImpl implements AddStopsService {
         return createGeoJsonDtoFromPolyline(cleanRoute(bestRoute));
     }
 
-    private List<GeoJsonPosition> rotateToStart(List<GeoJsonPosition> coords, GeoJsonPosition start) {
-        if (coords == null || coords.size() < 2) {
-            return coords;
-        }
-
-        // 1) If loop is closed, drop the duplicated last point for rotation
-        boolean isClosed = haversine(coords.getFirst(), coords.getLast()) < 1.0; // 1m tolerance
-        List<GeoJsonPosition> open = isClosed ? coords.subList(0, coords.size() - 1) : coords;
-
-        if (open.isEmpty()) {
-            return coords;
-        }
-
-        // 2) Find closest point in the open list
+    private List<GeoJsonPosition> rotatePolylineToStart(
+            List<GeoJsonPosition> poly,
+            GeoJsonPosition start
+    ) {
         int bestIdx = 0;
         double bestD = Double.MAX_VALUE;
-        for (int i = 0; i < open.size(); i++) {
-            double d = haversine(open.get(i), start);
+
+        for (int i = 0; i < poly.size(); i++) {
+            double d = haversine(poly.get(i), start);
             if (d < bestD) {
                 bestD = d;
                 bestIdx = i;
             }
         }
 
-        // 3) Rotate: [bestIdx..end] + [0..bestIdx-1]
-        List<GeoJsonPosition> rotated = new ArrayList<>(open.size() + 1);
-        rotated.addAll(open.subList(bestIdx, open.size()));
-        rotated.addAll(open.subList(0, bestIdx));
+        List<GeoJsonPosition> out = new ArrayList<>(poly.size());
+        out.addAll(poly.subList(bestIdx, poly.size()));
+        out.addAll(poly.subList(0, bestIdx));
 
-        // 4) Snap start exactly at the beginning (keeps anchor stable)
-        rotated.set(0, start);
-
-        // 5) Close the loop by adding start as LAST only once
-        rotated.add(start);
-
-        return rotated;
+        // snap exact start
+        out.set(0, start);
+        return out;
     }
-
-
 
     private GeoJsonPosition computeCentroid(List<GeoJsonPosition> points) {
         if (points == null || points.isEmpty()) {
