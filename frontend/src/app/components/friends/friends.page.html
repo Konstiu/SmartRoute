@@ -17,7 +17,7 @@
   <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
-  
+
   <div class="friends-container">
     @if (outgoingRequests.length > 0) {
       <h3 class="section-title">Pending Requests</h3>
@@ -82,6 +82,9 @@
               <div class="friend-name">{{ f.firstName }} {{ f.lastName }}</div>
               <div class="friend-email">{{ f.email }}</div>
             </ion-label>
+            <ion-button slot="end" fill="clear" (click)="startConversationWithFriend(f)">
+              <ion-icon slot="icon-only" name="chatbubble-ellipses-outline"></ion-icon>
+            </ion-button>
             <ion-button slot="end" fill="clear" [id]="'menu-trigger-' + $index">
               <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
             </ion-button>
@@ -99,5 +102,10 @@
         </ion-card>
       }
     }
+    <!--ion-fab slot="fixed" vertical="bottom" horizontal="end">
+      <ion-fab-button color="danger" (click)="alertFriends()">
+        <ion-icon name="alert"></ion-icon>
+      </ion-fab-button>
+    </ion-fab-->
   </div>
 </ion-content>
