@@ -21,6 +21,8 @@ export class MapComponent implements OnInit, AfterViewInit {
   @Output() locationError = new EventEmitter<void>(); // final failure
   @Output() locationSelected = new EventEmitter<LatLng>();
 
+  @Output() leafletMapReady = new EventEmitter<Map>();
+
   public map: Map | null = null;
 
   private locationEmitted = false;
@@ -46,6 +48,7 @@ export class MapComponent implements OnInit, AfterViewInit {
 
   onMapReady(map: Map) {
     this.map = map;
+    this.leafletMapReady.emit(map);
 
     // Always show something immediately (Vienna) before geolocation resolves
     this.applyDefaultView();

@@ -10,7 +10,7 @@ import {
   formatWindDirection,
   formatWindSpeed,
 } from "../../util/formatters";
-import { RecommendedActivityDto, SessionType } from "../../dtos/recommended-activity";
+import { RecommendedActivityDto, SessionType, SaveRouteDto } from "../../dtos/recommended-activity";
 import { Router } from "@angular/router";
 import { BodyPart, getBodyPartLabel, getSeverityColor } from "../../dtos/injuries";
 import { TrainingPlanService } from "../../../services/training-plan.service";
@@ -26,6 +26,7 @@ import { GeoJsonPosition, AddStopsRequest } from '../../dtos/add-stops';
 import { latLng, LatLng, Layer, marker, polyline, Polyline, Marker, LatLngBounds } from 'leaflet';
 import L from 'leaflet';
 import 'leaflet-polylinedecorator';
+import {encodePolyline} from "../../util/polyline-encode-decode";
 
 type RouteUpdate = { layers: Layer[]; bounds: LatLngBounds | null };
 
@@ -65,6 +66,7 @@ export class TrainingPlanPage implements OnInit {
   private originalRouteLineGeoPosition: GeoJsonPosition[] = [];
 
   private toastCtrl = inject(ToastController);
+  private modalCtrl = inject(ModalController);
 
   error: string | null = null;
   isLoading: boolean = true;
@@ -72,6 +74,7 @@ export class TrainingPlanPage implements OnInit {
   layers: Layer[] = [];
   routeService = inject(RouteService);
   alertController = inject(AlertController);
+  isRouteSaved = false;
   date: string = new Date().toLocaleDateString();
 
   recommendedActivity: RecommendedActivityDto | undefined = {
@@ -113,10 +116,46 @@ export class TrainingPlanPage implements OnInit {
     gymSession: {
       id: 1,
       exercises: [
-        { name: "Exercise 1", exerciseId: "1", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
-        { name: "Exercise 2", exerciseId: "2", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
-        { name: "Exercise 3", exerciseId: "3", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
-        { name: "Exercise 4", exerciseId: "4", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
+        {
+          name: "Exercise 1",
+          exerciseId: "1",
+          bodyParts: ["core"],
+          equipments: [],
+          gifUrl: "",
+          instructions: [],
+          secondaryMuscles: [],
+          targetMuscles: []
+        },
+        {
+          name: "Exercise 2",
+          exerciseId: "2",
+          bodyParts: ["core"],
+          equipments: [],
+          gifUrl: "",
+          instructions: [],
+          secondaryMuscles: [],
+          targetMuscles: []
+        },
+        {
+          name: "Exercise 3",
+          exerciseId: "3",
+          bodyParts: ["core"],
+          equipments: [],
+          gifUrl: "",
+          instructions: [],
+          secondaryMuscles: [],
+          targetMuscles: []
+        },
+        {
+          name: "Exercise 4",
+          exerciseId: "4",
+          bodyParts: ["core"],
+          equipments: [],
+          gifUrl: "",
+          instructions: [],
+          secondaryMuscles: [],
+          targetMuscles: []
+        },
       ],
       sets: 4,
       reps: 40,
@@ -649,8 +688,6 @@ export class TrainingPlanPage implements OnInit {
     return "rainy-outline"; // rain
   }
 
-  private modalCtrl = inject(ModalController);
-
   /** Opens a modal explaining the weather conditions */
   async openWeatherExplanation() {
     const summary = this.recommendedActivity!.weather.weatherSummary;
@@ -679,7 +716,7 @@ export class TrainingPlanPage implements OnInit {
 
     const xmlString = this.generateGpxXml(this.latlngs);
 
-    const blob = new Blob([xmlString], { type: 'application/gpx+xml' });
+    const blob = new Blob([xmlString], {type: 'application/gpx+xml'});
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -719,6 +756,49 @@ export class TrainingPlanPage implements OnInit {
 
     return gpx;
   }
+
+  // =====================================================
+  // Save Route
+  // =====================================================
+
+  saveRoute() {
+    if (this.isRouteSaved) {
+      return;
+    }
+
+    if (!this.latlngs || this.latlngs.length === 0) {
+      console.warn('No route to export (latlngs is null or empty).');
+      return;
+    }
+    if (!this.recommendedActivity?.route) {
+      console.warn('No recommended activity route data.');
+      return;
+    }
+    // Convert Leaflet LatLng objects to [lat, lng] for polyline encoding
+    const encodedRoute = encodePolyline(this.latlngs);
+
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString("en-US", {day: "2-digit", month: "short", year: "numeric"}); // "09 Jan 2026"
+    const name = `${this.recommendedActivity.name}, ${formattedDate}`;
+
+    const dto: SaveRouteDto = {
+      name: name,
+      distance: this.recommendedActivity.route.distance,
+      pace: this.recommendedActivity.route.pace,
+      elevation: this.recommendedActivity.route.elevation,
+      route: encodedRoute
+    };
+    this.routeService.saveRoute(dto).subscribe({
+      next: () => {
+        console.log('Route saved successfully');
+        this.isRouteSaved = true;
+      },
+      error: err => {
+        console.error('Failed to save route', err);
+      }
+    });
+  }
+
 
   // =====================================================
   // UI helpers (toast/alerts/colors/formatters)

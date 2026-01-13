@@ -1,4 +1,4 @@
-import {Component, OnInit} from '@angular/core';
+import {Component, inject, OnInit} from '@angular/core';
 import {IonicModule} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {Router} from '@angular/router';
@@ -16,9 +16,9 @@ export class GymWorkoutTabPage implements OnInit {
   gymWorkouts: GymWorkoutDto[] = [];
   isLoading = false;
   error: string | null = null;
+  private gymWorkoutService = inject(GymworkoutService);
+  private router = inject(Router);
 
-  constructor(private gymWorkoutService: GymworkoutService, private router: Router) {
-  }
 
   ngOnInit() {
     this.loadWorkouts();
