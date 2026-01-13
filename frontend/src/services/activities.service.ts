@@ -1,6 +1,6 @@
 import {inject, Injectable} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
-import {Observable} from 'rxjs';
+import {Observable, Subject} from 'rxjs';
 import {DetailedActivity, Activity} from '../app/dtos/Activity';
 import {Globals} from "../global/globals";
 import {RunClassificationDto, RunType} from "../app/dtos/run-classification";
@@ -86,5 +86,13 @@ export class ActivitiesService {
       {
         headers: { 'Content-Type': 'application/json' }
       });
+  }
+
+  private activityUpdated = new Subject<number>();
+
+  activityUpdated$ = this.activityUpdated.asObservable();
+
+  notifyActivityUpdate(activityId: number) {
+    this.activityUpdated.next(activityId);
   }
 }

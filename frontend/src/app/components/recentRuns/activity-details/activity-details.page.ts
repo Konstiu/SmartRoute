@@ -79,6 +79,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
     const {data} = await modal.onWillDismiss();
     if (data?.updatedClassification) {
       activity.runClassification = data.updatedClassification;
+      this.stravaService.notifyActivityUpdate(activity.id);
     }
   }
 

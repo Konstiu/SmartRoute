@@ -1,4 +1,4 @@
-import {Component, inject, OnInit} from '@angular/core';
+import {ChangeDetectorRef, Component, inject, OnDestroy, OnInit} from '@angular/core';
 import {IonicModule, ModalController} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../services/activities.service';
@@ -18,41 +18,53 @@ import {ChangeClassificationComponent} from "./change-classification/change-clas
   standalone: true,
   imports: [IonicModule, CommonModule]
 })
-export class RecentRunsPage implements OnInit {
+export class RecentRunsPage implements OnInit, OnDestroy {
   activities: Activity[] = [];
   isLoading = false;
   error: string | null = null;
   private syncSubscription: any;
 
-  constructor(private stravaService: ActivitiesService,
-              private router: Router,
-              private syncNotificationService: ActivitySyncNotificationService
-  ) {
-  }
-
   private activitiesService: ActivitiesService = inject(ActivitiesService);
   private toastCtrl: ToastController = inject(ToastController);
   private modalController: ModalController = inject(ModalController);
+  private cdr: ChangeDetectorRef = inject(ChangeDetectorRef);
+  private router: Router = inject(Router);
+  private syncNotificationService: ActivitySyncNotificationService = inject(ActivitySyncNotificationService);
+  private updateSubscription: any;
 
   ngOnInit() {
-    this.loadActivities();
     this.syncSubscription = this.syncNotificationService.syncCompleted.subscribe(() => {
       this.loadActivities();
     });
+
+    this.updateSubscription = this.activitiesService.activityUpdated$.subscribe((activityId) => {
+      console.log('Activity updated:', activityId);
+      const activity = this.activities.find(a => a.id === activityId);
+      if (activity) {
+        this.loadActivities();
+      }
+    });
+  }
+
+  ionViewWillEnter() {
+    console.log('ionViewWillEnter');
+    this.loadActivities();
   }
 
   loadActivities(event?: any) {
     this.isLoading = true;
     this.error = null;
 
-    this.stravaService.getRecentActivities().subscribe({
+    this.activitiesService.getRecentActivities().subscribe({
       next: (data) => {
         this.activities = data.sort((a, b) =>
           new Date(b.startDateLocal).getTime() - new Date(a.startDateLocal).getTime()
         );
-        this.activities = data;
         console.log(this.activities);
         this.isLoading = false;
+
+        this.cdr.detectChanges();
+
         if (event) {
           event.target.complete();
         }
@@ -61,6 +73,9 @@ export class RecentRunsPage implements OnInit {
         console.error('Error fetching activities:', err);
         this.error = 'Failed to load activities. Please try again.';
         this.isLoading = false;
+
+        this.cdr.detectChanges();
+
         if (event) {
           event.target.complete();
         }
@@ -189,6 +204,7 @@ export class RecentRunsPage implements OnInit {
     const {data} = await modal.onWillDismiss();
     if (data?.updatedClassification) {
       activity.runClassification = data.updatedClassification;
+      this.cdr.detectChanges();
     }
   }
 
@@ -209,5 +225,4 @@ export class RecentRunsPage implements OnInit {
       this.syncSubscription.unsubscribe();
     }
   }
-
 }
