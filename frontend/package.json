@@ -46,7 +46,8 @@
     "tslib": "^2.3.0",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1",
-    "zone.js": "~0.15.0"
+    "zone.js": "~0.15.0",
+    "leaflet-polylinedecorator": "^1.6.0"
   },
   "devDependencies": {
     "@angular-devkit/build-angular": "^20.0.0",
