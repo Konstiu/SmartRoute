@@ -1,6 +1,6 @@
-import { AlertController, IonicModule } from '@ionic/angular';
-import { Component, EventEmitter, inject, OnInit, ViewChild } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import {AlertController, IonicModule} from '@ionic/angular';
+import {Component, EventEmitter, inject, OnInit, ViewChild} from '@angular/core';
+import {CommonModule} from '@angular/common';
 import {
   formatDistance,
   formatElevation, formatInjuryIndex,
@@ -10,16 +10,17 @@ import {
   formatWindDirection,
   formatWindSpeed,
 } from "../../util/formatters";
-import { RecommendedActivityDto, SessionType } from "../../dtos/recommended-activity";
-import { Router } from "@angular/router";
-import { BodyPart, getBodyPartLabel, getSeverityColor } from "../../dtos/injuries";
-import { TrainingPlanService } from "../../../services/training-plan.service";
-import { MapComponent } from '../map/map.component';
-import { Icon, icon, latLng, LatLng, Layer, marker, polyline } from 'leaflet';
-import { RouteService } from 'src/services/route.service';
-import { convertPolylineToCoordinateList } from 'src/services/utils';
-import { ModalController } from '@ionic/angular';
-import { WeatherInfoComponent } from '../weather/weather.component';
+import {RecommendedActivityDto, SessionType, SaveRouteDto} from "../../dtos/recommended-activity";
+import {Router} from "@angular/router";
+import {BodyPart, getBodyPartLabel, getSeverityColor} from "../../dtos/injuries";
+import {TrainingPlanService} from "../../../services/training-plan.service";
+import {MapComponent} from '../map/map.component';
+import {Icon, icon, latLng, LatLng, Layer, marker, polyline} from 'leaflet';
+import {RouteService} from 'src/services/route.service';
+import {convertPolylineToCoordinateList} from 'src/services/utils';
+import {ModalController} from '@ionic/angular';
+import {WeatherInfoComponent} from '../weather/weather.component';
+import {encodePolyline} from "../../util/polyline-encode-decode";
 
 @Component({
   selector: 'app-trainingplan',
@@ -29,10 +30,7 @@ import { WeatherInfoComponent } from '../weather/weather.component';
   imports: [IonicModule, CommonModule, MapComponent]
 })
 export class TrainingPlanPage implements OnInit {
-
-  private readonly router: Router = inject(Router);
-  private readonly service: TrainingPlanService = inject(TrainingPlanService);
-
+  isRouteSaved = false;
   date: string = new Date().toLocaleDateString();
   recommendedActivity: RecommendedActivityDto | undefined = {
     name: "Gym Session",
@@ -73,10 +71,46 @@ export class TrainingPlanPage implements OnInit {
     gymSession: {
       id: 1,
       exercises: [
-        { name: "Exercise 1", exerciseId: "1", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
-        { name: "Exercise 2", exerciseId: "2", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
-        { name: "Exercise 3", exerciseId: "3", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
-        { name: "Exercise 4", exerciseId: "4", bodyParts: ["core"], equipments: [], gifUrl: "", instructions: [], secondaryMuscles: [], targetMuscles: [] },
+        {
+          name: "Exercise 1",
+          exerciseId: "1",
+          bodyParts: ["core"],
+          equipments: [],
+          gifUrl: "",
+          instructions: [],
+          secondaryMuscles: [],
+          targetMuscles: []
+        },
+        {
+          name: "Exercise 2",
+          exerciseId: "2",
+          bodyParts: ["core"],
+          equipments: [],
+          gifUrl: "",
+          instructions: [],
+          secondaryMuscles: [],
+          targetMuscles: []
+        },
+        {
+          name: "Exercise 3",
+          exerciseId: "3",
+          bodyParts: ["core"],
+          equipments: [],
+          gifUrl: "",
+          instructions: [],
+          secondaryMuscles: [],
+          targetMuscles: []
+        },
+        {
+          name: "Exercise 4",
+          exerciseId: "4",
+          bodyParts: ["core"],
+          equipments: [],
+          gifUrl: "",
+          instructions: [],
+          secondaryMuscles: [],
+          targetMuscles: []
+        },
       ],
       sets: 4,
       reps: 40,
@@ -85,6 +119,33 @@ export class TrainingPlanPage implements OnInit {
   error: string | null = null;
   isLoading: boolean = true;
   latlngs: LatLng[] | null = null;
+  layers: Layer[] = [];
+  routeService = inject(RouteService);
+  alertController = inject(AlertController);
+  markerOptions = {
+    icon: icon({
+      ...Icon.Default.prototype.options,
+      iconUrl: 'assets/marker-icon.png',
+      iconRetinaUrl: 'assets/marker-icon-2x.png',
+      shadowUrl: 'assets/marker-shadow.png'
+    })
+  };
+  hasLocation = false;
+  @ViewChild(MapComponent) mapComponent!: MapComponent;
+  protected readonly SessionType = SessionType;
+  protected readonly formatDistance = formatDistance;
+  protected readonly formatPace = formatPace;
+  protected readonly formatElevation = formatElevation;
+  protected readonly formatTemperature = formatTemperature;
+  protected readonly formatWindDirection = formatWindDirection;
+  protected readonly formatWindSpeed = formatWindSpeed;
+  protected readonly formatPrecipitation = formatPrecipitation;
+  protected readonly getBodyPartLabel = getBodyPartLabel;
+  protected readonly getSeverityColor = getSeverityColor;
+  protected readonly formatInjuryIndex = formatInjuryIndex;
+  private readonly router: Router = inject(Router);
+  private readonly service: TrainingPlanService = inject(TrainingPlanService);
+  private modalCtrl = inject(ModalController);
 
   ngOnInit(): void {
     this.loadTrainingPlan();
@@ -204,19 +265,6 @@ export class TrainingPlanPage implements OnInit {
     return "danger";
   }
 
-  layers: Layer[] = [];
-  routeService = inject(RouteService);
-
-  alertController = inject(AlertController);
-  markerOptions = {
-    icon: icon({
-      ...Icon.Default.prototype.options,
-      iconUrl: 'assets/marker-icon.png',
-      iconRetinaUrl: 'assets/marker-icon-2x.png',
-      shadowUrl: 'assets/marker-shadow.png'
-    })
-  };
-
   async onGeolocationError(_error: GeolocationPositionError) {
 
     let alert = await this.alertController.create({
@@ -227,9 +275,6 @@ export class TrainingPlanPage implements OnInit {
 
     await alert.present();
   }
-
-  hasLocation = false;
-  @ViewChild(MapComponent) mapComponent!: MapComponent;
 
   handleNewLocation(location: LatLng) {
     if (this.recommendedActivity?.route?.distance) {
@@ -247,7 +292,7 @@ export class TrainingPlanPage implements OnInit {
           this.layers.push(coords)
           if (this.mapComponent['map']) {
             const bounds = coords.getBounds();
-            this.mapComponent['map'].fitBounds(bounds, { padding: [50, 50] });
+            this.mapComponent['map'].fitBounds(bounds, {padding: [50, 50]});
           }
         }
       });
@@ -280,8 +325,6 @@ export class TrainingPlanPage implements OnInit {
     return "rainy-outline"; // rain
   }
 
-  private modalCtrl = inject(ModalController);
-
   async openWeatherExplanation() {
     const summary = this.recommendedActivity!.weather.weatherSummary;
     const modal = await this.modalCtrl.create({
@@ -297,6 +340,46 @@ export class TrainingPlanPage implements OnInit {
     await modal.present();
   }
 
+  saveRoute() {
+    if (this.isRouteSaved) {
+      return;
+    }
+
+    if (!this.latlngs || this.latlngs.length === 0) {
+      console.warn('No route to export (latlngs is null or empty).');
+      return;
+    }
+    if (!this.recommendedActivity?.route) {
+      console.warn('No recommended activity route data.');
+      return;
+    }
+    // Convert Leaflet LatLng objects to [lat, lng] for polyline encoding
+    const encodedRoute = encodePolyline(this.latlngs);
+
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString("en-US", {day: "2-digit", month: "short", year: "numeric"}); // "09 Jan 2026"
+    const name = `${this.recommendedActivity.name}, ${formattedDate}`;
+
+    const dto: SaveRouteDto = {
+      name: name,
+      distance: this.recommendedActivity.route.distance,
+      pace: this.recommendedActivity.route.pace,
+      elevation: this.recommendedActivity.route.elevation,
+      route: encodedRoute
+    };
+    this.routeService.saveRoute(dto).subscribe({
+      next: () => {
+        console.log('Route saved successfully');
+        this.isRouteSaved = true;
+      },
+      error: err => {
+        console.error('Failed to save route', err);
+      }
+    });
+
+
+  }
+
   exportGpx() {
     if (!this.latlngs || this.latlngs.length === 0) {
       console.warn('No route to export (latlngs is null or empty).');
@@ -305,7 +388,7 @@ export class TrainingPlanPage implements OnInit {
 
     const xmlString = this.generateGpxXml(this.latlngs);
 
-    const blob = new Blob([xmlString], { type: 'application/gpx+xml' });
+    const blob = new Blob([xmlString], {type: 'application/gpx+xml'});
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -318,7 +401,7 @@ export class TrainingPlanPage implements OnInit {
 
   generateGpxXml(latlngs: LatLng[]): string {
     const now = new Date().toISOString();
-    
+
     const trackPoints = latlngs
       .map(latlng => {
         const lat = (latlng as any).lat;
@@ -345,18 +428,6 @@ export class TrainingPlanPage implements OnInit {
 
     return gpx;
   }
-
-  protected readonly SessionType = SessionType;
-  protected readonly formatDistance = formatDistance;
-  protected readonly formatPace = formatPace;
-  protected readonly formatElevation = formatElevation;
-  protected readonly formatTemperature = formatTemperature;
-  protected readonly formatWindDirection = formatWindDirection;
-  protected readonly formatWindSpeed = formatWindSpeed;
-  protected readonly formatPrecipitation = formatPrecipitation;
-  protected readonly getBodyPartLabel = getBodyPartLabel;
-  protected readonly getSeverityColor = getSeverityColor;
-  protected readonly formatInjuryIndex = formatInjuryIndex;
 }
 
 
