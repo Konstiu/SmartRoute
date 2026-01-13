@@ -31,6 +31,19 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
             @Param("end") Instant end
     );
 
+    @Query("""
+                SELECT a
+                FROM Activity a
+                WHERE a.user.id = :userId
+                  AND a.startDateLocal IS NOT NULL
+                  AND a.startDateLocal >= :fromInclusive
+                ORDER BY a.startDateLocal ASC
+            """)
+    List<Activity> findRecentActivitiesForUser(
+            @Param("userId") Long userId,
+            @Param("fromInclusive") Instant fromInclusive
+    );
+
     List<Activity> findTop10ByUserAndTypeIsOrderByStartDateDesc(ApplicationUser user, String type, Pageable pageable);
 
     List<Activity> findAllByUserAndStartDateBetweenOrderByStartDateAsc(ApplicationUser user, Instant start, Instant end);
@@ -55,9 +68,9 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     List<Activity> findByUserOrderByStartDateDesc(ApplicationUser user, Pageable pageable);
 
     Optional<Activity> findTopByUserAndWorkoutTypeInAndStartDateBeforeOrderByStartDateDesc(
-        ApplicationUser user,
-        List<WorkoutType> workoutTypes,
-        Instant startDate
+            ApplicationUser user,
+            List<WorkoutType> workoutTypes,
+            Instant startDate
     );
 
     void deleteAllByUser(ApplicationUser user);
