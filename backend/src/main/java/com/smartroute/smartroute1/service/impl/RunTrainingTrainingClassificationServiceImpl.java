@@ -237,6 +237,7 @@ public class RunTrainingTrainingClassificationServiceImpl implements RunTraining
                 parseDouble(c[i++]),           // elevation_gain
                 parseDouble(c[i++]),           // session_load
                 parseInt(c[i++]),              // num_pace_spikes
+                parseBoolean(c[i++]),          // num_pace_spikes_missing
                 parseInt(c[i++]),              // readiness_score
                 parseDouble(c[i++]),           // consistency_score
                 parseDouble(c[i++]),           // tsb

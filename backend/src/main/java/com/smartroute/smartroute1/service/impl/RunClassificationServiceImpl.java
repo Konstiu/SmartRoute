@@ -234,6 +234,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             case "session_load" -> activity.getSessionLoad() == null ? fitnessScoreService.calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain()) : activity.getSessionLoad();
 
             case "num_pace_spikes" -> activityProcessingService.detectPaceSpikes(activity);
+            case "num_pace_spikes_missing" -> activityProcessingService.detectPaceSpikes(activity) != -1 ? 0 : 1;
 
             case "readiness_score" -> getReadinessScoreBeforeActivity(activity);
 

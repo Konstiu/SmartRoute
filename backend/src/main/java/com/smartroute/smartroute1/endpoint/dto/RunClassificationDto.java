@@ -61,6 +61,11 @@ public class RunClassificationDto {
     private Integer numPaceSpikes;
 
     /**
+     * num_pace_spikes_missing.
+     */
+    private Boolean numPaceSpikesMissing;
+
+    /**
      * readiness_score.
      */
     private Integer readinessScore;

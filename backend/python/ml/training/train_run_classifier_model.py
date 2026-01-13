@@ -107,4 +107,4 @@ def train_model(data, test=False, debug_perf=False, export=False):
 df_runs = pd.read_csv("datasets/RunDataset.csv")
 
 
-train_model(df_runs, test=True, debug_perf=True, export=False)
+train_model(df_runs, test=True, debug_perf=True, export=True)
