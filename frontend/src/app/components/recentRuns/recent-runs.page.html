@@ -62,7 +62,7 @@
 
       @if (activity.runClassification?.runType) {
         <ion-chip
-          (click)="editClassification(activity)"
+          (click)="editClassification(activity, $event)"
           color="primary">
           {{ runTypeLabel[activity.runClassification!.runType] }}
         </ion-chip>

@@ -173,8 +173,9 @@ export class RecentRunsPage implements OnInit {
     return icons[sportType] || icons['default'];
   }
 
-  async editClassification(activity: Activity) {
-    console.log("activity");
+  async editClassification(activity: Activity, event: Event) {
+    event.stopPropagation();
+
     const modal = await this.modalController.create({
       component: ChangeClassificationComponent,
       componentProps: {
