@@ -239,8 +239,16 @@ public class AddStopsServiceImpl implements AddStopsService {
     public GeoJsonDto addWaypoints(AddStopsDto addStopsDto)
             throws ValidationException {
 
-        List<GeoJsonPosition> originalRoute = toGeo(addStopsDto.getOriginalRoute());
-        List<GeoJsonPosition> newPoints = toGeo(addStopsDto.getNewPoints());
+        if (addStopsDto == null) {
+            throw new ValidationException("AddStopsDto must not be null.");
+        }
+        if (addStopsDto.getOriginalRoute() == null) {
+            throw new ValidationException("originalRoute must not be null.");
+        }
+
+        List<GeoJsonPosition> originalRoute = toGeoRequired(addStopsDto.getOriginalRoute());
+        List<GeoJsonPosition> newPoints = toGeoAllowEmpty(addStopsDto.getNewPoints());
+
         validator.validateRouteLength(originalRoute);
 
         if (newPoints == null || newPoints.isEmpty()) {
@@ -264,19 +272,25 @@ public class AddStopsServiceImpl implements AddStopsService {
         return createGeoJsonDtoFromPolyline(updatedRoute);
     }
 
-    private List<GeoJsonPosition> toGeo(List<StopPointDto> stopList) throws ValidationException {
+    private List<GeoJsonPosition> toGeoRequired(List<StopPointDto> stopList) throws ValidationException {
         if (stopList == null || stopList.isEmpty()) {
             throw new ValidationException("StopList must have points.");
         }
+        return toGeoAllowEmpty(stopList);
+    }
 
+    private List<GeoJsonPosition> toGeoAllowEmpty(List<StopPointDto> stopList) throws ValidationException {
+        if (stopList == null) {
+            return null;
+        }
         List<GeoJsonPosition> geoList = new ArrayList<>();
         for (StopPointDto p : stopList) {
             GeoJsonPosition g = new GeoJsonPosition(p.getLatitude(), p.getLongitude(), p.getAltitude());
             geoList.add(g);
         }
-
         return geoList;
     }
+
 
     public List<StopPointDto> toStopPoint(List<GeoJsonPosition> geoList) throws ValidationException {
         if (geoList == null || geoList.isEmpty()) {
@@ -596,8 +610,19 @@ public class AddStopsServiceImpl implements AddStopsService {
 
     @Override
     public GeoJsonDto reshape(AddStopsDto addStopsDto) throws ValidationException {
-        List<GeoJsonPosition> originalRoute = toGeo(addStopsDto.getOriginalRoute());
-        List<GeoJsonPosition> newPoints = toGeo(addStopsDto.getNewPoints());
+        if (addStopsDto == null) {
+            throw new ValidationException("AddStopsDto must not be null.");
+        }
+        if (addStopsDto.getOriginalRoute() == null) {
+            throw new ValidationException("originalRoute must not be null.");
+        }
+
+        List<GeoJsonPosition> originalRoute = toGeoRequired(addStopsDto.getOriginalRoute());
+        List<GeoJsonPosition> newPoints = toGeoAllowEmpty(addStopsDto.getNewPoints());
+
+        if (newPoints == null || newPoints.isEmpty()) {
+            return createGeoJsonDtoFromPolyline(originalRoute);
+        }
 
         final double toleranceFactor = 0.1;
         final int roundness = 10;
