@@ -116,27 +116,39 @@ public class StatisticsServiceTest {
     public void test_GivenUserWithDataForRunHistory_WhenGetRunHistory_ThenReturnsRunHistoryCorrectly() {
         ApplicationUser user = createUser();
 
-        activityRepository.save(
-                new Activity(
-                        user, 4000f, 60, LocalDate.now().minusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant(), WorkoutType.EASY_RUN
-                )
-        );
-        activityRepository.save(
-                new Activity(
-                        user, 6000f, 40, LocalDate.now().minusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant(), WorkoutType.EASY_RUN
-                )
-        );
+        Activity a1 = new Activity();
+        a1.setUser(user);
+        a1.setDistance(4000f);
+        a1.setElapsedTime(60);
+        a1.setStartDate(LocalDate.now().minusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        a1.setType("Run");
+
+        Activity a2 = new Activity();
+        a2.setUser(user);
+        a2.setDistance(6000f);
+        a2.setElapsedTime(40);
+        a2.setStartDate(LocalDate.now().minusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        a2.setType("Run");
+
+        Activity a3 = new Activity();
+        a3.setUser(user);
+        a3.setDistance(4000f);
+        a3.setElapsedTime(60);
+        a3.setStartDate(LocalDate.now().minusDays(400).atStartOfDay(ZoneId.systemDefault()).toInstant());
+        a3.setType("Run");
+
+        Activity a4 = new Activity();
+        a4.setUser(user);
+        a4.setDistance(6000f);
+        a4.setElapsedTime(40);
+        a4.setStartDate(LocalDate.now().minusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
+
+
+        activityRepository.save(a1);
+        activityRepository.save(a2);
         //Not eligible
-        activityRepository.save(
-                new Activity(
-                        user, 4000f, 60, LocalDate.now().minusDays(400).atStartOfDay(ZoneId.systemDefault()).toInstant(), WorkoutType.EASY_RUN
-                )
-        );
-        activityRepository.save(
-                new Activity(
-                        user, 6000f, 40, LocalDate.now().minusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant(), WorkoutType.GYM_PREHAB
-                )
-        );
+        activityRepository.save(a3);
+        activityRepository.save(a4);
 
         RunHistoryDto runHistoryDto = service.getRunHistory(user);
 

@@ -80,15 +80,4 @@ public class Activity {
     @JoinColumn(name = "user_id")
     private ApplicationUser user;
 
-    public Activity(ApplicationUser user, float distance, int elapsedTime, Instant startDate, WorkoutType workoutType) {
-        this.user = user;
-        this.distance = distance;
-        this.elapsedTime = elapsedTime;
-        this.startDate = startDate;
-        this.workoutType = workoutType;
-    }
-
-    public boolean isRun() {
-        return workoutType == WorkoutType.EASY_RUN || workoutType == WorkoutType.INTERVAL_RUN || workoutType == WorkoutType.LONG_RUN || workoutType == WorkoutType.TEMPO_RUN;
-    }
 }
