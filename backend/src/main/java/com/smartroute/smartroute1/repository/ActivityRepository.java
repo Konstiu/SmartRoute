@@ -37,16 +37,15 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     List<Activity> findAllByUserAndStartDateBetweenOrderByStartDateAsc(ApplicationUser user, Instant start, Instant end);
 
     @Query("""
-                select a
-                from Activity a
-                where a.user = :user
-                  and a.workoutType in :runTypes
-                  and a.startDate between :start and :end
-                order by a.startDate asc
-            """)
+            select a
+            from Activity a
+            where a.user = :user
+              and a.type = 'Run'
+              and a.startDate between :start and :end
+            order by a.startDate asc
+        """)
     List<Activity> findRunsInPeriod(
             @Param("user") ApplicationUser user,
-            @Param("runTypes") Collection<WorkoutType> runTypes,
             @Param("start") Instant start,
             @Param("end") Instant end
     );

@@ -192,4 +192,21 @@ ion-card.rounded-card {
 }
 
 
+:root {
+  --chart-text-primary: #111827;
+  --chart-text-secondary: var(--ion-color-medium);
+  --chart-axis-line: #d1d5db;
+  --chart-grid-line: #e5e7eb;
+  --chart-border: #d1d5db;
+}
 
+// For dark mode
+@media (prefers-color-scheme: dark) {
+  :root {
+    --chart-text-primary: #e5e7eb;
+    --chart-text-secondary: #9ca3af;
+    --chart-axis-line: #4b5563;
+    --chart-grid-line: #374151;
+    --chart-border: #374151;
+  }
+}

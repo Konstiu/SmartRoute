@@ -2,9 +2,10 @@ import {Component, OnInit, ChangeDetectorRef} from '@angular/core';
 import {HttpClient} from '@angular/common/http';
 import * as echarts from 'echarts';
 import {UserService} from "../../../services/user.service";
-import {Injury, StatisticalData, ConsistencyData} from "../../dtos/user"
+import {Injury, StatisticalData, ConsistencyData, RunHistory} from "../../dtos/user"
 import {IonicModule} from "@ionic/angular";
 import {CommonModule, DecimalPipe} from "@angular/common";
+import {DetailedActivity} from "../../dtos/Activity";
 
 interface TimeSeriesPoint {
   x: Date;
@@ -34,6 +35,10 @@ export class StatsPage implements OnInit {
   todayTsb: number | null = null;
   todayConsistency: number | null = null;
 
+  // Run history data
+  runHistory: RunHistory | null = null;
+  recentRuns: DetailedActivity[] = [];
+
   // Injury data
   injuries: Injury[] = [];
   private injuryTimelinesByArea: Map<string, InjuryTimelinePoint[]> = new Map();
@@ -42,6 +47,7 @@ export class StatsPage implements OnInit {
   fitnessChart: echarts.ECharts | null = null;
   consistencyChart: echarts.ECharts | null = null;
   injuryChart: echarts.ECharts | null = null;
+  runDistanceChart: echarts.ECharts | null = null;
 
   // Data storage
   private ctlData: TimeSeriesPoint[] = [];
@@ -58,6 +64,7 @@ export class StatsPage implements OnInit {
   fitnessRange: number = 90;
   consistencyRange: number = 90;
   injuryRange: number = 180;
+  runHistoryRange: number = 30;
 
   constructor(
     private http: HttpClient,
@@ -66,12 +73,29 @@ export class StatsPage implements OnInit {
   ) {
   }
 
+  // Get computed CSS variable color
+  private getCSSColor(variable: string): string {
+    return getComputedStyle(document.documentElement).getPropertyValue(variable).trim();
+  }
+
+  // Get theme-aware colors for charts
+  private getChartColors() {
+    const a =
+      {
+        textPrimary: this.getCSSColor('--chart-text-primary'),
+        textSecondary: this.getCSSColor('--chart-text-secondary'),
+        axisLine: this.getCSSColor('--chart-axis-line'),
+        gridLine: this.getCSSColor('--chart-grid-line'),
+        border: this.getCSSColor('--chart-border')
+      };
+    return a
+  }
+
   ngOnInit() {
     this.loadData();
   }
 
   ionViewDidEnter() {
-    // Initialize charts after view is ready
     setTimeout(() => {
       if (!this.loading) {
         this.initCharts();
@@ -81,7 +105,6 @@ export class StatsPage implements OnInit {
 
   loadData() {
     this.loading = true;
-    console.log("start");
     this.userService.getStats().subscribe({
       next: (data) => {
         if (data) {
@@ -89,17 +112,16 @@ export class StatsPage implements OnInit {
           this.processData(data);
           this.cdr.detectChanges();
 
-          // Give DOM time to render, then init charts
           setTimeout(() => {
             this.initCharts();
           }, 200);
         }
         this.loading = false;
-        console.log("could not receive any data")
-        this.noData = true;
       },
       error: (error) => {
         console.error('Failed to load data:', error);
+        this.noData = true;
+        this.loading = false;
       }
     });
   }
@@ -142,15 +164,20 @@ export class StatsPage implements OnInit {
     this.injuries = [...injuriesList];
     this.injuryTimelinesByArea = this.buildInjuryTimelines(injuriesList);
 
-    console.log("=== INJURY DATA ===");
-    console.log("Processed injuries:", this.injuries);
-    console.log("Injury timelines by area:", this.injuryTimelinesByArea);
+    // Process run history
+    if (data.runHistory) {
+      this.runHistory = data.runHistory;
+      // Sort runs by date (most recent first) and take the last 10
+      this.recentRuns = [...data.runHistory.runHistory]
+        .sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+        .slice(0, 10);
+    }
+
   }
 
   private buildInjuryTimelines(injuries: Injury[]): Map<string, InjuryTimelinePoint[]> {
     const timelinesByArea = new Map<string, InjuryTimelinePoint[]>();
 
-    // Group injuries by affected area
     const injuriesByArea = new Map<string, Injury[]>();
     injuries.forEach(injury => {
       if (!injuriesByArea.has(injury.affectedArea)) {
@@ -159,11 +186,9 @@ export class StatsPage implements OnInit {
       injuriesByArea.get(injury.affectedArea)!.push(injury);
     });
 
-    // Build timeline for each area
     injuriesByArea.forEach((areaInjuries, area) => {
       const timeline: InjuryTimelinePoint[] = [];
 
-      // Sort all events (both healthy and injury dates) chronologically
       interface Event {
         date: Date;
         type: 'healthy' | 'injury';
@@ -184,43 +209,34 @@ export class StatsPage implements OnInit {
         });
       });
 
-      // Sort events by date
       events.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-      // Find the earliest event to start the timeline
       if (events.length > 0) {
         const firstEvent = events[0];
-        console.log(firstEvent)
 
-        // Start at 0 from the first event
         timeline.push({
           date: firstEvent.date,
           index: 0
         });
 
-        // Process each event
         let currentIndex = 0;
         for (let i = 0; i < events.length; i++) {
           const event = events[i];
 
-          // Add a point just before this event at the current level (for horizontal line)
           const justBefore = new Date(event.date.getTime() - 1);
           timeline.push({
             date: justBefore,
             index: currentIndex
           });
 
-          // Add the event point (vertical jump/drop)
           timeline.push({
             date: event.date,
             index: event.index
           });
 
-          // Update current index
           currentIndex = event.index;
         }
 
-        // Extend to today at the current level
         timeline.push({
           date: new Date(),
           index: currentIndex
@@ -228,7 +244,6 @@ export class StatsPage implements OnInit {
       }
 
       timelinesByArea.set(area, timeline);
-      console.log(`Timeline for ${area}:`, timeline);
     });
 
     return timelinesByArea;
@@ -282,14 +297,10 @@ export class StatsPage implements OnInit {
   }
 
   private initCharts() {
-    console.log("=== INIT CHARTS ===");
-
     const fitnessEl = document.getElementById('fitness-chart');
     const consistencyEl = document.getElementById('consistency-chart');
     const injuryEl = document.getElementById('injury-chart');
-
-    console.log("Injury element:", injuryEl);
-    console.log("Injuries length:", this.injuries.length);
+    const runDistanceEl = document.getElementById('run-distance-chart');
 
     if (fitnessEl) {
       this.fitnessChart = echarts.init(fitnessEl);
@@ -302,9 +313,13 @@ export class StatsPage implements OnInit {
     }
 
     if (injuryEl) {
-      console.log("Initializing injury chart...");
       this.injuryChart = echarts.init(injuryEl);
       window.addEventListener('resize', () => this.injuryChart?.resize());
+    }
+
+    if (runDistanceEl && this.runHistory) {
+      this.runDistanceChart = echarts.init(runDistanceEl);
+      window.addEventListener('resize', () => this.runDistanceChart?.resize());
     }
 
     this.updateCharts();
@@ -320,10 +335,10 @@ export class StatsPage implements OnInit {
   }
 
   updateCharts() {
-    console.log("=== UPDATE CHARTS ===");
     this.updateFitnessChart();
     this.updateConsistencyChart();
     this.updateInjuryChart();
+    this.updateRunDistanceChart();
   }
 
   private updateFitnessChart() {
@@ -333,11 +348,17 @@ export class StatsPage implements OnInit {
     const atlFiltered = this.filterByRange(this.atlData, this.fitnessRange);
     const tsbFiltered = this.filterByRange(this.tsbData, this.fitnessRange);
 
+    const colors = this.getChartColors();
+
     const option: echarts.EChartsOption = {
       title: {
         text: 'Fitness vs Fatigue vs Freshness',
         left: 'center',
-        textStyle: {fontSize: 16, fontWeight: 600}
+        textStyle: {
+          fontSize: 16,
+          fontWeight: 600,
+          color: colors.textPrimary
+        }
       },
       tooltip: {
         trigger: 'axis',
@@ -351,30 +372,77 @@ export class StatsPage implements OnInit {
       },
       legend: {
         data: ['CTL (Fitness)', 'ATL (Fatigue)', 'TSB (Freshness)'],
-        top: 30
+        top: 30,
+        textStyle: {
+          color: colors.textSecondary
+        }
       },
       grid: {
         left: '3%',
         right: '5%',
         bottom: '3%',
-        containLabel: true
+        containLabel: true,
+        borderColor: colors.border
       },
       xAxis: {
         type: 'time',
-        boundaryGap: false as any
+        boundaryGap: false as any,
+        axisLabel: {
+          color: colors.textSecondary
+        },
+        axisLine: {
+          lineStyle: {
+            color: colors.axisLine
+          }
+        },
+        splitLine: {
+          lineStyle: {
+            color: colors.gridLine
+          }
+        }
       },
       yAxis: [
         {
           type: 'value',
           name: 'CTL / ATL',
           position: 'left',
-          axisLabel: {formatter: '{value}'}
+          nameTextStyle: {
+            color: colors.textSecondary
+          },
+          axisLabel: {
+            formatter: '{value}',
+            color: colors.textSecondary
+          },
+          axisLine: {
+            lineStyle: {
+              color: colors.axisLine
+            }
+          },
+          splitLine: {
+            lineStyle: {
+              color: colors.gridLine
+            }
+          }
         },
         {
           type: 'value',
           name: 'TSB',
           position: 'right',
-          axisLabel: {formatter: '{value}'}
+          nameTextStyle: {
+            color: colors.textSecondary
+          },
+          axisLabel: {
+            formatter: '{value}',
+            color: colors.textSecondary
+          },
+          axisLine: {
+            lineStyle: {
+              color: colors.axisLine
+            }
+          },
+          splitLine: {
+            show: false
+          }
         }
       ],
       series: [
@@ -420,11 +488,17 @@ export class StatsPage implements OnInit {
     const freqFiltered = this.filterByRange(this.frequencyData, this.consistencyRange);
     const regFiltered = this.filterByRange(this.regularityData, this.consistencyRange);
 
+    const colors = this.getChartColors();
+
     const option: echarts.EChartsOption = {
       title: {
         text: 'Training Consistency',
         left: 'center',
-        textStyle: {fontSize: 16, fontWeight: 600}
+        textStyle: {
+          fontSize: 16,
+          fontWeight: 600,
+          color: colors.textPrimary
+        }
       },
       tooltip: {
         trigger: 'axis',
@@ -439,24 +513,55 @@ export class StatsPage implements OnInit {
       },
       legend: {
         data: ['Final Score', 'Frequency', 'Regularity'],
-        top: 30
+        top: 30,
+        textStyle: {
+          color: colors.textSecondary
+        }
       },
       grid: {
         left: '3%',
         right: '4%',
         bottom: '3%',
-        containLabel: true
+        containLabel: true,
+        borderColor: colors.border
       },
       xAxis: {
         type: 'time',
-        boundaryGap: false as any
+        boundaryGap: false as any,
+        axisLabel: {
+          color: colors.textSecondary
+        },
+        axisLine: {
+          lineStyle: {
+            color: colors.axisLine
+          }
+        },
+        splitLine: {
+          lineStyle: {
+            color: colors.gridLine
+          }
+        }
       },
       yAxis: {
         type: 'value',
         min: 0,
         max: 1,
+        nameTextStyle: {
+          color: colors.textSecondary
+        },
         axisLabel: {
-          formatter: (value: number) => (value * 100).toFixed(0) + '%'
+          formatter: (value: number) => (value * 100).toFixed(0) + '%',
+          color: colors.textSecondary
+        },
+        axisLine: {
+          lineStyle: {
+            color: colors.axisLine
+          }
+        },
+        splitLine: {
+          lineStyle: {
+            color: colors.gridLine
+          }
         }
       },
       series: [
@@ -489,50 +594,33 @@ export class StatsPage implements OnInit {
   }
 
   private updateInjuryChart() {
-    console.log("=== UPDATE INJURY CHART ===");
-    console.log("injuryChart exists:", !!this.injuryChart);
-    console.log("injuries.length:", this.injuries.length);
-    console.log("injuryRange:", this.injuryRange);
-
     if (!this.injuryChart) {
-      console.log("No injury chart instance, trying to reinitialize...");
       const injuryEl = document.getElementById('injury-chart');
       if (injuryEl && this.injuries.length > 0) {
         this.injuryChart = echarts.init(injuryEl);
-        console.log("Reinitialized injury chart");
       } else {
-        console.log("Cannot reinitialize:", {hasElement: !!injuryEl, hasInjuries: this.injuries.length > 0});
         return;
       }
     }
 
     if (this.injuries.length === 0) {
-      console.log("No injuries to display");
       return;
     }
 
-    // Calculate cutoff date for filtering
     const cutoff = this.injuryRange === -1 ? new Date(0) : (() => {
       const d = new Date();
       d.setDate(d.getDate() - this.injuryRange);
       return d;
     })();
 
-    console.log("Cutoff date:", cutoff);
-
-    // Filter ATL data
     const atlFiltered = this.filterByRange(this.atlData, this.injuryRange);
 
-    // Create series for each injury area with filtered data
     const series: any[] = [];
     const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899'];
     let colorIndex = 0;
 
     this.injuryTimelinesByArea.forEach((timeline, area) => {
-      // Filter timeline by date range
       const filteredTimeline = timeline.filter(p => p.date >= cutoff);
-
-      console.log(`Area: ${area}, Original points: ${timeline.length}, Filtered points: ${filteredTimeline.length}`);
 
       if (filteredTimeline.length > 0) {
         const seriesData = filteredTimeline.map(p => [p.date, p.index]);
@@ -540,13 +628,13 @@ export class StatsPage implements OnInit {
         series.push({
           name: this.formatInjuryArea(area),
           type: 'line',
-          step: false,  // Changed from 'end' to false for sharp corners
+          step: false,
           data: seriesData,
           itemStyle: {color: colors[colorIndex % colors.length]},
           yAxisIndex: 0,
           lineStyle: {width: 3},
-          symbol: 'none',  // Remove dots for cleaner look
-          areaStyle: {  // Add slight fill for better visibility
+          symbol: 'none',
+          areaStyle: {
             opacity: 0.1
           }
         });
@@ -554,7 +642,6 @@ export class StatsPage implements OnInit {
       }
     });
 
-    // Add ATL as reference
     if (atlFiltered.length > 0) {
       series.push({
         name: 'ATL (Fatigue)',
@@ -568,26 +655,33 @@ export class StatsPage implements OnInit {
       });
     }
 
-    console.log("Total series:", series.length);
-
     if (series.length === 0) {
-      console.log("No series data to display");
-      // Clear the chart
+      const colorsEmpty = this.getChartColors();
       this.injuryChart.setOption({
         title: {
           text: 'No injury data in selected time range',
           left: 'center',
-          textStyle: {fontSize: 16, fontWeight: 600}
+          textStyle: {
+            fontSize: 16,
+            fontWeight: 600,
+            color: colorsEmpty.textPrimary
+          }
         }
       });
       return;
     }
 
+    const colors2 = this.getChartColors();
+
     const option: echarts.EChartsOption = {
       title: {
         text: 'Injury Index Over Time vs Fatigue (ATL)',
         left: 'center',
-        textStyle: {fontSize: 16, fontWeight: 600}
+        textStyle: {
+          fontSize: 16,
+          fontWeight: 600,
+          color: colors2.textPrimary
+        }
       },
       tooltip: {
         trigger: 'axis',
@@ -607,17 +701,34 @@ export class StatsPage implements OnInit {
       legend: {
         data: series.map(s => s.name),
         top: 30,
-        type: 'scroll'
+        type: 'scroll',
+        textStyle: {
+          color: colors2.textSecondary
+        }
       },
       grid: {
         left: '3%',
         right: '5%',
         bottom: '3%',
-        containLabel: true
+        containLabel: true,
+        borderColor: colors2.border
       },
       xAxis: {
         type: 'time',
         boundaryGap: false as any,
+        axisLabel: {
+          color: colors2.textSecondary
+        },
+        axisLine: {
+          lineStyle: {
+            color: colors2.axisLine
+          }
+        },
+        splitLine: {
+          lineStyle: {
+            color: colors2.gridLine
+          }
+        }
       },
       yAxis: [
         {
@@ -626,23 +737,151 @@ export class StatsPage implements OnInit {
           position: 'left',
           min: 0,
           max: 1,
+          nameTextStyle: {
+            color: colors2.textSecondary
+          },
           axisLabel: {
-            formatter: (value: number) => (value * 100).toFixed(0) + '%'
+            formatter: (value: number) => (value * 100).toFixed(0) + '%',
+            color: colors2.textSecondary
+          },
+          axisLine: {
+            lineStyle: {
+              color: colors2.axisLine
+            }
+          },
+          splitLine: {
+            lineStyle: {
+              color: colors2.gridLine
+            }
           }
         },
         {
           type: 'value',
           name: 'ATL',
           position: 'right',
-          axisLabel: {formatter: '{value}'}
+          nameTextStyle: {
+            color: colors2.textSecondary
+          },
+          axisLabel: {
+            formatter: '{value}',
+            color: colors2.textSecondary
+          },
+          axisLine: {
+            lineStyle: {
+              color: colors2.axisLine
+            }
+          },
+          splitLine: {
+            show: false
+          }
         }
       ],
       series: series
     };
 
-    console.log("Setting chart option with xAxis min:", cutoff);
-    this.injuryChart.setOption(option, true); // true = notMerge, replace the whole option
-    console.log("Chart option set successfully");
+    this.injuryChart.setOption(option, true);
+  }
+
+  private updateRunDistanceChart() {
+    if (!this.runDistanceChart || !this.runHistory) return;
+
+    const cutoff = this.runHistoryRange === -1 ? new Date(0) : (() => {
+      const d = new Date();
+      d.setDate(d.getDate() - this.runHistoryRange);
+      return d;
+    })();
+
+    const filteredRuns = this.runHistory.runHistory
+      .filter(run => new Date(run.startDate) >= cutoff)
+      .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+    const colors = this.getChartColors();
+
+    const option: echarts.EChartsOption = {
+      title: {
+        text: 'Run Distance Over Time',
+        left: 'center',
+        textStyle: {
+          fontSize: 16,
+          fontWeight: 600,
+          color: colors.textPrimary
+        }
+      },
+      tooltip: {
+        trigger: 'axis',
+        formatter: (params: any) => {
+          const run = params[0];
+          const data = filteredRuns[run.dataIndex];
+          return `
+            <b>${data.name}</b><br/>
+            Date: ${new Date(data.startDate).toLocaleDateString()}<br/>
+            Distance: <b>${(data.distance / 1000).toFixed(2)} km</b><br/>
+            Duration: <b>${this.formatDuration(data.movingTime)}</b><br/>
+            Pace: <b>${this.formatPace(data.averageSpeed)}</b><br/>
+            ${data.averageHeartrate ? `HR: <b>${data.averageHeartrate.toFixed(0)} bpm</b><br/>` : ''}
+          `;
+        }
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        containLabel: true,
+        borderColor: colors.border
+      },
+      xAxis: {
+        type: 'time',
+        boundaryGap: false as any,
+        axisLabel: {
+          color: colors.textSecondary
+        },
+        axisLine: {
+          lineStyle: {
+            color: colors.axisLine
+          }
+        },
+        splitLine: {
+          lineStyle: {
+            color: colors.gridLine
+          }
+        }
+      },
+      yAxis: {
+        type: 'value',
+        name: 'Distance (km)',
+        nameTextStyle: {
+          color: colors.textSecondary
+        },
+        axisLabel: {
+          formatter: (value: number) => value.toFixed(1),
+          color: colors.textSecondary
+        },
+        axisLine: {
+          lineStyle: {
+            color: colors.axisLine
+          }
+        },
+        splitLine: {
+          lineStyle: {
+            color: colors.gridLine
+          }
+        }
+      },
+      series: [
+        {
+          name: 'Distance',
+          type: 'bar',
+          data: filteredRuns.map(run => [
+            new Date(run.startDate),
+            run.distance / 1000
+          ]),
+          itemStyle: {color: '#3b82f6'},
+          barWidth: '60%'
+        }
+      ]
+    };
+
+    this.runDistanceChart.setOption(option);
   }
 
   setFitnessRange(days: number) {
@@ -656,9 +895,13 @@ export class StatsPage implements OnInit {
   }
 
   setInjuryRange(days: number) {
-    console.log("Setting injury range to:", days);
     this.injuryRange = days;
     this.updateInjuryChart();
+  }
+
+  setRunHistoryRange(days: number) {
+    this.runHistoryRange = days;
+    this.updateRunDistanceChart();
   }
 
   getInjuryColor(index: number): string {
@@ -676,5 +919,23 @@ export class StatsPage implements OnInit {
       .toLowerCase()
       .replace(/\b\w/g, l => l.toUpperCase())
       .replace(' Region', '');
+  }
+
+  formatDuration(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m ${secs}s`;
+  }
+
+  formatPace(metersPerSecond: number): string {
+    const minutesPerKm = 1000 / (metersPerSecond * 60);
+    const minutes = Math.floor(minutesPerKm);
+    const seconds = Math.round((minutesPerKm - minutes) * 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}/km`;
   }
 }

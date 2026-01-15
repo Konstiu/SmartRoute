@@ -1,3 +1,5 @@
+import {DetailedActivity} from "./Activity";
+
 interface BaseUser {
   firstname: string;
   lastname: string;
@@ -68,4 +70,12 @@ export interface StatisticalData {
     injuriesList: Injury[];
   };
   gymHistory: any;
+  runHistory: RunHistory;
+}
+
+export interface RunHistory {
+  numberOfRuns: number;
+  totalRunTime: number;
+  totalDistance: number;
+  runHistory: DetailedActivity[];
 }
