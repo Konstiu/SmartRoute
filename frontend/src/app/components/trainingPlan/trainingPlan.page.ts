@@ -287,23 +287,17 @@ export class TrainingPlanPage implements OnInit {
   // Geolocation UI handlers
   // =====================================================
 
-  /** Called when precise geolocation fails and fallback will be attempted */
-  async onExactLocationFailed() {
-    const alert = await this.alertController.create({
-      header: 'Precise location unavailable',
-      message: 'Trying to determine your location with reduced accuracy.',
-      buttons: ['OK'],
-    });
-
-    await alert.present();
-  }
-
   /** Called when no geolocation is available and user must place marker manually */
   async onGeolocationError() {
     const alert = await this.alertController.create({
       header: 'Unable to determine location',
-      message: 'Please add a marker to the map to select the starting point.',
-      buttons: ['OK'],
+      message: 'Choose a starting point on the map to generate a route.',
+      buttons: [
+        {
+          text: 'Choose on map',
+          handler: () => this.openMapModal({ mode: 'SET_START' })
+        }
+      ]
     });
 
     await alert.present();
@@ -385,11 +379,11 @@ export class TrainingPlanPage implements OnInit {
   // =====================================================
 
   /** Opens the fullscreen map modal for route editing */
-  async openMapModal() {
+  async openMapModal(opts?: { mode?: 'SET_START' | 'EDIT_STOPS' }) {
     const modal = await this.modalCtrl.create({
       component: MapModalComponent,
       componentProps: {
-        // current (edited) view
+        initialMode: opts?.mode ?? 'EDIT_STOPS',
         layers: this.cloneLayersForModal(),
         routeBounds: this.routeBounds,
         committedStops: this.committedStops,
