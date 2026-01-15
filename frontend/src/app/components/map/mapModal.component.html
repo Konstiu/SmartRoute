@@ -11,13 +11,13 @@
   <div class="modal-frame" [class.editing]="addPointMode">
 
   <!-- Spinner overlay -->
-  <div class="map-loading" *ngIf="!isMapReady">
+  <div class="map-loading" *ngIf="!isMapReady || isProcessing">
     <ion-spinner name="crescent"></ion-spinner>
-    <p>Centering route…</p>
+    <p>{{ loadingMessage || 'Loading…' }}</p>
   </div>
 
   <!-- Search overlay (on top of the map) -->
-  <div class="search-overlay" *ngIf="isMapReady">
+  <div class="search-overlay" *ngIf="isMapReady && !isProcessing">
     <div class="search-bar-wrapper">
       <ion-searchbar
         placeholder="Search location…"
