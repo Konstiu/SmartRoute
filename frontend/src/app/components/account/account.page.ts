@@ -94,4 +94,8 @@ export class AccountPage {
   delete() {
     this.userService.deleteAccount();
   }
+
+  navigateToStatistics() {
+    this.router.navigate(['/stats']);
+  }
 }

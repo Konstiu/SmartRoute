@@ -24,6 +24,7 @@ import com.smartroute.smartroute1.repository.InjuryRepository;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import com.smartroute.smartroute1.service.FatigueAndOverloadService;
 import com.smartroute.smartroute1.service.StatisticsService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -33,8 +34,10 @@ import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Logger;
 
 @Service
+@Slf4j
 public class StatisticsServiceImpl implements StatisticsService {
 
     private final FatigueAndOverloadService fatigueAndOverloadService;
@@ -73,7 +76,7 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     @Override
     public InjuryHistoryDto getInjuryHistory(ApplicationUser user) {
-        List<Injuries> injuries = injuryRepository.getAllByUserBetweenDateOrderByDateAsc(user, (LocalDate.now().minusDays(numberOfDaysInYear)), LocalDate.now());
+        List<Injuries> injuries = injuryRepository.getAllByUserBetweenDateOrderByDateAsc(user, (LocalDate.now().minusYears(1)), LocalDate.now());
         List<ViewInjuryDto> injuryDtos = injuries.stream()
                 .map(injuryMapper::entitytoDto)
                 .toList();
@@ -83,8 +86,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Override
     public RunHistoryDto getRunHistory(ApplicationUser user) {
 
-        List<Activity> runs = activityRepository.findRunsInPeriod(user, runTypes, LocalDate.now().minusDays(numberOfDaysInYear).atStartOfDay(ZoneId.systemDefault()).toInstant(), Instant.now());
-
+        List<Activity> runs = activityRepository.findRunsInPeriod(user, LocalDate.now().minusYears(1).atStartOfDay(ZoneId.systemDefault()).toInstant(), Instant.now());
         double distance = runs.stream().mapToDouble(Activity::getDistance).sum();
         double time = runs.stream().mapToDouble(Activity::getElapsedTime).sum();
         int numberOfRuns = runs.size();

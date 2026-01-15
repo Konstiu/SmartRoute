@@ -1,14 +1,58 @@
 <ion-header>
-  <ion-toolbar>
-    <ion-title>Runner Dashboard</ion-title>
+  <ion-toolbar >
+    <ion-title>Statistics Dashboard</ion-title>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/account"></ion-back-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
 <ion-content class="ion-padding">
-  @if (!loading && noData) {
+  @if (!loading && !noData) {
     <!-- Summary Cards -->
     <div class="summary-section">
-      <h2 class="section-title">Today's Metrics</h2>
+      <div class="section-header">
+        <h2 class="section-title">Today's Metrics</h2>
+        <ion-button fill="clear" size="small" id="metrics-info-trigger">
+          <ion-icon slot="icon-only" name="help-circle-outline"></ion-icon>
+        </ion-button>
+      </div>
+
+      <!-- Metrics Info Popover -->
+      <ion-popover trigger="metrics-info-trigger" size="auto">
+        <ng-template>
+          <ion-content class="ion-padding">
+            <h3>Understanding Your Metrics</h3>
+
+            <div class="metric-explanation">
+              <h4>Fitness (CTL)</h4>
+              <p><strong>Chronic Training Load</strong> - Your long-term fitness built up over ~6 weeks. Higher values mean you're more trained and can handle bigger workloads.</p>
+              <p class="tip"><em>Goal: Gradually increase over time</em></p>
+            </div>
+
+            <div class="metric-explanation">
+              <h4>Fatigue (ATL)</h4>
+              <p><strong>Acute Training Load</strong> - Your short-term fatigue from the last ~1 week. High values mean you've been training hard recently.</p>
+              <p class="tip"><em>Watch: Very high ATL may indicate overtraining</em></p>
+            </div>
+
+            <div class="metric-explanation">
+              <h4>Freshness (TSB)</h4>
+              <p><strong>Training Stress Balance</strong> - The difference between your fitness and fatigue (CTL - ATL).</p>
+              <p class="tip"><em>Positive: Well-rested, ready to race</em></p>
+              <p class="tip"><em>Negative: Fatigued, building fitness</em></p>
+              <p class="tip"><em>Near zero: Maintaining fitness</em></p>
+            </div>
+
+            <div class="metric-explanation">
+              <h4>Consistency</h4>
+              <p>Measures how regularly you train. Consistent training is key to building fitness while reducing injury risk.</p>
+              <p class="tip"><em>Goal: Aim for 70%+ consistency</em></p>
+            </div>
+          </ion-content>
+        </ng-template>
+      </ion-popover>
+
       <ion-grid>
         <ion-row>
           <ion-col size="12" size-md="3">
@@ -17,7 +61,7 @@
                 <ion-card-subtitle>Fitness (CTL)</ion-card-subtitle>
               </ion-card-header>
               <ion-card-content>
-                <div class="metric-value">{{ todayCtl !== null ? (todayCtl | number:'1.1-1') : '?' }}</div>
+                <div class="metric-value">{{ todayCtl !== null ? (todayCtl | number:'1.1-1') : '-' }}</div>
               </ion-card-content>
             </ion-card>
           </ion-col>
@@ -28,7 +72,7 @@
                 <ion-card-subtitle>Fatigue (ATL)</ion-card-subtitle>
               </ion-card-header>
               <ion-card-content>
-                <div class="metric-value">{{ todayAtl !== null ? (todayAtl | number:'1.1-1') : '?' }}</div>
+                <div class="metric-value">{{ todayAtl !== null ? (todayAtl | number:'1.1-1') : '-' }}</div>
               </ion-card-content>
             </ion-card>
           </ion-col>
@@ -39,7 +83,7 @@
                 <ion-card-subtitle>Freshness (TSB)</ion-card-subtitle>
               </ion-card-header>
               <ion-card-content>
-                <div class="metric-value">{{ todayTsb !== null ? (todayTsb | number:'1.1-1') : '?' }}</div>
+                <div class="metric-value">{{ todayTsb !== null ? (todayTsb | number:'1.1-1') : '-' }}</div>
               </ion-card-content>
             </ion-card>
           </ion-col>
@@ -51,7 +95,7 @@
               </ion-card-header>
               <ion-card-content>
                 <div class="metric-value">
-                  {{ todayConsistency !== null ? ((todayConsistency * 100) | number:'1.0-0') + '%' : '?' }}
+                  {{ todayConsistency !== null ? ((todayConsistency * 100) | number:'1.0-0') + '%' : '-' }}
                 </div>
               </ion-card-content>
             </ion-card>
@@ -59,6 +103,118 @@
         </ion-row>
       </ion-grid>
     </div>
+
+    <!-- Run History Summary Cards -->
+    @if (runHistory) {
+      <div class="summary-section">
+        <h2 class="section-title">Last Year You</h2>
+        <ion-grid>
+          <ion-row>
+            <ion-col size="12" size-md="4">
+              <ion-card class="summary-card">
+                <ion-card-header>
+                  <ion-card-subtitle>Total Runs</ion-card-subtitle>
+                </ion-card-header>
+                <ion-card-content>
+                  <div class="metric-value">{{ runHistory.numberOfRuns }}</div>
+                </ion-card-content>
+              </ion-card>
+            </ion-col>
+
+            <ion-col size="12" size-md="4">
+              <ion-card class="summary-card">
+                <ion-card-header>
+                  <ion-card-subtitle>Total Distance</ion-card-subtitle>
+                </ion-card-header>
+                <ion-card-content>
+                  <div class="metric-value">{{ (runHistory.totalDistance / 1000) | number:'1.1-1' }} km</div>
+                </ion-card-content>
+              </ion-card>
+            </ion-col>
+
+            <ion-col size="12" size-md="4">
+              <ion-card class="summary-card">
+                <ion-card-header>
+                  <ion-card-subtitle>Total Time</ion-card-subtitle>
+                </ion-card-header>
+                <ion-card-content>
+                  <div class="metric-value">{{ formatDuration(runHistory.totalRunTime) }}</div>
+                </ion-card-content>
+              </ion-card>
+            </ion-col>
+          </ion-row>
+        </ion-grid>
+      </div>
+
+      <!-- Run Distance Chart -->
+      <div class="chart-section">
+        <ion-card>
+          <ion-card-header>
+            <div class="chart-header">
+              <div class="range-buttons">
+                <ion-button
+                  size="small"
+                  [fill]="runHistoryRange === 7 ? 'solid' : 'outline'"
+                  (click)="setRunHistoryRange(7)">
+                  7d
+                </ion-button>
+                <ion-button
+                  size="small"
+                  [fill]="runHistoryRange === 30 ? 'solid' : 'outline'"
+                  (click)="setRunHistoryRange(30)">
+                  30d
+                </ion-button>
+                <ion-button
+                  size="small"
+                  [fill]="runHistoryRange === 90 ? 'solid' : 'outline'"
+                  (click)="setRunHistoryRange(90)">
+                  90d
+                </ion-button>
+                <ion-button
+                  size="small"
+                  [fill]="runHistoryRange === -1 ? 'solid' : 'outline'"
+                  (click)="setRunHistoryRange(-1)">
+                  All
+                </ion-button>
+              </div>
+            </div>
+          </ion-card-header>
+          <ion-card-content>
+            <div id="run-distance-chart" class="chart-container"></div>
+          </ion-card-content>
+        </ion-card>
+      </div>
+
+      <!-- Recent Runs List -->
+      <div class="runs-section">
+        <h2 class="section-title">Recent Runs</h2>
+        <ion-card>
+          <ion-card-content>
+            <ion-list>
+              @for (run of recentRuns; track run.id) {
+                <ion-item>
+                  <ion-label>
+                    <h2>{{ run.name }}</h2>
+                    <h3>{{ formatDate(run.startDate) }}</h3>
+                    <p>
+                      {{ (run.distance / 1000) | number:'1.2-2' }} km ·
+                      {{ formatDuration(run.movingTime) }} ·
+                      {{ formatPace(run.averageSpeed) }}
+                      @if (run.averageHeartrate) {
+                        · {{ run.averageHeartrate | number:'1.0-0' }} bpm
+                      }
+                    </p>
+                  </ion-label>
+                  <ion-badge slot="end" color="medium">
+                    {{ (run.totalElevationGain | number:'1.0-0') }} m ↑
+                  </ion-badge>
+                </ion-item>
+              }
+            </ion-list>
+          </ion-card-content>
+        </ion-card>
+      </div>
+    }
 
     <!-- Fitness Chart -->
     <div class="chart-section">
@@ -220,20 +376,19 @@
           </ion-card-content>
         </ion-card>
       </div>
-    } @else {
     }
-  } @else if (noData){
+  } @else if (noData) {
     <div class="empty-state">
       <ion-icon name="analytics-outline" size="large"></ion-icon>
       <h2>No training statistics yet</h2>
       <ion-text color="medium">
-        We’ll start showing fitness, fatigue, and consistency once you’ve logged activities.
+        We'll start showing fitness, fatigue, and consistency once you've logged activities.
       </ion-text>
     </div>
   } @else {
     <div class="loading-container">
       <ion-spinner name="crescent"></ion-spinner>
-      <p>Anaylzing your training...</p>
+      <p>Analyzing your training...</p>
     </div>
   }
 </ion-content>
