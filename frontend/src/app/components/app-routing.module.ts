@@ -56,12 +56,22 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'chat',
+    loadComponent: () => import('./chat/chat.page').then(m => m.ChatPage),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'privacy',
     loadComponent: () => import('./privacy/privacy.page').then( m => m.PrivacyPage)
   },
   {
     path: 'TandC',
     loadComponent: () => import('./agb/agb.page').then( m => m.AgbPage)
+  },
+  {
+    path: 'account/key-sync',
+    loadComponent: () => import('./account/key-sync/key-sync.page').then(m => m.KeySyncPage),
+    canActivate: [AuthGuard]
   },
   {
     path: 'not-found',
