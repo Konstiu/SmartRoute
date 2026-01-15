@@ -1,10 +1,3 @@
-// CSS Variables for repeated values
-:host {
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
-  --card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
-  --section-spacing: 2rem;
-}
-
 // Section headers
 .section-header {
   display: flex;
@@ -37,6 +30,8 @@
   color: var(--ion-text-color);
 }
 
+
+
 // Metric info popover
 ion-popover {
   --width: 90%;
@@ -61,7 +56,7 @@ ion-popover {
     }
 
     h4 {
-      margin: 0 0 0.5rem;
+      margin: 0 0 0.5rem 0;
       font-size: 1.1rem;
       font-weight: 600;
       color: var(--ion-text-color);
@@ -90,23 +85,21 @@ ion-popover {
   }
 }
 
-// Summary cards
+// Summary cards - clean and subtle
 .summary-section {
-  margin-bottom: var(--section-spacing);
+  margin-bottom: 2rem;
 }
 
 .summary-card {
   height: 100%;
   margin: 0;
-  box-shadow: var(--card-shadow);
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   --background: var(--ion-card-background);
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: var(--card-shadow-hover);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 
   ion-card-header {
@@ -130,44 +123,51 @@ ion-popover {
     font-weight: 700;
     margin-top: 0.5rem;
   }
-}
 
-// Metric card colors - consolidated
-.ctl-card {
-  ion-card-subtitle,
-  .metric-value {
-    color: #3b82f6;
+  // Subtle color accents for each metric type
+  &.ctl-card {
+    ion-card-subtitle {
+      color: #3b82f6;
+    }
+    .metric-value {
+      color: #3b82f6;
+    }
   }
-}
 
-.atl-card {
-  ion-card-subtitle,
-  .metric-value {
-    color: #ef4444;
+  &.atl-card {
+    ion-card-subtitle {
+      color: #ef4444;
+    }
+    .metric-value {
+      color: #ef4444;
+    }
   }
-}
 
-.tsb-card {
-  ion-card-subtitle,
-  .metric-value {
-    color: #10b981;
+  &.tsb-card {
+    ion-card-subtitle {
+      color: #10b981;
+    }
+    .metric-value {
+      color: #10b981;
+    }
   }
-}
 
-.consistency-card {
-  ion-card-subtitle,
-  .metric-value {
-    color: #8b5cf6;
+  &.consistency-card {
+    ion-card-subtitle {
+      color: #8b5cf6;
+    }
+    .metric-value {
+      color: #8b5cf6;
+    }
   }
 }
 
 // Charts
-.chart-section,
-.runs-section {
-  margin-bottom: var(--section-spacing);
+.chart-section {
+  margin-bottom: 2rem;
 
   ion-card {
-    box-shadow: var(--card-shadow);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
   }
 }
 
@@ -198,6 +198,14 @@ ion-popover {
 }
 
 // Run list
+.runs-section {
+  margin-bottom: 2rem;
+
+  ion-card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  }
+}
+
 ion-list {
   background: transparent;
 
@@ -231,10 +239,11 @@ ion-list {
 
 // Injury section
 .injury-section {
-  margin: var(--section-spacing) 0;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
 
   ion-card {
-    box-shadow: var(--card-shadow);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
     margin-bottom: 1rem;
   }
 
@@ -313,18 +322,15 @@ ion-list {
   }
 }
 
-// Empty & Loading states - shared centering
-.empty-state,
-.loading-container {
+// Empty state
+.empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 4rem 2rem;
   text-align: center;
-}
 
-.empty-state {
   ion-icon {
     font-size: 5rem;
     color: var(--ion-color-medium);
@@ -333,12 +339,20 @@ ion-list {
   }
 
   h2 {
-    margin: 0 0 0.5rem;
+    margin: 0 0 0.5rem 0;
     color: var(--ion-text-color);
   }
 }
 
+// Loading state
 .loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+
   ion-spinner {
     margin-bottom: 1rem;
   }
@@ -349,7 +363,7 @@ ion-list {
   }
 }
 
-// Responsive
+// Responsive adjustments
 @media (max-width: 768px) {
   .summary-card .metric-value {
     font-size: 2rem;
@@ -364,10 +378,12 @@ ion-list {
     --width: 95%;
   }
 
-  .range-buttons ion-button {
-    font-size: 0.75rem;
-    --padding-start: 0.5rem;
-    --padding-end: 0.5rem;
-    min-width: 45px;
+  .range-buttons {
+    ion-button {
+      font-size: 0.75rem;
+      --padding-start: 0.5rem;
+      --padding-end: 0.5rem;
+      min-width: 45px;
+    }
   }
 }
