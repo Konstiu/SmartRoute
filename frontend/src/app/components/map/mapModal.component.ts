@@ -10,6 +10,7 @@ import { ActionSheetController } from '@ionic/angular';
 import { NgZone } from '@angular/core';
 
 type AddStopsMode = 'KEEP_SHAPE' | 'KEEP_LENGTH';
+type InitialMode = 'SET_START' | 'EDIT_STOPS';
 
 @Component({
   standalone: true,
@@ -29,6 +30,7 @@ export class MapModalComponent {
   @Input() originalBounds!: LatLngBounds;
   @Input() onReset?: () => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
   @Input() onChangeStart?: (start: LatLng) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
+  @Input() initialMode: InitialMode = 'EDIT_STOPS';
 
   @ViewChild(MapComponent) mapComponent!: MapComponent;
 
@@ -66,11 +68,23 @@ export class MapModalComponent {
     private zone: NgZone
   ) {}
 
-  ngOnInit() {
-    this.baseLayers = [...this.layers];
+ngOnInit() {
+  this.baseLayers = [...this.layers];
 
-    this.rebuildEditorLayers();
+  if (this.isSetStartMode) {
+    this.addPointMode = true;
+    this.loadingMessage = 'Tap the map to choose a starting point…';
   }
+
+  this.rebuildEditorLayers();
+}
+
+  get showStopFabs(): boolean {
+    // hide FABs while choosing a start (SET_START mode) or while processing
+    return this.initialMode !== 'SET_START' && !this.isProcessing;
+  }
+
+
 
 
   get totalStops(): number {
@@ -143,12 +157,18 @@ private centerRouteInitially() {
     this.addPointMode = !this.addPointMode;
   }
 
-  async onPointAdded(point: LatLng) {
-    if (!this.addPointMode || this.isProcessing) return;
+async onPointAdded(point: LatLng) {
+  if (this.isProcessing) return;
 
-    // place/move candidate marker
-    this.setSearchMarker(point);
+  this.setSearchMarker(point);
+
+  if (this.isSetStartMode) {
+      await this.chooseSearchedPointAsStart(point);
+  } else {
+    if (!this.addPointMode) return;
   }
+}
+
 
   close() {
     this.modalCtrl.dismiss({
@@ -198,12 +218,21 @@ async selectSearchResult(r: { display_name: string; lat: string; lon: string }) 
   const map = this.mapComponent?.map;
   if (map) map.setView(point, Math.max(map.getZoom(), 15), { animate: true });
 
-  // Place/move neutral marker
+  // If choosing a start location, apply immediately
+  if (this.isSetStartMode) {
+    this.clearSearch();
+    this.setSearchMarker(point);
+    await this.chooseSearchedPointAsStart(point);
+    return;
+  }
+
+  // Normal behavior: just place neutral marker and let user decide action
   this.setSearchMarker(point);
 
   // Hide results after selection
   this.clearSearch();
 }
+
 
   async reset() {
     if (!this.onReset || this.isProcessing) return;
@@ -408,6 +437,10 @@ private async chooseSearchedPointAsStart(point: LatLng) {
       map.invalidateSize();
       map.fitBounds(this.routeBounds, { padding: [50, 50], animate: true });
     });
+
+    this.initialMode = 'EDIT_STOPS';
+    this.loadingMessage = '';
+
   } catch (e) {
     console.error('Change start failed', e);
   } finally {
@@ -455,6 +488,10 @@ private async showToast(message: string) {
 
   console.log('presenting toast:', message);
   await toast.present();
+}
+
+private get isSetStartMode(): boolean {
+  return this.initialMode === 'SET_START';
 }
 }
 
