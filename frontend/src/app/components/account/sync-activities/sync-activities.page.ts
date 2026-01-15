@@ -62,22 +62,41 @@ export class SyncActivitiesPage implements OnInit {
 
     await this.showToast('Starting sync...', 'primary');
 
-    this.activitiesService.refreshActivities(this.activitiesToSync).subscribe({
-      next: async () => {
+    this.activitiesService.syncWithValidation(this.activitiesToSync).subscribe({
+      next: async ({ outcome }) => {
         this.isSyncing = false;
-        this.syncComplete = true;
-        this.syncNotificationService.notifySyncCompleted();
 
-        await this.showToast(`✓ Successfully synced ${this.activitiesToSync} activities!`, 'success', 3000);
+        if (outcome.kind === 'success') {
+          this.syncComplete = true;
+          this.syncNotificationService.notifySyncCompleted();
+          await this.showToast(`✓ Successfully synced ${this.activitiesToSync} activities!`, 'success', 3000);
+          setTimeout(() => this.syncComplete = false, 3000);
+          return;
+        }
 
-        setTimeout(() => {
-          this.syncComplete = false;
-        }, 3000);
+        if (outcome.kind === 'running') {
+          await this.showToast('Sync is still running. Please check again shortly.', 'warning', 3000);
+          return;
+        }
+
+        if (outcome.kind === 'failed') {
+          await this.showToast(
+            outcome.message ? `✗ Sync failed: ${outcome.message}` : '✗ Sync failed. Please try again.',
+            'danger',
+            3000
+          );
+          return;
+        }
+
+        await this.showToast(
+          "Connection interrupted. We couldn't confirm the sync. Please check again or retry if needed.",
+          'warning',
+          3000
+        );
       },
-      error: async (error: any) => {
+      error: async (err) => {
         this.isSyncing = false;
-        console.error('Sync failed:', error);
-
+        console.error('Sync failed:', err);
         await this.showToast('✗ Sync failed. Please try again.', 'danger', 3000);
       }
     });

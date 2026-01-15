@@ -71,21 +71,9 @@ public class ApplicationUser {
     @ToString.Exclude
     private Set<Weekday> activeWeekdays = new HashSet<>();
 
-    @Column
-    private String publicIdentityKey;
 
-    @Column
-    private String publicPreKey;
-
-    @Column
-    private String preKeySignature;
-
-    @OneToMany(
-        mappedBy = "user",
-        cascade = CascadeType.ALL,
-        orphanRemoval = true
-    )
-    private List<PreKey> oneTimePreKeys = new ArrayList<>();
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserDevice> devices = new ArrayList<>();
 
     public ApplicationUser() {
     }

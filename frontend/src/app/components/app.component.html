@@ -1,3 +1,48 @@
 <ion-app>
   <ion-router-outlet></ion-router-outlet>
+
+  <!-- Draggable Emergency Bubble -->
+  @if (shouldShowButton()) {
+    <div
+      class="emergency-bubble"
+      #alertFab
+      [class.holding]="holding"
+      [class.dragging]="dragging"
+      [style.transform]="'translate3d(' + x + 'px, ' + y + 'px, 0)'"
+    >
+      <!-- Progress circle using SVG -->
+      <svg class="progress-ring" width="72" height="72" viewBox="0 0 72 72">
+        <circle
+          class="progress-ring-bg"
+          cx="36"
+          cy="36"
+          r="32"
+          fill="none"
+          stroke="rgba(255,255,255,0.2)"
+          stroke-width="4"
+        />
+        <circle
+          class="progress-ring-fill"
+          cx="36"
+          cy="36"
+          r="30"
+          fill="none"
+          stroke="white"
+          stroke-width="4"
+          stroke-linecap="round"
+          [attr.stroke-dasharray]="188.4"
+          [attr.stroke-dashoffset]="188.4 - (188.4 * holdProgress / 100)"
+          transform="rotate(-90 36 36)"
+        />
+      </svg>
+
+      <!-- Icon -->
+      <ion-icon name="alert" class="alert-icon"></ion-icon>
+
+      <!-- Hold instruction (shows while holding) -->
+      @if (holdProgress > 0 && holdProgress < 100) {
+        <div class="hold-hint">Hold...</div>
+      }
+    </div>
+  }
 </ion-app>
