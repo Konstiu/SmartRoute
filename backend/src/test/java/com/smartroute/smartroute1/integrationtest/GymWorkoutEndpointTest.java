@@ -1,6 +1,5 @@
-package com.smartroute.smartroute1.unittest;
+package com.smartroute.smartroute1.integrationtest;
 
-import com.smartroute.smartroute1.endpoint.GymWorkoutEndpoint;
 import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.enums.BodyPart;
