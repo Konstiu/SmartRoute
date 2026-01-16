@@ -105,17 +105,14 @@
 
       </ion-fab>
     </ng-container>
-
-    <ion-fab vertical="top" horizontal="start" slot="fixed" *ngIf="isMapReady">
+    <ion-fab vertical="top" horizontal="start" slot="fixed" *ngIf="isMapReady" class="top-right-fabs">
       <ion-fab-button
         (click)="openFacilitiesMenu()"
         [color]="showFacilities ? 'tertiary' : 'light'"
         size="small">
         <ion-icon name="layers-outline"></ion-icon>
       </ion-fab-button>
-    </ion-fab>
-    <!-- Sanitary Facilities Button (Top Right, below facilities menu) -->
-    <ion-fab vertical="top" horizontal="start" slot="fixed" *ngIf="isMapReady" style="margin-top: 60px;">
+
       <ion-fab-button
         (click)="openSanitarySettings()"
         [color]="sanitarySettings.enabled ? 'secondary' : 'light'"
