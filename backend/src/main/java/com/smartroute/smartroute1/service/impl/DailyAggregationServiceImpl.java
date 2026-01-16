@@ -1,6 +1,7 @@
 package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.DailySummary;
 import com.smartroute.smartroute1.service.DailyAggregationService;
@@ -23,7 +24,7 @@ public class DailyAggregationServiceImpl implements DailyAggregationService {
     private final ZoneId zoneId = ZoneId.of("Europe/Vienna");
 
     @Override
-    public List<DailySummary> getDailySummaries(Long userId, int daysBack) {
+    public List<DailySummary> getDailySummaries(ApplicationUser user, int daysBack) {
         if (daysBack <= 0) {
             return List.of();
         }
@@ -33,7 +34,7 @@ public class DailyAggregationServiceImpl implements DailyAggregationService {
                 .atStartOfDay(zoneId)
                 .toInstant();
 
-        List<Activity> activities = activityRepository.findRecentActivitiesForUser(userId, from);
+        List<Activity> activities = activityRepository.findRecentActivitiesForUser(user.getId(), from);
 
         // Aggregate in a stable order
         Map<LocalDate, MutableDaily> perDay = new TreeMap<>();
