@@ -33,7 +33,8 @@ export class InjuriesPage implements OnInit {
     LOWER_LEG_REGION: 'Lower Leg',
     RESPIRATION_REGION: 'Respiratory',
     SPINAL_INJURY: 'Spinal Injury',
-    BONE_FRACTURE: 'Bone Fracture'
+    BONE_FRACTURE: 'Bone Fracture',
+    HIP: 'Hip'
   };
 
   constructor(

@@ -6,69 +6,127 @@
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
-<ion-content fullscreen>
-  <!-- Spinner overlay -->
-  <div class="map-loading" *ngIf="!isMapReady">
-    <ion-spinner name="crescent"></ion-spinner>
-    <p>Centering route…</p>
-  </div>
-  <!-- Map -->
-  <app-map
-    [layers]="localLayers"
-    [interactive]="true"
-    [addPointMode]="addPointMode"
-    (pointAdded)="onPointAdded($event)">
-  </app-map>
-  <!-- Center FAB -->
-  <ion-fab
-    vertical="bottom"
-    horizontal="end"
-    slot="fixed"
-    *ngIf="isMapReady">
-    <ion-fab-button (click)="centerRoute()">
-      <ion-icon name="locate-outline"></ion-icon>
-    </ion-fab-button>
-  </ion-fab>
-  <!-- LEFT STACKED FABs -->
-  <ion-fab vertical="bottom" horizontal="start" slot="fixed">
-    <!-- Confirm (only if points exist) -->
-    <ion-fab-button
-      *ngIf="addedPoints.length > 0"
-      color="success"
-      class="fab-confirm"
-      (click)="confirm()">
-      <ion-icon name="checkmark-outline"></ion-icon>
-    </ion-fab-button>
-    <!-- Add / Cancel -->
-    <ion-fab-button
-      [color]="addPointMode ? 'danger' : 'primary'"
-      (click)="toggleAddPointMode()">
-      <ion-icon
-        [name]="addPointMode ? 'close-outline' : 'add-outline'">
-      </ion-icon>
-    </ion-fab-button>
-  </ion-fab>
-  <!-- Facilities Menu Button (Top Right) -->
-  <ion-fab vertical="top" horizontal="end" slot="fixed" *ngIf="isMapReady">
-    <ion-fab-button
-      (click)="openFacilitiesMenu()"
-      [color]="showFacilities ? 'tertiary' : 'light'"
-      size="small">
-      <ion-icon name="layers-outline"></ion-icon>
-    </ion-fab-button>
-  </ion-fab>
-  <!-- Sanitary Facilities Button (Top Right, below facilities menu) -->
-  <ion-fab vertical="top" horizontal="end" slot="fixed" *ngIf="isMapReady" style="margin-top: 60px;">
-    <ion-fab-button
-      (click)="openSanitarySettings()"
-      [color]="sanitarySettings.enabled ? 'secondary' : 'light'"
-      size="small">
-      <ion-icon name="git-commit-outline"></ion-icon>
-    </ion-fab-button>
-  </ion-fab>
-  <!-- Loading indicator for facilities -->
-  <div class="facilities-loading" *ngIf="isLoadingFacilities">
-    <ion-spinner name="crescent"></ion-spinner>
-    <p>Loading facilities…</p>
+
+<ion-content>
+  <div class="modal-frame" [class.editing]="addPointMode">
+
+    <!-- Spinner overlay -->
+    <div class="map-loading" *ngIf="!isMapReady || isProcessing">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>{{ loadingMessage || 'Loading…' }}</p>
+    </div>
+
+    <!-- Search overlay (on top of the map) -->
+    <div class="search-overlay" *ngIf="isMapReady && !isProcessing">
+      <div class="search-bar-wrapper">
+        <ion-searchbar
+          placeholder="Search location…"
+          [value]="searchQuery"
+          (ionInput)="onSearchInput($event)"
+          (ionClear)="clearSearch()">
+        </ion-searchbar>
+      </div>
+
+      <ion-list *ngIf="searchResults.length > 0" class="search-results">
+        <ion-item
+          button
+          *ngFor="let r of searchResults"
+          (click)="selectSearchResult(r)">
+          <ion-label class="ion-text-wrap">
+            {{ r.display_name }}
+          </ion-label>
+        </ion-item>
+      </ion-list>
+    </div>
+
+
+    <!-- Map -->
+    <app-map
+      [layers]="localLayers"
+      [interactive]="true"
+      [addPointMode]="addPointMode"
+      (pointAdded)="onPointAdded($event)">
+    </app-map>
+
+    <!-- Center FAB -->
+    <ng-container *ngIf="showStopFabs">
+      <ion-fab
+        vertical="bottom"
+        horizontal="end"
+        slot="fixed"
+        *ngIf="isMapReady">
+        <ion-fab-button (click)="centerRoute()">
+          <ion-icon name="locate-outline"></ion-icon>
+        </ion-fab-button>
+      </ion-fab>
+
+      <!-- LEFT STACKED FABs -->
+      <ion-fab vertical="bottom" horizontal="start" slot="fixed">
+
+        <!-- Stops counter -->
+        <ion-chip
+          *ngIf="isMapReady"
+          class="stops-chip"
+          [color]="remainingStops === 0 ? 'warning' : 'medium'">
+          <ion-icon name="flag-outline"></ion-icon>
+          <ion-label>{{ totalStops }}/2 stops</ion-label>
+        </ion-chip>
+
+        <!-- Confirm -->
+        <ion-fab-button
+          *ngIf="isMapReady && isEditingStops"
+          color="success"
+          class="fab-confirm"
+          [disabled]="isProcessing"
+          (click)="confirm()">
+          <ion-icon name="checkmark-outline"></ion-icon>
+        </ion-fab-button>
+
+
+        <!-- Add -->
+        <ion-fab-button
+          [color]="isEditingStops ? 'danger' : 'primary'"
+          [disabled]="!isEditingStops && remainingStops === 0"
+          (click)="onAddCancelClick()">
+          <ion-icon
+            [name]="isEditingStops ? 'close-outline' : 'location-outline'">
+          </ion-icon>
+        </ion-fab-button>
+
+
+        <ion-fab-button
+          *ngIf="isMapReady"
+          color="light"
+          [disabled]="isProcessing || !onReset"
+          (click)="reset()">
+          <ion-icon name="refresh-outline"></ion-icon>
+        </ion-fab-button>
+
+
+      </ion-fab>
+    </ng-container>
+
+    <ion-fab vertical="top" horizontal="start" slot="fixed" *ngIf="isMapReady">
+      <ion-fab-button
+        (click)="openFacilitiesMenu()"
+        [color]="showFacilities ? 'tertiary' : 'light'"
+        size="small">
+        <ion-icon name="layers-outline"></ion-icon>
+      </ion-fab-button>
+    </ion-fab>
+    <!-- Sanitary Facilities Button (Top Right, below facilities menu) -->
+    <ion-fab vertical="top" horizontal="start" slot="fixed" *ngIf="isMapReady" style="margin-top: 60px;">
+      <ion-fab-button
+        (click)="openSanitarySettings()"
+        [color]="sanitarySettings.enabled ? 'secondary' : 'light'"
+        size="small">
+        <ion-icon name="git-commit-outline"></ion-icon>
+      </ion-fab-button>
+    </ion-fab>
+    <!-- Loading indicator for facilities -->
+    <div class="facilities-loading" *ngIf="isLoadingFacilities">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading facilities…</p>
+    </div>
   </div>
 </ion-content>

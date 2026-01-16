@@ -1,27 +1,34 @@
-import {inject, Injectable} from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { AddStopsRequest, GeoJsonPosition } from '../app/dtos/add-stops';
+import { GeneratedRouteDto } from "src/app/dtos/route"
+import { Globals } from "src/global/globals";
 import {RouteWithFacilitiesResponseDto, RouteWithFacilityDefaults} from "../app/dtos/RouteWithFacilitiesDto";
 import {ViennaPointDto} from "../app/dtos/ViennaPointsDto";
-import {Globals} from "../global/globals";
+
 
 @Injectable({ providedIn: 'root' })
 export class StopsService {
-  private http = inject(HttpClient);
-  private globals = inject(Globals);
+  private readonly httpClient: HttpClient = inject(HttpClient);
+  private readonly globals: Globals = inject(Globals);
+  private readonly baseUri: string = this.globals.backendUri + '/stops';
 
-  private baseUri = this.globals.backendUri + '/stops/';
+  insertStops(req: AddStopsRequest): Observable<GeneratedRouteDto> {
+    console.log("AddStopsRequest payload:", JSON.stringify(req));
+    return this.httpClient.post<GeneratedRouteDto>(this.baseUri + '/insert', req)
+  }
 
-  insertStops(req: AddStopsRequest): Observable<GeoJsonPosition[]> {
-    return this.http.post<GeoJsonPosition[]>(this.baseUri + 'insert', req);
+  reshape(req: AddStopsRequest): Observable<GeneratedRouteDto> {
+    console.log("AddStopsRequest payload:", JSON.stringify(req));
+    return this.httpClient.post<GeneratedRouteDto>(this.baseUri + '/reshape', req);
   }
 
   addFacilitiesStops(req: RouteWithFacilityDefaults): Observable<RouteWithFacilitiesResponseDto> {
-    return this.http.post<RouteWithFacilitiesResponseDto>(this.baseUri+'with-facilities', req);
+    return this.httpClient.post<RouteWithFacilitiesResponseDto>(this.baseUri+'/with-facilities', req);
   }
 
   getAllFacilities(): Observable<ViennaPointDto[]> {
-    return this.http.get<ViennaPointDto[]>(this.baseUri + 'facilities');
+    return this.httpClient.get<ViennaPointDto[]>(this.baseUri + '/facilities');
   }
 }

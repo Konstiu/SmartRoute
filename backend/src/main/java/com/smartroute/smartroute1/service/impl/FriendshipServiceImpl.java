@@ -205,4 +205,14 @@ public class FriendshipServiceImpl implements FriendshipService {
         ApplicationUser user = userService.findApplicationUserByEmail(email);
         return friendshipRepository.findBySenderAndStatus(user, FriendshipStatus.PENDING);
     }
+
+    @Override
+    @Transactional
+    public boolean areFriends(String userEmail, String friendEmail) {
+        LOGGER.trace("areFriends({}, {})", userEmail, friendEmail);
+        ApplicationUser user = userService.findApplicationUserByEmail(userEmail);
+        ApplicationUser friend = userService.findApplicationUserByEmail(friendEmail);
+        Optional<Friendship> friendship = friendshipRepository.findByUsers(user, friend);
+        return friendship.isPresent() && friendship.get().getStatus() == FriendshipStatus.ACCEPTED;
+    }
 }

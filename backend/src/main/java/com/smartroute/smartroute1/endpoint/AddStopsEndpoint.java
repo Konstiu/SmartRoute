@@ -3,7 +3,7 @@ package com.smartroute.smartroute1.endpoint;
 import com.smartroute.smartroute1.endpoint.dto.AddStopsDto;
 import com.smartroute.smartroute1.endpoint.dto.RouteWithFacilitiesDto;
 import com.smartroute.smartroute1.endpoint.dto.ViennaPointDto;
-import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonGeometryLineString;
+import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonDto;
 import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonPosition;
 import com.smartroute.smartroute1.endpoint.mapper.PolyLineMapper;
 import com.smartroute.smartroute1.entity.ViennaPoint;
@@ -14,7 +14,7 @@ import com.smartroute.smartroute1.service.AddStopsService;
 import com.smartroute.smartroute1.service.ViennaPointService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.annotation.security.PermitAll;
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -32,22 +32,42 @@ import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/api/v1/stops")
-@RequiredArgsConstructor
+@AllArgsConstructor
 public class AddStopsEndpoint {
     private final AddStopsService service;
+    private final PolyLineMapper polyLineMapper;
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final PolyLineMapper mapper;
     private final ViennaPointService viennaPointService;
     private final ViennaPointRepository viennaPointRepository;
 
+
     @PostMapping("/insert")
     @PermitAll
     @Operation(summary = "Insert additional stops.",
             description = "Edit a given route to include multiple coordinates the user sets.")
-    public ResponseEntity<List<GeoJsonPosition>> addWaypoints(@RequestBody AddStopsDto addStopsDto) throws ValidationException {
-        List<GeoJsonPosition> editedRoute = service.addWaypoints(addStopsDto.getOriginalRoute(), addStopsDto.getNewPoint());
-        return ResponseEntity.ok(editedRoute);
+    public ResponseEntity<String> addWaypoints(@RequestBody AddStopsDto addStopsDto) throws ValidationException {
+        GeoJsonDto editedRoute = service.addWaypoints(addStopsDto);
+        String response = "{\"bbox\":" + editedRoute.getBbox()
+                + ",\"polyline\":\"" + polyLineMapper.geoJsonGeometryLineStringToPolyline(editedRoute.getFeatures().getFirst().getGeometry()).replace("\\", "\\\\") + "\""
+                + ",\"distance\":" + editedRoute.getFeatures().getFirst().getProperties().getDistance()
+                + ",\"elevation\":" + editedRoute.getFeatures().getFirst().getProperties().getAscent() + "}";
+        return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/reshape")
+    @PermitAll
+    @Operation(summary = "Reshape the route to include additional stops.",
+            description = "Reshape a given route to include multiple coordinates, without changing the original length too much.")
+    public ResponseEntity<String> reshape(@RequestBody AddStopsDto addStopsDto) throws ValidationException {
+        GeoJsonDto editedRoute = service.reshape(addStopsDto);
+        String response = "{\"bbox\":" + editedRoute.getBbox()
+                + ",\"polyline\":\"" + polyLineMapper.geoJsonGeometryLineStringToPolyline(editedRoute.getFeatures().getFirst().getGeometry()).replace("\\", "\\\\") + "\""
+                + ",\"distance\":" + editedRoute.getFeatures().getFirst().getProperties().getDistance()
+                + ",\"elevation\":" + editedRoute.getFeatures().getFirst().getProperties().getAscent() + "}";
+        return ResponseEntity.ok(response);
+    }
+
 
 
     @PostMapping("/with-facilities")
@@ -93,7 +113,7 @@ public class AddStopsEndpoint {
             } else {
                 // 3. Insert all facility stops with detours
                 LOGGER.info("Adding {} facility stops to route...", facilityStops.size());
-                routeCoords = service.addWaypoints(routeCoords, facilityStops);
+                routeCoords = service.addWaypointsExitAndRejoin(routeCoords, facilityStops, addFacilitiesDto.getMaxFacilityDistance());
 
                 double newDistance = service.calculateTotalDistance(routeCoords);
                 double addedDistance = newDistance - originalDistance;
@@ -148,6 +168,4 @@ public class AddStopsEndpoint {
         dto.setType(entity.getType());
         return dto;
     }
-
-
 }

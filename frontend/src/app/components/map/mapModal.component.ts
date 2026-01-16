@@ -1,28 +1,46 @@
-import {Component, EventEmitter, Input, Output, ViewChild} from '@angular/core';
-import {ActionSheetController, IonicModule, ModalController} from '@ionic/angular';
-import {CommonModule} from '@angular/common';
-import {LatLng, LatLngBounds, Layer, marker, polyline as leafletPolyline} from 'leaflet';
-import {MapComponent} from './map.component';
-import {coloredMarker, emojiMarker, MAP_MARKER_COLORS} from './map-icon';
-import {StopsService} from '../../../services/add-stops.service';
-import {ViennaPointDto} from '../../dtos/ViennaPointsDto';
-import {SanitarySettings, SanitarySettingsModalComponent} from './consider-fac/consider-fac.component';
-import {RouteWithFacilityDefaults} from "../../dtos/RouteWithFacilitiesDto";
-import {GeoJsonPosition} from "../../dtos/add-stops";
+import { Component, EventEmitter, Input, Output, ViewChild } from '@angular/core';
+import { ActionSheetController, IonicModule, ModalController, ToastController } from '@ionic/angular';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { LatLng, LatLngBounds, Layer, marker, polyline as leafletPolyline, Marker, latLng } from 'leaflet';
+import { NgZone } from '@angular/core';
+import { MapComponent } from './map.component';
+import { coloredMarker, emojiMarker, MAP_MARKER_COLORS } from './map-icon';
+import { StopsService } from '../../../services/add-stops.service';
+import { ViennaPointDto } from '../../dtos/ViennaPointsDto';
+import { SanitarySettings, SanitarySettingsModalComponent } from './consider-fac/consider-fac.component';
+import { RouteWithFacilityDefaults } from "../../dtos/RouteWithFacilitiesDto";
+import { GeoJsonPosition } from "../../dtos/add-stops";
+import { GeocodingService, GeocodeResult } from 'src/services/geocoding.service';
 
+type AddStopsMode = 'KEEP_SHAPE' | 'KEEP_LENGTH';
+type InitialMode = 'SET_START' | 'EDIT_STOPS';
 
 @Component({
   standalone: true,
   selector: 'app-map-modal',
-  imports: [IonicModule, CommonModule, MapComponent],
+  imports: [IonicModule, CommonModule, MapComponent, FormsModule],
   templateUrl: './mapModal.component.html',
   styleUrls: ['./mapModal.component.scss']
 })
 export class MapModalComponent {
-  @Input() layers: any[] = [];
+  private static readonly MAX_STOPS = 2;
+
+  @Input() layers: Layer[] = [];
   @Input() routeBounds!: LatLngBounds;
+  @Input() committedStops: LatLng[] = [];
+  @Input() originalLayers!: Layer[];
+  @Input() originalBounds!: LatLngBounds;
+  @Input() initialMode: InitialMode = 'EDIT_STOPS';
+
+  @Input() onConfirm!: (points: LatLng[], mode: AddStopsMode) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
+  @Input() onReset?: () => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
+  @Input() onChangeStart?: (start: LatLng) => Promise<{ layers: Layer[]; bounds: LatLngBounds | null }>;
+
   @Output() confirmPoints = new EventEmitter<LatLng[]>();
   @Output() sanitarySettingsChanged = new EventEmitter<RouteWithFacilityDefaults>();
+  @Output() routeUpdated = new EventEmitter<string>();
+
 
   @ViewChild(MapComponent) mapComponent!: MapComponent;
 
@@ -48,24 +66,51 @@ export class MapModalComponent {
     maxFacilityDistance: 200
   };
 
+  // Search functionality
+  searchQuery = '';
+  searchResults: GeocodeResult[] = [];
+  isSearching = false;
+  private searchTimer?: any;
+  searchMarker: Marker | null = null;
+  private searchMarkerPos: LatLng | null = null;
+
   private baseLayers: Layer[] = [];
   isMapReady = false;
+  isProcessing = false;
+  loadingMessage = 'Loading map…';
+
+  private readonly fallbackCenter = latLng(48.208169, 16.373817);
+  private readonly fallbackZoom = 10;
 
   constructor(
     private modalCtrl: ModalController,
     private actionSheetCtrl: ActionSheetController,
-    private stopsService: StopsService
-  ) {
+    private stopsService: StopsService,
+    private toastCtrl: ToastController,
+    private geocoding: GeocodingService,
+    private zone: NgZone
+  ) { }
+
+  // =====================================================
+  // Computed UI helpers
+  // =====================================================
+
+  private get isSetStartMode(): boolean {
+    return this.initialMode === 'SET_START';
   }
 
-  ngOnInit() {
-    this.baseLayers = [...this.layers];
-    this.localLayers = [...this.layers];
-    const firstPolyline = this.baseLayers.find(l => (l as any).getLatLngs);
-    if (firstPolyline) (firstPolyline as any).__isRouteLayer = true;
+  get showStopFabs(): boolean {
+    return !this.isSetStartMode && !this.isProcessing;
   }
 
-  // Computed properties for counts
+  get totalStops(): number {
+    return (this.committedStops?.length ?? 0) + this.addedPoints.length;
+  }
+
+  get remainingStops(): number {
+    return Math.max(0, MapModalComponent.MAX_STOPS - this.totalStops);
+  }
+
   get toiletCount(): number {
     return this.facilities.filter(f => f.type === 'Toilet').length;
   }
@@ -81,33 +126,449 @@ export class MapModalComponent {
     return count;
   }
 
-  toggleAddPointMode() {
-    if (this.addPointMode) {
-      this.addedPoints = [];
-      this.rebuildLayers();
-    }
-    this.addPointMode = !this.addPointMode;
+  get isEditingStops(): boolean {
+    return this.addPointMode;
   }
 
-  onPointAdded(point: LatLng) {
-    this.addedPoints.push(point);
-    const m = marker(point, {
-      icon: coloredMarker(MAP_MARKER_COLORS.added)
-    });
-    this.localLayers = [...this.localLayers, m];
+  // =====================================================
+  // Lifecycle
+  // =====================================================
+
+  ngOnInit() {
+    this.baseLayers = [...this.layers];
+    const firstPolyline = this.baseLayers.find(l => (l as any).getLatLngs);
+    if (firstPolyline) (firstPolyline as any).__isRouteLayer = true;
+
+    if (this.isSetStartMode) {
+      this.addPointMode = true; // allow click/tap immediately
+    }
+
+    this.rebuildLayers();
   }
+
+  ionViewDidEnter() {
+    this.centerRouteInitially();
+  }
+
+  // =====================================================
+  // Map camera
+  // =====================================================
+
+  private centerRouteInitially() {
+    requestAnimationFrame(() => {
+      const map = this.mapComponent?.map;
+      if (!map) return;
+
+      map.invalidateSize(true);
+
+      if (this.routeBounds) {
+        this.isMapReady = false;
+
+        map.fitBounds(this.routeBounds, { padding: [50, 50], animate: false });
+
+        setTimeout(() => {
+          this.isMapReady = true;
+        }, 80);
+      } else {
+        map.setView(this.fallbackCenter, this.fallbackZoom, { animate: false });
+        this.isMapReady = true;
+      }
+    });
+  }
+
+  centerRoute() {
+    const map = this.mapComponent?.map;
+    if (!map || !this.routeBounds) return;
+    map.fitBounds(this.routeBounds, { padding: [50, 50], animate: true });
+  }
+
+  private refitToBounds() {
+    requestAnimationFrame(() => {
+      const map = this.mapComponent?.map;
+      if (!map) return;
+
+      map.invalidateSize(true);
+
+      if (this.routeBounds) {
+        map.fitBounds(this.routeBounds, { padding: [50, 50], animate: true });
+      }
+    });
+  }
+
+  // =====================================================
+  // Editing modes
+  // =====================================================
+
+  async toggleAddPointMode() {
+    if (!this.addPointMode && this.remainingStops === 0) {
+      await this.showMaxStopsToast();
+      return;
+    }
+
+    // Leaving add mode cancels pending marker
+    if (this.addPointMode) {
+      this.addedPoints = [];
+      this.clearSearchMarker();
+    }
+
+    this.addPointMode = !this.addPointMode;
+    this.rebuildLayers();
+  }
+
+  async onPointAdded(point: LatLng) {
+    if (this.isProcessing) return;
+
+    // In EDIT_STOPS mode: ignore clicks unless explicitly in addPointMode
+    if (!this.isSetStartMode && !this.addPointMode) return;
+
+    // SET_START mode: apply immediately
+    if (this.isSetStartMode) {
+      this.setSearchMarker(point);
+      await this.chooseSearchedPointAsStart(point);
+    } else {
+      // EDIT_STOPS mode: add to pending points
+      this.addedPoints.push(point);
+      this.setSearchMarker(point);
+      this.rebuildLayers();
+    }
+  }
+
+  // =====================================================
+  // Search
+  // =====================================================
+
+  onSearchInput(ev: any) {
+    const value = (ev?.target?.value ?? '').toString();
+    this.searchQuery = value;
+
+    clearTimeout(this.searchTimer);
+
+    this.searchTimer = setTimeout(async () => {
+      const q = this.searchQuery.trim();
+      if (q.length < 3) {
+        this.searchResults = [];
+        return;
+      }
+
+      this.isSearching = true;
+      try {
+        this.searchResults = await this.geocoding.search(q);
+      } catch (e) {
+        console.error('Geocoding failed', e);
+        this.searchResults = [];
+      } finally {
+        this.isSearching = false;
+      }
+    }, 350);
+  }
+
+  clearSearch() {
+    this.searchQuery = '';
+    this.searchResults = [];
+  }
+
+  async selectSearchResult(r: { display_name: string; lat: string; lon: string }) {
+    const lat = Number(r.lat);
+    const lon = Number(r.lon);
+    if (Number.isNaN(lat) || Number.isNaN(lon)) return;
+
+    const point = new LatLng(lat, lon);
+
+    const map = this.mapComponent?.map;
+    if (map) map.setView(point, Math.max(map.getZoom(), 15), { animate: true });
+
+    this.clearSearch();
+    this.setSearchMarker(point);
+
+    if (this.isSetStartMode) {
+      await this.chooseSearchedPointAsStart(point);
+    }
+  }
+
+  // =====================================================
+  // Marker / layers
+  // =====================================================
+
+  private rebuildLayers() {
+    const layers: Layer[] = [...this.baseLayers];
+
+    // Add facility markers if enabled
+    if (this.showFacilities) {
+      this.facilities.forEach((facility, index) => {
+        const shouldShow =
+          (facility.type === 'Toilet' && this.showToilets) ||
+          (facility.type === 'Fountain' && this.showFountains);
+
+        if (shouldShow) {
+          // Validate coordinates exist
+          if (!facility.coordinate ||
+            facility.coordinate.latitude === undefined ||
+            facility.coordinate.longitude === undefined) {
+            console.warn(`Facility ${index} has invalid coordinates:`, facility);
+            return;
+          }
+
+          const lat = Number(facility.coordinate.latitude);
+          const lon = Number(facility.coordinate.longitude);
+
+          if (isNaN(lat) || isNaN(lon)) {
+            console.warn(`Facility ${index} has non-numeric coordinates:`, facility);
+            return;
+          }
+
+          try {
+            // Use emoji markers
+            const facilityType = facility.type.toLowerCase() as 'toilet' | 'fountain';
+            const facilityMarkerInstance = marker(
+              [lat, lon],
+              { icon: emojiMarker(facilityType) }
+            );
+
+            // Add popup with facility info
+            facilityMarkerInstance.bindPopup(`
+              <div style="text-align: center;">
+                <strong>${facility.type === 'Toilet' ? '🚻 Toilet' : '💧 Water Fountain'}</strong><br>
+                <small style="color: #999;">Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}</small>
+              </div>
+            `);
+
+            layers.push(facilityMarkerInstance);
+          } catch (error) {
+            console.error(`Error creating marker for facility ${index}:`, error, facility);
+          }
+        }
+      });
+    }
+
+    // Add committed stops
+    for (const p of this.committedStops) {
+      layers.push(marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.confirmed) }));
+    }
+
+    // Add user-added points
+    this.addedPoints.forEach(point => {
+      const m = marker(point, {
+        icon: coloredMarker(MAP_MARKER_COLORS.added)
+      });
+      layers.push(m);
+    });
+
+    // Add search marker
+    if (this.searchMarker) layers.push(this.searchMarker);
+
+    this.localLayers = layers;
+  }
+
+  private setSearchMarker(point: LatLng) {
+    this.searchMarkerPos = point;
+
+    if (!this.searchMarker) {
+      this.searchMarker = marker(point, { icon: coloredMarker(MAP_MARKER_COLORS.added) });
+
+      this.searchMarker.on('click', () => {
+        this.zone.run(() => this.openSearchMarkerActions());
+      });
+    } else {
+      this.searchMarker.setLatLng(point);
+    }
+
+    this.rebuildLayers();
+  }
+
+  private clearSearchMarker() {
+    this.searchMarker = null;
+    this.searchMarkerPos = null;
+    this.rebuildLayers();
+  }
+
+  // =====================================================
+  // Actions
+  // =====================================================
+
+  close() {
+    this.modalCtrl.dismiss({
+      addedPoints: this.addedPoints,
+      committedStops: this.committedStops
+    });
+  }
+
+  confirm() {
+    this.confirmPoints.emit([...this.addedPoints]);
+    this.addedPoints = [];
+    this.addPointMode = false;
+    this.rebuildLayers();
+  }
+
+  async reset() {
+    if (!this.onReset || this.isProcessing) return;
+
+    this.isProcessing = true;
+
+    try {
+      const { layers, bounds } = await this.onReset();
+
+      // Parent reset => clear local stop edits
+      this.addPointMode = false;
+      this.committedStops = [];
+      this.addedPoints = [];
+      this.clearSearchMarker();
+
+      this.baseLayers = [...layers];
+      if (bounds) this.routeBounds = bounds;
+
+      this.rebuildLayers();
+      this.refitToBounds();
+    } catch (e) {
+      console.error('Reset failed', e);
+      await this.showToast('Reset failed.');
+    } finally {
+      setTimeout(() => (this.isProcessing = false), 120);
+    }
+  }
+
+  private async openSearchMarkerActions() {
+    if (!this.searchMarkerPos || this.isProcessing) return;
+
+    const point = this.searchMarkerPos;
+    const atLimit = this.committedStops.length >= MapModalComponent.MAX_STOPS;
+
+    const buttons: any[] = [];
+
+    if (!this.isSetStartMode) {
+      buttons.push(
+        {
+          text: 'Add to route (Fast insert)',
+          icon: 'flash-outline',
+          handler: () => this.addPointToRoute(point, 'KEEP_SHAPE'),
+          cssClass: atLimit ? 'action-disabled' : ''
+        },
+        {
+          text: 'Add to route (Keep length)',
+          icon: 'resize-outline',
+          handler: () => this.addPointToRoute(point, 'KEEP_LENGTH'),
+          cssClass: atLimit ? 'action-disabled' : ''
+        }
+      );
+    }
+
+    buttons.push(
+      {
+        text: 'Choose as starting point',
+        icon: 'flag-outline',
+        handler: () => this.chooseSearchedPointAsStart(point),
+      },
+      {
+        text: 'Remove marker',
+        role: 'destructive',
+        icon: 'trash-outline',
+        handler: () => this.clearSearchMarker(),
+      },
+      {
+        text: 'Cancel',
+        role: 'cancel',
+      }
+    );
+
+    const sheet = await this.actionSheetCtrl.create({
+      header: 'Location',
+      buttons
+    });
+
+    await sheet.present();
+  }
+
+  private async addPointToRoute(point: LatLng, mode: AddStopsMode) {
+    if (!this.onConfirm || this.isProcessing) return;
+
+    if (this.committedStops.length >= MapModalComponent.MAX_STOPS) {
+      await this.showMaxStopsToast();
+      return;
+    }
+
+    this.isProcessing = true;
+    this.loadingMessage = 'Recalculating route…';
+    await this.nextPaint();
+
+    try {
+      const { layers, bounds } = await this.onConfirm([point], mode);
+
+      // Commit stop in modal state
+      this.committedStops = [...this.committedStops, point];
+
+      // Update route layers from parent
+      this.baseLayers = [...layers];
+      if (bounds) this.routeBounds = bounds;
+
+      this.clearSearchMarker();
+      this.rebuildLayers();
+      this.refitToBounds();
+    } catch (e: any) {
+      const code = e?.error?.code;
+
+      if (code === 'STOP_TOO_FAR_FROM_ROUTE') {
+        const max = e.error.details?.maxAllowedMeters;
+        const actual = e.error.details?.actualMeters;
+
+        await this.showToast(
+          `Point too far from route (allowed ${Math.round(max)}m, got ${Math.round(actual)}m).`
+        );
+        return;
+      }
+
+      console.error('Add to route failed', e);
+      await this.showToast('Could not add point to route.');
+    } finally {
+      setTimeout(() => (this.isProcessing = false), 120);
+      if (!this.isSetStartMode) this.loadingMessage = '';
+    }
+  }
+
+  private async chooseSearchedPointAsStart(point: LatLng) {
+    if (!this.onChangeStart || this.isProcessing) return;
+
+    this.isProcessing = true;
+
+    try {
+      const { layers, bounds } = await this.onChangeStart(point);
+
+      // Route changed => clear stops & state
+      this.committedStops = [];
+      this.addedPoints = [];
+      this.addPointMode = false;
+      this.clearSearchMarker();
+
+      // Update modal view
+      this.baseLayers = [...layers];
+      if (bounds) this.routeBounds = bounds;
+
+      // Exit start-selection mode after success
+      this.initialMode = 'EDIT_STOPS';
+
+      this.rebuildLayers();
+      this.refitToBounds();
+    } catch (e) {
+      console.error('Change start failed', e);
+      await this.showToast('Could not update start.');
+    } finally {
+      setTimeout(() => (this.isProcessing = false), 120);
+    }
+  }
+
+  // =====================================================
+  // Sanitary Facilities
+  // =====================================================
 
   async openSanitarySettings() {
     const modal = await this.modalCtrl.create({
       component: SanitarySettingsModalComponent,
       componentProps: {
-        settings: {...this.sanitarySettings}
+        settings: { ...this.sanitarySettings }
       }
     });
 
     await modal.present();
 
-    const {data, role} = await modal.onWillDismiss();
+    const { data, role } = await modal.onWillDismiss();
 
     if (role === 'confirm' && data) {
       this.sanitarySettings = data;
@@ -125,7 +586,7 @@ export class MapModalComponent {
     }
 
     // Build the route configuration
-    const route = this.encodePolylineFromGeoJsonPositions(this.getRoutePoints(), 5); // 6 => 1e6
+    const route = this.encodePolylineFromGeoJsonPositions(this.getRoutePoints(), 5);
     console.log(route);
 
     const routeConfig: RouteWithFacilityDefaults = {
@@ -136,7 +597,6 @@ export class MapModalComponent {
       fountainIntervalMeters: this.sanitarySettings.fountainIntervalMeters,
       maxFacilityDistance: this.sanitarySettings.maxFacilityDistance
     };
-
 
     this.processRouteWithFacilities(routeConfig);
   }
@@ -151,23 +611,18 @@ export class MapModalComponent {
     }));
   }
 
-
   processRouteWithFacilities(config: RouteWithFacilityDefaults) {
     this.isLoadingFacilities = true;
 
     this.stopsService.addFacilitiesStops(config).subscribe(
       (updatedRoute) => {
-        //console.log('Route updated with facilities:', updatedRoute);
-        // Update the map with the new route
-        //this.updateRouteOnMap(updatedRoute);
         this.updateRouteOnMap(updatedRoute.polyline);
+        this.routeUpdated.emit(updatedRoute.polyline); // ← Emit to parent
         this.isLoadingFacilities = false;
       },
       (error) => {
         console.error('Error processing route with facilities:', error);
         this.isLoadingFacilities = false;
-        // Optionally show error toast
-        //this.showErrorToast('Failed to add facilities to route');
       }
     );
   }
@@ -200,7 +655,7 @@ export class MapModalComponent {
           }
         },
         {
-          text: `🚰 Water Fountains (${this.fountainCount})`,
+          text: `💧 Water Fountains (${this.fountainCount})`,
           icon: this.showFountains && !this.showToilets ? 'checkmark-circle' : 'ellipse-outline',
           handler: () => {
             this.setFacilityFilter('fountains');
@@ -262,9 +717,7 @@ export class MapModalComponent {
   async loadFacilities() {
     this.isLoadingFacilities = true;
     try {
-      // Transform API response to match expected format
       this.facilities = await this.stopsService.getAllFacilities().toPromise() || [];
-
       console.log('Facilities loaded:', this.facilities.length);
       this.rebuildLayers();
     } catch (error) {
@@ -274,111 +727,20 @@ export class MapModalComponent {
     }
   }
 
-  private rebuildLayers() {
-    const layers: Layer[] = [...this.baseLayers];
+  // =====================================================
+  // Misc UI helpers
+  // =====================================================
 
-    // Add facility markers if enabled
-    if (this.showFacilities) {
-      this.facilities.forEach((facility, index) => {
-        const shouldShow =
-          (facility.type === 'Toilet' && this.showToilets) ||
-          (facility.type === 'Fountain' && this.showFountains);
-
-        if (shouldShow) {
-          // Validate coordinates exist
-          if (!facility.coordinate ||
-            facility.coordinate.latitude === undefined ||
-            facility.coordinate.longitude === undefined) {
-            console.warn(`Facility ${index} has invalid coordinates:`, facility);
-            return;
-          }
-
-          const lat = Number(facility.coordinate.latitude);
-          const lon = Number(facility.coordinate.longitude);
-
-          if (isNaN(lat) || isNaN(lon)) {
-            console.warn(`Facility ${index} has non-numeric coordinates:`, facility);
-            return;
-          }
-
-          try {
-            // Use emoji markers
-            const facilityType = facility.type.toLowerCase() as 'toilet' | 'fountain';
-            const facilityMarkerInstance = marker(
-              [lat, lon],
-              {icon: emojiMarker(facilityType)}
-            );
-
-            // Add popup with facility info
-            facilityMarkerInstance.bindPopup(`
-              <div style="text-align: center;">
-                <strong>${facility.type === 'Toilet' ? '🚻 Toilet' : '🚰 Water Fountain'}</strong><br>
-                <small style="color: #999;">Lat: ${lat.toFixed(4)}, Lon: ${lon.toFixed(4)}</small>
-              </div>
-            `);
-
-            layers.push(facilityMarkerInstance);
-          } catch (error) {
-            console.error(`Error creating marker for facility ${index}:`, error, facility);
-          }
-        }
-      });
-    }
-
-    // Add user-added points
-    this.addedPoints.forEach(point => {
-      const m = marker(point, {
-        icon: coloredMarker(MAP_MARKER_COLORS.added)
-      });
-      layers.push(m);
-    });
-
-    this.localLayers = layers;
-  }
-
-  ionViewDidEnter() {
-    this.centerRouteInitially();
-  }
-
-  private centerRouteInitially() {
-    requestAnimationFrame(() => {
-      const map = this.mapComponent?.map;
-      if (!map || !this.routeBounds) return;
-
-      map.invalidateSize();
-
-      map.fitBounds(this.routeBounds, {
-        padding: [50, 50],
-        animate: false
-      });
-
-      setTimeout(() => {
-        this.isMapReady = true;
-      }, 50);
-    });
-  }
-
-  centerRoute() {
-    const map = this.mapComponent?.map;
-    if (!map || !this.routeBounds) return;
-
-    map.fitBounds(this.routeBounds, {
-      padding: [50, 50],
-      animate: true
-    });
-  }
-
-  close() {
-    this.modalCtrl.dismiss({
-      addedPoints: this.addedPoints
-    });
-  }
-
-  confirm() {
-    this.confirmPoints.emit([...this.addedPoints]);
+  cancelPending() {
+    this.clearSearchMarker();
     this.addedPoints = [];
     this.addPointMode = false;
     this.rebuildLayers();
+  }
+
+  onAddCancelClick() {
+    if (this.isEditingStops) this.cancelPending();
+    else void this.toggleAddPointMode();
   }
 
   // Deprecated - use openSanitarySettings() instead
@@ -386,6 +748,34 @@ export class MapModalComponent {
     this.openSanitarySettings();
   }
 
+  private async showMaxStopsToast() {
+    const toast = await this.toastCtrl.create({
+      message: `You can add at most ${MapModalComponent.MAX_STOPS} stops per route.`,
+      duration: 1800,
+      position: 'bottom'
+    });
+    await toast.present();
+  }
+
+  private async showToast(message: string) {
+    const toast = await this.toastCtrl.create({
+      message,
+      duration: 3000,
+      position: 'top',
+      color: 'warning',
+      cssClass: 'toast-above-modal',
+      buttons: [{ text: 'OK', role: 'cancel' }]
+    });
+    await toast.present();
+  }
+
+  private async nextPaint(): Promise<void> {
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+  }
+
+  // =====================================================
+  // Route extraction & encoding
+  // =====================================================
 
   private extractRouteLatLngsFromLayers(): LatLng[] {
     for (const l of this.baseLayers) {
@@ -443,7 +833,6 @@ export class MapModalComponent {
     return out;
   }
 
-
   private encodePolylineFromGeoJsonPositions(points: GeoJsonPosition[], precision = 6): string {
     const factor = Math.pow(10, precision);
     let out = '';
@@ -483,7 +872,7 @@ export class MapModalComponent {
   private updateRouteOnMap(encodedPolyline: string) {
     // decode encoded polyline -> LatLng[]
     const latlngs = this.decodePolylineToLatLngs(encodedPolyline, 6);
-    if (latlngs.length < 2){ return;}
+    if (latlngs.length < 2) return;
     this.setRouteLayer(latlngs);
   }
 
@@ -536,7 +925,7 @@ export class MapModalComponent {
     let v = r.value;
     const neg = v & 1;
     v >>= 1;
-    return {value: neg ? ~v : v, nextIndex: r.nextIndex};
+    return { value: neg ? ~v : v, nextIndex: r.nextIndex };
   }
 
   private decodeUnsignedVarint(str: string, start: number): { value: number; nextIndex: number } {
@@ -551,8 +940,6 @@ export class MapModalComponent {
       if ((b & 0x20) === 0) break;
     }
 
-    return {value: result, nextIndex: index};
+    return { value: result, nextIndex: index };
   }
-
-
 }
