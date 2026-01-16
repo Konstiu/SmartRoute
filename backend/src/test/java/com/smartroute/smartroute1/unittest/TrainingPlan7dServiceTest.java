@@ -6,10 +6,7 @@ import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlan7dDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.repository.UserRepository;
-import com.smartroute.smartroute1.service.DailyAggregationService;
-import com.smartroute.smartroute1.service.FatigueAndOverloadService;
-import com.smartroute.smartroute1.service.LoadForecaster;
-import com.smartroute.smartroute1.service.TrainingPlan7dService;
+import com.smartroute.smartroute1.service.*;
 import com.smartroute.smartroute1.service.impl.TrainingPlan7dServiceImpl;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.util.ForecastState;
@@ -49,6 +46,8 @@ public class TrainingPlan7dServiceTest {
     LoadForecaster loadForecaster;
     @Mock
     FatigueAndOverloadService fatigueAndOverloadService;
+    @Mock
+    InjuryAwareTrainingService injuryAwareTrainingService;
 
     private Clock fixedClock;
 
@@ -68,7 +67,8 @@ public class TrainingPlan7dServiceTest {
                 dailyAggregationService,
                 loadForecaster,
                 fatigueAndOverloadService,
-                fixedClock
+                fixedClock,
+                injuryAwareTrainingService
         );
     }
 

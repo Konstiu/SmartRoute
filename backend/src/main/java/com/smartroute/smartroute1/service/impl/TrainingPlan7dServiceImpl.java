@@ -3,18 +3,20 @@ package com.smartroute.smartroute1.service.impl;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.LoadDistributionDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.PlannedDayDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlan7dDto;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.DailySummary;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.DailyAggregationService;
 import com.smartroute.smartroute1.service.FatigueAndOverloadService;
-import com.smartroute.smartroute1.endpoint.dto.trainingplan.DailySummary;
-import com.smartroute.smartroute1.service.LoadForecaster;
+import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import com.smartroute.smartroute1.service.TrainingPlan7dService;
+import com.smartroute.smartroute1.service.LoadForecaster;
 import com.smartroute.smartroute1.util.ForecastState;
-import lombok.AllArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -34,34 +36,39 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     private final LoadForecaster loadForecaster;
     private final FatigueAndOverloadService fatigueAndOverloadService;
     private final Clock clock;
+    private final InjuryAwareTrainingService injuryAwareTrainingService;
 
     @Autowired
     public TrainingPlan7dServiceImpl(UserRepository userRepository,
                                      DailyAggregationService dailyAggregationService,
                                      LoadForecaster loadForecaster,
-                                     FatigueAndOverloadService fatigueAndOverloadService) {
+                                     FatigueAndOverloadService fatigueAndOverloadService,
+                                     InjuryAwareTrainingService injuryAwareTrainingService) {
         this(userRepository, dailyAggregationService, loadForecaster, fatigueAndOverloadService,
-                Clock.system(ZoneId.of("Europe/Vienna")));
+                Clock.system(ZoneId.of("Europe/Vienna")), injuryAwareTrainingService);
     }
 
     public TrainingPlan7dServiceImpl(UserRepository userRepository,
                                      DailyAggregationService dailyAggregationService,
                                      LoadForecaster loadForecaster,
                                      FatigueAndOverloadService fatigueAndOverloadService,
-                                     Clock clock) {
+                                     Clock clock, InjuryAwareTrainingService injuryAwareTrainingService) {
         this.userRepository = userRepository;
         this.dailyAggregationService = dailyAggregationService;
         this.loadForecaster = loadForecaster;
         this.fatigueAndOverloadService = fatigueAndOverloadService;
         this.clock = clock;
+        this.injuryAwareTrainingService = injuryAwareTrainingService;
     }
 
     @Override
     public TrainingPlan7dDto buildNext7Days(String email) {
         ApplicationUser user = userRepository.findUserByEmail(email);
         if (user == null) {
-            throw new IllegalArgumentException("User not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
         }
+
+        double injuryIndex = safe(() -> injuryAwareTrainingService.getInjuryIndex(email), 0.0);
 
         // Historical daily series for personalization (overall load)
         List<DailySummary> history = dailyAggregationService.getDailySummaries(user, 60);
@@ -77,9 +84,10 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
         // Candidate weekly templates including gym/mobility
         List<List<WorkoutType>> templates = generateTemplates(user);
+        templates = applyInjuryConstraints(templates, injuryIndex);
 
         // Choose best via simple Monte Carlo utility
-        PlanResult best = chooseBestPlan(user, today, templates, initialState, recentLoads);
+        PlanResult best = chooseBestPlan(user, today, templates, initialState, recentLoads, injuryIndex);
 
         return new TrainingPlan7dDto(best.days);
     }
@@ -98,7 +106,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                       LocalDate startDate,
                                       List<List<WorkoutType>> templates,
                                       ForecastState initialState,
-                                      List<Integer> recentLoads) {
+                                      List<Integer> recentLoads,
+                                      double injuryIndex) {
 
         Random rng = new Random(42);
 
@@ -138,9 +147,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     // record resulting TSB for this simulated path/day
                     tsbSamplesPerDay.get(i).add(st.tsb());
 
-                    // utility (same as before)
                     utility += trainingReward(wt, loadSample);
                     utility -= fatiguePenalty(st.tsb(), wt);
+                    utility -= injuryPenalty(injuryIndex, wt);
                 }
 
                 totalUtility += utility;
@@ -207,14 +216,11 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             // update state with mean for “expected trajectory”
             st = st.next(load.getMean());
 
-            LoadDistributionDto loadDto = toDto(load);
-            LoadDistributionDto tsbDto = toDto(tsbDists.get(i));
-
             out.add(new PlannedDayDto(
                     d,
                     wt,
-                    loadDto,
-                    tsbDto,
+                    load,
+                    tsbDists.get(i),
                     confidenceFromStd(load),
                     explanation(wt, load, tsbDists.get(i).getP50())
             ));
@@ -287,10 +293,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return Math.max(0, mean + std * z);
     }
 
-    private LoadDistributionDto toDto(LoadDistributionDto d) {
-        return new LoadDistributionDto(d.getP10(), d.getP50(), d.getP90(), d.getMean(), d.getStd());
-    }
-
     private double safe(SupplierWithException<Double> s, double fallback) {
         try {
             return s.get();
@@ -342,6 +344,63 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
         var /= (values.size() - 1);
         return Math.sqrt(var);
+    }
+
+    private List<List<WorkoutType>> applyInjuryConstraints(List<List<WorkoutType>> templates, double injuryIndex) {
+        if (injuryIndex < 0.4) {
+            return templates;
+        }
+
+        List<List<WorkoutType>> out = new ArrayList<>();
+        for (List<WorkoutType> t : templates) {
+            List<WorkoutType> copy = new ArrayList<>(t.size());
+            for (WorkoutType wt : t) {
+                copy.add(mapWorkoutForInjury(wt, injuryIndex));
+            }
+            out.add(copy);
+        }
+        return out;
+    }
+
+    private WorkoutType mapWorkoutForInjury(WorkoutType wt, double injuryIndex) {
+        if (injuryIndex >= 0.7) {
+            return switch (wt) {
+                case INTERVAL_RUN, TEMPO_RUN -> WorkoutType.MOBILITY;
+                case LONG_RUN -> WorkoutType.EASY_RUN;
+                default -> wt;
+            };
+        } else {
+            return switch (wt) {
+                case INTERVAL_RUN -> WorkoutType.TEMPO_RUN;
+                default -> wt;
+            };
+        }
+    }
+
+    private double injuryPenalty(double injuryIndex, WorkoutType wt) {
+        if (injuryIndex < 0.4) {
+            return 0.0;
+        }
+
+        double p = 0.0;
+        boolean hardRun = (wt == WorkoutType.INTERVAL_RUN || wt == WorkoutType.TEMPO_RUN || wt == WorkoutType.LONG_RUN);
+
+        if (injuryIndex >= 0.7) {
+            if (hardRun) {
+                p += 30;
+            }
+            if (wt == WorkoutType.EASY_RUN) {
+                p += 8; // still some penalty
+            }
+        } else { // 0.4 - 0.7
+            if (wt == WorkoutType.INTERVAL_RUN) {
+                p += 18;
+            }
+            if (wt == WorkoutType.TEMPO_RUN) {
+                p += 8;
+            }
+        }
+        return p;
     }
 
 
