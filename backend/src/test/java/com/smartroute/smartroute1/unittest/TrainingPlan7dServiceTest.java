@@ -50,8 +50,12 @@ public class TrainingPlan7dServiceTest {
     InjuryAwareTrainingService injuryAwareTrainingService;
     @Mock
     ReadinessScoreService readinessScoreService;
+    @Mock
+    WeatherService weatherService;
 
     private Clock fixedClock;
+    private double latitude;
+    private double longitude;
 
     @BeforeEach
     void setup() {
@@ -61,6 +65,9 @@ public class TrainingPlan7dServiceTest {
                 ZonedDateTime.of(2026, 1, 15, 9, 0, 0, 0, zone).toInstant(),
                 zone
         );
+
+        latitude = 48.210033;
+        longitude = 16.363449;
     }
 
     private TrainingPlan7dServiceImpl createService() {
@@ -71,7 +78,8 @@ public class TrainingPlan7dServiceTest {
                 fatigueAndOverloadService,
                 fixedClock,
                 injuryAwareTrainingService,
-                readinessScoreService
+                readinessScoreService,
+                weatherService
         );
     }
 
@@ -97,7 +105,7 @@ public class TrainingPlan7dServiceTest {
                 .thenAnswer(inv -> new LoadDistributionDto(10, 20, 30, 20, 5));
 
         TrainingPlan7dService service = createService();
-        TrainingPlan7dDto dto = service.buildNext7Days("x@test.com");
+        TrainingPlan7dDto dto = service.buildNext7Days("x@test.com", latitude, longitude);
 
         assertAll("7-day training plan",
                 () -> assertNotNull(dto, "DTO must not be null"),
@@ -153,7 +161,7 @@ public class TrainingPlan7dServiceTest {
                 });
 
         TrainingPlan7dService service = createService();
-        TrainingPlan7dDto dto = service.buildNext7Days("y@test.com");
+        TrainingPlan7dDto dto = service.buildNext7Days("y@test.com", latitude, longitude);
 
         boolean hasGym = dto.getDays().stream().anyMatch(d -> d.getWorkoutType() == WorkoutType.GYM_PREHAB);
         boolean hasMob = dto.getDays().stream().anyMatch(d -> d.getWorkoutType() == WorkoutType.MOBILITY);
@@ -199,7 +207,7 @@ public class TrainingPlan7dServiceTest {
                 });
 
         TrainingPlan7dService service = createService();
-        TrainingPlan7dDto dto = service.buildNext7Days("fatigue@test.com");
+        TrainingPlan7dDto dto = service.buildNext7Days("fatigue@test.com", latitude, longitude);
 
         long hardDays = dto.getDays().stream().filter(d ->
                 d.getWorkoutType() == WorkoutType.INTERVAL_RUN ||
