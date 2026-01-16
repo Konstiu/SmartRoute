@@ -20,6 +20,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -93,16 +94,29 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         );
     }
 
-    private PlanResult chooseBestPlan(ApplicationUser user, LocalDate startDate, List<List<WorkoutType>> templates, ForecastState initialState, List<Integer> recentLoads) {
+    private PlanResult chooseBestPlan(ApplicationUser user,
+                                      LocalDate startDate,
+                                      List<List<WorkoutType>> templates,
+                                      ForecastState initialState,
+                                      List<Integer> recentLoads) {
 
         Random rng = new Random(42);
 
         double bestScore = Double.NEGATIVE_INFINITY;
-        List<PlannedDayDto> bestDays = null;
+        List<WorkoutType> bestTemplate = null;
+
+        // store the tsb distributions for the best plan
+        List<LoadDistributionDto> bestTsbDists = null;
 
         for (List<WorkoutType> template : templates) {
-            // Monte Carlo rollouts
-            int sims = 80; // keep small for MVP
+            int sims = 120; // bump a bit for smoother quantiles
+
+            // Collect TSB samples for each day across simulations
+            List<List<Double>> tsbSamplesPerDay = new ArrayList<>(7);
+            for (int i = 0; i < 7; i++) {
+                tsbSamplesPerDay.add(new ArrayList<>(sims));
+            }
+
             double totalUtility = 0;
 
             for (int s = 0; s < sims; s++) {
@@ -113,13 +127,18 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     LocalDate d = startDate.plusDays(i);
                     WorkoutType wt = template.get(i);
 
-                    LoadDistributionDto dist = loadForecaster.forecastLoad(user, d, wt, st, recentLoads);
-                    double loadSample = sampleNonNegativeNormal(rng, dist.getMean(), dist.getStd());
+                    LoadDistributionDto loadDist = loadForecaster.forecastLoad(user, d, wt, st, recentLoads);
 
-                    // Forward update
+                    // sample daily load
+                    double loadSample = sampleNonNegativeNormal(rng, loadDist.getMean(), loadDist.getStd());
+
+                    // forward update
                     st = st.next(loadSample);
 
-                    // Utility: encourage training but penalize too-negative TSB (fatigue risk)
+                    // record resulting TSB for this simulated path/day
+                    tsbSamplesPerDay.get(i).add(st.tsb());
+
+                    // utility (same as before)
                     utility += trainingReward(wt, loadSample);
                     utility -= fatiguePenalty(st.tsb(), wt);
                 }
@@ -131,16 +150,51 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
             if (avgUtility > bestScore) {
                 bestScore = avgUtility;
-                bestDays = materializePlan(user, startDate, template, initialState, recentLoads);
+                bestTemplate = template;
+
+                // Convert TSB samples -> distributions
+                List<LoadDistributionDto> tsbDists = new ArrayList<>(7);
+                for (int i = 0; i < 7; i++) {
+                    tsbDists.add(toDistribution(tsbSamplesPerDay.get(i)));
+                }
+                bestTsbDists = tsbDists;
             }
         }
 
-        return new PlanResult(bestDays);
+        if (bestTemplate == null) {
+            // fallback: rest week
+            bestTemplate = List.of(
+                    WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY,
+                    WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY,
+                    WorkoutType.REST_DAY
+            );
+            bestTsbDists = List.of(
+                    new LoadDistributionDto(0, 0, 0, 0, 0),
+                    new LoadDistributionDto(0, 0, 0, 0, 0),
+                    new LoadDistributionDto(0, 0, 0, 0, 0),
+                    new LoadDistributionDto(0, 0, 0, 0, 0),
+                    new LoadDistributionDto(0, 0, 0, 0, 0),
+                    new LoadDistributionDto(0, 0, 0, 0, 0),
+                    new LoadDistributionDto(0, 0, 0, 0, 0)
+            );
+        }
+
+        // Build display plan using mean loads (stable) BUT attach the sampled TSB distributions
+        List<PlannedDayDto> days = materializePlanWithTsbDists(
+                user, startDate, bestTemplate, initialState, recentLoads, bestTsbDists
+        );
+
+        return new PlanResult(days, bestTsbDists);
     }
 
-    private List<PlannedDayDto> materializePlan(ApplicationUser user, LocalDate startDate, List<WorkoutType> template, ForecastState initialState, List<Integer> recentLoads) {
 
-        // Use mean forecast to present a stable plan (you can later present sampled ranges too)
+    private List<PlannedDayDto> materializePlanWithTsbDists(ApplicationUser user,
+                                                            LocalDate startDate,
+                                                            List<WorkoutType> template,
+                                                            ForecastState initialState,
+                                                            List<Integer> recentLoads,
+                                                            List<LoadDistributionDto> tsbDists) {
+
         List<PlannedDayDto> out = new ArrayList<>(7);
         ForecastState st = initialState;
 
@@ -150,21 +204,25 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
             LoadDistributionDto load = loadForecaster.forecastLoad(user, d, wt, st, recentLoads);
 
-            // Update with mean (stable)
+            // update state with mean for “expected trajectory”
             st = st.next(load.getMean());
 
             LoadDistributionDto loadDto = toDto(load);
+            LoadDistributionDto tsbDto = toDto(tsbDists.get(i));
 
-            // Derive a simple tsb distribution: we only have deterministic state here (MVP)
-            // So return tight range around current predicted TSB
-            double tsb = st.tsb();
-            LoadDistributionDto tsbDto = new LoadDistributionDto(tsb, tsb, tsb, tsb, 0);
-
-            out.add(new PlannedDayDto(d, wt, loadDto, tsbDto, confidenceFromStd(load), explanation(wt, load, tsb)));
+            out.add(new PlannedDayDto(
+                    d,
+                    wt,
+                    loadDto,
+                    tsbDto,
+                    confidenceFromStd(load),
+                    explanation(wt, load, tsbDists.get(i).getP50())
+            ));
         }
 
         return out;
     }
+
 
     private String confidenceFromStd(LoadDistributionDto d) {
         double frac = d.getStd() / Math.max(1.0, d.getMean());
@@ -241,10 +299,58 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
     }
 
+    private LoadDistributionDto toDistribution(List<Double> samples) {
+        if (samples == null || samples.isEmpty()) {
+            return new LoadDistributionDto(0, 0, 0, 0, 0);
+        }
+        List<Double> sorted = new ArrayList<>(samples);
+        Collections.sort(sorted);
+
+        double mean = sorted.stream().mapToDouble(x -> x).average().orElse(0);
+        double std = std(sorted, mean);
+
+        double p10 = quantile(sorted, 0.10);
+        double p50 = quantile(sorted, 0.50);
+        double p90 = quantile(sorted, 0.90);
+
+        return new LoadDistributionDto(p10, p50, p90, mean, std);
+    }
+
+    private double quantile(List<Double> sorted, double q) {
+        int n = sorted.size();
+        if (n == 1) {
+            return sorted.get(0);
+        }
+        double pos = q * (n - 1);
+        int lo = (int) Math.floor(pos);
+        int hi = (int) Math.ceil(pos);
+        if (lo == hi) {
+            return sorted.get(lo);
+        }
+        double w = pos - lo;
+        return sorted.get(lo) * (1 - w) + sorted.get(hi) * w;
+    }
+
+    private double std(List<Double> values, double mean) {
+        if (values.size() < 2) {
+            return 0;
+        }
+        double var = 0;
+        for (double v : values) {
+            double d = v - mean;
+            var += d * d;
+        }
+        var /= (values.size() - 1);
+        return Math.sqrt(var);
+    }
+
+
     @FunctionalInterface
     private interface SupplierWithException<T> {
         T get() throws Exception;
     }
 
-    private record PlanResult(List<PlannedDayDto> days) {}
+    private record PlanResult(List<PlannedDayDto> days,
+                              List<LoadDistributionDto> tsbDistributions) {}
+
 }

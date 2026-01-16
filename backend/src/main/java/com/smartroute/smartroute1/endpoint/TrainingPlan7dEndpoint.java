@@ -15,7 +15,7 @@ public class TrainingPlan7dEndpoint {
     private final TrainingPlan7dService trainingPlan7dService;
 
     @GetMapping("/next-7-days")
-    public TrainingPlan7dDto next7Days(@RequestParam String email) {
+    public TrainingPlan7dDto next7Days(@RequestParam("email") String email) {
         return trainingPlan7dService.buildNext7Days(email);
     }
 }
