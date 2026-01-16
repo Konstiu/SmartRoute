@@ -55,7 +55,6 @@ class DailyAggregationServiceImplTest {
 
     @Test
     void aggregatesActivitiesAndFillsMissingDays() throws Exception {
-        Long userId = user.getId();
 
         Instant now = Instant.now();
 
@@ -69,7 +68,7 @@ class DailyAggregationServiceImplTest {
         activity.setSessionLoad(45);
         activityRepository.save(activity);
 
-        List<DailySummary> summaries = aggregationService.getDailySummaries(userId, 7);
+        List<DailySummary> summaries = aggregationService.getDailySummaries(user, 7);
 
 
         long nonZeroDays = summaries.stream()
