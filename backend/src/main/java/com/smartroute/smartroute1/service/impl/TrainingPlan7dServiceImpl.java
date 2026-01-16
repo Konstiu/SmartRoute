@@ -1,10 +1,12 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.smartroute.smartroute1.endpoint.dto.CompactWeatherDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.LoadDistributionDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.PlannedDayDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlan7dDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.DailySummary;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.DailyAggregationService;
@@ -13,6 +15,7 @@ import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import com.smartroute.smartroute1.service.TrainingPlan7dService;
 import com.smartroute.smartroute1.service.LoadForecaster;
 import com.smartroute.smartroute1.service.ReadinessScoreService;
+import com.smartroute.smartroute1.service.WeatherService;
 import com.smartroute.smartroute1.util.ForecastState;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -39,6 +42,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     private final Clock clock;
     private final InjuryAwareTrainingService injuryAwareTrainingService;
     private final ReadinessScoreService readinessScoreService;
+    private final WeatherService weatherService;
 
     @Autowired
     public TrainingPlan7dServiceImpl(UserRepository userRepository,
@@ -46,9 +50,10 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                      LoadForecaster loadForecaster,
                                      FatigueAndOverloadService fatigueAndOverloadService,
                                      InjuryAwareTrainingService injuryAwareTrainingService,
-                                     ReadinessScoreService readinessScoreService) {
+                                     ReadinessScoreService readinessScoreService,
+                                     WeatherService weatherService) {
         this(userRepository, dailyAggregationService, loadForecaster, fatigueAndOverloadService,
-                Clock.system(ZoneId.of("Europe/Vienna")), injuryAwareTrainingService, readinessScoreService);
+                Clock.system(ZoneId.of("Europe/Vienna")), injuryAwareTrainingService, readinessScoreService, weatherService);
     }
 
     public TrainingPlan7dServiceImpl(UserRepository userRepository,
@@ -57,7 +62,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                      FatigueAndOverloadService fatigueAndOverloadService,
                                      Clock clock,
                                      InjuryAwareTrainingService injuryAwareTrainingService,
-                                     ReadinessScoreService readinessScoreService) {
+                                     ReadinessScoreService readinessScoreService,
+                                     WeatherService weatherService) {
         this.userRepository = userRepository;
         this.dailyAggregationService = dailyAggregationService;
         this.loadForecaster = loadForecaster;
@@ -65,10 +71,11 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         this.clock = clock;
         this.injuryAwareTrainingService = injuryAwareTrainingService;
         this.readinessScoreService = readinessScoreService;
+        this.weatherService = weatherService;
     }
 
     @Override
-    public TrainingPlan7dDto buildNext7Days(String email) {
+    public TrainingPlan7dDto buildNext7Days(String email, double latitude, double longitude) {
         ApplicationUser user = userRepository.findUserByEmail(email);
         if (user == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
@@ -78,6 +85,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
         double injuryIndex = safe(() -> injuryAwareTrainingService.getInjuryIndex(email), 0.0);
         int readiness = safeInt(() -> readinessScoreService.calculateReadinessScore(user, today), 50);
+        final List<CompactWeatherDto> weatherPerDay = precomputeWeather(today, latitude, longitude, 18);
 
         // Historical daily series for personalization (overall load)
         final List<DailySummary> history = dailyAggregationService.getDailySummaries(user, 60);
@@ -95,7 +103,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         templates = applyReadinessConstraints(templates, readiness);
 
         // Choose best via simple Monte Carlo utility
-        PlanResult best = chooseBestPlan(user, today, templates, initialState, recentLoads, injuryIndex, readiness);
+        PlanResult best = chooseBestPlan(user, today, templates, initialState, recentLoads, injuryIndex, readiness, weatherPerDay);
 
         return new TrainingPlan7dDto(best.days);
     }
@@ -115,7 +123,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                       ForecastState initialState,
                                       List<Integer> recentLoads,
                                       double injuryIndex,
-                                      int readiness) {
+                                      int readiness,
+                                      List<CompactWeatherDto> weatherPerDay) {
 
         Random rng = new Random(42);
 
@@ -142,24 +151,27 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
                 for (int i = 0; i < 7; i++) {
                     LocalDate d = startDate.plusDays(i);
-                    WorkoutType wt = template.get(i);
 
-                    LoadDistributionDto loadDist = loadForecaster.forecastLoad(user, d, wt, st, recentLoads);
+                    WorkoutType planned = template.get(i);
 
-                    // sample daily load
+                    CompactWeatherDto weatherDto = weatherPerDay.get(i);
+                    WorkoutType effective = mapWorkoutForWeather(planned, weatherDto.getWeatherScore());
+
+                    LoadDistributionDto loadDist = loadForecaster.forecastLoad(user, d, effective, st, recentLoads);
+
                     double loadSample = sampleNonNegativeNormal(rng, loadDist.getMean(), loadDist.getStd());
-
-                    // forward update
                     st = st.next(loadSample);
 
-                    // record resulting TSB for this simulated path/day
                     tsbSamplesPerDay.get(i).add(st.tsb());
 
-                    utility += trainingReward(wt, loadSample);
-                    utility -= fatiguePenalty(st.tsb(), wt);
-                    utility -= injuryPenalty(injuryIndex, wt);
-                    utility -= readinessPenalty(readiness, wt);
+                    utility += trainingReward(effective, loadSample);
+                    utility -= fatiguePenalty(st.tsb(), effective);
+                    utility -= injuryPenalty(injuryIndex, effective);
+                    utility -= readinessPenalty(readiness, effective);
+
+                    utility -= weatherPenalty(weatherDto.getWeatherScore(), effective);
                 }
+
 
                 totalUtility += utility;
             }
@@ -198,7 +210,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
 
         // Build display plan using mean loads (stable) BUT attach the sampled TSB distributions
-        List<PlannedDayDto> days = materializePlanWithTsbDists(user, startDate, bestTemplate, initialState, recentLoads, bestTsbDists, injuryIndex, readiness);
+        List<PlannedDayDto> days = materializePlanWithTsbDists(user, startDate, bestTemplate, initialState,
+                recentLoads, bestTsbDists, injuryIndex, readiness, weatherPerDay);
 
         return new PlanResult(days, bestTsbDists);
     }
@@ -211,27 +224,32 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                                             List<Integer> recentLoads,
                                                             List<LoadDistributionDto> tsbDists,
                                                             double injuryIndex,
-                                                            int readiness) {
+                                                            int readiness,
+                                                            List<CompactWeatherDto> weatherPerDay) {
 
         List<PlannedDayDto> out = new ArrayList<>(7);
         ForecastState st = initialState;
 
         for (int i = 0; i < 7; i++) {
             LocalDate d = startDate.plusDays(i);
-            WorkoutType wt = template.get(i);
 
-            LoadDistributionDto load = loadForecaster.forecastLoad(user, d, wt, st, recentLoads);
+            CompactWeatherDto weatherDto = weatherPerDay.get(i);
 
-            // update state with mean for “expected trajectory”
+            WorkoutType planned = template.get(i);
+            WorkoutType effective = mapWorkoutForWeather(planned, weatherDto.getWeatherScore());
+
+            LoadDistributionDto load = loadForecaster.forecastLoad(user, d, effective, st, recentLoads);
+
             st = st.next(load.getMean());
 
             out.add(new PlannedDayDto(
                     d,
-                    wt,
+                    effective,
                     load,
                     tsbDists.get(i),
+                    weatherDto,
                     confidenceFromStd(load),
-                    explanation(wt, load, tsbDists.get(i).getP50(), injuryIndex, readiness)
+                    explanation(effective, load, tsbDists.get(i).getP50(), injuryIndex, readiness)
             ));
         }
 
@@ -525,6 +543,100 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             default -> wt;
         };
     }
+
+    private String utcTimeStringFor(LocalDate date, int localHour) {
+        // local date/time in Vienna
+        var local = date.atTime(localHour, 0).atZone(ZONE);
+        var utc = local.withZoneSameInstant(ZoneId.of("UTC"));
+        return utc.toLocalDateTime().withMinute(0).withSecond(0).withNano(0)
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
+    }
+
+    private CompactWeatherDto buildCompactWeatherDtoForDay(
+            LocalDate day,
+            double latitude,
+            double longitude,
+            int localHour
+    ) {
+        // default fallback weather response + score if anything fails
+        try {
+            String timeUtc = utcTimeStringFor(day, localHour);
+
+            WeatherResponse wr = weatherService.getWeatherAtTime(latitude, longitude, timeUtc);
+            double weatherScore = weatherService.calculateWeatherScore(wr);
+
+            return new CompactWeatherDto(
+                    weatherScore,
+                    wr.getTemperature2m(),
+                    wr.getWindSpeed10m(),
+                    wr.getPrecipitation(),
+                    wr.getRelativeHumidity(),
+                    weatherService.estimatePerformancePenalty(wr),
+                    weatherService.evaluateWeatherScore(weatherScore),
+                    weatherService.buildWeatherDescription(wr)
+            );
+        } catch (Exception e) {
+            return new CompactWeatherDto(
+                    0.6,
+                    null, null, null, null, null,
+                    "Weather unavailable",
+                    null
+            );
+
+        }
+    }
+
+    private double weatherPenalty(Double weatherScore, WorkoutType wt) {
+        // only penalize outdoor runs
+        boolean outdoorRun = (wt == WorkoutType.EASY_RUN || wt == WorkoutType.TEMPO_RUN
+                || wt == WorkoutType.INTERVAL_RUN || wt == WorkoutType.LONG_RUN);
+
+        if (!outdoorRun) {
+            return 0.0;
+        }
+
+        if (weatherScore >= 0.7) {
+            return 0.0; // very good
+        }
+        if (weatherScore >= 0.5) {
+            return 2.0; // acceptable
+        }
+        if (weatherScore >= 0.3) {
+            return 8.0; // bad
+        }
+        return 18.0; // very bad
+    }
+
+    private WorkoutType mapWorkoutForWeather(WorkoutType wt, Double weatherScore) {
+        boolean run = (wt == WorkoutType.EASY_RUN || wt == WorkoutType.TEMPO_RUN
+                || wt == WorkoutType.INTERVAL_RUN || wt == WorkoutType.LONG_RUN);
+
+        if (!run) {
+            return wt;
+        }
+
+        if (weatherScore < 0.2) {
+            return WorkoutType.GYM_PREHAB;  // too dangerous outside
+        }
+        if (weatherScore < 0.3) {
+            return WorkoutType.MOBILITY;    // very unpleasant
+        }
+        return wt;
+    }
+
+    private List<CompactWeatherDto> precomputeWeather(LocalDate startDate,
+                                                      double latitude,
+                                                      double longitude,
+                                                      int localHour) {
+        List<CompactWeatherDto> weather = new ArrayList<>(7);
+        for (int i = 0; i < 7; i++) {
+            LocalDate d = startDate.plusDays(i);
+            weather.add(buildCompactWeatherDtoForDay(d, latitude, longitude, localHour));
+        }
+        return weather;
+    }
+
+
 
     @FunctionalInterface
     private interface SupplierWithException<T> {

@@ -8,7 +8,11 @@ public interface TrainingPlan7dService {
      *
      * @param email email a user is registered with.
      *
+     * @param latitude latitude of the user.
+     *
+     * @param longitude longitude of the user.
+     *
      * @return a {@link TrainingPlan7dDto}.
      */
-    TrainingPlan7dDto buildNext7Days(String email);
+    TrainingPlan7dDto buildNext7Days(String email, double latitude, double longitude);
 }
