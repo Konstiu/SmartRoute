@@ -12,6 +12,7 @@ import com.smartroute.smartroute1.service.FatigueAndOverloadService;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import com.smartroute.smartroute1.service.TrainingPlan7dService;
 import com.smartroute.smartroute1.service.LoadForecaster;
+import com.smartroute.smartroute1.service.ReadinessScoreService;
 import com.smartroute.smartroute1.util.ForecastState;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -37,28 +38,33 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     private final FatigueAndOverloadService fatigueAndOverloadService;
     private final Clock clock;
     private final InjuryAwareTrainingService injuryAwareTrainingService;
+    private final ReadinessScoreService readinessScoreService;
 
     @Autowired
     public TrainingPlan7dServiceImpl(UserRepository userRepository,
                                      DailyAggregationService dailyAggregationService,
                                      LoadForecaster loadForecaster,
                                      FatigueAndOverloadService fatigueAndOverloadService,
-                                     InjuryAwareTrainingService injuryAwareTrainingService) {
+                                     InjuryAwareTrainingService injuryAwareTrainingService,
+                                     ReadinessScoreService readinessScoreService) {
         this(userRepository, dailyAggregationService, loadForecaster, fatigueAndOverloadService,
-                Clock.system(ZoneId.of("Europe/Vienna")), injuryAwareTrainingService);
+                Clock.system(ZoneId.of("Europe/Vienna")), injuryAwareTrainingService, readinessScoreService);
     }
 
     public TrainingPlan7dServiceImpl(UserRepository userRepository,
                                      DailyAggregationService dailyAggregationService,
                                      LoadForecaster loadForecaster,
                                      FatigueAndOverloadService fatigueAndOverloadService,
-                                     Clock clock, InjuryAwareTrainingService injuryAwareTrainingService) {
+                                     Clock clock,
+                                     InjuryAwareTrainingService injuryAwareTrainingService,
+                                     ReadinessScoreService readinessScoreService) {
         this.userRepository = userRepository;
         this.dailyAggregationService = dailyAggregationService;
         this.loadForecaster = loadForecaster;
         this.fatigueAndOverloadService = fatigueAndOverloadService;
         this.clock = clock;
         this.injuryAwareTrainingService = injuryAwareTrainingService;
+        this.readinessScoreService = readinessScoreService;
     }
 
     @Override
@@ -68,33 +74,33 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
         }
 
-        double injuryIndex = safe(() -> injuryAwareTrainingService.getInjuryIndex(email), 0.0);
-
-        // Historical daily series for personalization (overall load)
-        List<DailySummary> history = dailyAggregationService.getDailySummaries(user, 60);
-        List<Integer> recentLoads = history.stream().map(DailySummary::getTotalLoad).toList();
-
         LocalDate today = LocalDate.now(clock);
 
+        double injuryIndex = safe(() -> injuryAwareTrainingService.getInjuryIndex(email), 0.0);
+        int readiness = safeInt(() -> readinessScoreService.calculateReadinessScore(user, today), 50);
+
+        // Historical daily series for personalization (overall load)
+        final List<DailySummary> history = dailyAggregationService.getDailySummaries(user, 60);
+        final List<Integer> recentLoads = history.stream().map(DailySummary::getTotalLoad).toList();
+
         // Current state from your existing fatigue service (already computed from history)
-        // IMPORTANT: ensure your fatigue model uses overall load (not only Run).
         double ctl = safe(() -> fatigueAndOverloadService.currentCtl(user), 0.0);
         double atl = safe(() -> fatigueAndOverloadService.currentAtl(user), 0.0);
-        ForecastState initialState = new ForecastState(ctl, atl);
+        final ForecastState initialState = new ForecastState(ctl, atl);
 
         // Candidate weekly templates including gym/mobility
         List<List<WorkoutType>> templates = generateTemplates(user);
         templates = applyInjuryConstraints(templates, injuryIndex);
         templates = applyActiveWeekdayConstraints(user, today, templates, injuryIndex);
+        templates = applyReadinessConstraints(templates, readiness);
 
         // Choose best via simple Monte Carlo utility
-        PlanResult best = chooseBestPlan(user, today, templates, initialState, recentLoads, injuryIndex);
+        PlanResult best = chooseBestPlan(user, today, templates, initialState, recentLoads, injuryIndex, readiness);
 
         return new TrainingPlan7dDto(best.days);
     }
 
     private List<List<WorkoutType>> generateTemplates(ApplicationUser user) {
-        // MVP: a few sensible structures. You can later tailor by activeWeekdays, injuries, etc.
         return List.of(
                 List.of(WorkoutType.EASY_RUN, WorkoutType.MOBILITY, WorkoutType.TEMPO_RUN, WorkoutType.REST_DAY, WorkoutType.GYM_PREHAB, WorkoutType.LONG_RUN, WorkoutType.EASY_RUN),
                 List.of(WorkoutType.EASY_RUN, WorkoutType.INTERVAL_RUN, WorkoutType.MOBILITY, WorkoutType.REST_DAY, WorkoutType.TEMPO_RUN, WorkoutType.GYM_PREHAB, WorkoutType.LONG_RUN),
@@ -108,7 +114,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                       List<List<WorkoutType>> templates,
                                       ForecastState initialState,
                                       List<Integer> recentLoads,
-                                      double injuryIndex) {
+                                      double injuryIndex,
+                                      int readiness) {
 
         Random rng = new Random(42);
 
@@ -151,6 +158,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     utility += trainingReward(wt, loadSample);
                     utility -= fatiguePenalty(st.tsb(), wt);
                     utility -= injuryPenalty(injuryIndex, wt);
+                    utility -= readinessPenalty(readiness, wt);
                 }
 
                 totalUtility += utility;
@@ -190,9 +198,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
 
         // Build display plan using mean loads (stable) BUT attach the sampled TSB distributions
-        List<PlannedDayDto> days = materializePlanWithTsbDists(
-                user, startDate, bestTemplate, initialState, recentLoads, bestTsbDists
-        );
+        List<PlannedDayDto> days = materializePlanWithTsbDists(user, startDate, bestTemplate, initialState, recentLoads, bestTsbDists, injuryIndex, readiness);
 
         return new PlanResult(days, bestTsbDists);
     }
@@ -203,7 +209,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                                             List<WorkoutType> template,
                                                             ForecastState initialState,
                                                             List<Integer> recentLoads,
-                                                            List<LoadDistributionDto> tsbDists) {
+                                                            List<LoadDistributionDto> tsbDists,
+                                                            double injuryIndex,
+                                                            int readiness) {
 
         List<PlannedDayDto> out = new ArrayList<>(7);
         ForecastState st = initialState;
@@ -223,7 +231,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     load,
                     tsbDists.get(i),
                     confidenceFromStd(load),
-                    explanation(wt, load, tsbDists.get(i).getP50())
+                    explanation(wt, load, tsbDists.get(i).getP50(), injuryIndex, readiness)
             ));
         }
 
@@ -242,10 +250,14 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return "low";
     }
 
-    private List<String> explanation(WorkoutType wt, LoadDistributionDto load, double tsb) {
+    private List<String> explanation(WorkoutType wt, LoadDistributionDto load, double tsb, double injuryIndex, int readiness) {
         List<String> e = new ArrayList<>();
         e.add("Planned: " + wt.toString());
         e.add("Expected load ≈ " + Math.round(load.getMean()) + " (P10 " + Math.round(load.getP10()) + " – P90 " + Math.round(load.getP90()) + ")");
+        e.add("Readiness today: " + readiness + "/100");
+        if (injuryIndex >= 0.7) {
+            e.add("Injury-aware: intensity reduced.");
+        }
         if (tsb < -20) {
             e.add("Fatigue risk: predicted TSB very low.");
         } else if (tsb < -10) {
@@ -255,6 +267,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
         return e;
     }
+
 
     private double trainingReward(WorkoutType wt, double loadSample) {
         // Small positive reward for doing something, zero for rest
@@ -436,13 +449,90 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
         return out;
     }
-    
+
+    private int safeInt(SupplierWithException<Integer> s, int fallback) {
+        try {
+            return s.get();
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+    private double readinessPenalty(int readiness, WorkoutType wt) {
+        // readiness is 0..100
+        if (readiness >= 70) {
+            return 0.0;
+        }
+
+        boolean hardRun = (wt == WorkoutType.INTERVAL_RUN || wt == WorkoutType.TEMPO_RUN || wt == WorkoutType.LONG_RUN);
+
+        if (readiness < 40) {
+            // very low readiness: strongly avoid intensity
+            if (hardRun) {
+                return 25.0;
+            }
+            if (wt == WorkoutType.EASY_RUN) {
+                return 8.0;
+            }
+            return 0.0; // mobility/gym/rest fine
+        }
+
+        // 40..69: moderate caution
+        if (hardRun) {
+            return 10.0;
+        }
+        if (wt == WorkoutType.EASY_RUN && readiness < 55) {
+            return 3.0;
+        }
+
+        return 0.0;
+    }
+
+    private List<List<WorkoutType>> applyReadinessConstraints(List<List<WorkoutType>> templates, int readiness) {
+        if (readiness >= 55) {
+            return templates;
+        }
+
+        List<List<WorkoutType>> out = new ArrayList<>();
+        for (List<WorkoutType> template : templates) {
+            List<WorkoutType> adjusted = new ArrayList<>(template.size());
+            for (WorkoutType wt : template) {
+                adjusted.add(mapWorkoutForReadiness(wt, readiness));
+            }
+            out.add(adjusted);
+        }
+        return out;
+    }
+
+    private WorkoutType mapWorkoutForReadiness(WorkoutType workoutType, int readiness) {
+        if (readiness < 40) {
+            return mapForVeryLowReadiness(workoutType);
+        }
+        return mapForModerateReadiness(workoutType);
+    }
+
+    private WorkoutType mapForVeryLowReadiness(WorkoutType wt) {
+        return switch (wt) {
+            case INTERVAL_RUN, TEMPO_RUN, LONG_RUN -> WorkoutType.MOBILITY;
+            default -> wt;
+        };
+    }
+
+    private WorkoutType mapForModerateReadiness(WorkoutType wt) {
+        return switch (wt) {
+            case INTERVAL_RUN -> WorkoutType.MOBILITY;
+            case TEMPO_RUN, LONG_RUN -> WorkoutType.EASY_RUN;
+            default -> wt;
+        };
+    }
+
     @FunctionalInterface
     private interface SupplierWithException<T> {
         T get() throws Exception;
     }
 
     private record PlanResult(List<PlannedDayDto> days,
-                              List<LoadDistributionDto> tsbDistributions) {}
+                              List<LoadDistributionDto> tsbDistributions) {
+    }
 
 }
