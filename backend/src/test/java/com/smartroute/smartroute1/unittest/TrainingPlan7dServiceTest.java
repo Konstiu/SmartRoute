@@ -48,6 +48,8 @@ public class TrainingPlan7dServiceTest {
     FatigueAndOverloadService fatigueAndOverloadService;
     @Mock
     InjuryAwareTrainingService injuryAwareTrainingService;
+    @Mock
+    ReadinessScoreService readinessScoreService;
 
     private Clock fixedClock;
 
@@ -68,7 +70,8 @@ public class TrainingPlan7dServiceTest {
                 loadForecaster,
                 fatigueAndOverloadService,
                 fixedClock,
-                injuryAwareTrainingService
+                injuryAwareTrainingService,
+                readinessScoreService
         );
     }
 
