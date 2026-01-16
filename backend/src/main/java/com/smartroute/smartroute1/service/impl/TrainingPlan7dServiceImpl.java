@@ -85,6 +85,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         // Candidate weekly templates including gym/mobility
         List<List<WorkoutType>> templates = generateTemplates(user);
         templates = applyInjuryConstraints(templates, injuryIndex);
+        templates = applyActiveWeekdayConstraints(user, today, templates, injuryIndex);
 
         // Choose best via simple Monte Carlo utility
         PlanResult best = chooseBestPlan(user, today, templates, initialState, recentLoads, injuryIndex);
@@ -403,7 +404,39 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return p;
     }
 
+    private boolean isActiveDay(ApplicationUser user, LocalDate date) {
+        if (user.getActiveWeekdays() == null || user.getActiveWeekdays().isEmpty()) {
+            return true; // no preference set => allow all days
+        }
 
+        java.time.DayOfWeek d = date.getDayOfWeek();
+
+        // Map DayOfWeek -> Weekday enum
+        com.smartroute.smartroute1.entity.enums.Weekday wd =
+                com.smartroute.smartroute1.entity.enums.Weekday.valueOf(d.name());
+
+        return user.getActiveWeekdays().contains(wd);
+    }
+
+    private List<List<WorkoutType>> applyActiveWeekdayConstraints(ApplicationUser user, LocalDate startDate, List<List<WorkoutType>> templates, double injuryIndex) {
+
+        List<List<WorkoutType>> out = new ArrayList<>();
+
+        for (List<WorkoutType> t : templates) {
+            List<WorkoutType> copy = new ArrayList<>(t);
+
+            for (int i = 0; i < 7; i++) {
+                LocalDate date = startDate.plusDays(i);
+
+                if (!isActiveDay(user, date)) {
+                    copy.set(i, injuryIndex >= 0.4 ? WorkoutType.MOBILITY : WorkoutType.REST_DAY);
+                }
+            }
+            out.add(copy);
+        }
+        return out;
+    }
+    
     @FunctionalInterface
     private interface SupplierWithException<T> {
         T get() throws Exception;
