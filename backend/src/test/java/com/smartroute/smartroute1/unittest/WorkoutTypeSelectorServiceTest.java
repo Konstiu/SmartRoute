@@ -7,6 +7,7 @@ import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.*;
+import com.smartroute.smartroute1.service.impl.CustomUserDetailService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,9 +27,10 @@ import static org.mockito.Mockito.*;
 public class WorkoutTypeSelectorServiceTest extends BaseTest {
 
     @MockitoBean
-    private UserService userService;
+    private CustomUserDetailService userService;
     @MockitoBean
     private ReadinessScoreService readinessScoreService;
+
     @MockitoBean
     private WeatherService weatherService;
     @MockitoBean

@@ -7,6 +7,7 @@ import { IonicModule, ToastController } from "@ionic/angular";
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../services/auth.service';
 import { AuthRequest } from 'src/app/dtos/auth-request';
+import { KeyManagementService } from 'src/services/key-management.service';
 
 @Component({
   selector: 'app-register',
@@ -25,6 +26,7 @@ export class RegisterPage {
   private userService = inject(UserService);
   private router = inject(Router);
   private authService = inject(AuthService);
+  private keyManagementService = inject(KeyManagementService);
   private toastCtrl = inject(ToastController);
   isSubmitting = false;
   errorMessage: string | null = null;
@@ -45,7 +47,7 @@ export class RegisterPage {
     this.isSubmitting = true;
 
     this.userService.createUser(this.createUser).subscribe({
-      next: () => {
+      next: async () => {
         // attempt automatic login
         const authRequest: AuthRequest = {
           email: this.createUser.email,
@@ -53,6 +55,26 @@ export class RegisterPage {
         }
         this.authService.loginUser(authRequest).subscribe({
           next: async () => {
+            // the user is now logged in
+            try {
+              // create the public identity key
+              await this.keyManagementService.generateAndStoreIdentityKey();
+              // proceed to upload the public identity key
+              await this.keyManagementService.uploadPublicIdentityKey();
+              // now generate and upload the signed pre-key
+              const updated = await this.keyManagementService.updateSignedPreKeyIfNecessary();
+              if (updated) {
+                await this.keyManagementService.uploadPublicSignedPreKey();
+              };
+              // now generate and upload one-time pre-keys
+              await this.keyManagementService.generateStoreAndUploadOneTimePreKeysIfNecessary();
+            } catch (uploadErr) {
+              // this should never happen, but in case it does, inform the user
+              console.error('Failed to upload communication keys', uploadErr);
+              const toast = await this.toastCtrl.create({ message: 'Registration succeeded, but uploading communication keys failed.', color: 'warning', duration: 3000 });
+              await toast.present();
+            }
+
             this.isSubmitting = false;
             this.successMessage = 'Registration successful.';
             const toast = await this.toastCtrl.create({ message: 'Registration successful', color: 'success', duration: 2000 });

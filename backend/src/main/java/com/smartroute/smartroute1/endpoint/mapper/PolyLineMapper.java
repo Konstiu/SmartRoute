@@ -12,7 +12,7 @@ import java.util.List;
 
 import static reactor.netty.http.HttpConnectionLiveness.log;
 
-@Mapper
+@Mapper(componentModel = "spring")
 public interface PolyLineMapper {
 
     default String geoJsonGeometryLineStringToPolyline(GeoJsonGeometryLineString lineString) {

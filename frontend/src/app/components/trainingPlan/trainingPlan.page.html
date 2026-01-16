@@ -19,46 +19,65 @@
     <ion-button (click)="loadTrainingPlan()">Retry</ion-button>
   </div>
   } @else {
-  <div class="page-container">
-    <ion-card class="rounded-card">
-      <ion-card-header>
-        <ion-card-title>
-          {{ date }}
-        </ion-card-title>
-        <ion-card-title>
-          Recommended Session: {{ recommendedActivity?.name }}
-        </ion-card-title>
-      </ion-card-header>
-      <ion-card-content>
-        @if (recommendedActivity) {
-        @if (recommendedActivity!.type === SessionType.RUN) {
-        <ion-card class="rounded-card map-card">
-          <ion-fab class="map-fab" vertical="top" horizontal="end">
-            <ion-fab-button size="small" (click)="openMapModal()">
-              <ion-icon name="expand-outline"></ion-icon>
-            </ion-fab-button>
-          </ion-fab>
+    <div class="page-container">
+      <ion-card class="rounded-card">
+        <ion-card-header>
+          <ion-card-title>
+            {{ date }}
+          </ion-card-title>
+          <ion-card-title style="display: flex; justify-content: space-between; align-items: right;">
+            Recommended Session: {{ recommendedActivity?.name }}
+            @if (latlngs !== null) {
+              <div class="action-block">
+                <ion-button style="display: flex; justify-content: space-between; align-items: center;" size="small"
+                            fill="outline" (click)="exportGpx()">
+                  Export GPX
+                </ion-button>
+                <ion-button
+                  size="small"
+                  class="favorite-btn"
+                  (click)="saveRoute()"
+                >
+                  <ion-icon
+                    slot="icon-only"
+                    [name]="isRouteSaved ? 'heart' : 'heart-outline'">
+                  </ion-icon>
+                </ion-button>
+              </div>
+            }
+          </ion-card-title>
 
-          <app-map
-            [showLocation]="true"
-            [interactive]="false"
-            [layers]="layers"
-            (locationSelected)="onLocationSelected($event)"
-            (locationError)="onGeolocationError($event)">
-          </app-map>
-        </ion-card>
+        </ion-card-header>
+        <ion-card-content>
+          @if (recommendedActivity) {
+            @if (recommendedActivity!.type === SessionType.RUN) {
+          <ion-card class="rounded-card map-card">
+            <ion-fab class="map-fab" vertical="top" horizontal="end">
+              <ion-fab-button size="small" (click)="openMapModal()">
+                <ion-icon name="expand-outline"></ion-icon>
+              </ion-fab-button>
+            </ion-fab>
 
-        <ion-card class="rounded-card" color="light">
-          <ion-card-content>
-            <ion-grid>
-              <ion-row>
-                <ion-col>
-                  <!--Route-->
-                  <ion-list lines="none">
-                    <ion-list-header lines="inset">
-                      <ion-label class="info-header">Route Details</ion-label>
-                    </ion-list-header>
-                    <ion-item>
+            <app-map
+              [showLocation]="true"
+              [interactive]="false"
+              [layers]="layers"
+              (locationSelected)="onLocationSelected($event)"
+              (locationError)="onGeolocationError()">
+            </app-map>
+          </ion-card>
+
+          <ion-card class="rounded-card" color="light">
+            <ion-card-content>
+              <ion-grid>
+                <ion-row>
+                  <ion-col>
+                    <!--Route-->
+                    <ion-list lines="none">
+                      <ion-list-header lines="inset">
+                        <ion-label class="info-header">Route Details</ion-label>
+                      </ion-list-header>
+                      <ion-item>
                         <span><ion-icon name="navigate-outline"></ion-icon>
                           {{ formatDistance(recommendedActivity!.route!.distance) }}</span></ion-item>
                     <ion-item>
@@ -180,7 +199,8 @@
                 <ion-label>
                   <ion-icon [color]="getSeverityColor(recommendedActivity!.athleteStatus.injuryIndex)"
                             name="bandage-outline"></ion-icon>
-                  You are injured (severity: {{ formatInjuryIndex(recommendedActivity!.athleteStatus.injuryIndex) }}):
+                  You are injured
+                  (severity:  {{ formatInjuryIndex(recommendedActivity!.athleteStatus.injuryIndex) }}):
                   <ul>
                     @for (injury of recommendedActivity!.athleteStatus!.injuries; track injury.affectedArea) {
                     <li>

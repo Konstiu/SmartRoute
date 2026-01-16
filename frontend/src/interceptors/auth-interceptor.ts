@@ -20,11 +20,19 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     return next(req);
   }
 
-  const authReq = req.clone({
-    setHeaders: {
-      Authorization: 'Bearer ' + authService.getToken()
-    }
-  });
+  // Get the token
+  const token = authService.getToken();
 
-  return next(authReq);
+  // Only add Authorization header if token exists and is not empty
+  if (token && token.trim()) {
+    const authReq = req.clone({
+      setHeaders: {
+        Authorization: 'Bearer ' + token
+      }
+    });
+    return next(authReq);
+  }
+
+  // If no token, pass the request as-is
+  return next(req);
 };

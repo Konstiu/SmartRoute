@@ -1,165 +1,200 @@
 <ion-header>
-    <ion-toolbar>
-        <ion-buttons slot="start">
-            <ion-back-button defaultHref="/tabs/recentRuns"></ion-back-button>
-        </ion-buttons>
-        <ion-title>Activity Details</ion-title>
-    </ion-toolbar>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/recentRuns"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Activity Details</ion-title>
+  </ion-toolbar>
 </ion-header>
 
 <ion-content>
-    <!-- Loading State -->
-    <div *ngIf="isLoading" class="loading-container">
-        <ion-spinner name="crescent"></ion-spinner>
-        <p>Loading activity...</p>
+  <!-- Loading State -->
+  @if (isLoading) {
+    <div class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading activity...</p>
     </div>
+  }
 
-    <!-- Error State -->
-    <div *ngIf="error" class="error-container">
-        <ion-icon name="alert-circle-outline" color="danger"></ion-icon>
-        <p>{{ error }}</p>
+  <!-- Error State -->
+  @if (error) {
+    <div class="error-container">
+      <ion-icon name="alert-circle-outline" color="danger"></ion-icon>
+      <p>{{ error }}</p>
     </div>
+  }
 
-    <!-- Activity Content -->
-    <div *ngIf="!isLoading">
-        <!-- Map -->
-        <div *ngIf="activity?.summaryPolyline" class="map-container">
-            <div #map id="map"></div>
-        </div>
+  <!-- Content - only show when NOT loading and activity exists -->
+  @if (!isLoading && activity) {
+    <!-- Map -->
+    @if (activity.summaryPolyline && mapLayers.length > 0) {
+      <div class="map-container">
+        <app-map [layers]="mapLayers"></app-map>
+      </div>
+    }
 
-        <!-- Stats -->
-        <div class="stats-container" *ngIf="activity">
-            <!-- Header card with name + date -->
-            <ion-card>
-                <ion-card-header>
-                    <ion-card-title>{{ activity.name }}</ion-card-title>
-                    <ion-card-subtitle>
-                        {{ activity.sportType }} • {{ formatDate(activity.startDateLocal) }}
-                    </ion-card-subtitle>
-                </ion-card-header>
-            </ion-card>
+    <!-- Stats Container -->
+    <div class="stats-container">
+      <!-- Header card with name + date -->
+      <ion-card>
+        <ion-card-header>
+          <ion-toolbar>
+            <ion-title>
+              {{ activity.name }}
+              <ion-card-subtitle>
+                {{ activity.sportType }} · {{ formatDate(activity.startDateLocal) }}
+              </ion-card-subtitle>
+            </ion-title>
+            @if (activity.summaryPolyline) {
+              <ion-buttons slot="end">
+                <ion-button
+                  size="small"
+                  fill="clear"
+                  class="favorite-btn"
+                  [class.saved]="isRouteSaved"
+                  (click)="saveRoute()"
+                >
+                  <ion-icon
+                    slot="icon-only"
+                    [name]="isRouteSaved ? 'heart' : 'heart-outline'">
+                  </ion-icon>
+                </ion-button>
+              </ion-buttons>
+            }
+          </ion-toolbar>
+        </ion-card-header>
+      </ion-card>
 
-            <!-- Overview: key metrics -->
-            <ion-card>
-                <ion-card-header>
-                    <ion-card-title>Overview</ion-card-title>
-                </ion-card-header>
-                <ion-card-content>
-                    <div class="stats-grid">
-                        <!-- Distance -->
-                        <div class="stat-item">
-                            <ion-icon name="navigate-outline"></ion-icon>
-                            <div class="stat-value">
-                                {{ formatDistance(activity.distance) }}
-                            </div>
-                            <div class="stat-label">Distance (km)</div>
-                        </div>
 
-                        <!-- Moving time -->
-                        <div class="stat-item">
-                            <ion-icon name="time-outline"></ion-icon>
-                            <div class="stat-value">
-                                {{ formatDuration(activity.movingTime) }}
-                            </div>
-                            <div class="stat-label">Moving time</div>
-                        </div>
+      <!-- Overview: key metrics -->
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Overview</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="stats-grid">
+            <!-- Distance -->
+            <div class="stat-item">
+              <ion-icon name="navigate-outline"></ion-icon>
+              <div class="stat-value">
+                {{ formatDistance(activity.distance) }}
+              </div>
+              <div class="stat-label">Distance (km)</div>
+            </div>
 
-                        <!-- Elapsed time -->
-                        <div class="stat-item">
-                            <ion-icon name="hourglass-outline"></ion-icon>
-                            <div class="stat-value">
-                                {{ formatDuration(activity.elapsedTime) }}
-                            </div>
-                            <div class="stat-label">Elapsed time</div>
-                        </div>
+            <!-- Moving time -->
+            <div class="stat-item">
+              <ion-icon name="time-outline"></ion-icon>
+              <div class="stat-value">
+                {{ formatDuration(activity.movingTime) }}
+              </div>
+              <div class="stat-label">Moving time</div>
+            </div>
 
-                        <!-- Pace -->
-                        <div class="stat-item">
-                            <ion-icon name="speedometer-outline"></ion-icon>
-                            <div class="stat-value">
-                                {{ formatPace(activity.averageSpeed) }}
-                            </div>
-                            <div class="stat-label">Pace (min/km)</div>
-                        </div>
-                    </div>
-                </ion-card-content>
-            </ion-card>
+            <!-- Elapsed time -->
+            <div class="stat-item">
+              <ion-icon name="hourglass-outline"></ion-icon>
+              <div class="stat-value">
+                {{ formatDuration(activity.elapsedTime) }}
+              </div>
+              <div class="stat-label">Elapsed time</div>
+            </div>
 
-            <!-- Details: everything else -->
-            <ion-card>
-                <ion-card-header>
-                    <ion-card-title>Details</ion-card-title>
-                </ion-card-header>
-                <ion-card-content>
-                    <div class="stats-grid">
-                        <!-- Max speed -->
-                        <div class="stat-item">
-                            <ion-icon name="rocket-outline"></ion-icon>
-                            <div class="stat-value">
-                                {{ (activity.maxSpeed * 3.6).toFixed(1) }}
-                            </div>
-                            <div class="stat-label">Max speed (km/h)</div>
-                        </div>
+            <!-- Pace -->
+            <div class="stat-item">
+              <ion-icon name="speedometer-outline"></ion-icon>
+              <div class="stat-value">
+                {{ formatPace(activity.averageSpeed) }}
+              </div>
+              <div class="stat-label">Pace (min/km)</div>
+            </div>
+          </div>
+        </ion-card-content>
+      </ion-card>
 
-                        <!-- Elevation -->
-                        <div class="stat-item" *ngIf="activity.totalElevationGain">
-                            <ion-icon name="trending-up-outline"></ion-icon>
-                            <div class="stat-value">
-                                {{ activity.totalElevationGain.toFixed(0) }}
-                            </div>
-                            <div class="stat-label">Elevation (m)</div>
-                        </div>
+      <!-- Details: everything else -->
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Details</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="stats-grid">
+            <!-- Max speed -->
+            <div class="stat-item">
+              <ion-icon name="rocket-outline"></ion-icon>
+              <div class="stat-value">
+                {{ (activity.maxSpeed * 3.6).toFixed(1) }}
+              </div>
+              <div class="stat-label">Max speed (km/h)</div>
+            </div>
 
-                        <!-- Avg HR -->
-                        <div class="stat-item" *ngIf="activity.averageHeartrate !== null">
-                            <ion-icon name="heart-outline"></ion-icon>
-                            <div class="stat-value">
-                                {{ activity.averageHeartrate!.toFixed(0) }}
-                            </div>
-                            <div class="stat-label">Avg HR (bpm)</div>
-                        </div>
+            <!-- Elevation -->
+            @if (activity.totalElevationGain) {
+              <div class="stat-item">
+                <ion-icon name="trending-up-outline"></ion-icon>
+                <div class="stat-value">
+                  {{ activity.totalElevationGain.toFixed(0) }}
+                </div>
+                <div class="stat-label">Elevation (m)</div>
+              </div>
+            }
 
-                        <!-- Max HR -->
-                        <div class="stat-item" *ngIf="activity.maxHeartrate !== null">
-                            <ion-icon name="pulse-outline"></ion-icon>
-                            <div class="stat-value">
-                                {{ activity.maxHeartrate!.toFixed(0) }}
-                            </div>
-                            <div class="stat-label">Max HR (bpm)</div>
-                        </div>
+            <!-- Avg HR -->
+            @if (activity.averageHeartrate !== null) {
+              <div class="stat-item">
+                <ion-icon name="heart-outline"></ion-icon>
+                <div class="stat-value">
+                  {{ activity.averageHeartrate!.toFixed(0) }}
+                </div>
+                <div class="stat-label">Avg HR (bpm)</div>
+              </div>
+            }
 
-                        <!-- Avg Watts -->
-                        <div class="stat-item" *ngIf="activity.averageWatts !== null">
-                            <ion-icon name="flash-outline"></ion-icon>
-                            <div class="stat-value">
-                                {{ activity.averageWatts!.toFixed(0) }}
-                            </div>
-                            <div class="stat-label">Avg Power (W)</div>
-                        </div>
+            <!-- Max HR -->
+            @if (activity.maxHeartrate !== null) {
+              <div class="stat-item">
+                <ion-icon name="pulse-outline"></ion-icon>
+                <div class="stat-value">
+                  {{ activity.maxHeartrate!.toFixed(0) }}
+                </div>
+                <div class="stat-label">Max HR (bpm)</div>
+              </div>
+            }
 
-                        <!-- Kilojoules -->
-                        <div class="stat-item" *ngIf="activity.kilojoules !== null">
-                            <ion-icon name="flame-outline"></ion-icon>
-                            <div class="stat-value">
-                                {{ activity.kilojoules!.toFixed(0) }}
-                            </div>
-                            <div class="stat-label">Work (kJ)</div>
-                        </div>
-                    </div>
-                </ion-card-content>
-            </ion-card>
-        </div>
+            <!-- Avg Watts -->
+            @if (activity.averageWatts !== null) {
+              <div class="stat-item">
+                <ion-icon name="flash-outline"></ion-icon>
+                <div class="stat-value">
+                  {{ activity.averageWatts!.toFixed(0) }}
+                </div>
+                <div class="stat-label">Avg Power (W)</div>
+              </div>
+            }
+
+            <!-- Kilojoules -->
+            @if (activity.kilojoules !== null) {
+              <div class="stat-item">
+                <ion-icon name="flame-outline"></ion-icon>
+                <div class="stat-value">
+                  {{ activity.kilojoules!.toFixed(0) }}
+                </div>
+                <div class="stat-label">Work (kJ)</div>
+              </div>
+            }
+          </div>
+        </ion-card-content>
+      </ion-card>
     </div>
+  }
 
-    <div class="strava-disclaimer">
-        <p>
-            This application is not an official Strava product and is not endorsed by or
-            otherwise affiliated with Strava.
-        </p>
-        <p>Data is provided via the Strava API. “Compatible with Strava”.</p>
-
-        <p>Visit <a href="https://www.strava.com" target="_blank">strava.com</a>.</p>
-    </div>
-
+  <div class="strava-disclaimer">
+    <p>
+      This application is not an official Strava product and is not endorsed by or
+      otherwise affiliated with Strava.
+    </p>
+    <p>Data is provided via the Strava API. Compatible with Strava.</p>
+    <p>Visit <a href="https://www.strava.com" target="_blank">strava.com</a>.</p>
+  </div>
 
 </ion-content>

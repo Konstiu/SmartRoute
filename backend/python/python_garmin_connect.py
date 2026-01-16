@@ -21,10 +21,11 @@ def collect_last_runs(api: Garmin, target_count: int):
             break
 
         for act in activities:
-            if act.get("sportTypeId") == 1:  # Running activities
-                runs.append(act)
-                if len(runs) == target_count:
-                    break
+            # Since we want to import all activities we remove that filer:
+            #if act.get("sportTypeId") == 1:  # Running activities
+            runs.append(act)
+            if len(runs) == target_count:
+                break
         start += page_size
 
     return runs[:target_count]
@@ -109,8 +110,6 @@ def main():
         }),              file=sys.stderr)
         sys.exit(1)
 
-    tokenstore_temp = None
-    tokenstore_path = None
     email = None
     password = None
     target_count = None
@@ -208,8 +207,6 @@ def main():
 
         if not runs:
             print(json.dumps({"error": "No runs found"}), file=sys.stderr)
-            if tokenstore_temp:
-                tokenstore_temp.cleanup()
             sys.exit(1)
 
         # Fetch details
@@ -217,15 +214,6 @@ def main():
 
         # Collect token info to include in output (without persistently saving)
         tokens = {}
-        try:
-            if tokenstore_path is not None and tokenstore_path.exists():
-                for f in tokenstore_path.glob("*.json"):
-                    try:
-                        tokens[f.name] = json.loads(f.read_text())
-                    except Exception:
-                        tokens[f.name] = f.read_text()
-        except Exception:
-            pass
 
         # Try to extract in-memory tokens from api.garth if available
         try:
@@ -281,8 +269,6 @@ def main():
         # 🔹 Only a *small* JSON goes to stdout (Java reads this)
         print(json.dumps({"ok": True, "result_file": result_path}))
 
-        if tokenstore_temp:
-            tokenstore_temp.cleanup()
 
     except Exception as e:
         error_info = {
