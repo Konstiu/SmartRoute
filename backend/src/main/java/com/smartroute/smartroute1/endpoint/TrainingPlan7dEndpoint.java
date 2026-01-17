@@ -15,7 +15,12 @@ public class TrainingPlan7dEndpoint {
     private final TrainingPlan7dService trainingPlan7dService;
 
     @GetMapping("/next-7-days")
-    public TrainingPlan7dDto next7Days(@RequestParam("email") String email, @RequestParam("latitude") double latitude, @RequestParam("longitude") double longitude) {
-        return trainingPlan7dService.buildNext7Days(email, latitude, longitude);
+    public TrainingPlan7dDto next7Days(@RequestParam("email") String email,
+                                       @RequestParam("latitude") double latitude,
+                                       @RequestParam("longitude") double longitude,
+                                       @RequestParam(name = "debug", defaultValue = "false") boolean debug,
+                                       @RequestParam(name = "sims", required = false) Integer sims,
+                                       @RequestParam(name = "seed", required = false) Long seed) {
+        return trainingPlan7dService.buildNext7Days(email, latitude, longitude, debug, sims, seed);
     }
 }
