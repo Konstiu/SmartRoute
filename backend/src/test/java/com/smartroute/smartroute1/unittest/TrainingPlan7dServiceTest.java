@@ -107,7 +107,7 @@ public class TrainingPlan7dServiceTest {
         when(fatigueAndOverloadService.currentAtl(user)).thenReturn(55.0);
 
         // Forecaster: always return a stable distribution
-        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any()))
+        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any(), any()))
                 .thenAnswer(inv -> new LoadDistributionDto(10, 20, 30, 20, 5));
 
         TrainingPlan7dService service = createService();
@@ -154,8 +154,22 @@ public class TrainingPlan7dServiceTest {
         when(dailyAggregationService.getDailySummaries(eq(user), eq(60))).thenReturn(fakeHistory(fixedClock, 60, 35));
         when(fatigueAndOverloadService.currentCtl(user)).thenReturn(40.0);
         when(fatigueAndOverloadService.currentAtl(user)).thenReturn(35.0);
+        when(daySelectorService.isTrainingDay(any(), eq(user)))
+                .thenAnswer(inv -> {
+                    LocalDate d = inv.getArgument(0);
+                    // e.g. train Mon/Wed/Fri/Sat
+                    return switch (d.getDayOfWeek()) {
+                        case MONDAY, WEDNESDAY, FRIDAY, SATURDAY -> true;
+                        default -> false;
+                    };
+                });
 
-        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any()))
+        when(injuryAwareTrainingService.getInjuryIndex("y@test.com")).thenReturn(0.0);
+        when(injuryAwareTrainingService.findInjuriesByEmail("y@test.com")).thenReturn(List.of());
+        when(readinessScoreService.calculateReadinessScore(eq(user), any())).thenReturn(80); // no readiness reductions
+
+
+        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any(), any()))
                 .thenAnswer(inv -> {
                     WorkoutType wt = inv.getArgument(2);
                     // Make gym/mobility non-zero so they appear meaningful
@@ -192,7 +206,7 @@ public class TrainingPlan7dServiceTest {
         when(fatigueAndOverloadService.currentCtl(user)).thenReturn(60.0);
         when(fatigueAndOverloadService.currentAtl(user)).thenReturn(95.0);
 
-        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any()))
+        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any(), any()))
                 .thenAnswer(inv -> {
                     WorkoutType wt = inv.getArgument(2);
                     ForecastState st = inv.getArgument(3);
