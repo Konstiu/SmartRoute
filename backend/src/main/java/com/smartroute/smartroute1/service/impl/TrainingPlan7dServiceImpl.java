@@ -98,9 +98,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
         // Candidate weekly templates including gym/mobility
         List<List<WorkoutType>> templates = generateTemplates(user);
-        templates = applyInjuryConstraints(templates, injuryIndex);
         templates = applyActiveWeekdayConstraints(user, today, templates, injuryIndex);
-        templates = applyReadinessConstraints(templates, readiness);
+
 
         // Choose best via simple Monte Carlo utility
         PlanResult best = chooseBestPlan(user, today, templates, initialState, recentLoads, injuryIndex, readiness, weatherPerDay);
@@ -153,9 +152,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     LocalDate d = startDate.plusDays(i);
 
                     WorkoutType planned = template.get(i);
-
                     CompactWeatherDto weatherDto = weatherPerDay.get(i);
-                    WorkoutType effective = mapWorkoutForWeather(planned, weatherDto.getWeatherScore());
+
+                    WorkoutType effective = effectiveWorkoutType(planned, injuryIndex, readiness, weatherDto.getWeatherScore());
 
                     LoadDistributionDto loadDist = loadForecaster.forecastLoad(user, d, effective, st, recentLoads);
 
@@ -236,7 +235,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             CompactWeatherDto weatherDto = weatherPerDay.get(i);
 
             WorkoutType planned = template.get(i);
-            WorkoutType effective = mapWorkoutForWeather(planned, weatherDto.getWeatherScore());
+
+            WorkoutType effective = effectiveWorkoutType(planned, injuryIndex, readiness, weatherDto.getWeatherScore());
+
 
             LoadDistributionDto load = loadForecaster.forecastLoad(user, d, effective, st, recentLoads);
 
@@ -624,10 +625,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return wt;
     }
 
-    private List<CompactWeatherDto> precomputeWeather(LocalDate startDate,
-                                                      double latitude,
-                                                      double longitude,
-                                                      int localHour) {
+    private List<CompactWeatherDto> precomputeWeather(LocalDate startDate, double latitude, double longitude, int localHour) {
         List<CompactWeatherDto> weather = new ArrayList<>(7);
         for (int i = 0; i < 7; i++) {
             LocalDate d = startDate.plusDays(i);
@@ -636,7 +634,17 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return weather;
     }
 
+    private WorkoutType effectiveWorkoutType(WorkoutType planned, double injuryIndex, int readiness, Double weatherScore) {
 
+        WorkoutType wt = planned;
+
+        wt = mapWorkoutForInjury(wt, injuryIndex);
+        wt = mapWorkoutForReadiness(wt, readiness);
+
+        wt = mapWorkoutForWeather(wt, weatherScore);
+
+        return wt;
+    }
 
     @FunctionalInterface
     private interface SupplierWithException<T> {
