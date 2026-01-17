@@ -5,6 +5,9 @@ import com.smartroute.smartroute1.endpoint.dto.trainingplan.LoadDistributionDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.PlannedDayDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlan7dDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.DailySummary;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlanDebugDto;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.TemplateScoreDto;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.DayDebugDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
@@ -75,11 +78,14 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     }
 
     @Override
-    public TrainingPlan7dDto buildNext7Days(String email, double latitude, double longitude) {
+    public TrainingPlan7dDto buildNext7Days(String email, double latitude, double longitude, boolean debug, Integer simsParam, Long seedParam) {
         ApplicationUser user = userRepository.findUserByEmail(email);
         if (user == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
         }
+
+        int sims = clampSims(simsParam);
+        long seed = defaultSeed(seedParam);
 
         LocalDate today = LocalDate.now(clock);
 
@@ -102,9 +108,12 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
 
         // Choose best via simple Monte Carlo utility
-        PlanResult best = chooseBestPlan(user, today, templates, initialState, recentLoads, injuryIndex, readiness, weatherPerDay);
+        PlanResult best = chooseBestPlan(user, today, templates, initialState, recentLoads,
+                injuryIndex, readiness, weatherPerDay, sims, seed, debug);
 
-        return new TrainingPlan7dDto(best.days);
+        TrainingPlan7dDto dto = new TrainingPlan7dDto(best.days);
+        dto.setDebug(best.debug);
+        return dto;
     }
 
     private List<List<WorkoutType>> generateTemplates(ApplicationUser user) {
@@ -123,18 +132,22 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                       List<Integer> recentLoads,
                                       double injuryIndex,
                                       int readiness,
-                                      List<CompactWeatherDto> weatherPerDay) {
+                                      List<CompactWeatherDto> weatherPerDay,
+                                      int sims,
+                                      long seed,
+                                      boolean debug) {
 
-        Random rng = new Random(42);
+        Random rng = new Random(seed);
+
+        List<TemplateScoreDto> templateScores = debug ? new ArrayList<>() : null;
 
         double bestScore = Double.NEGATIVE_INFINITY;
+        int bestTemplateIndex = -1;
         List<WorkoutType> bestTemplate = null;
-
-        // store the tsb distributions for the best plan
         List<LoadDistributionDto> bestTsbDists = null;
 
-        for (List<WorkoutType> template : templates) {
-            int sims = 120; // bump a bit for smoother quantiles
+        for (int templateIndex = 0; templateIndex < templates.size(); templateIndex++) {
+            List<WorkoutType> template = templates.get(templateIndex);
 
             // Collect TSB samples for each day across simulations
             List<List<Double>> tsbSamplesPerDay = new ArrayList<>(7);
@@ -142,11 +155,11 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 tsbSamplesPerDay.add(new ArrayList<>(sims));
             }
 
-            double totalUtility = 0;
+            double totalUtility = 0.0;
 
             for (int s = 0; s < sims; s++) {
                 ForecastState st = initialState;
-                double utility = 0;
+                double utility = 0.0;
 
                 for (int i = 0; i < 7; i++) {
                     LocalDate d = startDate.plusDays(i);
@@ -154,34 +167,55 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     WorkoutType planned = template.get(i);
                     CompactWeatherDto weatherDto = weatherPerDay.get(i);
 
-                    WorkoutType effective = effectiveWorkoutType(planned, injuryIndex, readiness, weatherDto.getWeatherScore());
+                    WorkoutType effective = effectiveWorkoutType(
+                            planned,
+                            injuryIndex,
+                            readiness,
+                            weatherDto == null ? null : weatherDto.getWeatherScore()
+                    );
 
                     LoadDistributionDto loadDist = loadForecaster.forecastLoad(user, d, effective, st, recentLoads);
 
                     double loadSample = sampleNonNegativeNormal(rng, loadDist.getMean(), loadDist.getStd());
+
+                    // forward update
                     st = st.next(loadSample);
 
+                    // record tsb distribution
                     tsbSamplesPerDay.get(i).add(st.tsb());
 
+                    // utility
                     utility += trainingReward(effective, loadSample);
                     utility -= fatiguePenalty(st.tsb(), effective);
                     utility -= injuryPenalty(injuryIndex, effective);
                     utility -= readinessPenalty(readiness, effective);
-
-                    utility -= weatherPenalty(weatherDto.getWeatherScore(), effective);
+                    utility -= weatherPenalty(weatherDto == null ? null : weatherDto.getWeatherScore(), effective);
                 }
-
 
                 totalUtility += utility;
             }
 
             double avgUtility = totalUtility / sims;
 
+            // Build effective template for debug output (deterministic, based on inputs)
+            if (debug) {
+                List<WorkoutType> effectiveTemplate = new ArrayList<>(7);
+                for (int i = 0; i < 7; i++) {
+                    WorkoutType planned = template.get(i);
+                    CompactWeatherDto w = weatherPerDay.get(i);
+                    effectiveTemplate.add(
+                            effectiveWorkoutType(planned, injuryIndex, readiness, w == null ? null : w.getWeatherScore())
+                    );
+                }
+                templateScores.add(new TemplateScoreDto(templateIndex, avgUtility, template, effectiveTemplate));
+            }
+
             if (avgUtility > bestScore) {
                 bestScore = avgUtility;
+                bestTemplateIndex = templateIndex;
                 bestTemplate = template;
 
-                // Convert TSB samples -> distributions
+                // Convert TSB samples -> distributions for this template
                 List<LoadDistributionDto> tsbDists = new ArrayList<>(7);
                 for (int i = 0; i < 7; i++) {
                     tsbDists.add(toDistribution(tsbSamplesPerDay.get(i)));
@@ -190,8 +224,11 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             }
         }
 
+        // Fallback if nothing chosen
         if (bestTemplate == null) {
-            // fallback: rest week
+            bestTemplateIndex = -1;
+            bestScore = 0.0;
+
             bestTemplate = List.of(
                     WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY,
                     WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY,
@@ -206,14 +243,105 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     new LoadDistributionDto(0, 0, 0, 0, 0),
                     new LoadDistributionDto(0, 0, 0, 0, 0)
             );
+
+            if (debug && templateScores != null && templateScores.isEmpty()) {
+                templateScores = new ArrayList<>();
+            }
         }
 
-        // Build display plan using mean loads (stable) BUT attach the sampled TSB distributions
-        List<PlannedDayDto> days = materializePlanWithTsbDists(user, startDate, bestTemplate, initialState,
-                recentLoads, bestTsbDists, injuryIndex, readiness, weatherPerDay);
+        // Build display plan using mean trajectory, attach TSB dists and weather DTOs
+        List<PlannedDayDto> days = materializePlanWithTsbDists(
+                user,
+                startDate,
+                bestTemplate,
+                initialState,
+                recentLoads,
+                bestTsbDists,
+                injuryIndex,
+                readiness,
+                weatherPerDay
+        );
 
-        return new PlanResult(days, bestTsbDists);
+        TrainingPlanDebugDto debugDto = null;
+        if (debug) {
+            List<DayDebugDto> dayDebug = buildDayDebug(
+                    user,
+                    startDate,
+                    bestTemplate,
+                    initialState,
+                    recentLoads,
+                    bestTsbDists,
+                    injuryIndex,
+                    readiness,
+                    weatherPerDay
+            );
+
+            debugDto = new TrainingPlanDebugDto(
+                    sims,
+                    seed,
+                    bestTemplateIndex,
+                    bestScore,
+                    templateScores == null ? List.of() : templateScores,
+                    dayDebug
+            );
+        }
+
+        return new PlanResult(days, bestTsbDists, debugDto);
     }
+
+    private List<DayDebugDto> buildDayDebug(ApplicationUser user,
+                                            LocalDate startDate,
+                                            List<WorkoutType> bestTemplate,
+                                            ForecastState initialState,
+                                            List<Integer> recentLoads,
+                                            List<LoadDistributionDto> bestTsbDists,
+                                            double injuryIndex,
+                                            int readiness,
+                                            List<CompactWeatherDto> weatherPerDay) {
+
+        List<DayDebugDto> out = new ArrayList<>(7);
+        ForecastState st = initialState;
+
+        for (int i = 0; i < 7; i++) {
+            LocalDate d = startDate.plusDays(i);
+
+            WorkoutType planned = bestTemplate.get(i);
+            CompactWeatherDto w = weatherPerDay.get(i);
+
+            Double wsObj = (w == null) ? null : w.getWeatherScore();
+            double ws = (wsObj == null) ? 0.6 : wsObj;
+
+            WorkoutType effective = effectiveWorkoutType(planned, injuryIndex, readiness, wsObj);
+
+            LoadDistributionDto load = loadForecaster.forecastLoad(user, d, effective, st, recentLoads);
+
+            // advance expected trajectory using mean
+            st = st.next(load.getMean());
+
+            double fatP = fatiguePenalty(st.tsb(), effective);
+            double injP = injuryPenalty(injuryIndex, effective);
+            double readyP = readinessPenalty(readiness, effective);
+            double weathP = weatherPenalty(wsObj, effective);
+
+            out.add(new DayDebugDto(
+                    d,
+                    planned,
+                    effective,
+                    ws,
+                    load.getMean(),
+                    load.getStd(),
+                    bestTsbDists.get(i).getP50(),
+                    fatP,
+                    injP,
+                    readyP,
+                    weathP
+            ));
+        }
+
+        return out;
+    }
+
+
 
 
     private List<PlannedDayDto> materializePlanWithTsbDists(ApplicationUser user,
@@ -588,6 +716,11 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     }
 
     private double weatherPenalty(Double weatherScore, WorkoutType wt) {
+
+        if (weatherScore == null) {
+            return 0.6;
+        }
+
         // only penalize outdoor runs
         boolean outdoorRun = (wt == WorkoutType.EASY_RUN || wt == WorkoutType.TEMPO_RUN
                 || wt == WorkoutType.INTERVAL_RUN || wt == WorkoutType.LONG_RUN);
@@ -609,6 +742,11 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     }
 
     private WorkoutType mapWorkoutForWeather(WorkoutType wt, Double weatherScore) {
+
+        if (weatherScore == null) {
+            return WorkoutType.GYM_PREHAB;
+        }
+
         boolean run = (wt == WorkoutType.EASY_RUN || wt == WorkoutType.TEMPO_RUN
                 || wt == WorkoutType.INTERVAL_RUN || wt == WorkoutType.LONG_RUN);
 
@@ -646,13 +784,26 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return wt;
     }
 
+    private int clampSims(Integer sims) {
+        if (sims == null) {
+            return 120;
+        }
+        return Math.max(20, Math.min(400, sims));
+    }
+
+    private long defaultSeed(Long seed) {
+        return seed == null ? 42L : seed;
+    }
+
+
     @FunctionalInterface
     private interface SupplierWithException<T> {
         T get() throws Exception;
     }
 
     private record PlanResult(List<PlannedDayDto> days,
-                              List<LoadDistributionDto> tsbDistributions) {
+                              List<LoadDistributionDto> tsbDistributions,
+                              TrainingPlanDebugDto debug) {
     }
 
 }

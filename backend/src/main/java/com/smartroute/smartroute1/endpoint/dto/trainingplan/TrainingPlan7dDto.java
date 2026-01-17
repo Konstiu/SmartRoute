@@ -9,4 +9,10 @@ import java.util.List;
 @AllArgsConstructor
 public class TrainingPlan7dDto {
     List<PlannedDayDto> days;
+    TrainingPlanDebugDto debug;
+
+    public TrainingPlan7dDto(List<PlannedDayDto> days) {
+        this.days = days;
+        this.debug = null;
+    }
 }
