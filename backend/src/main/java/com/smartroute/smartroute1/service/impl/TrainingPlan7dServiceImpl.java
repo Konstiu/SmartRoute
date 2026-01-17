@@ -8,8 +8,11 @@ import com.smartroute.smartroute1.endpoint.dto.trainingplan.DailySummary;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlanDebugDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.TemplateScoreDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.DayDebugDto;
+import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.Injuries;
 import com.smartroute.smartroute1.entity.WeatherResponse;
+import com.smartroute.smartroute1.entity.enums.BodyPart;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.DailyAggregationService;
@@ -19,7 +22,10 @@ import com.smartroute.smartroute1.service.TrainingPlan7dService;
 import com.smartroute.smartroute1.service.LoadForecaster;
 import com.smartroute.smartroute1.service.ReadinessScoreService;
 import com.smartroute.smartroute1.service.WeatherService;
+import com.smartroute.smartroute1.service.DaySelectorService;
+import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
 import com.smartroute.smartroute1.util.ForecastState;
+import com.smartroute.smartroute1.util.LoadConstraints;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -32,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
+import java.util.Map;
 
 @Service
 public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
@@ -46,6 +53,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     private final InjuryAwareTrainingService injuryAwareTrainingService;
     private final ReadinessScoreService readinessScoreService;
     private final WeatherService weatherService;
+    private final DaySelectorService daySelectorService;
+    private final GymWorkoutSelectorService gymWorkoutSelectorService;
+
 
     @Autowired
     public TrainingPlan7dServiceImpl(UserRepository userRepository,
@@ -54,9 +64,12 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                      FatigueAndOverloadService fatigueAndOverloadService,
                                      InjuryAwareTrainingService injuryAwareTrainingService,
                                      ReadinessScoreService readinessScoreService,
-                                     WeatherService weatherService) {
+                                     WeatherService weatherService,
+                                     DaySelectorService daySelectorService,
+                                     GymWorkoutSelectorService gymWorkoutSelectorService) {
         this(userRepository, dailyAggregationService, loadForecaster, fatigueAndOverloadService,
-                Clock.system(ZoneId.of("Europe/Vienna")), injuryAwareTrainingService, readinessScoreService, weatherService);
+                Clock.system(ZoneId.of("Europe/Vienna")), injuryAwareTrainingService, readinessScoreService,
+                weatherService, daySelectorService, gymWorkoutSelectorService);
     }
 
     public TrainingPlan7dServiceImpl(UserRepository userRepository,
@@ -66,7 +79,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                      Clock clock,
                                      InjuryAwareTrainingService injuryAwareTrainingService,
                                      ReadinessScoreService readinessScoreService,
-                                     WeatherService weatherService) {
+                                     WeatherService weatherService,
+                                     DaySelectorService daySelectorService,
+                                     GymWorkoutSelectorService gymWorkoutSelectorService) {
         this.userRepository = userRepository;
         this.dailyAggregationService = dailyAggregationService;
         this.loadForecaster = loadForecaster;
@@ -75,6 +90,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         this.injuryAwareTrainingService = injuryAwareTrainingService;
         this.readinessScoreService = readinessScoreService;
         this.weatherService = weatherService;
+        this.daySelectorService = daySelectorService;
+        this.gymWorkoutSelectorService = gymWorkoutSelectorService;
     }
 
     @Override
@@ -90,6 +107,16 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         LocalDate today = LocalDate.now(clock);
 
         double injuryIndex = safe(() -> injuryAwareTrainingService.getInjuryIndex(email), 0.0);
+
+        List<Injuries> injuries = safeList(() -> injuryAwareTrainingService.findInjuriesByEmail(email));
+        Map<BodyPart, Double> injuriesMap = injuryAwareTrainingService.calculateInjuriesMap(injuries);
+
+        LoadConstraints constraints = new LoadConstraints(
+                injuryAwareTrainingService.calculateIntensityScaling(injuryIndex),
+                injuryAwareTrainingService.calculateVolumeScaling(injuryIndex),
+                injuryAwareTrainingService.calculateHighImpactPenalty(injuryIndex)
+        );
+
         int readiness = safeInt(() -> readinessScoreService.calculateReadinessScore(user, today), 50);
         final List<CompactWeatherDto> weatherPerDay = precomputeWeather(today, latitude, longitude, 18);
 
@@ -104,16 +131,42 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
         // Candidate weekly templates including gym/mobility
         List<List<WorkoutType>> templates = generateTemplates(user);
-        templates = applyActiveWeekdayConstraints(user, today, templates, injuryIndex);
 
 
         // Choose best via simple Monte Carlo utility
-        PlanResult best = chooseBestPlan(user, today, templates, initialState, recentLoads,
-                injuryIndex, readiness, weatherPerDay, sims, seed, debug);
+        PlanChoice choice = chooseBestPlan(
+                user,
+                today,
+                templates,
+                initialState,
+                recentLoads,
+                injuryIndex,
+                readiness,
+                weatherPerDay,
+                constraints,
+                sims,
+                seed,
+                debug
+        );
 
-        TrainingPlan7dDto dto = new TrainingPlan7dDto(best.days);
-        dto.setDebug(best.debug);
+        List<PlannedDayDto> days = materializePlanWithTsbDists(
+                user,
+                today,
+                choice.bestTemplate(),
+                initialState,
+                recentLoads,
+                choice.bestTsbDists(),
+                injuryIndex,
+                injuriesMap,
+                readiness,
+                weatherPerDay,
+                constraints
+        );
+
+        TrainingPlan7dDto dto = new TrainingPlan7dDto(days);
+        dto.setDebug(choice.debug());
         return dto;
+
     }
 
     private List<List<WorkoutType>> generateTemplates(ApplicationUser user) {
@@ -125,7 +178,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         );
     }
 
-    private PlanResult chooseBestPlan(ApplicationUser user,
+    private PlanChoice chooseBestPlan(ApplicationUser user,
                                       LocalDate startDate,
                                       List<List<WorkoutType>> templates,
                                       ForecastState initialState,
@@ -133,6 +186,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                       double injuryIndex,
                                       int readiness,
                                       List<CompactWeatherDto> weatherPerDay,
+                                      LoadConstraints constraints,
                                       int sims,
                                       long seed,
                                       boolean debug) {
@@ -164,9 +218,17 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 for (int i = 0; i < 7; i++) {
                     LocalDate d = startDate.plusDays(i);
 
-                    WorkoutType planned = template.get(i);
                     CompactWeatherDto weatherDto = weatherPerDay.get(i);
 
+                    // 1) decide if user should train that day
+                    boolean trainDay = daySelectorService.isTrainingDay(d, user);
+
+                    // 2) planned workout comes from template only if training day
+                    WorkoutType planned = trainDay
+                            ? template.get(i)
+                            : (injuryIndex >= 0.4 ? WorkoutType.MOBILITY : WorkoutType.REST_DAY);
+
+                    // 3) apply injury/readiness/weather mapping
                     WorkoutType effective = effectiveWorkoutType(
                             planned,
                             injuryIndex,
@@ -174,7 +236,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                             weatherDto == null ? null : weatherDto.getWeatherScore()
                     );
 
-                    LoadDistributionDto loadDist = loadForecaster.forecastLoad(user, d, effective, st, recentLoads);
+                    LoadDistributionDto loadDist = loadForecaster.forecastLoad(user, d, effective, st, recentLoads, constraints);
 
                     double loadSample = sampleNonNegativeNormal(rng, loadDist.getMean(), loadDist.getStd());
 
@@ -200,14 +262,24 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             // Build effective template for debug output (deterministic, based on inputs)
             if (debug) {
                 List<WorkoutType> effectiveTemplate = new ArrayList<>(7);
+                List<WorkoutType> plannedTemplate = new ArrayList<>(7);
+
                 for (int i = 0; i < 7; i++) {
-                    WorkoutType planned = template.get(i);
+                    LocalDate d = startDate.plusDays(i);
                     CompactWeatherDto w = weatherPerDay.get(i);
-                    effectiveTemplate.add(
-                            effectiveWorkoutType(planned, injuryIndex, readiness, w == null ? null : w.getWeatherScore())
-                    );
+                    Double ws = (w == null) ? null : w.getWeatherScore();
+
+                    boolean trainDay = daySelectorService.isTrainingDay(d, user);
+
+                    WorkoutType planned = trainDay
+                            ? template.get(i)
+                            : (injuryIndex >= 0.4 ? WorkoutType.MOBILITY : WorkoutType.REST_DAY);
+
+                    plannedTemplate.add(planned);
+                    effectiveTemplate.add(effectiveWorkoutType(planned, injuryIndex, readiness, ws));
                 }
-                templateScores.add(new TemplateScoreDto(templateIndex, avgUtility, template, effectiveTemplate));
+
+                templateScores.add(new TemplateScoreDto(templateIndex, avgUtility, plannedTemplate, effectiveTemplate));
             }
 
             if (avgUtility > bestScore) {
@@ -249,19 +321,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             }
         }
 
-        // Build display plan using mean trajectory, attach TSB dists and weather DTOs
-        List<PlannedDayDto> days = materializePlanWithTsbDists(
-                user,
-                startDate,
-                bestTemplate,
-                initialState,
-                recentLoads,
-                bestTsbDists,
-                injuryIndex,
-                readiness,
-                weatherPerDay
-        );
-
         TrainingPlanDebugDto debugDto = null;
         if (debug) {
             List<DayDebugDto> dayDebug = buildDayDebug(
@@ -273,7 +332,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     bestTsbDists,
                     injuryIndex,
                     readiness,
-                    weatherPerDay
+                    weatherPerDay,
+                    constraints
             );
 
             debugDto = new TrainingPlanDebugDto(
@@ -286,7 +346,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             );
         }
 
-        return new PlanResult(days, bestTsbDists, debugDto);
+        return new PlanChoice(bestTemplateIndex, bestScore, bestTemplate, bestTsbDists, debugDto);
     }
 
     private List<DayDebugDto> buildDayDebug(ApplicationUser user,
@@ -297,7 +357,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                             List<LoadDistributionDto> bestTsbDists,
                                             double injuryIndex,
                                             int readiness,
-                                            List<CompactWeatherDto> weatherPerDay) {
+                                            List<CompactWeatherDto> weatherPerDay,
+                                            LoadConstraints constraints) {
 
         List<DayDebugDto> out = new ArrayList<>(7);
         ForecastState st = initialState;
@@ -305,15 +366,20 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         for (int i = 0; i < 7; i++) {
             LocalDate d = startDate.plusDays(i);
 
-            WorkoutType planned = bestTemplate.get(i);
             CompactWeatherDto w = weatherPerDay.get(i);
+
+            boolean trainDay = daySelectorService.isTrainingDay(d, user);
+
+            WorkoutType planned = trainDay
+                    ? bestTemplate.get(i)
+                    : (injuryIndex >= 0.4 ? WorkoutType.MOBILITY : WorkoutType.REST_DAY);
 
             Double wsObj = (w == null) ? null : w.getWeatherScore();
             double ws = (wsObj == null) ? 0.6 : wsObj;
 
             WorkoutType effective = effectiveWorkoutType(planned, injuryIndex, readiness, wsObj);
 
-            LoadDistributionDto load = loadForecaster.forecastLoad(user, d, effective, st, recentLoads);
+            LoadDistributionDto load = loadForecaster.forecastLoad(user, d, effective, st, recentLoads, constraints);
 
             // advance expected trajectory using mean
             st = st.next(load.getMean());
@@ -341,9 +407,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return out;
     }
 
-
-
-
     private List<PlannedDayDto> materializePlanWithTsbDists(ApplicationUser user,
                                                             LocalDate startDate,
                                                             List<WorkoutType> template,
@@ -351,8 +414,10 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                                             List<Integer> recentLoads,
                                                             List<LoadDistributionDto> tsbDists,
                                                             double injuryIndex,
+                                                            Map<BodyPart, Double> injuriesMap,
                                                             int readiness,
-                                                            List<CompactWeatherDto> weatherPerDay) {
+                                                            List<CompactWeatherDto> weatherPerDay,
+                                                            LoadConstraints constraints) {
 
         List<PlannedDayDto> out = new ArrayList<>(7);
         ForecastState st = initialState;
@@ -361,15 +426,24 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             LocalDate d = startDate.plusDays(i);
 
             CompactWeatherDto weatherDto = weatherPerDay.get(i);
+            Double ws = (weatherDto == null) ? null : weatherDto.getWeatherScore();
 
-            WorkoutType planned = template.get(i);
+            boolean trainDay = daySelectorService.isTrainingDay(d, user);
 
-            WorkoutType effective = effectiveWorkoutType(planned, injuryIndex, readiness, weatherDto.getWeatherScore());
+            WorkoutType planned = trainDay
+                    ? template.get(i)
+                    : (injuryIndex >= 0.4 ? WorkoutType.MOBILITY : WorkoutType.REST_DAY);
 
+            WorkoutType effective = effectiveWorkoutType(planned, injuryIndex, readiness, ws);
 
-            LoadDistributionDto load = loadForecaster.forecastLoad(user, d, effective, st, recentLoads);
+            LoadDistributionDto load = loadForecaster.forecastLoad(user, d, effective, st, recentLoads, constraints);
 
             st = st.next(load.getMean());
+
+            GymWorkoutDto gym = null;
+            if (effective == WorkoutType.GYM_PREHAB) {
+                gym = gymWorkoutSelectorService.getGymWorkout(user, d, injuriesMap, readiness);
+            }
 
             out.add(new PlannedDayDto(
                     d,
@@ -378,7 +452,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     tsbDists.get(i),
                     weatherDto,
                     confidenceFromStd(load),
-                    explanation(effective, load, tsbDists.get(i).getP50(), injuryIndex, readiness)
+                    explanation(effective, load, tsbDists.get(i).getP50(), injuryIndex, readiness),
+                    gym
             ));
         }
 
@@ -507,22 +582,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return Math.sqrt(var);
     }
 
-    private List<List<WorkoutType>> applyInjuryConstraints(List<List<WorkoutType>> templates, double injuryIndex) {
-        if (injuryIndex < 0.4) {
-            return templates;
-        }
-
-        List<List<WorkoutType>> out = new ArrayList<>();
-        for (List<WorkoutType> t : templates) {
-            List<WorkoutType> copy = new ArrayList<>(t.size());
-            for (WorkoutType wt : t) {
-                copy.add(mapWorkoutForInjury(wt, injuryIndex));
-            }
-            out.add(copy);
-        }
-        return out;
-    }
-
     private WorkoutType mapWorkoutForInjury(WorkoutType wt, double injuryIndex) {
         if (injuryIndex >= 0.7) {
             return switch (wt) {
@@ -564,39 +623,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return p;
     }
 
-    private boolean isActiveDay(ApplicationUser user, LocalDate date) {
-        if (user.getActiveWeekdays() == null || user.getActiveWeekdays().isEmpty()) {
-            return true; // no preference set => allow all days
-        }
-
-        java.time.DayOfWeek d = date.getDayOfWeek();
-
-        // Map DayOfWeek -> Weekday enum
-        com.smartroute.smartroute1.entity.enums.Weekday wd =
-                com.smartroute.smartroute1.entity.enums.Weekday.valueOf(d.name());
-
-        return user.getActiveWeekdays().contains(wd);
-    }
-
-    private List<List<WorkoutType>> applyActiveWeekdayConstraints(ApplicationUser user, LocalDate startDate, List<List<WorkoutType>> templates, double injuryIndex) {
-
-        List<List<WorkoutType>> out = new ArrayList<>();
-
-        for (List<WorkoutType> t : templates) {
-            List<WorkoutType> copy = new ArrayList<>(t);
-
-            for (int i = 0; i < 7; i++) {
-                LocalDate date = startDate.plusDays(i);
-
-                if (!isActiveDay(user, date)) {
-                    copy.set(i, injuryIndex >= 0.4 ? WorkoutType.MOBILITY : WorkoutType.REST_DAY);
-                }
-            }
-            out.add(copy);
-        }
-        return out;
-    }
-
     private int safeInt(SupplierWithException<Integer> s, int fallback) {
         try {
             return s.get();
@@ -633,22 +659,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
 
         return 0.0;
-    }
-
-    private List<List<WorkoutType>> applyReadinessConstraints(List<List<WorkoutType>> templates, int readiness) {
-        if (readiness >= 55) {
-            return templates;
-        }
-
-        List<List<WorkoutType>> out = new ArrayList<>();
-        for (List<WorkoutType> template : templates) {
-            List<WorkoutType> adjusted = new ArrayList<>(template.size());
-            for (WorkoutType wt : template) {
-                adjusted.add(mapWorkoutForReadiness(wt, readiness));
-            }
-            out.add(adjusted);
-        }
-        return out;
     }
 
     private WorkoutType mapWorkoutForReadiness(WorkoutType workoutType, int readiness) {
@@ -795,6 +805,13 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return seed == null ? 42L : seed;
     }
 
+    private <T> List<T> safeList(SupplierWithException<List<T>> s) {
+        try {
+            return s.get();
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
 
     @FunctionalInterface
     private interface SupplierWithException<T> {
@@ -805,5 +822,14 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                               List<LoadDistributionDto> tsbDistributions,
                               TrainingPlanDebugDto debug) {
     }
+
+    private record PlanChoice(
+            int bestTemplateIndex,
+            double bestScore,
+            List<WorkoutType> bestTemplate,
+            List<LoadDistributionDto> bestTsbDists,
+            TrainingPlanDebugDto debug
+    ) {}
+
 
 }
