@@ -18,6 +18,7 @@ import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.annotation.Secured;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -69,13 +70,23 @@ public class AddStopsEndpoint {
     }
 
 
-
+    @Operation(
+            summary = "Generate route with sanitary facilities",
+            description = "Takes an existing route polyline and optionally inserts detours "
+                    + "to toilets and/or drinking fountains along the route. "
+                    + "The route exits and rejoins the original path while respecting "
+                    + "maximum distance constraints. Returns the updated route polyline "
+                    + "and distance statistics."
+    )
     @PostMapping("/with-facilities")
-    @PermitAll
+    @Secured("ROLE_USER")
     public ResponseEntity<String> generateRouteWithFacilities(@RequestBody RouteWithFacilitiesDto addFacilitiesDto) {
 
         try {
             // 1. Decode the polyline to coordinates
+            if (addFacilitiesDto.getOriginalRoute() == null) {
+                throw new ValidationException("route may not be null");
+            }
             List<GeoJsonPosition> routeCoords = mapper.decodePolylineToPoints(addFacilitiesDto.getOriginalRoute());
             LOGGER.info("Original route: {} points, {}m total",
                     routeCoords.size(), service.calculateTotalDistance(routeCoords));
@@ -152,8 +163,13 @@ public class AddStopsEndpoint {
         }
     }
 
+    @Operation(
+            summary = "List available sanitary facilities",
+            description = "Returns all known sanitary facilities (toilets and drinking fountains) "
+                    + "as lightweight DTOs for client-side visualization or selection."
+    )
     @GetMapping("/facilities")
-    @PermitAll
+    @Secured("ROLE_USER")
     public List<ViennaPointDto> getFacilitiesInBounds() {
         return Stream.concat(
                 viennaPointRepository.findAllByType(Sanitary.Fountain).stream(),

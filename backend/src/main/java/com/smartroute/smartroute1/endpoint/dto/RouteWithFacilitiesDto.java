@@ -2,9 +2,9 @@ package com.smartroute.smartroute1.endpoint.dto;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
-import lombok.Getter;
+import lombok.Data;
 
-@Getter
+@Data
 public class RouteWithFacilitiesDto {
     @NotNull
     private String originalRoute;
