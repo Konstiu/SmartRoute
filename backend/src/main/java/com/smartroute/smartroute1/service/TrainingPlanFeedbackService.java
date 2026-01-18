@@ -1,6 +1,6 @@
 package com.smartroute.smartroute1.service;
 
-import com.smartroute.smartroute1.endpoint.dto.trainingplan.SubmitTrainingPlanFeedbackDto;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlanFeedbackRequestDto;
 
 public interface TrainingPlanFeedbackService {
 
@@ -11,11 +11,6 @@ public interface TrainingPlanFeedbackService {
      *
      * @param dto the feedback of the user.
      *
-     * @param weatherScore optional weather.
-     *
-     * @param readiness optional readiness.
-     *
-     * @param injuryIndex optional injury.
      */
-    void submit(String email, SubmitTrainingPlanFeedbackDto dto, Double weatherScore, Integer readiness, Double injuryIndex);
+    void recordFeedback(String email, TrainingPlanFeedbackRequestDto dto);
 }

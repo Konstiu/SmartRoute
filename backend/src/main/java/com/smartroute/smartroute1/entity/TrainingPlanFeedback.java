@@ -12,9 +12,11 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Column;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.EnumType;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.Builder;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -23,6 +25,8 @@ import java.time.LocalDate;
 @Getter
 @Setter
 @NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class TrainingPlanFeedback {
 
     @Id
@@ -30,35 +34,25 @@ public class TrainingPlanFeedback {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id")
     private ApplicationUser user;
 
     @Column(nullable = false)
-    private LocalDate plannedDate;
+    private LocalDate date; // which planned day
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private WorkoutType recommendedWorkoutType;
+    private WorkoutType plannedWorkout; // what planner recommended (effective)
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = true)
-    private WorkoutType userPreferredWorkoutType; // “I would rather do X”
+    private WorkoutType userChosenWorkout; // what user says they did / preferred
 
-    @Column(nullable = true)
-    private Boolean didFollow; // true/false/null (unknown)
+    @Column(nullable = false)
+    private boolean completed; // did they do the session?
 
-    @Column(length = 1000)
-    private String comment; // free text, optional
+    private Integer satisfactionScore;
+    private Integer perceivedEffort;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = true)
-    private FeedbackReason reason; // optional enum
-
-    // optional metadata to make future learning easier
-    private Double weatherScore;
-    private Integer readinessScore;
-    private Double injuryIndex;
-
-    // used later for “aging out” feedback
-    private Instant createdAt = Instant.now();
+    @Column(nullable = false)
+    private Instant createdAt;
 }
+
