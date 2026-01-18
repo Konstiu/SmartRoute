@@ -57,9 +57,23 @@ public class RouteEndpoint {
         List<GeoJsonPosition> coordinates = new ArrayList<>();
         coordinates.add(new GeoJsonPosition(latitude, longitude, null));
         GeoJsonDto route = openRouteServiceService.generateRoundTrip(coordinates, (int) length, 7, 0);
+
+        var geom = route.getFeatures().getFirst().getGeometry();
+        var props = route.getFeatures().getFirst().getProperties();
+
+        // assuming geom.getCoordinates() returns List<GeoJsonPosition> (lat/lon/alt already mapped)
+        List<List<Double>> coordinates3d = geom.getCoordinates().stream()
+                .map(p -> List.of(
+                        p.getLatitude(),
+                        p.getLongitude(),
+                        p.getAltitude() // may be null
+                ))
+                .toList();
+
         return "{\"bbox\":" + route.getBbox()
                 + ",\"polyline\":\"" + polyLineMapper.geoJsonGeometryLineStringToPolyline(route.getFeatures().getFirst().getGeometry()).replace("\\", "\\\\") + "\""
-                + ",\"distance\":" + route.getFeatures().getFirst().getProperties().getDistance() * 1000
+                + ",\"coordinates3d\":" + coordinates3d
+                + ",\"distance\":" + route.getFeatures().getFirst().getProperties().getDistance()
                 + ",\"elevation\":" + route.getFeatures().getFirst().getProperties().getAscent() + "}";
     }
 
