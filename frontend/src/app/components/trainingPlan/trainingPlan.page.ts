@@ -71,8 +71,12 @@ export class TrainingPlanPage implements OnInit {
   private toastCtrl = inject(ToastController);
   private modalCtrl = inject(ModalController);
 
+  private showRoute = false;
+  private routeArrows: Layer | null = null;
+
   error: string | null = null;
-  isLoading: boolean = true;
+  isLoadingWeek: boolean = true;
+  isLoadingDay: boolean = false;
   latlngs: LatLng[] | null = null;
   layers: Layer[] = [];
   routeService = inject(RouteService);
@@ -187,7 +191,7 @@ export class TrainingPlanPage implements OnInit {
   // =====================================================
 
   loadWeekPlan(location?: LatLng): void {
-    this.isLoading = true;
+    this.isLoadingWeek = true;
     this.error = null;
 
     const lat = location?.lat ?? 48.21;
@@ -202,18 +206,18 @@ export class TrainingPlanPage implements OnInit {
         const initial = plan.days.find(d => d.date === todayIso) ?? plan.days[0];
 
         this.selectDay(initial);
-        this.isLoading = false;
+        this.isLoadingWeek = false;
       },
       error: err => {
         console.error(err);
-        this.isLoading = false;
+        this.isLoadingWeek = false;
         this.error = "Failed to load 7-day plan.";
       }
     });
   }
 
   loadTrainingPlan(location?: LatLng): void {
-    this.isLoading = true;
+    this.isLoadingDay = true;
     this.error = null;
 
     const lat = location?.lat ?? 48.21;
@@ -224,7 +228,7 @@ export class TrainingPlanPage implements OnInit {
         this.recommendedActivity = res;
         console.log(this.recommendedActivity);
         this.error = null;
-        this.isLoading = false;
+        this.isLoadingDay = false;
 
         if (this.pendingInitialLocation && !this.initialRouteGenerated) {
           this.initialRouteGenerated = true;
@@ -237,7 +241,7 @@ export class TrainingPlanPage implements OnInit {
       },
       error: err => {
         console.error(err);
-        this.isLoading = false;
+        this.isLoadingDay = false;
         this.error = "Failed to load Training Plan.";
       }
     });
@@ -269,8 +273,7 @@ export class TrainingPlanPage implements OnInit {
       }
 
       // 1) refresh training plan for this location
-      const plan = await firstValueFrom(this.service.getTrainingPlan(location.lat, location.lng));
-      this.recommendedActivity = plan;
+      await firstValueFrom(this.plan7dService.getNext7Days(location.lat, location.lng))
 
       // 2) generate route using the new plan distance
       await this.generateRouteFromLocationAsync(location, updateBaseline);
@@ -352,26 +355,43 @@ export class TrainingPlanPage implements OnInit {
   }
 
   /** Generates a route for the current start using async/await */
-  private async generateRouteFromLocationAsync(location: LatLng, updateBaseline: boolean): Promise<void> {
+  private async generateRouteFromLocationAsync(location: LatLng, updateBaseline: boolean, shouldFit: boolean = true): Promise<void> {
     try {
+      const distance = this.selectedDay?.routeDto?.distance ?? this.recommendedActivity?.route?.distance;
+
+      if (!distance) {
+        console.warn('No distance available for route generation');
+        return;
+      }
+
       const e = await firstValueFrom(
         this.routeService.getGeneratedRoute(
           location.lat,
           location.lng,
-          this.recommendedActivity!.route!.distance
+          distance
         )
       );
 
       this.recommendedActivity!.route!.distance = e.distance;
       this.recommendedActivity!.route!.elevation = e.elevation;
 
+      const newLatLngs = convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1]));
+
+      // update geo positions
       this.routeLineGeoPosition = e.coordinates3d.map(([lat, lng, alt]) => ({
         latitude: lat,
         longitude: lng,
         altitude: alt,
       }));
 
-      this.routeLine = polyline(convertPolylineToCoordinateList(e.polyline).map(p => latLng(p[0], p[1])));
+      const createdNew = !this.routeLine;
+
+      // update existing polyline instead of replacing it
+      if (this.routeLine) {
+        this.routeLine.setLatLngs(newLatLngs);
+      } else {
+        this.routeLine = polyline(newLatLngs);
+      }
 
       this.latlngs = this.routeLine.getLatLngs() as LatLng[];
       this.routeBounds = this.routeLine.getBounds();
@@ -385,8 +405,22 @@ export class TrainingPlanPage implements OnInit {
         if (!this.originalStart) this.originalStart = location;
       }
 
-      this.rebuildLayers();
-      this.refitPreviewMap();
+      this.showRoute = true;
+
+      // arrows depend on latlngs => rebuild
+      this.routeArrows = null;
+
+      if (createdNew) {
+        this.rebuildLayers();
+      } else {
+        // routeLine updated => just rebuild layers so arrows refresh
+        this.rebuildLayers();
+      }
+
+      if (shouldFit) {
+        this.refitPreviewMap();
+      }
+
 
     } catch (err: any) {
       if (await this.handleRouteError(err)) {
@@ -536,12 +570,18 @@ export class TrainingPlanPage implements OnInit {
     const layers: Layer[] = [];
 
     if (this.userLocationMarker) {
-       layers.push(this.userLocationMarker);
-       }
+      layers.push(this.userLocationMarker);
+    }
 
-    if (this.routeLine) {
+    // Only include route + arrows when showRoute is true
+    if (this.showRoute && this.routeLine) {
       layers.push(this.routeLine);
-      layers.push(this.buildDirectionArrows(this.routeLine));
+
+      // build arrows once per routeLine (or rebuild each time if you prefer)
+      if (!this.routeArrows) {
+        this.routeArrows = this.buildDirectionArrows(this.routeLine);
+      }
+      layers.push(this.routeArrows);
     }
 
     for (const p of this.committedStops) {
@@ -1004,23 +1044,47 @@ export class TrainingPlanPage implements OnInit {
   selectDay(day: PlannedDayDto) {
     this.selectedDay = day;
 
-    if (this.planId) {
-      this.isLoading = true;
-
-      this.service.getPlannedDay(this.planId, day.date).subscribe({
-        next: (activity) => {
-          this.recommendedActivity = activity;
-          this.isLoading = false;
-
-        },
-        error: (err: any) => {
-          console.error('Failed to load planned day detail', err);
-          this.isLoading = false;
-          this.error = 'Failed to load selected day.';
-        }
-      });
+    if (!this.planId) {
       return;
     }
+
+    this.isLoadingDay = true;
+    this.error = null;
+
+    this.service.getPlannedDay(this.planId, day.date).subscribe({
+      next: async (activity) => {
+        this.recommendedActivity = activity;
+        this.isLoadingDay = false;
+
+        const isRun = activity.type === SessionType.RUN;
+
+        if (isRun) {
+          const start =
+            this.userLocationMarker?.getLatLng() ??
+            this.originalStart ??
+            this.pendingInitialLocation;
+
+          if (start) {
+            await this.generateRouteFromLocationAsync(start, false, false);
+          } else {
+            console.warn('No start location available yet, route generation postponed.');
+          }
+        } else {
+          // gym/rest => clear map route so old run route doesn't show
+          this.showRoute = false;
+          this.latlngs = null;
+          // keep routeLine & routeBounds as-is (map won’t jump)
+          // optionally clear committed stops for non-run:
+          this.committedStops = [];
+          this.rebuildLayers();
+        }
+      },
+      error: (err: any) => {
+        console.error('Failed to load planned day detail', err);
+        this.isLoadingDay = false;
+        this.error = 'Failed to load selected day.';
+      }
+    });
   }
 
   protected readonly SessionType = SessionType;

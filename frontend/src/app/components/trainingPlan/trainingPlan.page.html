@@ -7,7 +7,7 @@
 </ion-header>
 
 <ion-content [fullscreen]="true">
-  @if (isLoading) {
+  @if (isLoadingWeek) {
   <div class="loading-container">
     <ion-spinner name="crescent"></ion-spinner>
     <p>Loading Training Plan...</p>
@@ -99,14 +99,13 @@
         </ion-card-header>
         <ion-card-content>
           @if (recommendedActivity) {
-            @if (recommendedActivity!.type === SessionType.RUN) {
-          <ion-card class="rounded-card map-card">
+
+          <ion-card class="rounded-card map-card" [class.hidden]="recommendedActivity.type !== SessionType.RUN">
             <ion-fab class="map-fab" vertical="top" horizontal="end">
               <ion-fab-button size="small" (click)="openMapModal()">
                 <ion-icon name="expand-outline"></ion-icon>
               </ion-fab-button>
             </ion-fab>
-
             <app-map
               [showLocation]="true"
               [interactive]="false"
@@ -116,6 +115,7 @@
             </app-map>
           </ion-card>
 
+          @if (recommendedActivity!.type === SessionType.RUN) {
           <ion-card class="rounded-card" color="light">
             <ion-card-content>
               <ion-grid>
