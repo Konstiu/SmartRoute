@@ -3,6 +3,7 @@ package com.smartroute.smartroute1.unittest;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.DailySummary;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.LoadDistributionDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlan7dDto;
+import com.smartroute.smartroute1.endpoint.dto.RouteDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.repository.UserRepository;
@@ -31,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -174,6 +176,21 @@ public class TrainingPlan7dServiceTest {
         when(injuryAwareTrainingService.findInjuriesByEmail("y@test.com")).thenReturn(List.of());
         when(readinessScoreService.calculateReadinessScore(eq(user), any())).thenReturn(80); // no readiness reductions
 
+        when(routeGenerationService.generateRouteDetails(
+                any(ApplicationUser.class),
+                any(WorkoutType.class),
+                anyDouble()
+        )).thenAnswer(inv -> {
+            WorkoutType wt = inv.getArgument(1);
+            double dist = switch (wt) {
+                case EASY_RUN -> 8000;
+                case TEMPO_RUN -> 10000;
+                case INTERVAL_RUN -> 9000;
+                case LONG_RUN -> 16000;
+                default -> 0;
+            };
+            return new RouteDto(dist, 5.0, 100.0);
+        });
 
         when(loadForecaster.forecastLoad(any(), any(), any(), any(), any(), any()))
                 .thenAnswer(inv -> {

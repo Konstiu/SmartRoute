@@ -19,6 +19,7 @@ export interface RouteDto {
   distance: number | null;
   pace: number | null;
   elevation: number | null;
+  seed: number;
 }
 
 export interface CompactWeatherDto {
@@ -29,7 +30,7 @@ export interface CompactWeatherDto {
   relativeHumidity: number | null;
   weatherPerformancePenalty: number | null;
   weatherScoreDescription: string | null;
-  weatherSummary: any | null; // keep your current type if you already have it
+  weatherSummary: any | null;
 }
 
 export interface PlannedDayDto {
@@ -40,7 +41,7 @@ export interface PlannedDayDto {
   weatherDto?: CompactWeatherDto | null;
   confidence: "high" | "medium" | "low";
   explanation: string[];
-  gymWorkout: any | null; // GymWorkoutDto type if you have it
+  gymWorkout: any | null;
   routeDto: RouteDto | null;
 }
 

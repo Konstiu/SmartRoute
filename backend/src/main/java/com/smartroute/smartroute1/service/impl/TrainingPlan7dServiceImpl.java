@@ -859,10 +859,13 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             return null;
         }
 
-        // 1) base distance from your existing logic (keep it simple if you want)
-        // If you already have a method that maps workout type + readiness to distance, reuse it.
+        // 1) base distance from existing logic
         RouteDto base = routeGenerationService.generateRouteDetails(user, wt, readiness);
+        if (base == null || base.getDistance() == null) {
+            return null;
+        }
         double baseMeters = base.getDistance();
+
 
         // 2) determine jitter %
         double jitterPct = switch (confidenceFromStd(load)) {
@@ -890,13 +893,26 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         meters = clampRunDistanceMeters(wt, meters);
 
         // 6) keep pace/elevation estimates from your existing service
-        return new RouteDto(meters, base.getPace(), base.getElevation());
+        int s = orsSeedFromLong(seed);
+        s = (s == Integer.MIN_VALUE) ? 0 : Math.abs(s);
+
+        return new RouteDto(meters, base.getPace(), base.getElevation(), s);
     }
 
     private long stableSeed(String planId, LocalDate date, WorkoutType wt) {
         // simple stable hash -> long
         String key = planId + ":" + date + ":" + wt.name();
         return key.hashCode() * 2654435761L; // stable enough, deterministic
+    }
+
+    private int orsSeedFromLong(long seed) {
+        long z = seed;
+        z ^= (z >>> 33);
+        z *= 0xff51afd7ed558ccdL;
+        z ^= (z >>> 33);
+        z *= 0xc4ceb9fe1a85ec53L;
+        z ^= (z >>> 33);
+        return (int) z; // 32-bit signed, ORS accepts int
     }
 
     private double clampRunDistanceMeters(WorkoutType wt, double meters) {

@@ -358,6 +358,7 @@ export class TrainingPlanPage implements OnInit {
   private async generateRouteFromLocationAsync(location: LatLng, updateBaseline: boolean, shouldFit: boolean = true): Promise<void> {
     try {
       const distance = this.selectedDay?.routeDto?.distance ?? this.recommendedActivity?.route?.distance;
+      const seed = this.selectedDay?.routeDto?.seed;
 
       if (!distance) {
         console.warn('No distance available for route generation');
@@ -368,7 +369,8 @@ export class TrainingPlanPage implements OnInit {
         this.routeService.getGeneratedRoute(
           location.lat,
           location.lng,
-          distance
+          distance,
+          seed
         )
       );
 
@@ -1065,7 +1067,7 @@ export class TrainingPlanPage implements OnInit {
             this.pendingInitialLocation;
 
           if (start) {
-            await this.generateRouteFromLocationAsync(start, false, false);
+            await this.generateRouteFromLocationAsync(start, false, true);
           } else {
             console.warn('No start location available yet, route generation postponed.');
           }
