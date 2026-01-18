@@ -1123,6 +1123,11 @@ private rebuildLayers() {
     return true;
   }
 
+  // dummy for now
+  showConfidence(): boolean {
+    return false;
+  }
+
   protected readonly SessionType = SessionType;
   protected readonly formatDistance = formatDistance;
   protected readonly formatPace = formatPace;
