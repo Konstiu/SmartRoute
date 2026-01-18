@@ -46,6 +46,7 @@
                 <div class="wlabel">{{ workoutLabel(day.workoutType) }}</div>
               </div>
 
+              @if (showConfidence()) {
               <div class="bot-row">
                 <ion-badge [color]="confidenceColor(day.confidence)">
                   {{ day.confidence }}
@@ -57,6 +58,7 @@
                 </ion-badge>
                 }
               </div>
+              }
 
             </button>
             }
