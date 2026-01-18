@@ -1,6 +1,6 @@
 package com.smartroute.smartroute1.endpoint;
 
-import com.smartroute.smartroute1.endpoint.dto.trainingplan.SubmitTrainingPlanFeedbackDto;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlanFeedbackRequestDto;
 import com.smartroute.smartroute1.service.TrainingPlanFeedbackService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,7 +20,7 @@ public class TrainingPlanFeedbackEndpoint {
 
     @PostMapping("/next-7-days/feedback")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void submitFeedback(@RequestParam("email") String email, @RequestBody SubmitTrainingPlanFeedbackDto dto) {
-        feedbackService.submit(email, dto, null, null, null);
+    public void submitFeedback(@RequestParam("email") String email, @RequestBody TrainingPlanFeedbackRequestDto dto) {
+        feedbackService.recordFeedback(email, dto);
     }
 }

@@ -12,11 +12,11 @@ public interface TrainingPlanFeedbackRepository extends JpaRepository<TrainingPl
 
     List<TrainingPlanFeedback> findTop50ByUserOrderByCreatedAtDesc(ApplicationUser user);
 
-    List<TrainingPlanFeedback> findByUserAndPlannedDateBetween(
+    List<TrainingPlanFeedback> findByUserAndDateBetween(
             ApplicationUser user,
             LocalDate start,
             LocalDate end
     );
 
-    Optional<TrainingPlanFeedback> findByUserAndPlannedDate(ApplicationUser user, LocalDate plannedDate);
+    Optional<TrainingPlanFeedback> findByUserAndDate(ApplicationUser user, LocalDate plannedDate);
 }
