@@ -114,6 +114,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
         int sims = clampSims(simsParam);
         long seed = defaultSeed(seedParam);
+        final String planId = UUID.randomUUID().toString();
 
         LocalDate today = LocalDate.now(clock);
 
@@ -171,10 +172,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 injuriesMap,
                 readiness,
                 weatherPerDay,
-                constraints
+                constraints,
+                planId
         );
-
-        String planId = UUID.randomUUID().toString();
 
         TrainingPlan7dDto dto = new TrainingPlan7dDto(days);
         dto.setPlanId(planId);
@@ -432,7 +432,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                                             Map<BodyPart, Double> injuriesMap,
                                                             int readiness,
                                                             List<CompactWeatherDto> weatherPerDay,
-                                                            LoadConstraints constraints) {
+                                                            LoadConstraints constraints,
+                                                            String planId) {
 
         List<PlannedDayDto> out = new ArrayList<>(7);
         ForecastState st = initialState;
@@ -468,7 +469,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                             || effective == WorkoutType.LONG_RUN;
 
             if (isRun) {
-                routeDto = routeGenerationService.generateRouteDetails(user, effective, readiness);
+                routeDto = computeRouteDtoForDay(user, d, effective, load, readiness, planId);
             }
 
             out.add(new PlannedDayDto(
@@ -839,6 +840,93 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             return List.of();
         }
     }
+
+    private RouteDto computeRouteDtoForDay(
+            ApplicationUser user,
+            LocalDate date,
+            WorkoutType wt,
+            LoadDistributionDto load,
+            int readiness,
+            String planId
+    ) {
+        // Only runs get a route
+        boolean isRun = switch (wt) {
+            case EASY_RUN, TEMPO_RUN, INTERVAL_RUN, LONG_RUN -> true;
+            default -> false;
+        };
+
+        if (!isRun) {
+            return null;
+        }
+
+        // 1) base distance from your existing logic (keep it simple if you want)
+        // If you already have a method that maps workout type + readiness to distance, reuse it.
+        RouteDto base = routeGenerationService.generateRouteDetails(user, wt, readiness);
+        double baseMeters = base.getDistance();
+
+        // 2) determine jitter %
+        double jitterPct = switch (confidenceFromStd(load)) {
+            case "high" -> 0.05;
+            case "medium" -> 0.08;
+            default -> 0.12;
+        };
+
+        // 3) tighten bands for harder workouts
+        if (wt == WorkoutType.INTERVAL_RUN || wt == WorkoutType.TEMPO_RUN) {
+            jitterPct = Math.min(jitterPct, 0.06);
+        }
+        if (wt == WorkoutType.LONG_RUN) {
+            jitterPct = Math.max(jitterPct, 0.07);
+        }
+
+        // 4) stable RNG per day
+        long seed = stableSeed(planId, date, wt);
+        Random rng = new Random(seed);
+
+        double factor = 1.0 + (rng.nextDouble() * 2.0 - 1.0) * jitterPct; // [1-j, 1+j]
+        double meters = baseMeters * factor;
+
+        // 5) clamp to sensible bounds
+        meters = clampRunDistanceMeters(wt, meters);
+
+        // 6) keep pace/elevation estimates from your existing service
+        return new RouteDto(meters, base.getPace(), base.getElevation());
+    }
+
+    private long stableSeed(String planId, LocalDate date, WorkoutType wt) {
+        // simple stable hash -> long
+        String key = planId + ":" + date + ":" + wt.name();
+        return key.hashCode() * 2654435761L; // stable enough, deterministic
+    }
+
+    private double clampRunDistanceMeters(WorkoutType wt, double meters) {
+        double min;
+        double max;
+        switch (wt) {
+            case INTERVAL_RUN -> {
+                min = 4000;
+                max = 12000;
+            }
+            case TEMPO_RUN -> {
+                min = 5000;
+                max = 16000;
+            }
+            case EASY_RUN -> {
+                min = 3000;
+                max = 14000;
+            }
+            case LONG_RUN -> {
+                min = 9000;
+                max = 28000;
+            }
+            default -> {
+                min = 0;
+                max = 100000;
+            }
+        }
+        return Math.max(min, Math.min(max, meters));
+    }
+
 
     @FunctionalInterface
     private interface SupplierWithException<T> {

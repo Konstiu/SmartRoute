@@ -149,4 +149,19 @@ ion-list {
   }
 }
 
+.hidden {
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  margin: 0 !important;
+  padding: 0 !important;
+  pointer-events: none;
+  transition: opacity 150ms ease, max-height 150ms ease;
+}
+
+.map-card {
+  transition: opacity 150ms ease, max-height 150ms ease;
+}
+
+
 
