@@ -27,16 +27,18 @@ public interface RouteService {
     /**
      * Get one route by id.
      *
-     * @param id the id
+     * @param id    the id
+     * @param email to verify email
      * @return the ViewRouteDto
      */
-    ViewRouteDto getRoute(Long id);
+    ViewRouteDto getRoute(Long id, String email);
 
     /**
      * Delete one by id.
      *
-     * @param id the id
+     * @param id    the id
+     * @param email email of user this belongs to
      */
-    void deleteRoute(Long id);
+    void deleteRoute(Long id, String email);
 
 }
