@@ -73,12 +73,80 @@ ion-list {
   z-index: 2000;
 }
 
-
-
-
 .action-block {
   display: flex;
   align-items: center;
   gap: 6px;
 }
+
+.week-card {
+  margin-bottom: 12px;
+}
+
+.week-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.day-pill {
+  flex: 0 0 auto;
+  width: 118px;
+  border: 1px solid rgba(0,0,0,0.10);
+  background: rgba(255,255,255,0.6);
+  border-radius: 16px;
+  padding: 10px 10px;
+  text-align: left;
+}
+
+.day-pill.selected {
+  border: 2px solid var(--ion-color-primary);
+  background: rgba(var(--ion-color-primary-rgb), 0.08);
+}
+
+.top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.weekday {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.daynum {
+  font-size: 14px;
+  opacity: 0.7;
+}
+
+.mid-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+
+  ion-icon {
+    font-size: 18px;
+  }
+
+  .wlabel {
+    font-size: 14px;
+    font-weight: 600;
+  }
+}
+
+.bot-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+
+  ion-badge {
+    font-size: 11px;
+    text-transform: lowercase;
+  }
+}
+
 

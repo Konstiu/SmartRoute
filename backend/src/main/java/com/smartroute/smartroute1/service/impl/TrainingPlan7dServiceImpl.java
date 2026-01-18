@@ -456,7 +456,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             st = st.next(load.getMean());
 
             GymWorkoutDto gym = null;
-            if (effective == WorkoutType.GYM_PREHAB) {
+            if (effective == WorkoutType.GYM_PREHAB || effective == WorkoutType.MOBILITY) {
                 gym = gymWorkoutSelectorService.getGymWorkout(user, d, injuriesMap, readiness);
             }
 

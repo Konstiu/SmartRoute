@@ -27,6 +27,8 @@ import { latLng, LatLng, Layer, marker, polyline, Polyline, Marker, LatLngBounds
 import L from 'leaflet';
 import 'leaflet-polylinedecorator';
 import {encodePolyline} from "../../util/polyline-encode-decode";
+import { TrainingPlan7dDto, PlannedDayDto, WorkoutType } from "../../dtos/training-plan-7d";
+import { TrainingPlan7dService } from 'src/services/training-plan-7d.service';
 
 type RouteUpdate = { layers: Layer[]; bounds: LatLngBounds | null };
 
@@ -42,6 +44,7 @@ export class TrainingPlanPage implements OnInit {
 
   private readonly router: Router = inject(Router);
   private readonly service: TrainingPlanService = inject(TrainingPlanService);
+  private readonly plan7dService: TrainingPlan7dService = inject(TrainingPlan7dService);
   private readonly ROUTE_NOT_FOUND_CODE = 'ROUTE_NOT_FOUND';
 
   private routeLine: Polyline | null = null;
@@ -76,6 +79,10 @@ export class TrainingPlanPage implements OnInit {
   alertController = inject(AlertController);
   isRouteSaved = false;
   date: string = new Date().toLocaleDateString();
+
+  weekPlan: TrainingPlan7dDto | null = null;
+  selectedDay: PlannedDayDto | null = null;
+  planId: string | null = null;
 
   recommendedActivity: RecommendedActivityDto | undefined = {
     name: "Gym Session",
@@ -167,7 +174,7 @@ export class TrainingPlanPage implements OnInit {
   // =====================================================
 
   ngOnInit(): void {
-    this.loadTrainingPlan();
+    this.loadWeekPlan();
   }
 
   ionViewDidEnter() {
@@ -178,6 +185,32 @@ export class TrainingPlanPage implements OnInit {
   // =====================================================
   // Training plan loading
   // =====================================================
+
+  loadWeekPlan(location?: LatLng): void {
+    this.isLoading = true;
+    this.error = null;
+
+    const lat = location?.lat ?? 48.21;
+    const lng = location?.lng ?? 16.36;
+
+    this.plan7dService.getNext7Days(lat, lng).subscribe({
+      next: (plan: TrainingPlan7dDto) => {
+        this.weekPlan = plan;
+        this.planId = plan.planId ?? null;
+
+        const todayIso = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const initial = plan.days.find(d => d.date === todayIso) ?? plan.days[0];
+
+        this.selectDay(initial);
+        this.isLoading = false;
+      },
+      error: err => {
+        console.error(err);
+        this.isLoading = false;
+        this.error = "Failed to load 7-day plan.";
+      }
+    });
+  }
 
   loadTrainingPlan(location?: LatLng): void {
     this.isLoading = true;
@@ -901,6 +934,93 @@ export class TrainingPlanPage implements OnInit {
       color,
     });
     await toast.present();
+  }
+
+  // =====================================================
+  // Week display
+  // =====================================================
+
+  weekdayLabel(dayIso: string): string {
+    const d = new Date(dayIso + "T00:00:00");
+    return d.toLocaleDateString(undefined, { weekday: "short" }); // Mon
+  }
+
+  dayOfMonth(dayIso: string): string {
+    const d = new Date(dayIso + "T00:00:00");
+    return d.toLocaleDateString(undefined, { day: "2-digit" }); // 09
+  }
+
+  workoutIcon(wt: WorkoutType): string {
+    switch (wt) {
+      case "EASY_RUN":
+      case "TEMPO_RUN":
+      case "INTERVAL_RUN":
+      case "LONG_RUN":
+        return "walk-outline";        // or "navigate-outline"
+      case "GYM_PREHAB":
+        return "barbell-outline";
+      case "MOBILITY":
+        return "accessibility-outline";
+      case "REST_DAY":
+        return "bed-outline";
+      default:
+        return "help-outline";
+    }
+  }
+
+  workoutLabel(wt: WorkoutType): string {
+    // optional: nicer labels
+    switch (wt) {
+      case "EASY_RUN": return "Easy Run";
+      case "TEMPO_RUN": return "Tempo";
+      case "INTERVAL_RUN": return "Intervals";
+      case "LONG_RUN": return "Long Run";
+      case "GYM_PREHAB": return "Gym";
+      case "MOBILITY": return "Mobility";
+      case "REST_DAY": return "Rest";
+      default: return wt;
+    }
+  }
+
+  confidenceColor(conf: string): "success" | "warning" | "danger" {
+    if (conf === "high") return "success";
+    if (conf === "medium") return "warning";
+    return "danger";
+  }
+
+  isSelected(day: PlannedDayDto): boolean {
+    return this.selectedDay?.date === day.date;
+  }
+
+  formatSelectedDate(dayIso: string): string {
+    return new Date(dayIso + 'T00:00:00').toLocaleDateString(undefined, {
+      weekday: 'long',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+  }
+
+  selectDay(day: PlannedDayDto) {
+    this.selectedDay = day;
+
+    if (this.planId) {
+      this.isLoading = true;
+
+      this.service.getPlannedDay(this.planId, day.date).subscribe({
+        next: (activity) => {
+          this.recommendedActivity = activity;
+          this.isLoading = false;
+
+        },
+        error: (err: any) => {
+          console.error('Failed to load planned day detail', err);
+          this.isLoading = false;
+          this.error = 'Failed to load selected day.';
+        }
+      });
+      return;
+    }
   }
 
   protected readonly SessionType = SessionType;
