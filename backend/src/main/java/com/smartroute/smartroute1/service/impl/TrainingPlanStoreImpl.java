@@ -6,7 +6,11 @@ import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.Instant;
+import java.time.DayOfWeek;
+import java.time.temporal.TemporalAdjusters;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,12 +22,18 @@ public class TrainingPlanStoreImpl implements TrainingPlanStore {
     private final ConcurrentHashMap<String, Entry> store = new ConcurrentHashMap<>();
     private final Clock clock = Clock.systemUTC();
 
+    private static final ZoneId ZONE = ZoneId.of("Europe/Vienna");
+
     @Override
     public void put(String email, String planId, TrainingPlan7dDto plan) {
         if (email == null || planId == null || plan == null) {
             return;
         }
-        store.put(key(email, planId), new Entry(plan, Instant.now(clock)));
+
+        Instant now = Instant.now(clock);
+        Instant expiresAt = nextMondayStartInstant(now);
+
+        store.put(key(email, planId), new Entry(plan, now, expiresAt));
     }
 
     @Override
@@ -32,18 +42,20 @@ public class TrainingPlanStoreImpl implements TrainingPlanStore {
             return Optional.empty();
         }
 
-        Entry e = store.get(key(email, planId));
+        String k = key(email, planId);
+        Entry e = store.get(k);
         if (e == null) {
             return Optional.empty();
         }
 
-        if (Instant.now(clock).isAfter(e.createdAt().plus(TTL))) {
-            store.remove(key(email, planId));
+        if (Instant.now(clock).isAfter(e.expiresAt())) {
+            store.remove(k);
             return Optional.empty();
         }
 
         return Optional.of(e.plan());
     }
+
 
     @Override
     public void remove(String email, String planId) {
@@ -57,5 +69,11 @@ public class TrainingPlanStoreImpl implements TrainingPlanStore {
         return email + "::" + planId;
     }
 
-    private record Entry(TrainingPlan7dDto plan, Instant createdAt) {}
+    private Instant nextMondayStartInstant(Instant nowUtc) {
+        LocalDate todayVienna = nowUtc.atZone(ZONE).toLocalDate();
+        LocalDate nextMonday = todayVienna.with(TemporalAdjusters.next(DayOfWeek.MONDAY));
+        return nextMonday.atStartOfDay(ZONE).toInstant();
+    }
+
+    private record Entry(TrainingPlan7dDto plan, Instant createdAt, Instant expiresAt) {}
 }

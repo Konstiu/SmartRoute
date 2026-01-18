@@ -37,12 +37,15 @@ import com.smartroute.smartroute1.service.RouteGenerationService;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.TemporalAdjusters;
+import java.time.DayOfWeek;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Map;
 import java.util.UUID;
+import java.util.Optional;
 
 @Service
 public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
@@ -114,9 +117,15 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
         int sims = clampSims(simsParam);
         long seed = defaultSeed(seedParam);
-        final String planId = UUID.randomUUID().toString();
 
         LocalDate today = LocalDate.now(clock);
+        LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        String planId = "week:" + weekStart;
+
+        Optional<TrainingPlan7dDto> cached = trainingPlanStore.get(email, planId);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
 
         double injuryIndex = safe(() -> injuryAwareTrainingService.getInjuryIndex(email), 0.0);
 
