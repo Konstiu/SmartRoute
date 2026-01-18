@@ -2,6 +2,7 @@ package com.smartroute.smartroute1.endpoint.dto.trainingplan;
 
 import com.smartroute.smartroute1.endpoint.dto.CompactWeatherDto;
 import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
+import com.smartroute.smartroute1.endpoint.dto.RouteDto;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -20,4 +21,5 @@ public class PlannedDayDto {
     String confidence;
     List<String> explanation;
     GymWorkoutDto gymWorkout;
+    RouteDto routeDto;
 }

@@ -24,12 +24,15 @@ import com.smartroute.smartroute1.service.ReadinessScoreService;
 import com.smartroute.smartroute1.service.WeatherService;
 import com.smartroute.smartroute1.service.DaySelectorService;
 import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
+import com.smartroute.smartroute1.service.TrainingPlanStore;
 import com.smartroute.smartroute1.util.ForecastState;
 import com.smartroute.smartroute1.util.LoadConstraints;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import com.smartroute.smartroute1.endpoint.dto.RouteDto;
+import com.smartroute.smartroute1.service.RouteGenerationService;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -39,6 +42,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
@@ -55,7 +59,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     private final WeatherService weatherService;
     private final DaySelectorService daySelectorService;
     private final GymWorkoutSelectorService gymWorkoutSelectorService;
-
+    private final RouteGenerationService routeGenerationService;
+    private final TrainingPlanStore trainingPlanStore;
 
     @Autowired
     public TrainingPlan7dServiceImpl(UserRepository userRepository,
@@ -66,10 +71,12 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                      ReadinessScoreService readinessScoreService,
                                      WeatherService weatherService,
                                      DaySelectorService daySelectorService,
-                                     GymWorkoutSelectorService gymWorkoutSelectorService) {
+                                     GymWorkoutSelectorService gymWorkoutSelectorService,
+                                     RouteGenerationService routeGenerationService,
+                                     TrainingPlanStore trainingPlanStore) {
         this(userRepository, dailyAggregationService, loadForecaster, fatigueAndOverloadService,
                 Clock.system(ZoneId.of("Europe/Vienna")), injuryAwareTrainingService, readinessScoreService,
-                weatherService, daySelectorService, gymWorkoutSelectorService);
+                weatherService, daySelectorService, gymWorkoutSelectorService, routeGenerationService, trainingPlanStore);
     }
 
     public TrainingPlan7dServiceImpl(UserRepository userRepository,
@@ -81,7 +88,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                      ReadinessScoreService readinessScoreService,
                                      WeatherService weatherService,
                                      DaySelectorService daySelectorService,
-                                     GymWorkoutSelectorService gymWorkoutSelectorService) {
+                                     GymWorkoutSelectorService gymWorkoutSelectorService,
+                                     RouteGenerationService routeGenerationService,
+                                     TrainingPlanStore trainingPlanStore) {
         this.userRepository = userRepository;
         this.dailyAggregationService = dailyAggregationService;
         this.loadForecaster = loadForecaster;
@@ -92,6 +101,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         this.weatherService = weatherService;
         this.daySelectorService = daySelectorService;
         this.gymWorkoutSelectorService = gymWorkoutSelectorService;
+        this.routeGenerationService = routeGenerationService;
+        this.trainingPlanStore = trainingPlanStore;
     }
 
     @Override
@@ -163,10 +174,14 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 constraints
         );
 
-        TrainingPlan7dDto dto = new TrainingPlan7dDto(days);
-        dto.setDebug(choice.debug());
-        return dto;
+        String planId = UUID.randomUUID().toString();
 
+        TrainingPlan7dDto dto = new TrainingPlan7dDto(days);
+        dto.setPlanId(planId);
+        dto.setDebug(choice.debug());
+
+        trainingPlanStore.put(email, planId, dto);
+        return dto;
     }
 
     private List<List<WorkoutType>> generateTemplates(ApplicationUser user) {
@@ -445,6 +460,17 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 gym = gymWorkoutSelectorService.getGymWorkout(user, d, injuriesMap, readiness);
             }
 
+            RouteDto routeDto = null;
+            boolean isRun =
+                    effective == WorkoutType.EASY_RUN
+                            || effective == WorkoutType.TEMPO_RUN
+                            || effective == WorkoutType.INTERVAL_RUN
+                            || effective == WorkoutType.LONG_RUN;
+
+            if (isRun) {
+                routeDto = routeGenerationService.generateRouteDetails(user, effective, readiness);
+            }
+
             out.add(new PlannedDayDto(
                     d,
                     effective,
@@ -453,7 +479,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     weatherDto,
                     confidenceFromStd(load),
                     explanation(effective, load, tsbDists.get(i).getP50(), injuryIndex, readiness),
-                    gym
+                    gym,
+                    routeDto
             ));
         }
 
@@ -829,7 +856,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             List<WorkoutType> bestTemplate,
             List<LoadDistributionDto> bestTsbDists,
             TrainingPlanDebugDto debug
-    ) {}
-
-
+    ) {
+    }
 }
