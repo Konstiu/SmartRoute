@@ -101,11 +101,13 @@
           @if (recommendedActivity) {
 
           <ion-card class="rounded-card map-card" [class.hidden]="recommendedActivity.type !== SessionType.RUN">
+            @if (canEditSelectedDay()) {
             <ion-fab class="map-fab" vertical="top" horizontal="end">
               <ion-fab-button size="small" (click)="openMapModal()">
                 <ion-icon name="expand-outline"></ion-icon>
               </ion-fab-button>
             </ion-fab>
+            }
             <app-map
               [showLocation]="true"
               [interactive]="false"

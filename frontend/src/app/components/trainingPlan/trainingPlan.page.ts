@@ -1044,6 +1044,7 @@ export class TrainingPlanPage implements OnInit {
   }
 
   selectDay(day: PlannedDayDto) {
+    this.saveTodayRouteSnapshot();
     this.selectedDay = day;
 
     if (!this.planId) {
@@ -1057,26 +1058,25 @@ export class TrainingPlanPage implements OnInit {
       next: async (activity) => {
         this.recommendedActivity = activity;
         this.isLoadingDay = false;
+        const isToday = day.date === this.todayIso();
 
-        const isRun = activity.type === SessionType.RUN;
+        if (activity.type === SessionType.RUN) {
+          if (isToday && this.restoreTodayRouteSnapshot()) {
+            this.refitPreviewMap(); // optional
+            return;
+          }
 
-        if (isRun) {
-          const start =
-            this.userLocationMarker?.getLatLng() ??
-            this.originalStart ??
-            this.pendingInitialLocation;
-
+          // not today OR no snapshot yet -> preview route only
+          this.committedStops = []; // ensure no edits leak into preview
+          const start = this.userLocationMarker?.getLatLng() ?? this.originalStart ?? this.pendingInitialLocation;
           if (start) {
-            await this.generateRouteFromLocationAsync(start, false, true);
-          } else {
-            console.warn('No start location available yet, route generation postponed.');
+            await this.generateRouteFromLocationAsync(start, false, true); // fit=true so route stays in frame
           }
         } else {
-          // gym/rest => clear map route so old run route doesn't show
-          this.showRoute = false;
+          // gym/rest
           this.latlngs = null;
-          // keep routeLine & routeBounds as-is (map won’t jump)
-          // optionally clear committed stops for non-run:
+          this.routeLine = null;
+          this.routeBounds = null;
           this.committedStops = [];
           this.rebuildLayers();
         }
@@ -1087,6 +1087,54 @@ export class TrainingPlanPage implements OnInit {
         this.error = 'Failed to load selected day.';
       }
     });
+  }
+
+  private todayIso(): string {
+    return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  }
+
+  canEditSelectedDay(): boolean {
+    return this.selectedDay?.date === this.todayIso();
+  }
+
+  private todayRouteSnapshot: {
+    committedStops: LatLng[];
+    routeLineGeoPosition: GeoJsonPosition[];
+    routeLatLngs: LatLng[] | null;
+    bounds: LatLngBounds | null;
+  } | null = null;
+
+  private saveTodayRouteSnapshot(): void {
+    if (!this.selectedDay || this.selectedDay.date !== this.todayIso()) return;
+
+    const routeLatLngs = this.routeLine ? (this.routeLine.getLatLngs() as LatLng[]) : null;
+
+    this.todayRouteSnapshot = {
+      committedStops: [...this.committedStops],
+      routeLineGeoPosition: [...this.routeLineGeoPosition],
+      routeLatLngs: routeLatLngs ? [...routeLatLngs] : null,
+      bounds: this.routeBounds,
+    };
+  }
+
+  private restoreTodayRouteSnapshot(): boolean {
+    if (!this.todayRouteSnapshot) return false;
+
+    this.committedStops = [...this.todayRouteSnapshot.committedStops];
+    this.routeLineGeoPosition = [...this.todayRouteSnapshot.routeLineGeoPosition];
+    this.routeBounds = this.todayRouteSnapshot.bounds;
+
+    if (this.todayRouteSnapshot.routeLatLngs?.length) {
+      if (this.routeLine) {
+        this.routeLine.setLatLngs(this.todayRouteSnapshot.routeLatLngs);
+      } else {
+        this.routeLine = polyline(this.todayRouteSnapshot.routeLatLngs);
+      }
+      this.latlngs = this.routeLine.getLatLngs() as LatLng[];
+    }
+
+    this.rebuildLayers();
+    return true;
   }
 
   protected readonly SessionType = SessionType;
