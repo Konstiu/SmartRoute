@@ -56,6 +56,10 @@ public class TrainingPlan7dServiceTest {
     DaySelectorService daySelectorService;
     @Mock
     GymWorkoutSelectorService gymWorkoutSelectorService;
+    @Mock
+    RouteGenerationService routeGenerationService;
+    @Mock
+    TrainingPlanStore trainingPlanStore;
 
     private Clock fixedClock;
     private double latitude;
@@ -85,7 +89,9 @@ public class TrainingPlan7dServiceTest {
                 readinessScoreService,
                 weatherService,
                 daySelectorService,
-                gymWorkoutSelectorService
+                gymWorkoutSelectorService,
+                routeGenerationService,
+                trainingPlanStore
         );
     }
 

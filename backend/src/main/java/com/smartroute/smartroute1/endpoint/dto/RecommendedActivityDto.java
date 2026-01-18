@@ -15,6 +15,7 @@ public class RecommendedActivityDto {
         RUN,
         GYM,
         REST,
+        MOBILITY
     }
 }
 
