@@ -172,7 +172,7 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
     }
 
     // plan retrieval (cache/db)
-    private final TrainingPlanStore trainingPlanStore; // <- you implement cache/db wrapper
+    private final TrainingPlanStore trainingPlanStore;
 
     @Override
     public RecommendedActivityDto getPlannedDay(String email, String planId, LocalDate date) {

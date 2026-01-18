@@ -20,10 +20,59 @@
   </div>
   } @else {
     <div class="page-container">
+
+      @if (weekPlan) {
+      <ion-card class="rounded-card week-card" color="light">
+        <ion-card-header>
+          <ion-card-title>Next 7 days</ion-card-title>
+        </ion-card-header>
+
+        <ion-card-content>
+          <div class="week-strip">
+            @for (day of weekPlan.days; track day.date) {
+            <button
+              type="button"
+              class="day-pill"
+              [class.selected]="selectedDay?.date === day.date"
+              (click)="selectDay(day)">
+
+              <div class="top-row">
+                <div class="weekday">{{ weekdayLabel(day.date) }}</div>
+                <div class="daynum">{{ dayOfMonth(day.date) }}</div>
+              </div>
+
+              <div class="mid-row">
+                <ion-icon [name]="workoutIcon(day.workoutType)"></ion-icon>
+                <div class="wlabel">{{ workoutLabel(day.workoutType) }}</div>
+              </div>
+
+              <div class="bot-row">
+                <ion-badge [color]="confidenceColor(day.confidence)">
+                  {{ day.confidence }}
+                </ion-badge>
+
+                @if (day.weatherDto?.weatherScore != null) {
+                <ion-badge color="medium">
+                  {{ ((day.weatherDto?.weatherScore ?? 0) * 100) | number:'1.0-0' }}
+                </ion-badge>
+                }
+              </div>
+
+            </button>
+            }
+          </div>
+        </ion-card-content>
+      </ion-card>
+      }
+
       <ion-card class="rounded-card">
         <ion-card-header>
           <ion-card-title>
+            @if (selectedDay) {
+            {{ formatSelectedDate(selectedDay.date) }}
+            } @else {
             {{ date }}
+            }
           </ion-card-title>
           <ion-card-title style="display: flex; justify-content: space-between; align-items: right;">
             Recommended Session: {{ recommendedActivity?.name }}
