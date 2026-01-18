@@ -386,8 +386,6 @@ export class TrainingPlanPage implements OnInit {
         altitude: alt,
       }));
 
-      const createdNew = !this.routeLine;
-
       // update existing polyline instead of replacing it
       if (this.routeLine) {
         this.routeLine.setLatLngs(newLatLngs);
@@ -412,12 +410,7 @@ export class TrainingPlanPage implements OnInit {
       // arrows depend on latlngs => rebuild
       this.routeArrows = null;
 
-      if (createdNew) {
-        this.rebuildLayers();
-      } else {
-        // routeLine updated => just rebuild layers so arrows refresh
-        this.rebuildLayers();
-      }
+      this.rebuildLayers();
 
       if (shouldFit) {
         this.refitPreviewMap();
@@ -568,36 +561,32 @@ export class TrainingPlanPage implements OnInit {
   // =====================================================
 
   /** Rebuilds all visible map layers (route, start, committed stops) */
-  private rebuildLayers() {
-    const layers: Layer[] = [];
+private rebuildLayers() {
+  const layers: Layer[] = [];
 
-    if (this.userLocationMarker) {
-      layers.push(this.userLocationMarker);
-    }
+  if (this.userLocationMarker) layers.push(this.userLocationMarker);
 
-    // Only include route + arrows when showRoute is true
-    if (this.showRoute && this.routeLine) {
-      layers.push(this.routeLine);
+  if (this.routeLine) {
+    layers.push(this.routeLine);
 
-      // build arrows once per routeLine (or rebuild each time if you prefer)
-      if (!this.routeArrows) {
-        this.routeArrows = this.buildDirectionArrows(this.routeLine);
-      }
-      layers.push(this.routeArrows);
-    }
-
-    for (const p of this.committedStops) {
-      layers.push(marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.confirmed) }));
-    }
-
-    this.layers = layers;
+    // (re)create arrows for the current route geometry
+    this.routeArrows = this.buildDirectionArrows(this.routeLine);
+    layers.push(this.routeArrows);
+  } else {
+    this.routeArrows = null;
   }
+
+  for (const p of this.committedStops) {
+    layers.push(marker(p, { icon: coloredMarker(MAP_MARKER_COLORS.confirmed) }));
+  }
+
+  this.layers = layers; // new array ref => ngx-leaflet updates properly
+}
+
 
   /** Adds directional arrows along the route polyline */
   private buildDirectionArrows(route: Polyline): Layer {
-    const latlngs = route.getLatLngs() as LatLng[];
-
-    const decorator = (L as any).polylineDecorator(latlngs, {
+    const decorator = (L as any).polylineDecorator(route, {
       patterns: [
         {
           repeat: 75,
@@ -605,10 +594,7 @@ export class TrainingPlanPage implements OnInit {
           symbol: (L as any).Symbol.arrowHead({
             pixelSize: 10,
             polygon: false,
-            pathOptions: {
-              weight: 3,
-              opacity: 0.9
-            }
+            pathOptions: { weight: 3, opacity: 0.9 }
           })
         }
       ]
@@ -1062,7 +1048,7 @@ export class TrainingPlanPage implements OnInit {
 
         if (activity.type === SessionType.RUN) {
           if (isToday && this.restoreTodayRouteSnapshot()) {
-            this.refitPreviewMap(); // optional
+            this.refitPreviewMap();
             return;
           }
 
