@@ -7,7 +7,10 @@ import com.smartroute.smartroute1.entity.Route;
 import com.smartroute.smartroute1.exception.NotFoundException;
 import com.smartroute.smartroute1.repository.RouteRepository;
 import com.smartroute.smartroute1.service.RouteService;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -45,7 +48,7 @@ public class RouteServiceImpl implements RouteService {
     }
 
     @Override
-    public ViewRouteDto getRoute(Long id) {
+    public ViewRouteDto getRoute(Long id, String email) {
 
         Optional<Route> opt = routeRepository.findById(id);
         Route route;
@@ -54,11 +57,24 @@ public class RouteServiceImpl implements RouteService {
         } else {
             throw new NotFoundException("Route with id + " + id + " not found");
         }
+        if (!route.getUser().getEmail().equals(email)) {
+            throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED);
+        }
         return routeToDto(route);
     }
 
     @Override
-    public void deleteRoute(Long id) {
+    public void deleteRoute(Long id, String email) {
+        Optional<Route> opt = routeRepository.findById(id);
+        Route route;
+        if (opt.isPresent()) {
+            route = opt.get();
+        } else {
+            return;
+        }
+        if (route.getUser().getEmail().equals(email)) {
+            throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED);
+        }
         routeRepository.deleteById(id);
     }
 
