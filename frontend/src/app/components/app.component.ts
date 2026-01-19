@@ -274,7 +274,6 @@ export class AppComponent implements OnInit, AfterViewInit {
 
 
   alertFriends() {
-    // Your existing push notification logic
     this.userService.getUserData()
       .subscribe({
         next: user => {
