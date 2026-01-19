@@ -61,7 +61,13 @@ public class RouteServiceImpl implements RouteService {
         Route route = routeRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Route with id " + id + " not found"));
         boolean isOwner = route.getUser().getEmail().equalsIgnoreCase(email);
-        Long userId = userRepository.getByEmail(email).getId();
+        ApplicationUser user = userRepository.getByEmail(email);
+        Long userId;
+        if (user != null){
+            userId = user.getId();
+        }else {
+            throw new NotFoundException();
+        }
         List<Route> sharedRoutes = routeRepository.findByShared_IdOrderByCreationDateDesc(userId);
         boolean isShared = sharedRoutes.stream().anyMatch(r -> r.getId().equals(route.getId()));
 
