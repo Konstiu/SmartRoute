@@ -9,6 +9,7 @@ import com.smartroute.smartroute1.exception.NotFoundException;
 import com.smartroute.smartroute1.repository.RouteRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.RouteService;
+import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.stereotype.Service;
@@ -49,41 +50,44 @@ public class RouteServiceImpl implements RouteService {
     public List<ViewRouteDto> getRoutes(ApplicationUser user) {
 
         List<Route> routes = routeRepository.findRoutesByUserIdOrderByCreationDateDesc(user.getId());
+        List<Route> routes2 = routeRepository.findByShared_IdOrderByCreationDateDesc(user.getId());
+        routes.addAll(routes2);
         return listOfRoutesToDtoList(routes);
     }
 
     @Override
     public ViewRouteDto getRoute(Long id, String email) {
 
-        Optional<Route> opt = routeRepository.findById(id);
-        Route route;
-        if (opt.isPresent()) {
-            route = opt.get();
-        } else {
-            throw new NotFoundException("Route with id + " + id + " not found");
+        Route route = routeRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Route with id " + id + " not found"));
+        boolean isOwner = route.getUser().getEmail().equalsIgnoreCase(email);
+        Long userId = userRepository.getByEmail(email).getId();
+        List<Route> sharedRoutes = routeRepository.findByShared_IdOrderByCreationDateDesc(userId);
+        boolean isShared = sharedRoutes.stream().anyMatch(r -> r.getId().equals(route.getId()));
+
+        if (!isOwner && !isShared) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
-        if (!route.getUser().getEmail().equals(email)) {
-            throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED);
-        }
+
         return routeToDto(route);
     }
 
     @Override
     public void deleteRoute(Long id, String email) {
-        Optional<Route> opt = routeRepository.findById(id);
-        Route route;
-        if (opt.isPresent()) {
-            route = opt.get();
-        } else {
-            return;
+        Route route = routeRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Route with id " + id + " not found"));
+
+        boolean isOwner = route.getUser().getEmail().equalsIgnoreCase(email);
+
+        if (!isOwner) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only the owner can delete this route");
         }
-        if (route.getUser().getEmail().equals(email)) {
-            throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED);
-        }
-        routeRepository.deleteById(id);
+
+        routeRepository.delete(route);
     }
 
     @Override
+    @Transactional
     public void addShare(Long id, String email, ShareRouteDto email2) {
         Optional<Route> opt = routeRepository.findById(id);
         Route route;
@@ -92,17 +96,20 @@ public class RouteServiceImpl implements RouteService {
         } else {
             return;
         }
-        if (route.getUser().getEmail().equals(email)) {
-            throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED);
-        }
         for (String targetEmail : email2.getFriends()) {
-            if (targetEmail == null) continue;
+            if (targetEmail == null) {
+                continue;
+            }
 
             String e = targetEmail.trim();
-            if (e.isEmpty()) continue;
+            if (e.isEmpty()) {
+                continue;
+            }
 
             // optional: prevent sharing with yourself
-            if (e.equalsIgnoreCase(email)) continue;
+            if (e.equalsIgnoreCase(email)) {
+                continue;
+            }
 
             ApplicationUser userToShareWith = userRepository.findUserByEmail(e);
             if (userToShareWith != null) {

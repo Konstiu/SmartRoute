@@ -44,7 +44,7 @@ public interface RouteService {
 
 
     /**
-     * Shares a route with other users
+     * Shares a route with other users.
      *
      * @param id the id of the route
      * @param email1 the email of the owner of the route

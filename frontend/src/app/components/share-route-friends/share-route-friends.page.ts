@@ -6,6 +6,7 @@ import { IonicModule } from '@ionic/angular';
 import {FriendshipService} from "../../../services/friendship.service";
 import {ChatMessageService} from "../../../services/chat-message.service";
 import {AuthService} from "../../../services/auth.service";
+import {RouteService} from "../../../services/route.service";
 
 interface Friend {
   email: string;
@@ -37,7 +38,8 @@ export class ShareRouteFriendsPage implements OnInit {
     private friendshipService: FriendshipService,
     private chatMessageService: ChatMessageService,
     private authService: AuthService,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private routeService: RouteService
   ) {}
 
   ngOnInit() {
@@ -103,8 +105,6 @@ export class ShareRouteFriendsPage implements OnInit {
     try {
       // Send to each selected friend
       for (const friend of selectedFriends) {
-
-
         await this.chatMessageService.sendRouteMessage(
           this.routeId,
           this.routeName,
@@ -112,7 +112,11 @@ export class ShareRouteFriendsPage implements OnInit {
           friend.email
         );
       }
-
+      const emails: string[] = selectedFriends.map(f => f.email);
+      this.routeService.share(Number(this.routeId), emails).subscribe({
+        next: () => console.log('share ok'),
+        error: (e) => console.error('share failed', e),
+      });
       // Show success message
       const toast = await this.toastController.create({
         message: `Route shared with ${selectedFriends.length} friend${selectedFriends.length !== 1 ? 's' : ''}!`,
