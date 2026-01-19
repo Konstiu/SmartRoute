@@ -8,6 +8,7 @@ import com.smartroute.smartroute1.endpoint.mapper.PolyLineMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.service.OpenRouteServiceService;
 import com.smartroute.smartroute1.service.RouteService;
+import com.smartroute.smartroute1.service.UserService;
 import com.smartroute.smartroute1.service.impl.CustomUserDetailService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.security.PermitAll;
@@ -40,10 +41,10 @@ public class RouteEndpoint {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final OpenRouteServiceService openRouteServiceService;
     private final RouteService routeService;
-    private final CustomUserDetailService customUserDetailService;
+    private final UserService customUserDetailService;
     private final PolyLineMapper polyLineMapper;
 
-    public RouteEndpoint(OpenRouteServiceService openRouteServiceService, RouteService routeService, CustomUserDetailService customUserDetailService, PolyLineMapper polyLineMapper) {
+    public RouteEndpoint(OpenRouteServiceService openRouteServiceService, RouteService routeService, UserService customUserDetailService, PolyLineMapper polyLineMapper) {
         this.openRouteServiceService = openRouteServiceService;
         this.routeService = routeService;
         this.customUserDetailService = customUserDetailService;
@@ -96,7 +97,12 @@ public class RouteEndpoint {
     @ResponseStatus(HttpStatus.OK)
     public ViewRouteDto getRoute(@PathVariable("id") long id) {
         LOGGER.info("Getting route: {}", id);
-        return routeService.getRoute(id);
+
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+
+        return routeService.getRoute(id, email);
     }
 
     @Secured("ROLE_USER")
@@ -117,8 +123,9 @@ public class RouteEndpoint {
     @ResponseStatus(HttpStatus.OK)
     public void deleteRoute(@PathVariable("id") long id) {
         LOGGER.info("Deleting route: {}", id);
-
-        routeService.deleteRoute(id);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        routeService.deleteRoute(id, email);
     }
 
 

@@ -6,6 +6,7 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.enums.BodyPart;
 import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
+import com.smartroute.smartroute1.service.ReadinessScoreService;
 import com.smartroute.smartroute1.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.transaction.Transactional;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.lang.invoke.MethodHandles;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +40,7 @@ public class GymWorkoutEndpoint {
     private final GymWorkoutSelectorService gymWorkoutSelectorService;
     private final UserService userService;
     private final InjuryAwareTrainingService injuryAwareTrainingService;
+    private final ReadinessScoreService readinessScoreService;
 
 
     @GetMapping()
@@ -73,10 +76,7 @@ public class GymWorkoutEndpoint {
                 .calculateInjuriesMap(injuryAwareTrainingService
                         .findInjuriesByEmail(email));
         ApplicationUser user = userService.findApplicationUserByEmail(email);
-        //TODO ADD ACTUAL READINESS SCORE WHEN AVAILABLE
-        Random random = new Random();
-        int readinessScore = random.nextInt(101);
-        return gymWorkoutSelectorService.getGymWorkout(user, injuryMap, readinessScore);
+        return gymWorkoutSelectorService.getGymWorkout(user, injuryMap, readinessScoreService.calculateReadinessScore(user, LocalDate.now()));
     }
 
     @GetMapping("/get/{id}")
