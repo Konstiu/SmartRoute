@@ -50,14 +50,14 @@ public class AddStopsServiceImpl implements AddStopsService {
                                GeoJsonPosition endCoordinate) {
     }
 
-    public List<GeoJsonPosition> routeThroughPoint(GeoJsonPosition start, GeoJsonPosition via, GeoJsonPosition end) throws ValidationException {
+    public List<GeoJsonPosition> routeThroughPoint(GeoJsonPosition start, GeoJsonPosition via, GeoJsonPosition end, boolean vienna) throws ValidationException {
 
         validator.validateCoordinates(start.getLatitude(), start.getLongitude());
         validator.validateCoordinates(via.getLatitude(), via.getLongitude());
         validator.validateCoordinates(end.getLatitude(), end.getLongitude());
 
         // Compute the forward path start to via
-        GeoJsonDto forwardDto = orsService.generateRoute(List.of(start, via));
+        GeoJsonDto forwardDto = orsService.generateRoute(List.of(start, via), vienna);
         if (forwardDto == null
                 || forwardDto.getFeatures() == null
                 || forwardDto.getFeatures().isEmpty()
@@ -76,10 +76,10 @@ public class AddStopsServiceImpl implements AddStopsService {
         List<List<Double>> avoidPolygon = buildAvoidPolygon(forwardPath, 12.0); // 12m buffer
 
         // Compute the return path via to end, avoiding the forward corridor
-        GeoJsonDto returnDto = orsService.generateRouteAvoidingPolygon(List.of(via, end), avoidPolygon);
+        GeoJsonDto returnDto = orsService.generateRouteAvoidingPolygon(List.of(via, end), avoidPolygon, false);
         // fallback
         if (returnDto == null) {
-            returnDto = orsService.generateRoute(List.of(via, end));
+            returnDto = orsService.generateRoute(List.of(via, end), false);
 
             if (returnDto == null
                     || returnDto.getFeatures() == null
@@ -386,7 +386,7 @@ public class AddStopsServiceImpl implements AddStopsService {
 
         AnchorPoint anchors = chooseAnchorPoints(route, closest, prevProtected, nextProtected);
 
-        List<GeoJsonPosition> detour = routeThroughPoint(anchors.startCoordinate, newPoint, anchors.endCoordinate);
+        List<GeoJsonPosition> detour = routeThroughPoint(anchors.startCoordinate, newPoint, anchors.endCoordinate, false);
 
         // Before start anchor
         List<GeoJsonPosition> result = new ArrayList<>(route.subList(0, anchors.startIndex + 1));
@@ -633,7 +633,7 @@ public class AddStopsServiceImpl implements AddStopsService {
         required.addAll(newPoints);
         required.add(originalRoute.getLast());
 
-        GeoJsonDto baselineDto = orsService.generateRoute(required);
+        GeoJsonDto baselineDto = orsService.generateRoute(required, false);
         if (baselineDto == null
                 || baselineDto.getFeatures() == null
                 || baselineDto.getFeatures().isEmpty()
@@ -779,6 +779,224 @@ public class AddStopsServiceImpl implements AddStopsService {
             sum += haversine(route.get(i), route.get(i + 1));
         }
         return sum;
+    }
+
+
+    @Override
+    public List<GeoJsonPosition> addWaypointsExitAndRejoin(List<GeoJsonPosition> originalRoute, List<GeoJsonPosition> newPoints, double dist)
+            throws ValidationException {
+
+        validator.validateRouteLength(originalRoute);
+
+        if (newPoints == null || newPoints.isEmpty()) {
+            return originalRoute;
+        }
+
+        // Reset + initialize protected indices
+        protectedIndices.clear();
+        protectedIndices.add(0);
+        protectedIndices.add(originalRoute.size() - 1);
+
+        List<GeoJsonPosition> updatedRoute = new ArrayList<>(originalRoute);
+
+        for (GeoJsonPosition newPoint : newPoints) {
+            validator.validateCoordinates(newPoint.getLatitude(), newPoint.getLongitude());
+            updatedRoute = addSingleWaypointExitAndRejoin(updatedRoute, newPoint, dist);
+        }
+
+        validator.validateSameEndpoints(originalRoute, updatedRoute);
+
+        return updatedRoute;
+    }
+
+    @Override
+    public GeoJsonGeometryLineString createGeometryFromCoords(List<GeoJsonPosition> routeCoords) {
+        GeoJsonGeometryLineString geometry = new GeoJsonGeometryLineString();
+        geometry.setType("LineString");
+        geometry.setCoordinates(routeCoords);
+        return geometry;
+    }
+
+    @Override
+    public double calculateTotalDistance(List<GeoJsonPosition> routeCoords) {
+        return computeLength(routeCoords);
+    }
+
+    private List<GeoJsonPosition> addSingleWaypointExitAndRejoin(List<GeoJsonPosition> route, GeoJsonPosition newPoint, double dist)
+            throws ValidationException {
+
+        // Find the closest point on the route to the waypoint
+        ClosestPointResult closest = findClosestPoint(route, newPoint);
+        validator.validateMaxDetourDistance(dist, closest.distanceMeters);
+
+        LOGGER.info("Adding waypoint at lat:{}, lon:{} ({}m from route at segment {})",
+                newPoint.getLatitude(), newPoint.getLongitude(),
+                closest.distanceMeters, closest.segmentIndex);
+
+        // Find protected boundaries
+        int prevProtected = findPreviousProtectedIndex(closest.segmentIndex);
+        int nextProtected = findNextProtectedIndex(closest.segmentIndex);
+
+        // Find exit and rejoin points
+        AnchorPoint anchors = findExitAndRejoinPoints(route, closest.segmentIndex,
+                prevProtected, nextProtected);
+
+        double skippedDistance = calculateSegmentDistance(route, anchors.startIndex, anchors.endIndex);
+        LOGGER.info("Exit at index {} (lat:{}, lon:{})",
+                anchors.startIndex, anchors.startCoordinate.getLatitude(),
+                anchors.startCoordinate.getLongitude());
+        LOGGER.info("Rejoin at index {} (lat:{}, lon:{}) - skipping {}m of original route",
+                anchors.endIndex, anchors.endCoordinate.getLatitude(),
+                anchors.endCoordinate.getLongitude(), skippedDistance);
+
+        // Generate detour: exit → waypoint → rejoin
+        List<GeoJsonPosition> detour = routeThroughPoint(
+                anchors.startCoordinate,
+                newPoint,
+                anchors.endCoordinate,
+                true
+        );
+
+        double detourDist = computeLength(detour);
+        LOGGER.info("Detour route: {} points, {}m total (vs {}m skipped, net change: {}m)",
+                detour.size(), detourDist, skippedDistance, detourDist - skippedDistance);
+
+        // Sanity check: if detour is more than 3x the skipped distance, something is wrong
+        if (detourDist > skippedDistance * 3.0 && skippedDistance > 100) {
+            LOGGER.warn("Detour is {}x longer than skipped segment! This seems wrong.", detourDist / skippedDistance);
+            LOGGER.warn("Waypoint: lat={}, lon={}", newPoint.getLatitude(), newPoint.getLongitude());
+            LOGGER.warn("Exit: lat={}, lon={}", anchors.startCoordinate.getLatitude(), anchors.startCoordinate.getLongitude());
+            LOGGER.warn("Rejoin: lat={}, lon={}", anchors.endCoordinate.getLatitude(), anchors.endCoordinate.getLongitude());
+        }
+
+        // Build new route by replacing the skipped segment with the detour
+        List<GeoJsonPosition> result = new ArrayList<>();
+
+        // Part 1: Original route UP TO the exit point (not including it)
+        for (int i = 0; i < anchors.startIndex; i++) {
+            result.add(route.get(i));
+        }
+        int beforeSize = result.size();
+
+        // Part 2: Detour (exit → waypoint → rejoin)
+        result.addAll(detour);
+
+        // Part 3: Original route AFTER the rejoin point (not including it)
+        for (int i = anchors.endIndex + 1; i < route.size(); i++) {
+            result.add(route.get(i));
+        }
+
+        LOGGER.info("New route composition: {} (before exit) + {} (detour) + {} (after rejoin) = {} total (was {})",
+                beforeSize, detour.size(), route.size() - anchors.endIndex - 1,
+                result.size(), route.size());
+
+        // Verify splice points are continuous
+        checkSpliceContinuity(result, beforeSize, beforeSize + detour.size());
+
+        // Update protected indices
+        updateProtectedIndices(anchors, detour.size(), newPoint, detour);
+
+        return result;
+    }
+
+
+    private AnchorPoint findExitAndRejoinPoints(List<GeoJsonPosition> route, int closestSegment,
+                                                int prevProtected, int nextProtected) {
+        // Exit point: try to go ~100m BEFORE the closest point
+        int exitIdx = closestSegment;
+        double distBack = 0.0;
+        double targetBackDist = 100.0;
+
+        while (exitIdx > prevProtected && distBack < targetBackDist && exitIdx > 0) {
+            distBack += haversine(route.get(exitIdx), route.get(exitIdx - 1));
+            exitIdx--;
+        }
+
+        // Rejoin point: go ~500m FORWARD from exit point
+        int rejoinIdx = exitIdx;
+        double distForward = 0.0;
+        double targetForwardDist = 500.0;
+
+        while (rejoinIdx < nextProtected && distForward < targetForwardDist && rejoinIdx < route.size() - 1) {
+            distForward += haversine(route.get(rejoinIdx), route.get(rejoinIdx + 1));
+            rejoinIdx++;
+        }
+
+        LOGGER.info("Exit/Rejoin points: {}m back to index {}, then {}m forward to index {}",
+                distBack, exitIdx, distForward, rejoinIdx);
+
+        return new AnchorPoint(
+                exitIdx,
+                rejoinIdx,
+                route.get(exitIdx),
+                route.get(rejoinIdx)
+        );
+    }
+
+    private double calculateSegmentDistance(List<GeoJsonPosition> route, int start, int end) {
+        double total = 0;
+        for (int i = start; i < Math.min(end, route.size() - 1); i++) {
+            total += haversine(route.get(i), route.get(i + 1));
+        }
+        return total;
+    }
+
+    private void checkSpliceContinuity(List<GeoJsonPosition> route, int splice1, int splice2) {
+        if (splice1 > 0 && splice1 < route.size()) {
+            double gap = haversine(route.get(splice1 - 1), route.get(splice1));
+            LOGGER.info("Gap at exit point: {}m", gap);
+            if (gap > 500) {
+                LOGGER.warn("LARGE GAP at exit: {}m", gap);
+            }
+        }
+
+        if (splice2 > 0 && splice2 < route.size()) {
+            double gap = haversine(route.get(splice2 - 1), route.get(splice2));
+            LOGGER.info("Gap at rejoin point: {}m", gap);
+            if (gap > 500) {
+                LOGGER.warn("LARGE GAP at rejoin: {}m", gap);
+            }
+        }
+    }
+
+    private void updateProtectedIndices(AnchorPoint anchors, int detourSize,
+                                        GeoJsonPosition newPoint, List<GeoJsonPosition> detour) {
+        int removedCount = anchors.endIndex - anchors.startIndex + 1;
+        int delta = detourSize - removedCount;
+
+        LOGGER.info("Index update: removed {} points, added {} points, delta: {}",
+                removedCount, detourSize, delta);
+
+        NavigableSet<Integer> updatedIndices = new TreeSet<>();
+        for (Integer idx : protectedIndices) {
+            if (idx < anchors.startIndex) {
+                updatedIndices.add(idx);
+            } else if (idx > anchors.endIndex) {
+                updatedIndices.add(idx + delta);
+            }
+        }
+        protectedIndices.clear();
+        protectedIndices.addAll(updatedIndices);
+
+        int waypointIdx = findClosestIndexInRoute(detour, newPoint);
+        int newProtectedIdx = anchors.startIndex + waypointIdx;
+        protectedIndices.add(newProtectedIdx);
+
+        LOGGER.info("Protected waypoint at index {}, all protected: {}",
+                newProtectedIdx, protectedIndices);
+    }
+
+    private int findClosestIndexInRoute(List<GeoJsonPosition> route, GeoJsonPosition point) {
+        int bestIdx = 0;
+        double bestDist = Double.MAX_VALUE;
+        for (int i = 0; i < route.size(); i++) {
+            double dist = haversine(route.get(i), point);
+            if (dist < bestDist) {
+                bestDist = dist;
+                bestIdx = i;
+            }
+        }
+        return bestIdx;
     }
 
 }
