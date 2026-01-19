@@ -10,6 +10,9 @@ import {ActivatedRoute} from '@angular/router';
 import { ChatMessageService } from 'src/services/chat-message.service';
 import { MapComponent } from '../map/map.component';
 import { icon, Icon, latLng, LatLng, Layer, marker } from 'leaflet';
+import {FriendInfoDto} from "../../dtos/friendship";
+import {AuthService} from "../../../services/auth.service";
+import {FriendshipService} from "../../../services/friendship.service";
 
 export interface ParsedMessage {
   type: string;
@@ -36,6 +39,7 @@ export class ChatPage implements OnInit, OnDestroy {
   myDeviceId = '';
   friendDevices: string[] = [];
   myDevices: string[]= [];
+  friendName: string = '';
 
   showDeviceInfo = false;
 
@@ -45,7 +49,9 @@ export class ChatPage implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private keyManagementService: KeyManagementService,
     private chatSocketService: ChatSocketService,
-    private chatMessageService: ChatMessageService
+    private chatMessageService: ChatMessageService,
+    private authService: AuthService,
+    private friendService: FriendshipService
   ) {
   }
 
@@ -62,7 +68,9 @@ export class ChatPage implements OnInit, OnDestroy {
         this.friendEmail
       );
 
-      this.myDevices = await this.keyManagementService.getMyDevices();
+      this.setFriendNameByEmail(this.friendEmail);
+
+        this.myDevices = await this.keyManagementService.getMyDevices();
 
       // Load existing messages
       await this.loadMessages();
@@ -236,4 +244,30 @@ export class ChatPage implements OnInit, OnDestroy {
   getLocationCenter(latitude: number, longitude: number): LatLng {
     return latLng(latitude, longitude);
   }
+
+
+  setFriendNameByEmail(email: string) {
+    const myEmail = this.authService.getUserEmail();
+
+    this.friendService.getFriends().subscribe({
+      next: (friendships) => {
+        const friendship = friendships.find(f =>
+          f.sender.email === email || f.receiver.email === email
+        );
+
+        const friend =
+          !friendship ? undefined :
+            friendship.sender.email !== myEmail ? friendship.sender : friendship.receiver;
+
+        this.friendName = friend
+          ? `${friend.firstName} ${friend.lastName}`
+          : 'Unknown user';
+      },
+      error: (err) => {
+        console.error('getFriends failed', err);
+        this.friendName = 'Unknown user';
+      }
+    });
+  }
+
 }
