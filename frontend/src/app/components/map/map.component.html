@@ -1,4 +1,8 @@
-<div style="height: 100%;" leaflet [leafletLayers]="layers" [leafletOptions]="options"
-  (leafletMapReady)="onMapReady($event)" (leafletClick)="onClick($event)" [(leafletZoom)]="zoom"
-  [(leafletCenter)]="center">
+<div
+  leaflet
+  [leafletOptions]="options"
+  [leafletLayers]="layers"
+  (leafletMapReady)="onMapReady($event)"
+  (leafletClick)="onClick($event)"
+  style="height: 100%; width: 100%;">
 </div>
