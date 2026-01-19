@@ -66,6 +66,7 @@ export class RouteService {
   }
 
   share(id: number, friend: string[]){
+    console.log(this.routeBaseUri + `/${id}/share`, {"friends":friend});
     return this.httpClient.put(this.routeBaseUri + `/${id}/share`, {"friends":friend})
   }
 }
