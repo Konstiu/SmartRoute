@@ -15,21 +15,21 @@
 .message-wrapper {
   display: flex;
   max-width: 80%;
-  
+
   &.own-message {
     align-self: flex-end;
     margin-left: auto;
-    
+
     .message-bubble {
       background-color: var(--ion-color-primary);
       color: var(--ion-color-primary-contrast);
     }
   }
-  
+
   &.friend-message {
     align-self: flex-start;
     margin-right: auto;
-    
+
     .message-bubble {
       background-color: var(--ion-color-light);
       color: var(--ion-color-dark);
@@ -56,14 +56,14 @@
     line-height: 1.4;
     margin-bottom: 8px;
   }
-  
+
   .location-map {
     width: 100%;
     height: 200px;
     border-radius: 8px;
     overflow: hidden;
     margin-bottom: 4px;
-    
+
     app-map {
       display: block;
       width: 100%;
@@ -126,5 +126,25 @@ ion-footer {
     --padding-top: 0;
     --padding-bottom: 0;
     --min-height: auto;
+  }
+}
+
+.message-route {
+  ion-button {
+    &.sent-btn {
+      // For sent messages - white/light button on blue background
+      --color: #ffffff;
+      --border-color: rgba(255, 255, 255, 0.6);
+
+      &:hover {
+        --border-color: #ffffff;
+      }
+    }
+
+    &.received-btn {
+      // For received messages - primary color
+      --color: var(--ion-color-primary);
+      --border-color: var(--ion-color-primary);
+    }
   }
 }

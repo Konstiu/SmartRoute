@@ -7,7 +7,7 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="ion-padding">
+<ion-content class="ion-padding" #content>
   <div class="chat-container">
     <!-- Messages list -->
     <div class="messages-list">
@@ -27,6 +27,23 @@
                     [zoom]="15"
                   ></app-map>
                 </div>
+              </div>
+            } @else if (message.type === 'route') {
+              <div class="message-route">
+                <ion-icon name="map-outline" class="route-icon"></ion-icon>
+                <div class="route-info">
+                  <div class="route-name">{{ message.routeName }}</div>
+                  <div class="route-text">{{ message.text }}</div>
+                </div>
+                <ion-button
+                  size="small"
+                  fill="outline"
+                  [class.sent-btn]="message.direction === 'sent'"
+                  [class.received-btn]="message.direction === 'received'"
+                  [routerLink]="['/tabs/routes', message.routeId]">
+                  <ion-icon slot="start" name="arrow-forward"></ion-icon>
+                  View
+                </ion-button>
               </div>
             }
             <div class="message-meta">
@@ -53,10 +70,10 @@
         [(ngModel)]="messageText"
         placeholder="Type a message..."
         class="message-input"
-        counter="true"
         maxlength="500"
         (keydown.enter)="sendMessage()"
       ></ion-input>
+      <span class="char-counter">{{ messageText?.length || 0 }}/500</span>
       <ion-button
         (click)="sendMessage()"
         [disabled]="!messageText.trim()"

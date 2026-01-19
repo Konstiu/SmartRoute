@@ -1,21 +1,22 @@
-import { Injectable } from "@angular/core";
-import { KeyManagementService } from "./key-management.service";
-import { ChatSocketService } from "./chat-socket.service";
+import {Injectable} from "@angular/core";
+import {KeyManagementService} from "./key-management.service";
+import {ChatSocketService} from "./chat-socket.service";
 
-@Injectable({ providedIn: 'root' })
+@Injectable({providedIn: 'root'})
 export class ChatMessageService {
 
   constructor(
     private keyManagementService: KeyManagementService,
     private chatSocketService: ChatSocketService
-  ) {}
+  ) {
+  }
 
   /**
    * Send text message
-   * 
-   * @param messageText 
-   * @param friendEmail 
-   * @returns 
+   *
+   * @param messageText
+   * @param friendEmail
+   * @returns
    */
   async sendTextMessage(
     messageText: string,
@@ -33,11 +34,11 @@ export class ChatMessageService {
 
   /**
    * Send location message
-   * 
-   * @param messageText 
-   * @param latitude 
-   * @param longitude 
-   * @param friendEmail 
+   *
+   * @param messageText
+   * @param latitude
+   * @param longitude
+   * @param friendEmail
    */
   async sendLocationMessage(
     messageText: string,
@@ -50,6 +51,23 @@ export class ChatMessageService {
       text: messageText,
       latitude: latitude,
       longitude: longitude
+    });
+
+    await this.sendMessage(messageJson, friendEmail);
+  }
+
+
+  async sendRouteMessage(
+    routeId: string,
+    routeName: string,
+    description: string,
+    friendEmail: string
+  ) {
+    const messageJson = JSON.stringify({
+      type: 'route',
+      text: description,
+      routeId: routeId,
+      routeName: routeName
     });
 
     await this.sendMessage(messageJson, friendEmail);

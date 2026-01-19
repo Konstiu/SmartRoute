@@ -1,16 +1,19 @@
 package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.endpoint.dto.SaveRouteDto;
+import com.smartroute.smartroute1.endpoint.dto.ShareRouteDto;
 import com.smartroute.smartroute1.endpoint.dto.ViewRouteDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Route;
 import com.smartroute.smartroute1.exception.NotFoundException;
 import com.smartroute.smartroute1.repository.RouteRepository;
+import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.RouteService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -21,9 +24,11 @@ import java.util.Optional;
 public class RouteServiceImpl implements RouteService {
 
     private final RouteRepository routeRepository;
+    private final UserRepository userRepository;
 
-    public RouteServiceImpl(RouteRepository routeRepository) {
+    public RouteServiceImpl(RouteRepository routeRepository, UserRepository userRepository) {
         this.routeRepository = routeRepository;
+        this.userRepository = userRepository;
     }
 
     @Override
@@ -76,6 +81,35 @@ public class RouteServiceImpl implements RouteService {
             throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED);
         }
         routeRepository.deleteById(id);
+    }
+
+    @Override
+    public void addShare(Long id, String email, ShareRouteDto email2) {
+        Optional<Route> opt = routeRepository.findById(id);
+        Route route;
+        if (opt.isPresent()) {
+            route = opt.get();
+        } else {
+            return;
+        }
+        if (route.getUser().getEmail().equals(email)) {
+            throw new HttpClientErrorException(HttpStatus.UNAUTHORIZED);
+        }
+        for (String targetEmail : email2.getFriends()) {
+            if (targetEmail == null) continue;
+
+            String e = targetEmail.trim();
+            if (e.isEmpty()) continue;
+
+            // optional: prevent sharing with yourself
+            if (e.equalsIgnoreCase(email)) continue;
+
+            ApplicationUser userToShareWith = userRepository.findUserByEmail(e);
+            if (userToShareWith != null) {
+                route.getShared().add(userToShareWith);
+            }
+        }
+        routeRepository.save(route);
     }
 
     private ViewRouteDto routeToDto(Route route) {

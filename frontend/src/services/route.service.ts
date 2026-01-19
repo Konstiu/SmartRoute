@@ -64,4 +64,8 @@ export class RouteService {
   delete(id: number) {
     return this.httpClient.delete(this.routeBaseUri + `/${id}`);
   }
+
+  share(id: number, friend: string[]){
+    return this.httpClient.put(this.routeBaseUri + `/${id}/share`, {"friends":friend})
+  }
 }

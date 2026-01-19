@@ -1,19 +1,14 @@
 package com.smartroute.smartroute1.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
-import jakarta.persistence.ManyToOne;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.util.Set;
 
 @Entity
 @AllArgsConstructor
@@ -36,4 +31,7 @@ public class Route {
     @JoinColumn(name = "application_user_id")
     @JsonIgnore
     private ApplicationUser user;
+
+    @ManyToMany
+    private Set<ApplicationUser> shared;
 }

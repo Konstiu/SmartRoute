@@ -1,13 +1,13 @@
-import { Platform } from '@ionic/angular';
-import { KeyManagementService } from 'src/services/key-management.service';
+import {Platform} from '@ionic/angular';
+import {KeyManagementService} from 'src/services/key-management.service';
 import {AfterViewInit, Component, ElementRef, OnInit, ViewChild, ChangeDetectorRef} from '@angular/core';
 import {PushNotificationService} from "../../services/push-notification.service";
 import {Gesture, GestureController, AlertController, ToastController} from '@ionic/angular';
 import {UserService} from 'src/services/user.service';
 import {AuthService} from 'src/services/auth.service';
-import { ChatMessageService } from 'src/services/chat-message.service';
-import { FriendshipService } from 'src/services/friendship.service';
-import { Geolocation } from "@capacitor/geolocation"
+import {ChatMessageService} from 'src/services/chat-message.service';
+import {FriendshipService} from 'src/services/friendship.service';
+import {Geolocation} from "@capacitor/geolocation"
 
 @Component({
   selector: 'app-root',
@@ -16,7 +16,7 @@ import { Geolocation } from "@capacitor/geolocation"
   standalone: false,
 })
 export class AppComponent implements OnInit, AfterViewInit {
-  @ViewChild('alertFab', { read: ElementRef }) set alertFabElement(element: ElementRef<HTMLElement>) {
+  @ViewChild('alertFab', {read: ElementRef}) set alertFabElement(element: ElementRef<HTMLElement>) {
     if (element && this.emergencyAlertVisible) {
       this.alertFab = element;
       // Re-initialize gesture when element becomes available
@@ -264,7 +264,7 @@ export class AppComponent implements OnInit, AfterViewInit {
           text: 'Send Alert',
           role: 'confirm',
           cssClass: 'alert-button-confirm',
-          handler: () =>     this.alertFriends(),
+          handler: () => this.alertFriends(),
         },
       ],
     });
