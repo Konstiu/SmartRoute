@@ -1,0 +1,373 @@
+// CSS Variables for repeated values
+:host {
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --card-shadow-hover: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --section-spacing: 2rem;
+}
+
+// Section headers
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+
+  .section-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  ion-button {
+    --color: var(--ion-color-medium);
+    --padding-start: 0.5rem;
+    --padding-end: 0.5rem;
+    font-size: 1.2rem;
+
+    &:hover {
+      --color: var(--ion-color-primary);
+    }
+  }
+}
+
+.section-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--ion-text-color);
+}
+
+// Metric info popover
+ion-popover {
+  --width: 90%;
+  --max-width: 500px;
+
+  h3 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--ion-color-primary);
+  }
+
+  .metric-explanation {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--ion-color-light);
+
+    &:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+
+    h4 {
+      margin: 0 0 0.5rem;
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--ion-text-color);
+    }
+
+    p {
+      margin: 0.5rem 0;
+      line-height: 1.5;
+      color: var(--ion-color-medium-shade);
+
+      strong {
+        color: var(--ion-text-color);
+      }
+    }
+
+    .tip {
+      font-size: 0.9rem;
+      color: var(--ion-color-medium);
+      font-style: italic;
+      margin-left: 0.5rem;
+
+      em {
+        font-weight: 500;
+      }
+    }
+  }
+}
+
+// Summary cards
+.summary-section {
+  margin-bottom: var(--section-spacing);
+}
+
+.summary-card {
+  height: 100%;
+  margin: 0;
+  box-shadow: var(--card-shadow);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  --background: var(--ion-card-background);
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--card-shadow-hover);
+  }
+
+  ion-card-header {
+    padding-bottom: 0.5rem;
+  }
+
+  ion-card-subtitle {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.7;
+  }
+
+  ion-card-content {
+    text-align: center;
+  }
+
+  .metric-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-top: 0.5rem;
+  }
+}
+
+// Metric card colors - consolidated
+.ctl-card {
+  ion-card-subtitle,
+  .metric-value {
+    color: #3b82f6;
+  }
+}
+
+.atl-card {
+  ion-card-subtitle,
+  .metric-value {
+    color: #ef4444;
+  }
+}
+
+.tsb-card {
+  ion-card-subtitle,
+  .metric-value {
+    color: #10b981;
+  }
+}
+
+.consistency-card {
+  ion-card-subtitle,
+  .metric-value {
+    color: #8b5cf6;
+  }
+}
+
+// Charts
+.chart-section,
+.runs-section {
+  margin-bottom: var(--section-spacing);
+
+  ion-card {
+    box-shadow: var(--card-shadow);
+  }
+}
+
+.chart-container {
+  width: 100%;
+  height: 400px;
+  min-height: 400px;
+}
+
+.chart-header {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0.5rem 0;
+
+  .range-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+
+    ion-button {
+      --padding-start: 0.75rem;
+      --padding-end: 0.75rem;
+      font-size: 0.875rem;
+      min-width: 50px;
+    }
+  }
+}
+
+// Run list
+ion-list {
+  background: transparent;
+
+  ion-item {
+    --padding-start: 1rem;
+    --inner-padding-end: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    h2 {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    h3 {
+      font-size: 0.9rem;
+      color: var(--ion-color-medium);
+      margin-bottom: 0.25rem;
+    }
+
+    p {
+      font-size: 0.85rem;
+      color: var(--ion-color-medium-shade);
+    }
+  }
+}
+
+// Injury section
+.injury-section {
+  margin: var(--section-spacing) 0;
+
+  ion-card {
+    box-shadow: var(--card-shadow);
+    margin-bottom: 1rem;
+  }
+
+  ion-card-title {
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  ion-card-subtitle {
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+  }
+}
+
+.injury-card {
+  padding: 1rem;
+  border-radius: 8px;
+  border-left: 4px solid;
+  background: var(--ion-card-background);
+  height: 100%;
+
+  &.low-risk {
+    border-left-color: var(--ion-color-success);
+    background: rgba(var(--ion-color-success-rgb), 0.03);
+  }
+
+  &.medium-risk {
+    border-left-color: var(--ion-color-warning);
+    background: rgba(var(--ion-color-warning-rgb), 0.03);
+  }
+
+  &.high-risk {
+    border-left-color: var(--ion-color-danger);
+    background: rgba(var(--ion-color-danger-rgb), 0.03);
+  }
+
+  .injury-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+
+    h3 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    ion-badge {
+      font-size: 0.875rem;
+      padding: 0.25rem 0.75rem;
+    }
+  }
+
+  .injury-card-dates {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+
+    .injury-date {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.9rem;
+
+      .label {
+        color: var(--ion-color-medium);
+        font-weight: 500;
+      }
+
+      .value {
+        color: var(--ion-text-color);
+        font-weight: 600;
+      }
+    }
+  }
+}
+
+// Empty & Loading states - shared centering
+.empty-state,
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+}
+
+.empty-state {
+  ion-icon {
+    font-size: 5rem;
+    color: var(--ion-color-medium);
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  h2 {
+    margin: 0 0 0.5rem;
+    color: var(--ion-text-color);
+  }
+}
+
+.loading-container {
+  ion-spinner {
+    margin-bottom: 1rem;
+  }
+
+  p {
+    color: var(--ion-color-medium);
+    font-size: 1.1rem;
+  }
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .summary-card .metric-value {
+    font-size: 2rem;
+  }
+
+  .chart-container {
+    height: 300px;
+    min-height: 300px;
+  }
+
+  ion-popover {
+    --width: 95%;
+  }
+
+  .range-buttons ion-button {
+    font-size: 0.75rem;
+    --padding-start: 0.5rem;
+    --padding-end: 0.5rem;
+    min-width: 45px;
+  }
+}
