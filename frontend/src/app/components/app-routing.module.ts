@@ -76,6 +76,10 @@ const routes: Routes = [
   {
     path: '**',
     loadComponent: () => import('./not-found/not-found.page').then(m => m.NotFoundPage),
+  },
+  {
+    path: 'share-route-friends',
+    loadChildren: () => import('./share-route-friends/share-route-friends.module').then( m => m.ShareRouteFriendsPageModule)
   }
 
 ];
