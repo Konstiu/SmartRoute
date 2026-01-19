@@ -4,7 +4,7 @@ import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonGeometryLineString
 import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonPosition;
 import org.mapstruct.Mapper;
 
-@Mapper
+@Mapper(componentModel = "spring")
 public interface PolyLineMapper {
 
     default String geoJsonGeometryLineStringToPolyline(GeoJsonGeometryLineString lineString) {
