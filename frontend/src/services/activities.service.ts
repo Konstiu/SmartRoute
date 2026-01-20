@@ -1,8 +1,10 @@
 import {inject, Injectable} from '@angular/core';
+import {Observable, Subject} from 'rxjs';
 import {HttpClient, HttpHeaders} from '@angular/common/http';
-import {catchError, map, Observable, of, throwError} from 'rxjs';
+import {catchError, map, of, throwError} from 'rxjs';
 import {DetailedActivity, Activity} from '../app/dtos/Activity';
 import {Globals} from "../global/globals";
+import {RunClassificationDto, RunType} from "../app/dtos/run-classification";
 import {SyncOutcome, SyncStatusDto} from "../app/dtos/syncStates";
 
 @Injectable({
@@ -17,7 +19,8 @@ export class ActivitiesService {
   private readonly COOLDOWN_MS = 5 * 60 * 1000;
 
   // eslint-disable-next-line @angular-eslint/prefer-inject
-  constructor(private readonly http: HttpClient) {}
+  constructor(private readonly http: HttpClient) {
+  }
 
 
   /**
@@ -107,5 +110,27 @@ export class ActivitiesService {
   getActivityById(id: number): Observable<DetailedActivity> {
     const url = `${this.userUri}/${id}`;
     return this.httpClient.get<DetailedActivity>(url);
+  }
+
+  /**
+   * Updates the run type classification for the selected run.
+   *
+   * @param id the activity id
+   * @param runType the updated run type
+   */
+  updateClassification(id: number, runType: RunType): Observable<void> {
+    const url = `${this.userUri}/classification/correction/${id}`;
+    return this.httpClient.post<void>(url, JSON.stringify(runType),
+      {
+        headers: { 'Content-Type': 'application/json' }
+      });
+  }
+
+  private activityUpdated = new Subject<number>();
+
+  activityUpdated$ = this.activityUpdated.asObservable();
+
+  notifyActivityUpdate(activityId: number) {
+    this.activityUpdated.next(activityId);
   }
 }
