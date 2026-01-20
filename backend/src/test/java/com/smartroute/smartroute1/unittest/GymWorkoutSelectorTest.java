@@ -174,8 +174,8 @@ public class GymWorkoutSelectorTest extends BaseTest {
     public void test_GetGymWorkoutById_workoutNotFound() {
         Long missingId = -100L;
         assertThrows(
-            NotFoundException.class,
-            () -> gymWorkoutSelectorService.getGymWorkoutById(missingId, USEREMAIL)
+                NotFoundException.class,
+                () -> gymWorkoutSelectorService.getGymWorkoutById(missingId, USEREMAIL)
         );
     }
 
@@ -193,8 +193,8 @@ public class GymWorkoutSelectorTest extends BaseTest {
         GymWorkoutDto createdForOther = gymWorkoutSelectorService.getGymWorkout(other, new HashMap<>(), 100);
 
         ResponseStatusException ex = assertThrows(
-            ResponseStatusException.class,
-            () -> gymWorkoutSelectorService.getGymWorkoutById(createdForOther.getId(), USEREMAIL)
+                ResponseStatusException.class,
+                () -> gymWorkoutSelectorService.getGymWorkoutById(createdForOther.getId(), USEREMAIL)
         );
         assertEquals(HttpStatus.FORBIDDEN, ex.getStatusCode());
     }
