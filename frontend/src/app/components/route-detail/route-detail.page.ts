@@ -9,6 +9,10 @@ import {formatDistance, formatPace} from "../../util/formatters";
 import {decodePolyline} from "../../util/polyline-encode-decode";
 import {trash} from "ionicons/icons";
 import {FriendshipDetailDto} from "../../dtos/friendship";
+import {ChatMessageService} from "../../../services/chat-message.service";
+import {ShareRouteFriendsPageModule} from "../share-route-friends/share-route-friends.module";
+import {ShareRouteFriendsPage} from "../share-route-friends/share-route-friends.page";
+
 
 @Component({
   selector: 'app-route-detail',
@@ -31,7 +35,12 @@ export class RouteDetailPage implements OnInit, AfterViewInit {
   private router = inject(Router);
   private toastCtrl = inject(ToastController);
 
-  constructor(private route: ActivatedRoute, private routeService: RouteService, private modalCtrl: ModalController) {
+  constructor(private route: ActivatedRoute,
+              private routeService: RouteService,
+              private modalCtrl: ModalController,
+              private chatMessageService: ChatMessageService,
+              private modalController: ModalController
+  ) {
   }
 
   ngOnInit() {
@@ -162,5 +171,19 @@ export class RouteDetailPage implements OnInit, AfterViewInit {
       position: 'top'
     });
     await toast.present();
+  }
+
+  protected async shareRoute() {
+    const modal = await this.modalController.create({
+      component: ShareRouteFriendsPage,
+      componentProps: {
+        routeName: this.savedRoute?.name,
+        routeId: this.savedRoute?.id
+      },
+      initialBreakpoint: 1, // Takes up 75% of screen
+      breakpoints: [0, 0.75, 1],
+      cssClass: 'share-modal'
+    });
+    await modal.present();
   }
 }

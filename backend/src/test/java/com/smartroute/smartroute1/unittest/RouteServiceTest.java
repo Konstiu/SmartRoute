@@ -87,7 +87,7 @@ public class RouteServiceTest {
         assertEquals("Integration Test Route", saved.getName());
 
 
-        assertThrows(HttpStatusCodeException.class, () -> routeService.getRoute(saved.getId(), "NoEmail@email.com"));
+        assertThrows(NotFoundException.class, () -> routeService.getRoute(saved.getId(), "NoEmail@email.com"));
     }
 
     @Test
@@ -107,6 +107,8 @@ public class RouteServiceTest {
 
     @Test
     void testDeleteRoute() {
-        routeService.deleteRoute(-1L, "notFound@email.com");
+
+        routeService.saveRoute(new SaveRouteDto("a", 10.0,10.0,10.0, "temp"), userRepository.findAll().getFirst());
+        routeService.deleteRoute(1L, userRepository.findAll().getFirst().getEmail());
     }
 }
