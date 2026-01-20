@@ -24,7 +24,7 @@ spec:
               ephemeral-storage: "512Mi"
             limits:
               memory: "1Gi"
-              cpu: "1Gi"
+              cpu: "1000m"
               ephemeral-storage: "1000Mi"
           ports:
             - containerPort: 8080
