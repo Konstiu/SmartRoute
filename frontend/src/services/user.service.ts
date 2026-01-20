@@ -1,6 +1,6 @@
 import { Globals } from "../global/globals";
 import { HttpClient } from "@angular/common/http";
-import { CreateUserDto, PersonalDataDto, UserDetailDto, UserDto } from "../app/dtos/user";
+import {CreateUserDto, PersonalDataDto, StatisticalData, UserDetailDto, UserDto} from "../app/dtos/user";
 import { BehaviorSubject, first, Observable } from "rxjs";
 import { inject, Injectable } from "@angular/core";
 import { SendPasswordResetDto, ResetPasswordDto } from "../app/dtos/passwordReset";
@@ -86,5 +86,9 @@ export class UserService {
 
   deleteAccount(): Observable<any> {
     return this.httpClient.delete(`${this.userUri}/account`);
+  }
+
+  getStats(): Observable<StatisticalData>{
+    return this.httpClient.get<StatisticalData>(`${this.userUri}/statistics`)
   }
 }
