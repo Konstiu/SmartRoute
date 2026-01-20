@@ -13,7 +13,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.web.client.HttpStatusCodeException;
 
 import java.util.List;
 
@@ -60,11 +62,32 @@ public class RouteServiceTest {
         assertEquals("Integration Test Route", saved.getName());
 
 
-        ViewRouteDto dtoReturned = routeService.getRoute(saved.getId());
+        ViewRouteDto dtoReturned = routeService.getRoute(saved.getId(), user.getEmail());
         assertEquals("Integration Test Route", dtoReturned.getName());
         assertEquals(12.0, dtoReturned.getDistance());
         assertEquals(6.5, dtoReturned.getPace());
         assertEquals(150.0, dtoReturned.getElevation());
+    }
+
+    @Test
+    void test_WhenRetrieveRouteUnAuthorized_ThenThrowAuthorizationException() {
+        SaveRouteDto dto = new SaveRouteDto();
+        dto.setName("Integration Test Route");
+        dto.setDistance(12.0);
+        dto.setPace(6.5);
+        dto.setElevation(150.0);
+        dto.setRoute("encodedPolyline");
+
+        routeService.saveRoute(dto, user);
+
+
+        List<Route> routes = routeRepository.findRoutesByUserIdOrderByCreationDateDesc(user.getId());
+        assertEquals(1, routes.size());
+        Route saved = routes.get(0);
+        assertEquals("Integration Test Route", saved.getName());
+
+
+        assertThrows(NotFoundException.class, () -> routeService.getRoute(saved.getId(), "NoEmail@email.com"));
     }
 
     @Test
@@ -77,13 +100,15 @@ public class RouteServiceTest {
     @Test
     void testGetRoute_notFound() {
         assertThrows(NotFoundException.class, () -> {
-            routeService.getRoute(999L);
+            routeService.getRoute(999L, "NotFound@email.com");
         });
 
     }
 
     @Test
     void testDeleteRoute() {
-        routeService.deleteRoute(-1L);
+
+        routeService.saveRoute(new SaveRouteDto("a", 10.0,10.0,10.0, "temp"), userRepository.findAll().getFirst());
+        routeService.deleteRoute(1L, userRepository.findAll().getFirst().getEmail());
     }
 }

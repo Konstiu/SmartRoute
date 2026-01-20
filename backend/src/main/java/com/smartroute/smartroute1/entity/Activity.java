@@ -14,6 +14,7 @@ import jakarta.persistence.ManyToOne;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.jdbc.Work;
 
 import java.time.Instant;
 
@@ -78,4 +79,5 @@ public class Activity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private ApplicationUser user;
+
 }

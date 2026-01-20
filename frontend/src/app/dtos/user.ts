@@ -1,3 +1,5 @@
+import {DetailedActivity} from "./Activity";
+
 interface BaseUser {
   firstname: string;
   lastname: string;
@@ -34,4 +36,46 @@ export class UserDetailDto {
   birthdate!: Date;
   experienceLevel!: string;
   activeWeekdays!: [string];
+}
+
+
+
+export interface ConsistencyData {
+  finalScore: number;
+  frequencyConsistency: number;
+  regularityConsistency: number;
+}
+
+
+export interface Injury {
+  injuryId?: number;
+  injuryIndex: number;
+  affectedArea: string;
+  lastHealthyDate: string;
+  lastInjuryDate: string;
+}
+export interface InjuryHistory {
+  noOfInjuries?: number;
+  injuriesList: Injury[];
+}
+
+export interface StatisticalData {
+  consistencyHistory: {
+    consistencyHistory: { [key: string]: ConsistencyData };
+    ctlHistory: { [key: string]: number };
+    atlHistory: { [key: string]: number };
+    tsbHistory: { [key: string]: number };
+  };
+  injuryHistory: {
+    injuriesList: Injury[];
+  };
+  gymHistory: any;
+  runHistory: RunHistory;
+}
+
+export interface RunHistory {
+  numberOfRuns: number;
+  totalRunTime: number;
+  totalDistance: number;
+  runHistory: DetailedActivity[];
 }
