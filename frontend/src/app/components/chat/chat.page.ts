@@ -1,12 +1,17 @@
-import {Component, OnInit, OnDestroy} from '@angular/core';
+import {Component, OnInit, OnDestroy, ViewChild, AfterViewInit} from '@angular/core';
 import {Subscription} from 'rxjs';
 import {KeyManagementService} from '../../../services/key-management.service';
 import {ChatSocketService} from '../../../services/chat-socket.service';
 import {db, Message} from '../../../db/encryption';
-import {IonicModule} from "@ionic/angular";
+import {IonicModule, IonContent} from "@ionic/angular";
 import {CommonModule} from "@angular/common";
 import {FormsModule} from "@angular/forms";
-import {ActivatedRoute} from '@angular/router';
+import {ActivatedRoute, RouterLink} from '@angular/router';
+import { ChatMessageService } from 'src/services/chat-message.service';
+import { MapComponent } from '../map/map.component';
+import { icon, Icon, latLng, LatLng, Layer, marker } from 'leaflet';
+import {AuthService} from "../../../services/auth.service";
+import {FriendshipService} from "../../../services/friendship.service";
 
 export interface ParsedMessage {
   type: string;
@@ -15,6 +20,10 @@ export interface ParsedMessage {
   senderDeviceId: string;
   direction: 'sent' | 'received';
   conversationMessageId: string;
+  latitude?: number;
+  longitude?: number;
+  routeId?: number;
+  routeName?: string;
 }
 
 @Component({
@@ -22,15 +31,18 @@ export interface ParsedMessage {
   templateUrl: './chat.page.html',
   styleUrls: ['./chat.page.scss'],
   standalone: true,
-  imports: [IonicModule, CommonModule, FormsModule]
+  imports: [IonicModule, CommonModule, FormsModule, MapComponent, RouterLink]
 })
-export class ChatPage implements OnInit, OnDestroy {
+export class ChatPage implements OnInit, OnDestroy, AfterViewInit {
+  @ViewChild(IonContent, { static: false }) content!: IonContent;
+
   friendEmail = 'friend@example.com';
   messages: ParsedMessage[] = [];
   messageText = '';
   myDeviceId = '';
   friendDevices: string[] = [];
   myDevices: string[]= [];
+  friendName: string = '';
 
   showDeviceInfo = false;
 
@@ -40,6 +52,9 @@ export class ChatPage implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private keyManagementService: KeyManagementService,
     private chatSocketService: ChatSocketService,
+    private chatMessageService: ChatMessageService,
+    private authService: AuthService,
+    private friendService: FriendshipService
   ) {
   }
 
@@ -55,6 +70,8 @@ export class ChatPage implements OnInit, OnDestroy {
       this.friendDevices = await this.keyManagementService.getDevicesOfFriend(
         this.friendEmail
       );
+
+      this.setFriendNameByEmail(this.friendEmail);
 
       this.myDevices = await this.keyManagementService.getMyDevices();
 
@@ -89,6 +106,11 @@ export class ChatPage implements OnInit, OnDestroy {
     });
   }
 
+  ngAfterViewInit() {
+    // Scroll to bottom after view is initialized
+    setTimeout(() => this.scrollToBottom(), 300);
+  }
+
   ngOnDestroy() {
     this.subscriptions.forEach(sub => sub.unsubscribe());
     this.chatSocketService.disconnect();
@@ -109,48 +131,27 @@ export class ChatPage implements OnInit, OnDestroy {
       seen.add(msg.conversationMessageId);
       return true;
     })
-    .map(msg => this.parseMessage(msg));
+      .map(msg => this.parseMessage(msg));
+
+    // Scroll to bottom after loading messages
+    setTimeout(() => this.scrollToBottom(), 100);
   }
 
   /**
    * Send message to all friend's devices
    */
   async sendMessage() {
-    if (!this.messageText.trim()) return;
-    const conversationMessageId = crypto.randomUUID(); // Generate ONCE
-
-    const messageJson = JSON.stringify({
-      type: 'text',
-      text: this.messageText,
-    });
-
-    const mySocketId = this.chatSocketService.getCurrentSocketId();
-
     try {
-      // Send to all of friend's devices
-      const sentMessages = await this.keyManagementService.sendMessageToFriend(
-        this.friendEmail,
-        messageJson,
-        conversationMessageId,
-        mySocketId
-      );
-
-      console.log(`Message sent to ${sentMessages.length} devices`);
-
-      const sentMessagesMyDevices = await this.keyManagementService.sendMessageToMyDevices(
-        this.friendEmail,
-        messageJson,
-        conversationMessageId,
-        mySocketId
-      )
-
-      console.log(`Message sent to ${sentMessagesMyDevices.length} of my devices`);
-
+      await this.chatMessageService.sendTextMessage(this.messageText, this.friendEmail);
 
       // Add to local display (only show one copy)
       await this.loadMessages();
+
+      // Clear input
       this.messageText = '';
 
+      // Scroll to bottom after sending
+      setTimeout(() => this.scrollToBottom(), 100);
     } catch (error) {
       console.error('Failed to send message:', error);
       alert('Failed to send message. Please try again.');
@@ -175,6 +176,8 @@ export class ChatPage implements OnInit, OnDestroy {
       console.log("New messags");
       console.log(newMessages);
 
+      let hasNewMessages = false;
+
       // Decrypt each message
       for (const msgDto of newMessages) {
         try {
@@ -187,15 +190,28 @@ export class ChatPage implements OnInit, OnDestroy {
             .receiveMessageFromFriend(msgDto);
 
           this.messages.push(this.parseMessage(decryptedMsg));
+          hasNewMessages = true;
 
         } catch (error) {
           console.error('Failed to decrypt message:', error);
         }
       }
 
+      // Scroll to bottom if new messages were added
+      if (hasNewMessages) {
+        setTimeout(() => this.scrollToBottom(), 100);
+      }
+
     } catch (error) {
       console.error('Failed to fetch new messages:', error);
     }
+  }
+
+  /**
+   * Scroll to bottom of chat
+   */
+  private scrollToBottom() {
+    this.content?.scrollToBottom(300);
   }
 
   parseMessage(msg: Message): ParsedMessage {
@@ -208,6 +224,28 @@ export class ChatPage implements OnInit, OnDestroy {
         senderDeviceId: msg.senderDeviceId,
         direction: msg.direction,
         conversationMessageId: msg.conversationMessageId
+      }
+    } else if (messageObj.type === 'location') {
+      return {
+        type: 'location',
+        text: messageObj.text,
+        timestamp: msg.timestamp,
+        senderDeviceId: msg.senderDeviceId,
+        direction: msg.direction,
+        conversationMessageId: msg.conversationMessageId,
+        longitude: messageObj.longitude,
+        latitude: messageObj.latitude
+      }
+    } else if (messageObj.type === 'route') {
+      return {
+        type: 'route',
+        text: messageObj.text || 'Shared a route with you',
+        timestamp: msg.timestamp,
+        senderDeviceId: msg.senderDeviceId,
+        direction: msg.direction,
+        conversationMessageId: msg.conversationMessageId,
+        routeId: messageObj.routeId,
+        routeName: messageObj.routeName
       }
     }
     throw new Error('Unknown message type');
@@ -229,4 +267,47 @@ export class ChatPage implements OnInit, OnDestroy {
     }
     return false;
   }
+
+  markerOptions = {
+    icon: icon({
+      ...Icon.Default.prototype.options,
+      iconUrl: 'assets/marker-icon.png',
+      iconRetinaUrl: 'assets/marker-icon-2x.png',
+      shadowUrl: 'assets/marker-shadow.png'
+    })
+  };
+
+  getLocationLayers(latitude: number, longitude: number): Layer[] {
+    return [marker(latLng(latitude, longitude), this.markerOptions)];
+  }
+
+  getLocationCenter(latitude: number, longitude: number): LatLng {
+    return latLng(latitude, longitude);
+  }
+
+
+  setFriendNameByEmail(email: string) {
+    const myEmail = this.authService.getUserEmail();
+
+    this.friendService.getFriends().subscribe({
+      next: (friendships) => {
+        const friendship = friendships.find(f =>
+          f.sender.email === email || f.receiver.email === email
+        );
+
+        const friend =
+          !friendship ? undefined :
+            friendship.sender.email !== myEmail ? friendship.sender : friendship.receiver;
+
+        this.friendName = friend
+          ? `${friend.firstName} ${friend.lastName}`
+          : 'Unknown user';
+      },
+      error: (err) => {
+        console.error('getFriends failed', err);
+        this.friendName = 'Unknown user';
+      }
+    });
+  }
+
 }
