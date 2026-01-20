@@ -73,7 +73,7 @@ public class RouteEndpointTest {
         viewRoute.setId(1L);
         viewRoute.setName("Test Route");
 
-        when(routeService.getRoute(1L)).thenReturn(viewRoute);
+        when(routeService.getRoute(1L, "test@test.com")).thenReturn(viewRoute);
 
         mockMvc.perform(get("/api/v1/route/1"))
                 .andExpect(status().isOk())

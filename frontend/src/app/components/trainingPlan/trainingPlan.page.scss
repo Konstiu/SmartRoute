@@ -58,6 +58,23 @@ ion-list {
   }
 }
 
+/* Collapsed card */
+.map-card {
+  position: relative;
+  height: 20rem;
+  overflow: hidden;
+}
+
+/* FAB positioning */
+.map-fab {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2000;
+}
+
+
+
 
 .action-block {
   display: flex;

@@ -76,6 +76,8 @@ class PushNotificationServiceTest {
     private ApplicationUser testUser;
     private SubscriptionDto webSubscriptionDto;
     private NativeSubscriptionDto nativeSubscriptionDto;
+    @Autowired
+    private FriendshipRepository friendshipRepository;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -90,6 +92,7 @@ class PushNotificationServiceTest {
         injuryRepository.deleteAll();
         stravaAccountRepository.deleteAll();
         subscriptionRepository.deleteAll();
+        friendshipRepository.deleteAll();
         userRepository.deleteAll();
 
         // Create and save test user
