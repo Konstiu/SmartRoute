@@ -9,6 +9,7 @@ import com.smartroute.smartroute1.endpoint.mapper.PolyLineMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.service.OpenRouteServiceService;
 import com.smartroute.smartroute1.service.RouteService;
+import com.smartroute.smartroute1.service.UserService;
 import com.smartroute.smartroute1.service.impl.CustomUserDetailService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,10 +45,10 @@ public class RouteEndpoint {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private final OpenRouteServiceService openRouteServiceService;
     private final RouteService routeService;
-    private final CustomUserDetailService customUserDetailService;
+    private final UserService customUserDetailService;
     private final PolyLineMapper polyLineMapper;
 
-    public RouteEndpoint(OpenRouteServiceService openRouteServiceService, RouteService routeService, CustomUserDetailService customUserDetailService, PolyLineMapper polyLineMapper) {
+    public RouteEndpoint(OpenRouteServiceService openRouteServiceService, RouteService routeService, UserService customUserDetailService, PolyLineMapper polyLineMapper) {
         this.openRouteServiceService = openRouteServiceService;
         this.routeService = routeService;
         this.customUserDetailService = customUserDetailService;
@@ -61,9 +62,23 @@ public class RouteEndpoint {
         List<GeoJsonPosition> coordinates = new ArrayList<>();
         coordinates.add(new GeoJsonPosition(latitude, longitude, null));
         GeoJsonDto route = openRouteServiceService.generateRoundTrip(coordinates, (int) length, 7, 0);
+
+        var geom = route.getFeatures().getFirst().getGeometry();
+        var props = route.getFeatures().getFirst().getProperties();
+
+        // assuming geom.getCoordinates() returns List<GeoJsonPosition> (lat/lon/alt already mapped)
+        List<List<Double>> coordinates3d = geom.getCoordinates().stream()
+                .map(p -> List.of(
+                        p.getLatitude(),
+                        p.getLongitude(),
+                        p.getAltitude() // may be null
+                ))
+                .toList();
+
         return "{\"bbox\":" + route.getBbox()
                 + ",\"polyline\":\"" + polyLineMapper.geoJsonGeometryLineStringToPolyline(route.getFeatures().getFirst().getGeometry()).replace("\\", "\\\\") + "\""
-                + ",\"distance\":" + route.getFeatures().getFirst().getProperties().getDistance() * 1000
+                + ",\"coordinates3d\":" + coordinates3d
+                + ",\"distance\":" + route.getFeatures().getFirst().getProperties().getDistance()
                 + ",\"elevation\":" + route.getFeatures().getFirst().getProperties().getAscent() + "}";
     }
 
