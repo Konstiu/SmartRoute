@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -99,6 +100,20 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
 
     List<Activity> findAllByUserAndStartDateBetweenOrderByStartDateAsc(ApplicationUser user, Instant start, Instant end);
 
+    @Query("""
+            select a
+            from Activity a
+            where a.user = :user
+              and a.type = 'Run'
+              and a.startDate between :start and :end
+            order by a.startDate asc
+        """)
+    List<Activity> findRunsInPeriod(
+            @Param("user") ApplicationUser user,
+            @Param("start") Instant start,
+            @Param("end") Instant end
+    );
+
     List<Activity> findAllByUserOrderByStartDateAsc(ApplicationUser user);
 
     List<Activity> findAllByUserOrderByStartDateDesc(ApplicationUser user);
@@ -119,9 +134,9 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     List<Activity> findByUserOrderByStartDateDesc(ApplicationUser user, Pageable pageable);
 
     Optional<Activity> findTopByUserAndWorkoutTypeInAndStartDateBeforeOrderByStartDateDesc(
-        ApplicationUser user,
-        List<WorkoutType> workoutTypes,
-        Instant startDate
+            ApplicationUser user,
+            List<WorkoutType> workoutTypes,
+            Instant startDate
     );
 
     void deleteAllByUser(ApplicationUser user);

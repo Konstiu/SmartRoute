@@ -1,0 +1,86 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/friends"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{ friendName }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding" #content>
+  <div class="chat-container">
+    <!-- Messages list -->
+    <div class="messages-list">
+      @for (message of messages; track message.conversationMessageId) {
+        <div class="message-wrapper"
+             [ngClass]="message.direction === 'sent' ? 'own-message' : 'friend-message'">
+          <div class="message-bubble">
+            @if (message.type === 'text') {
+              <div class="message-text">{{ message.text }}</div>
+            } @else if (message.type === 'location') {
+              <div class="message-location">
+                <div class="location-text">{{ message.text }}</div>
+                <div class="location-map">
+                  <app-map
+                    [layers]="getLocationLayers(message.latitude!, message.longitude!)"
+                    [center]="getLocationCenter(message.latitude!, message.longitude!)"
+                    [zoom]="15"
+                  ></app-map>
+                </div>
+              </div>
+            } @else if (message.type === 'route') {
+              <div class="message-route">
+                <ion-icon name="map-outline" class="route-icon"></ion-icon>
+                <div class="route-info">
+                  <div class="route-name">{{ message.routeName }}</div>
+                  <div class="route-text">{{ message.text }}</div>
+                </div>
+                <ion-button
+                  size="small"
+                  fill="outline"
+                  [class.sent-btn]="message.direction === 'sent'"
+                  [class.received-btn]="message.direction === 'received'"
+                  [routerLink]="['/tabs/route', message.routeId]">
+                  <ion-icon slot="start" name="arrow-forward"></ion-icon>
+                  View
+                </ion-button>
+              </div>
+            }
+            <div class="message-meta">
+              <!--small class="device-id">Device: {{ message.senderDeviceId }}</small-->
+              <span class="message-timestamp">{{ formatTime(message.timestamp) }}</span>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Device info (optional - can be hidden or shown on demand) -->
+    <div class="device-info" *ngIf="showDeviceInfo">
+      <p><strong>Your device:</strong> {{ myDeviceId }}</p>
+      <p><strong>Friend's devices:</strong> {{ friendDevices.join(', ') }}</p>
+    </div>
+  </div>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <div class="input-container">
+      <ion-input
+        [(ngModel)]="messageText"
+        placeholder="Type a message..."
+        class="message-input"
+        maxlength="500"
+        (keydown.enter)="sendMessage()"
+      ></ion-input>
+      <span class="char-counter">{{ messageText?.length || 0 }}/500</span>
+      <ion-button
+        (click)="sendMessage()"
+        [disabled]="!messageText.trim()"
+        class="send-button"
+      >
+        <ion-icon slot="icon-only" name="send"></ion-icon>
+      </ion-button>
+    </div>
+  </ion-toolbar>
+</ion-footer>

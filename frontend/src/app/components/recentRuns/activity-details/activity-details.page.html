@@ -27,18 +27,19 @@
   <!-- Content - only show when NOT loading and activity exists -->
   @if (!isLoading && activity) {
     <!-- Map -->
-    @if (activity.summaryPolyline) {
+    @if (activity.summaryPolyline && mapLayers.length > 0) {
       <div class="map-container">
-        <div #map id="map"></div>
+        <app-map [layers]="mapLayers"></app-map>
       </div>
     }
 
         <!-- Stats Container-->
         <div class="stats-container" *ngIf="activity">
             <!-- Header card with name + date -->
-            <ion-card>
+            <ion-card class="rounded-card">
                 <ion-card-header>
-                    <ion-card-title>
+                  <ion-toolbar>
+                    <ion-title>
                       {{ activity.name }}
                       @if (activity.runClassification?.runType) {
                         <ion-chip
@@ -47,15 +48,33 @@
                           {{ runTypeLabel[activity.runClassification!.runType] }}
                         </ion-chip>
                       }
-                    </ion-card-title>
-                    <ion-card-subtitle>
-                        {{ activity.sportType }} • {{ formatDate(activity.startDateLocal) }}
-                    </ion-card-subtitle>
+                      <ion-card-subtitle>
+                        {{ activity.sportType }} · {{ formatDate(activity.startDateLocal) }}
+                      </ion-card-subtitle>
+                    </ion-title>
+                    @if (activity.summaryPolyline) {
+                      <ion-buttons slot="end">
+                        <ion-button
+                          size="small"
+                          fill="clear"
+                          class="favorite-btn"
+                          [class.saved]="isRouteSaved"
+                          (click)="saveRoute()"
+                        >
+                          <ion-icon
+                            slot="icon-only"
+                            [name]="isRouteSaved ? 'heart' : 'heart-outline'">
+                          </ion-icon>
+                        </ion-button>
+                      </ion-buttons>
+                    }
+                  </ion-toolbar>
                 </ion-card-header>
             </ion-card>
 
+
       <!-- Overview: key metrics -->
-      <ion-card>
+      <ion-card  class="rounded-card">
         <ion-card-header>
           <ion-card-title>Overview</ion-card-title>
         </ion-card-header>
@@ -101,7 +120,7 @@
       </ion-card>
 
       <!-- Details: everything else -->
-      <ion-card>
+      <ion-card  class="rounded-card">
         <ion-card-header>
           <ion-card-title>Details</ion-card-title>
         </ion-card-header>

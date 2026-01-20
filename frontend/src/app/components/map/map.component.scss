@@ -1,0 +1,16 @@
+:host {
+  display: block;
+  height: 100%;
+}
+
+.leaflet-host {
+  height: 100%;
+  width: 100%;
+  position: relative;
+  z-index: 1; // IMPORTANT
+}
+
+/* Optional: keep tiles below overlays */
+.leaflet-container {
+  z-index: 1;
+}

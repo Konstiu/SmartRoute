@@ -1,10 +1,15 @@
-import {Component, OnInit, AfterViewInit, ViewChild, ElementRef} from '@angular/core';
+import {Component, OnInit, ViewChild, inject, ChangeDetectorRef} from '@angular/core';
 import {ActivatedRoute} from '@angular/router';
 import {IonicModule, ModalController} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../../services/activities.service';
 import {Activity, DetailedActivity} from '../../../dtos/Activity';
 import * as L from 'leaflet';
+import {decodePolyline, encodePolyline} from "../../../util/polyline-encode-decode";
+import {SaveRouteDto} from "../../../dtos/recommended-activity";
+import {RouteService} from "../../../../services/route.service";
+import {Layer, polyline} from 'leaflet';
+import {MapComponent} from '../../../components/map/map.component';
 import {RunTypeLabel} from "../../../dtos/run-classification";
 import {ChangeClassificationComponent} from "../change-classification/change-classification.component";
 
@@ -13,20 +18,24 @@ import {ChangeClassificationComponent} from "../change-classification/change-cla
   templateUrl: './activity-details.page.html',
   styleUrls: ['./activity-details.page.scss'],
   standalone: true,
-  imports: [IonicModule, CommonModule]
+  imports: [IonicModule, CommonModule, MapComponent]
 })
-export class ActivityDetailPage implements OnInit, AfterViewInit {
-  @ViewChild('map', {static: false}) mapElement!: ElementRef;
-
+export class ActivityDetailPage implements OnInit {
   activity: DetailedActivity | null = null;
   isLoading = true;
   error: string | null = null;
   map: L.Map | null = null;
+  isRouteSaved = false;
+  private routeService = inject(RouteService);
+  mapLayers: Layer[] = [];
+  routePolyline: any = null;
+  @ViewChild(MapComponent) mapComponent!: MapComponent;
 
   constructor(
     private route: ActivatedRoute,
     private stravaService: ActivitiesService,
     private modalController: ModalController,
+    private cdr: ChangeDetectorRef
   ) {
   }
 
@@ -37,29 +46,59 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
     }
   }
 
-  ngAfterViewInit() {
-    // Wait a bit for the view to be ready and check if element exists
-    setTimeout(() => {
-      if (this.mapElement && this.mapElement.nativeElement) {
-        this.initMap();
-      } else {
-        console.warn('Map element not ready, retrying...');
-        setTimeout(() => this.initMap(), 500);
-      }
-    }, 100);
+  onMapReady(map: any) {
+    // Fit bounds to route if we have one
+    if (this.routePolyline) {
+      setTimeout(() => {
+        const bounds = this.routePolyline.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, {padding: [50, 50]});
+        }
+      }, 200);
+    }
   }
 
   loadActivity(id: number) {
     this.isLoading = true;
+
+
     this.stravaService.getActivityById(id).subscribe({
       next: (data) => {
         this.activity = data;
+        // Create polyline layer from activity data
+        if (this.activity?.summaryPolyline) {
+          const coordinates = this.decodePolyline(this.activity.summaryPolyline);
+          if (coordinates.length > 0) {
+            this.routePolyline = polyline(coordinates, {
+              color: '#FC4C02',
+              weight: 3,
+              opacity: 0.8,
+              lineJoin: 'round'
+            });
+            this.mapLayers = [this.routePolyline];
+            // Fit bounds after map is ready
+            setTimeout(() => {
+              if (this.mapComponent?.map) {
+                const bounds = this.routePolyline.getBounds();
+                if (bounds.isValid()) {
+                  this.mapComponent.map.fitBounds(bounds, {padding: [50, 50]});
+                }
+              }
+            }, 300);
+          } else {
+            console.warn('No coordinates decoded');
+          }
+        } else {
+          console.warn('No summary polyline in activity');
+        }
         this.isLoading = false;
+        this.cdr.detectChanges(); // Trigger change detection
       },
       error: (err) => {
         console.error('Error fetching activity:', err);
         this.error = 'Failed to load activity details.';
         this.isLoading = false;
+        this.cdr.detectChanges();
       }
     });
   }
@@ -120,7 +159,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
       return;
     }
 
-    const coordinates = this.decodePolyline(polyline);
+    const coordinates = decodePolyline(polyline);
 
     if (coordinates.length > 0) {
       allCoordinates.push(...coordinates);
@@ -142,9 +181,8 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
     }
   }
 
-  // Polyline decoding algorithm (Google's encoded polyline format)
-  decodePolyline(encoded: string): L.LatLng[] {
-    const points: L.LatLng[] = [];
+  decodePolyline(encoded: string): [number, number][] {
+    const points: [number, number][] = [];
     let index = 0;
     const len = encoded.length;
     let lat = 0;
@@ -154,7 +192,6 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
       let b: number;
       let shift = 0;
       let result = 0;
-
       do {
         b = encoded.charCodeAt(index++) - 63;
         result |= (b & 0x1f) << shift;
@@ -175,8 +212,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
 
       const dlng = ((result & 1) !== 0 ? ~(result >> 1) : (result >> 1));
       lng += dlng;
-
-      points.push(L.latLng(lat / 1e5, lng / 1e5));
+      points.push([lat / 1e5, lng / 1e5]);
     }
 
     return points;
@@ -196,11 +232,10 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
 
   formatPace(averageSpeed: number): string {
     if (averageSpeed <= 0) return "0:00";
-    const paceInKmh = averageSpeed * 3.6; // Convert m/s to km/h
+    const paceInKmh = averageSpeed * 3.6;
     const paceInMinutesPerKm = 60 / paceInKmh;
     let minutes = Math.floor(paceInMinutesPerKm);
     let seconds = Math.round((paceInMinutesPerKm - minutes) * 60);
-    // Handle edge case where seconds round up to 60
     if (seconds === 60) {
       minutes += 1;
       seconds = 0;
@@ -230,7 +265,7 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
     const timeString = date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false // Use 24-hour format, change to true for 12-hour format
+      hour12: false
     });
 
     if (diffDays === 1) return `Today at ${timeString}`;
@@ -247,4 +282,40 @@ export class ActivityDetailPage implements OnInit, AfterViewInit {
   }
 
   protected readonly runTypeLabel = RunTypeLabel;
+
+  saveRoute() {
+    if (this.isRouteSaved) {
+      return;
+    }
+
+    if (this.isLoading) {
+      console.warn('Acitivity hasnt been loaded yet');
+      return;
+    }
+    // Convert Leaflet LatLng objects to [lat, lng] for polyline encoding
+    //const encodedRoute = encodePolyline(this.latlngs);
+
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString("en-US", {day: "2-digit", month: "short", year: "numeric"}); // "09 Jan 2026"
+    const name = `Activity, ${formattedDate}`;  //TODO: Rename it with Runtype Classification when branches are merged
+
+    const dto: SaveRouteDto = {
+      name: name,
+      distance: this.activity?.distance ?? 0,
+      pace: this.activity?.movingTime ?? 0,
+      elevation: this.activity?.totalElevationGain ?? 0,
+      route: this.activity?.summaryPolyline ?? ''
+    };
+    this.routeService.saveRoute(dto).subscribe({
+      next: () => {
+        console.log('Route saved successfully');
+        this.isRouteSaved = true;
+      },
+      error: err => {
+        console.error('Failed to save route', err);
+      }
+    });
+
+
+  }
 }

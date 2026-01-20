@@ -4,6 +4,7 @@ import com.smartroute.smartroute1.endpoint.dto.StravaStreamDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.AthleteZone;
+import com.smartroute.smartroute1.entity.enums.Sex;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.AthleteZoneRepository;
 import com.smartroute.smartroute1.service.FitnessScoreService;
@@ -180,12 +181,22 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
         return getTimeInZonesFromData(heartRates, timeStamps, zones);
     }
 
+    /*
+    Approximates the max heart rate for a user based on their age.
+    Returns the maximum of the highest recorded hr in an activity and the estimated max hr (Tanaka formula - lowest mean absolute error in compared formulas:
+    https://journals.viamedica.pl/folia_cardiologica/article/view/FC.2022.0057/69749#:~:text=The%20most%20commonly%20used%20formula%20for%20estimating,HRmax%20remains%20direct%20measurement%20during%20maximal%20exertion.)
+     */
     private int approximateMaxHr(ApplicationUser user) {
         int age = user.getBirthdate() != null ? Period.between(
-                user.getBirthdate(),
-                LocalDate.now()
+            user.getBirthdate(),
+            LocalDate.now()
         ).getYears() : 30;
-        return 220 - age;
+
+        int maxRecordedHr = (int) Math.round(activityRepository.getActivitiesByUser(user).stream().mapToDouble(
+            a -> a.getMaxHeartrate() == null ? -1.0 : a.getMaxHeartrate()
+        ).max().orElse(-1.0));
+
+        return Math.max(Math.round(208 - .7f * age), maxRecordedHr);
     }
 
     // Helper method to calculate time in zones from heart rate and time data

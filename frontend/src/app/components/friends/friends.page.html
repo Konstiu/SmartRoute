@@ -17,12 +17,12 @@
   <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
-  
+
   <div class="friends-container">
     @if (outgoingRequests.length > 0) {
       <h3 class="section-title">Pending Requests</h3>
       @for (request of outgoingRequests; track $index) {
-        <ion-card class="friend-card">
+        <ion-card class="friend-card rounded-card">
           <ion-item lines="none">
             <ion-avatar slot="start" class="friend-avatar">
               <ion-icon name="person-circle" size="large"></ion-icon>
@@ -43,7 +43,7 @@
     @if (incomingRequests.length > 0) {
       <h3 class="section-title">Incoming Requests</h3>
       @for (request of incomingRequests; track $index) {
-        <ion-card class="friend-card">
+        <ion-card class="friend-card rounded-card">
           <ion-item lines="none">
             <ion-avatar slot="start" class="friend-avatar">
               <ion-icon name="person-circle" size="large"></ion-icon>
@@ -65,7 +65,7 @@
     }
 
     @if (getFriendsDto().length === 0) {
-      <ion-card>
+      <ion-card class="rounded-card">
         <ion-card-content class="ion-text-center">
           <h2>No friends yet</h2>
           <p class="muted">You don't have any friends added. Add friends to see them here.</p>
@@ -73,7 +73,7 @@
       </ion-card>
     } @else {
       @for (f of getFriendsDto(); track $index) {
-        <ion-card class="friend-card">
+        <ion-card class="friend-card rounded-card">
           <ion-item lines="none">
             <ion-avatar slot="start" class="friend-avatar">
               <ion-icon name="person-circle" size="large"></ion-icon>
@@ -82,6 +82,9 @@
               <div class="friend-name">{{ f.firstName }} {{ f.lastName }}</div>
               <div class="friend-email">{{ f.email }}</div>
             </ion-label>
+            <ion-button slot="end" fill="clear" (click)="startConversationWithFriend(f)">
+              <ion-icon slot="icon-only" name="chatbubble-ellipses-outline"></ion-icon>
+            </ion-button>
             <ion-button slot="end" fill="clear" [id]="'menu-trigger-' + $index">
               <ion-icon slot="icon-only" name="ellipsis-vertical"></ion-icon>
             </ion-button>
@@ -99,5 +102,10 @@
         </ion-card>
       }
     }
+    <!--ion-fab slot="fixed" vertical="bottom" horizontal="end">
+      <ion-fab-button color="danger" (click)="alertFriends()">
+        <ion-icon name="alert"></ion-icon>
+      </ion-fab-button>
+    </ion-fab-->
   </div>
 </ion-content>

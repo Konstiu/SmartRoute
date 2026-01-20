@@ -4,8 +4,10 @@ package com.smartroute.smartroute1.unittest;
 import com.smartroute.smartroute1.endpoint.dto.ConsistencyScoreResultDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.ConsistencyScore;
 import com.smartroute.smartroute1.exception.CannotCalculateConsistencyScoreException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
+import com.smartroute.smartroute1.repository.ConsistencyRepository;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import com.smartroute.smartroute1.service.impl.ConsistencyAnalyzerServiceImpl;
 import org.junit.jupiter.api.Assertions;
@@ -18,6 +20,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ActiveProfiles({"test", "generateData"})
@@ -26,11 +29,16 @@ public class ConsistencyAnalyzerTest {
     private final ApplicationUser user = new ApplicationUser();
     private ActivityRepository repository;
     private ConsistencyAnalyzerService service;
+    private ConsistencyRepository consistencyRepository;
 
     @BeforeEach
     void setUp() {
         repository = Mockito.mock(ActivityRepository.class);
-        service = new ConsistencyAnalyzerServiceImpl(repository);
+        consistencyRepository = Mockito.mock(ConsistencyRepository.class);
+        service = new ConsistencyAnalyzerServiceImpl(repository, consistencyRepository);
+
+
+        when(consistencyRepository.save(any())).thenReturn(new ConsistencyScore());
     }
 
     private Activity activity(String isoTime) {
