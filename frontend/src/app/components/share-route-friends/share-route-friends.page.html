@@ -1,0 +1,72 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Share Route</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">Cancel</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div class="modal-content">
+    <div class="route-preview">
+      <ion-icon name="map-outline"></ion-icon>
+      <div>
+        <h3>{{ routeName }}</h3>
+        <p>Select friends to share with</p>
+      </div>
+    </div>
+
+    <!-- Search bar -->
+    <ion-searchbar
+      [(ngModel)]="searchText"
+      placeholder="Search friends..."
+      (ionInput)="filterFriends()"
+    ></ion-searchbar>
+
+    <!-- Friends list with checkboxes -->
+    <ion-list>
+      @if (isLoading) {
+        <div class="loading-container">
+          <ion-spinner></ion-spinner>
+        </div>
+      }
+
+      @for (friend of filteredFriends; track friend.email) {
+        <ion-item>
+          <ion-checkbox
+            slot="start"
+            [(ngModel)]="friend.selected"
+          ></ion-checkbox>
+          <ion-label>
+            <h2>{{ friend.firstName }} {{ friend.lastName }}</h2>
+            <p>{{ friend.email }}</p>
+          </ion-label>
+        </ion-item>
+      }
+
+      @if (!isLoading && filteredFriends.length === 0) {
+        <div class="empty-state">
+          <ion-icon name="people-outline"></ion-icon>
+          <p>No friends found</p>
+        </div>
+      }
+    </ion-list>
+  </div>
+</ion-content>
+
+<ion-footer>
+  <ion-toolbar>
+    <ion-button
+      expand="block"
+      [disabled]="selectedCount === 0 || isSending"
+      (click)="shareWithSelected()"
+    >
+      @if (isSending) {
+        <ion-spinner name="crescent"></ion-spinner>
+      } @else {
+        Share with {{ selectedCount }} friend{{ selectedCount !== 1 ? 's' : '' }}
+      }
+    </ion-button>
+  </ion-toolbar>
+</ion-footer>

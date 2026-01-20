@@ -13,6 +13,8 @@ export class MapComponent implements OnInit, AfterViewInit {
 
   @Input() showLocation = false;
   @Input() layers: Layer[] = [];
+  @Input() zoom: number = 10;
+  @Input() center: LatLng = latLng(48.2081693881957, 16.3738174047985);
   @Input() interactive = true;
   @Input() addPointMode = false;
 
@@ -28,8 +30,6 @@ export class MapComponent implements OnInit, AfterViewInit {
   private locationEmitted = false;
   private defaultViewApplied = false;
 
-  zoom = 10;
-  center = latLng(48.2081693881957, 16.3738174047985); // Vienna
 
   constructor(private zone: NgZone) {}
 
