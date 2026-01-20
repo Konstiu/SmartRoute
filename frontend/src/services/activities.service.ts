@@ -1,8 +1,7 @@
 import {inject, Injectable} from '@angular/core';
-import {HttpClient} from '@angular/common/http';
 import {Observable, Subject} from 'rxjs';
 import {HttpClient, HttpHeaders} from '@angular/common/http';
-import {catchError, map, Observable, of, throwError} from 'rxjs';
+import {catchError, map, of, throwError} from 'rxjs';
 import {DetailedActivity, Activity} from '../app/dtos/Activity';
 import {Globals} from "../global/globals";
 import {RunClassificationDto, RunType} from "../app/dtos/run-classification";

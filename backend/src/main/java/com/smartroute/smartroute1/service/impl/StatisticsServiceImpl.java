@@ -8,6 +8,7 @@ import com.smartroute.smartroute1.endpoint.dto.statistics.GymHistoryDto;
 import com.smartroute.smartroute1.endpoint.dto.statistics.InjuryHistoryDto;
 import com.smartroute.smartroute1.endpoint.dto.statistics.RunHistoryDto;
 import com.smartroute.smartroute1.endpoint.mapper.InjuryMapper;
+import com.smartroute.smartroute1.endpoint.mapper.RunClassificationMapper;
 import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
@@ -53,13 +54,14 @@ public class StatisticsServiceImpl implements StatisticsService {
     );
     private final InjuryMapper injuryMapper;
     private final StravaActivityMapper stravaActivityMapper;
+    private final RunClassificationMapper runClassificationMapper;
     private int numberOfDaysInYear;     //For checking leap years
 
     public StatisticsServiceImpl(FatigueAndOverloadService fatigueAndOverloadService,
                                  ConsistencyAnalyzerService consistencyAnalyzerService,
                                  ActivityRepository activityRepository,
                                  GymWorkoutRepository gymWorkoutRepository,
-                                 InjuryRepository injuryRepository, InjuryMapper injuryMapper, StravaActivityMapper stravaActivityMapper) {
+                                 InjuryRepository injuryRepository, InjuryMapper injuryMapper, StravaActivityMapper stravaActivityMapper, RunClassificationMapper runClassificationMapper) {
         this.fatigueAndOverloadService = fatigueAndOverloadService;
         this.consistencyAnalyzerService = consistencyAnalyzerService;
         this.activityRepository = activityRepository;
@@ -71,6 +73,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         }
         this.injuryMapper = injuryMapper;
         this.stravaActivityMapper = stravaActivityMapper;
+        this.runClassificationMapper = runClassificationMapper;
     }
 
 
@@ -91,7 +94,7 @@ public class StatisticsServiceImpl implements StatisticsService {
         double time = runs.stream().mapToDouble(Activity::getElapsedTime).sum();
         int numberOfRuns = runs.size();
         List<DetailedActivityDto> activityDtos = runs.stream()
-                .map(stravaActivityMapper::toDetailedViewDto)
+                .map((Activity entity) -> stravaActivityMapper.toDetailedViewDto(entity, runClassificationMapper.entityToDto(entity.getRunTypeClassification())))
                 .toList();
         return new RunHistoryDto(numberOfRuns, time, distance, activityDtos);
     }

@@ -122,35 +122,6 @@ export class ActivityDetailPage implements OnInit {
     }
   }
 
-  initMap() {
-    if (!this.mapElement || !this.mapElement.nativeElement) {
-      console.error('Map element not found');
-      return;
-    }
-
-    try {
-      // Initialize the map
-      this.map = L.map(this.mapElement.nativeElement, {
-        attributionControl: true
-      }).setView([55.609818, 13.003286], 13);
-
-      this.map.attributionControl.setPrefix(''); // Remove "Leaflet" prefix
-
-      // Add tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 18,
-        //attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> | Data from <a href="https://www.strava.com">Strava</a>'
-      }).addTo(this.map);
-
-      // Decode and add polylines
-      if (this.activity) {
-        this.addEncodedRoutes(this.activity.summaryPolyline);
-      }
-    } catch (error) {
-      console.error('Error initializing map:', error);
-    }
-  }
-
   addEncodedRoutes(polyline: string | null) {
     if (!this.map) return;
 
