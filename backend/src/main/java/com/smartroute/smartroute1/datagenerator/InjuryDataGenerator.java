@@ -189,10 +189,10 @@ public class InjuryDataGenerator {
         for (InjuryPeriod period : periods) {
             Injuries injury = new Injuries();
             injury.setApplicationUser(user);
-            injury.setAffectedArea(period.getBodyPart());
-            injury.setLastHealthyDate(period.getStart());
-            injury.setLastInjuryDate(period.getEnd()); // can be null for active injuries
-            injury.setInjuryIndex(period.getInjuryIndex());
+            injury.setAffectedArea(period.bodyPart());
+            injury.setLastHealthyDate(period.start());
+            injury.setLastInjuryDate(period.end()); // can be null for active injuries
+            injury.setInjuryIndex(period.injuryIndex());
             injuryRepository.save(injury);
         }
     }
