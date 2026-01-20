@@ -11,7 +11,6 @@ import com.smartroute.smartroute1.service.FitnessScoreService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.actuate.integration.IntegrationGraphEndpoint;
 import org.springframework.stereotype.Service;
 
 import java.lang.invoke.MethodHandles;
@@ -20,7 +19,6 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -157,12 +155,12 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
         return Math.round(trimp);
     }
 
-    private Map<Integer, Float> calculateTimeInZones(List<StravaStreamDto> stravaStreams, ApplicationUser user) {
+    @Override
+    public Map<Integer, Float> calculateTimeInZones(List<StravaStreamDto> stravaStreams, ApplicationUser user) {
         LOGGER.trace("calculateTimeInZones({}, {})", stravaStreams, user);
 
         // Find all zones for the athlete and fall back to zone calculation if missing
-        int maxHr = approximateMaxHr(user);
-        List<AthleteZone> zones = getUserTimeZonesOrFallbackToApproximation(user, maxHr);
+        List<AthleteZone> zones = getUserTimeZonesOrFallbackToApproximation(user, approximateMaxHr(user));
 
         // Get data
         StravaStreamDto heartRateStream = stravaStreams.stream().filter(s -> Objects.equals(s.getType(), "heartrate")).findFirst().orElseThrow();
@@ -174,7 +172,8 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
         return getTimeInZonesFromData(heartRateData, timeData, zones);
     }
 
-    private Map<Integer, Float> calculateTimeInZones(List<Float> heartRates, List<Float> timeStamps, ApplicationUser user) {
+    @Override
+    public Map<Integer, Float> calculateTimeInZones(List<Float> heartRates, List<Float> timeStamps, ApplicationUser user) {
         LOGGER.trace("calculateTimeInZones({}, {}, {})", heartRates, timeStamps, user);
         // Find all zones for the athlete and fall back to zone calculation if missing
         List<AthleteZone> zones = getUserTimeZonesOrFallbackToApproximation(user, approximateMaxHr(user));
@@ -203,6 +202,11 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
     // Helper method to calculate time in zones from heart rate and time data
     private Map<Integer, Float> getTimeInZonesFromData(List<Float> heartRates, List<Float> timeStamps, List<AthleteZone> zones) {
         Map<Integer, Float> timeInZonesMap = new HashMap<>();
+        // initialize empty zones
+        for (int i = 1; i <= 5; i++) {
+            timeInZonesMap.put(i, 0f);
+        }
+
         for (int i = 0; i < heartRates.size() - 1; i++) {
             float hr = heartRates.get(i);
             float timeCurrent = timeStamps.get(i);
