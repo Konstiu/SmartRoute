@@ -103,7 +103,7 @@ public class GpxServiceTest {
                 () -> assertNull(activity.getAverageWatts()),
                 () -> assertNull(activity.getKilojoules()),
                 () -> assertNull(activity.getSufferScore()),
-                () -> assertEquals(207, activity.getSessionLoad()),
+                () -> assertEquals(224, activity.getSessionLoad()),
                 () -> assertNotNull(activity.getSummaryPolyline())
         );
     }

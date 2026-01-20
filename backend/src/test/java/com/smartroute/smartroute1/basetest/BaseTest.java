@@ -63,6 +63,8 @@ public class BaseTest {
     private FriendshipRepository friendshipRepository;
     @Autowired
     private ActivityStreamRepository activityStreamRepository;
+    @Autowired
+    private ConsistencyRepository consistencyRepository;
 
     @BeforeEach
     void setUp() {
@@ -97,6 +99,7 @@ public class BaseTest {
         stravaAccountRepository.deleteAllInBatch();
         injuryRepository.deleteAllInBatch();
         friendshipRepository.deleteAllInBatch();
+        consistencyRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
         stravaAccountRepository.deleteAll();
         userRepository.deleteAll();
