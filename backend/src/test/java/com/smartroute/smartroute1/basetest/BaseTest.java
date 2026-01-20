@@ -79,6 +79,7 @@ public class BaseTest {
         userDataGenerator.generateUser();
         stravaAccountDataGenerator.generateAccounts();
         injuryDataGenerator.generateInjuries();
+        friendshipRepository.deleteAllInBatch();
 
     }
 
