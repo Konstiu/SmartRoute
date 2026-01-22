@@ -1,0 +1,17 @@
+services:
+  julia-planner:
+    build:
+      context: ./julia-planner
+    ports:
+      - "8081:8081"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.base
+    environment:
+      - PLANNER_JULIA_BASE_URL=http://julia-planner:8081
+    ports:
+      - "8080:8080"
+    depends_on:
+      - julia-planner
