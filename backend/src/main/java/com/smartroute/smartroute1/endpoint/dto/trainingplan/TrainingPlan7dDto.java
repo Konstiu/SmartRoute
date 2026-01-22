@@ -20,8 +20,8 @@ public class TrainingPlan7dDto {
     public TrainingPlan7dDto(List<PlannedDayDto> days) {
         this.days = days;
         this.debug = null;
-        String planId = null;
-        Instant generatedAt;
-        AthleteStatusDto currentAthleteStatus;
+        this.planId = null;
+        this.generatedAt = null;
+        this.currentAthleteStatus = null;
     }
 }
