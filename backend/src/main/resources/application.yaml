@@ -82,3 +82,9 @@ server:
 app:
   baseUrl: "https://25ws-ase-pr-inso-05.apps.student.inso-w.at"
   frontendUrl: "https://25ws-ase-pr-inso-05.apps.student.inso-w.at"
+
+
+planner:
+  julia:
+    base-url: ${PLANNER_JULIA_BASE_URL:http://localhost:8081}
+
