@@ -1,419 +1,679 @@
-//package com.smartroute.smartroute1.unittest;
-//
-//import com.smartroute.smartroute1.endpoint.dto.DeviceKeysDto;
-//import com.smartroute.smartroute1.endpoint.dto.MessageDetailDto;
-//import com.smartroute.smartroute1.endpoint.dto.OneTimePreKeyDto;
-//import com.smartroute.smartroute1.entity.ApplicationUser;
-//import com.smartroute.smartroute1.entity.Friendship;
-//import com.smartroute.smartroute1.entity.Message;
-//import com.smartroute.smartroute1.entity.PreKey;
-//import com.smartroute.smartroute1.entity.enums.FriendshipStatus;
-//import com.smartroute.smartroute1.exception.NotFoundException;
-//import com.smartroute.smartroute1.exception.ValidationException;
-//import com.smartroute.smartroute1.repository.FriendshipRepository;
-//import com.smartroute.smartroute1.repository.MessageRepository;
-//import com.smartroute.smartroute1.repository.PreKeyRepository;
-//import com.smartroute.smartroute1.repository.UserRepository;
-//import com.smartroute.smartroute1.service.CommunicationService;
-//import jakarta.transaction.Transactional;
-//import org.junit.jupiter.api.Test;
-//import org.springframework.beans.factory.annotation.Autowired;
-//import org.springframework.boot.test.context.SpringBootTest;
-//import org.springframework.test.context.ActiveProfiles;
-//import org.springframework.security.access.AccessDeniedException;
-//
-//import java.time.Instant;
-//import java.util.List;
-//import java.util.UUID;
-//
-//import static org.junit.jupiter.api.Assertions.*;
-//
-//@SpringBootTest
-//@ActiveProfiles({"test", "generateData"})
-//@Transactional
-//class CommunicationServiceTest {
-//
-//    @Autowired
-//    private CommunicationService communicationService;
-//
-//    @Autowired
-//    private UserRepository userRepository;
-//
-//    @Autowired
-//    private PreKeyRepository preKeyRepository;
-//
-//    @Autowired
-//    private FriendshipRepository friendshipRepository;
-//
-//    @Autowired
-//    private MessageRepository messageRepository;
-//
-//    @Test
-//    void uploadIdentityKey_withExistingUser_shouldSetPublicKeyAndReturnUser() {
-//        // arrange
-//        ApplicationUser user = new ApplicationUser("commtest@example.com", "pw", "Comm", "Test");
-//        userRepository.save(user);
-//
-//        String publicKey = "PUBLIC_KEY_ABC123";
-//        String publicDHKey = "PUBLIC_DH_KEY_XYZ789";
-//
-//        // act
-//        ApplicationUser updated = communicationService.uploadIdentityKey(user.getEmail(), publicKey, publicDHKey);
-//
-//        // assert
-//        assertAll("updated and persisted user",
-//            () -> assertNotNull(updated),
-//            () -> assertEquals(user.getEmail(), updated.getEmail()),
-//            () -> assertEquals(publicKey, updated.getPublicIdentityKey())
-//        );
-//
-//        // verify persisted
-//        ApplicationUser fromDb = userRepository.findUserByEmail(user.getEmail());
-//        assertAll("from DB",
-//            () -> assertNotNull(fromDb),
-//            () -> assertEquals(publicKey, fromDb.getPublicIdentityKey())
-//        );
-//    }
-//
-//    @Test
-//    void uploadIdentityKey_withNonExistingUser_shouldThrowNotFoundException() {
-//        assertThrows(NotFoundException.class, () -> communicationService.uploadIdentityKey("unknown@example.com", "KEY", "DHKEY"));
-//    }
-//
-//    @Test
-//    void uploadSignedPreKey_withExistingUser_shouldSetPreKeyAndSignatureAndReturnUser() {
-//        // arrange
-//        ApplicationUser user = new ApplicationUser("prekeytest@example.com", "pw", "Pre", "Key");
-//        userRepository.save(user);
-//
-//        String publicPreKey = "PRE_KEY_123";
-//        String signature = "SIG_ABC";
-//
-//        // act
-//        ApplicationUser updated = communicationService.uploadSignedPreKey(user.getEmail(), publicPreKey, signature);
-//
-//        // assert
-//        assertAll("updated signed prekey",
-//            () -> assertNotNull(updated),
-//            () -> assertEquals(user.getEmail(), updated.getEmail()),
-//            () -> assertEquals(publicPreKey, updated.getPublicPreKey()),
-//            () -> assertEquals(signature, updated.getPreKeySignature())
-//        );
-//
-//        // verify persisted
-//        ApplicationUser fromDb = userRepository.findUserByEmail(user.getEmail());
-//        assertAll("from DB signed prekey",
-//            () -> assertNotNull(fromDb),
-//            () -> assertEquals(publicPreKey, fromDb.getPublicPreKey()),
-//            () -> assertEquals(signature, fromDb.getPreKeySignature())
-//        );
-//    }
-//
-//    @Test
-//    void uploadSignedPreKey_withNonExistingUser_shouldThrowNotFoundException() {
-//        assertThrows(NotFoundException.class,
-//                () -> communicationService.uploadSignedPreKey("doesnotexist@example.com", "PRE", "SIG"));
-//    }
-//
-//
-//    @Test
-//    void uploadOneTimePreKeys_withNewKeys_shouldPersistPreKeys() {
-//        // arrange
-//        ApplicationUser user = new ApplicationUser("otp_user@example.com", "pw", "OT", "P");
-//        userRepository.save(user);
-//
-//        OneTimePreKeyDto dto1 = new OneTimePreKeyDto();
-//        dto1.setUuid(UUID.randomUUID());
-//        dto1.setPublicKey("ONE_KEY_1");
-//
-//        OneTimePreKeyDto dto2 = new OneTimePreKeyDto();
-//        dto2.setUuid(UUID.randomUUID());
-//        dto2.setPublicKey("ONE_KEY_2");
-//
-//        // act
-//        communicationService.uploadOneTimePreKeys(user.getEmail(), List.of(dto1, dto2));
-//
-//        // assert
-//        ApplicationUser fromDb = userRepository.findUserByEmail(user.getEmail());
-//        assertAll("from DB prekeys",
-//            () -> assertEquals(2, preKeyRepository.countByUserId(user.getId()), "Two pre-keys should have been persisted"),
-//            () -> assertNotNull(fromDb),
-//            () -> assertEquals(2, fromDb.getOneTimePreKeys().size())
-//        );
-//    }
-//
-//    @Test
-//    void uploadOneTimePreKeys_skipsExistingUuid_and_doesNotDuplicate() {
-//        // arrange
-//        ApplicationUser user = new ApplicationUser("otp_existing@example.com", "pw", "OT", "P");
-//        userRepository.save(user);
-//
-//        UUID existingUuid = UUID.randomUUID();
-//        PreKey existing = new PreKey();
-//        existing.setUuid(existingUuid);
-//        existing.setPublicKey("EXISTING_KEY");
-//        existing.setUser(user);
-//        preKeyRepository.save(existing);
-//
-//        OneTimePreKeyDto dto1 = new OneTimePreKeyDto();
-//        dto1.setUuid(existingUuid);
-//        dto1.setPublicKey("ONE_KEY_SHOULD_BE_SKIPPED");
-//
-//        OneTimePreKeyDto dto2 = new OneTimePreKeyDto();
-//        dto2.setUuid(UUID.randomUUID());
-//        dto2.setPublicKey("ONE_KEY_NEW");
-//
-//        // act
-//        communicationService.uploadOneTimePreKeys(user.getEmail(), List.of(dto1, dto2));
-//
-//        // assert
-//        long count = preKeyRepository.countByUserId(user.getId());
-//        assertEquals(2, count, "Only the new pre-key should be added in addition to the existing one");
-//    }
-//
-//    @Test
-//    void countOneTimePreKeys_returnsCorrectNumber() {
-//        // arrange
-//        ApplicationUser user = new ApplicationUser("count_user@example.com", "pw", "Count", "Test");
-//        userRepository.save(user);
-//
-//        PreKey p1 = new PreKey();
-//        p1.setUuid(UUID.randomUUID());
-//        p1.setPublicKey("C1");
-//        p1.setUser(user);
-//        preKeyRepository.save(p1);
-//
-//        PreKey p2 = new PreKey();
-//        p2.setUuid(UUID.randomUUID());
-//        p2.setPublicKey("C2");
-//        p2.setUser(user);
-//        preKeyRepository.save(p2);
-//
-//        // act
-//        long count = communicationService.countOneTimePreKeys(user.getEmail());
-//
-//        // assert
-//        assertEquals(2, count);
-//    }
-//
-//    @Test
-//    void getKeysOfFriend_whenNotFriends_shouldThrowAccessDenied() {
-//        ApplicationUser user = new ApplicationUser("userA@example.com", "pw", "User", "A");
-//        ApplicationUser friend = new ApplicationUser("friendB@example.com", "pw", "Friend", "B");
-//        userRepository.save(user);
-//        userRepository.save(friend);
-//
-//        assertThrows(AccessDeniedException.class,
-//            () -> communicationService.getKeysOfFriend(friend.getEmail(), user.getEmail()));
-//    }
-//
-//    @Test
-//    void getKeysOfFriend_whenFriends_andNoPreKey_shouldReturnKeysDtoWithNullOneTimePreKey() {
-//        // arrange
-//        ApplicationUser user = new ApplicationUser("userC@example.com", "pw", "User", "C");
-//        ApplicationUser friend = new ApplicationUser("friendD@example.com", "pw", "Friend", "D");
-//        userRepository.save(user);
-//        userRepository.save(friend);
-//
-//        Friendship f = new Friendship();
-//        f.setSender(user);
-//        f.setReceiver(friend);
-//        f.setStatus(FriendshipStatus.ACCEPTED);
-//        friendshipRepository.save(f);
-//
-//        // set friend's keys
-//        friend.setPublicIdentityKey("IDENTITY_KEY_D");
-//        friend.setPublicPreKey("SIGNED_PREKEY_D");
-//        friend.setPreKeySignature("SIGNATURE_D");
-//        userRepository.save(friend);
-//
-//        // act
-//        DeviceKeysDto keys = communicationService.getKeysOfFriend(friend.getEmail(), user.getEmail());
-//
-//        // assert
-//        assertAll("keys content",
-//            () -> assertNotNull(keys),
-//            () -> assertEquals("IDENTITY_KEY_D", keys.getIdentityKey()),
-//            () -> assertEquals("SIGNED_PREKEY_D", keys.getSignedPreKey()),
-//            () -> assertEquals("SIGNATURE_D", keys.getSignedPreKeySignature()),
-//            () -> assertNull(keys.getOneTimePreKey(), "No one-time pre-key should be returned")
-//        );
-//    }
-//
-//    @Test
-//    void getKeysOfFriend_withOneTimePreKey_returnsKeyAndDeletesIt() {
-//        // arrange
-//        ApplicationUser user = new ApplicationUser("userE@example.com", "pw", "User", "E");
-//        ApplicationUser friend = new ApplicationUser("friendF@example.com", "pw", "Friend", "F");
-//        userRepository.save(user);
-//        userRepository.save(friend);
-//
-//        Friendship f = new Friendship();
-//        f.setSender(user);
-//        f.setReceiver(friend);
-//        f.setStatus(FriendshipStatus.ACCEPTED);
-//        friendshipRepository.save(f);
-//
-//        // set friend's keys
-//        friend.setPublicIdentityKey("IDENTITY_KEY_F");
-//        friend.setPublicPreKey("SIGNED_PREKEY_F");
-//        friend.setPreKeySignature("SIGNATURE_F");
-//        userRepository.save(friend);
-//
-//        PreKey preKey = new PreKey();
-//        preKey.setUuid(UUID.randomUUID());
-//        preKey.setPublicKey("ONE_TIME_F");
-//        preKey.setUser(friend);
-//        preKeyRepository.save(preKey);
-//
-//        // act
-//        DeviceKeysDto keys = communicationService.getKeysOfFriend(friend.getEmail(), user.getEmail());
-//
-//        // assert
-//        assertAll("keys and cleanup",
-//            () -> assertNotNull(keys),
-//            () -> assertEquals("ONE_TIME_F", keys.getOneTimePreKey().getPublicKey()),
-//            () -> assertEquals(0, preKeyRepository.countByUserId(friend.getId()), "One-time pre-key should have been deleted after retrieval")
-//        );
-//    }
-//
-//    @Test
-//    void sendEncryptedMessage_whenNotFriends_shouldThrowAccessDenied() {
-//        ApplicationUser sender = new ApplicationUser("sender1@example.com", "pw", "S", "One");
-//        ApplicationUser recipient = new ApplicationUser("recipient1@example.com", "pw", "R", "One");
-//        userRepository.save(sender);
-//        userRepository.save(recipient);
-//
-//        MessageDetailDto dto = new MessageDetailDto();
-//        dto.setSenderEmail(sender.getEmail());
-//        dto.setRecipientEmail(recipient.getEmail());
-//        dto.setEncryptedMessage(null);
-//
-//        assertThrows(AccessDeniedException.class,
-//                () -> communicationService.sendEncryptedMessage(sender.getEmail(), dto));
-//    }
-//
-//    @Test
-//    void sendEncryptedMessage_whenFriendsAndInvalid_shouldThrowValidationException() {
-//        ApplicationUser sender = new ApplicationUser("sender2@example.com", "pw", "S", "Two");
-//        ApplicationUser recipient = new ApplicationUser("recipient2@example.com", "pw", "R", "Two");
-//        userRepository.save(sender);
-//        userRepository.save(recipient);
-//
-//        Friendship f = new Friendship();
-//        f.setSender(sender);
-//        f.setReceiver(recipient);
-//        f.setStatus(FriendshipStatus.ACCEPTED);
-//        friendshipRepository.save(f);
-//
-//        MessageDetailDto dto = new MessageDetailDto();
-//        dto.setSenderEmail(sender.getEmail());
-//        dto.setRecipientEmail(recipient.getEmail());
-//        dto.setEncryptedMessage(null);
-//
-//        assertThrows(ValidationException.class,
-//                () -> communicationService.sendEncryptedMessage(sender.getEmail(), dto));
-//    }
-//
-//    @Test
-//    void sendEncryptedMessage_whenFriendsAndValid_shouldPersistAllFields() throws com.smartroute.smartroute1.exception.ValidationException {
-//        ApplicationUser sender = new ApplicationUser("sender3@example.com", "pw", "S", "Three");
-//        ApplicationUser recipient = new ApplicationUser("recipient3@example.com", "pw", "R", "Three");
-//        userRepository.save(sender);
-//        userRepository.save(recipient);
-//
-//        Friendship f = new Friendship();
-//        f.setSender(sender);
-//        f.setReceiver(recipient);
-//        f.setStatus(FriendshipStatus.ACCEPTED);
-//        friendshipRepository.save(f);
-//
-//        // build full DTO
-//        MessageDetailDto dto = new MessageDetailDto();
-//        dto.setSenderEmail(sender.getEmail());
-//        dto.setRecipientEmail(recipient.getEmail());
-//        dto.setSenderIdentityKey("SENDER_IDENTITY_KEY");
-//        dto.setSenderEphemeralKey("SENDER_EPHEMERAL_KEY");
-//        UUID usedPreKey = UUID.randomUUID();
-//        dto.setUsedOneTimePreKeyId(usedPreKey);
-//
-//        com.smartroute.smartroute1.endpoint.dto.EncryptedMessageDto enc = new com.smartroute.smartroute1.endpoint.dto.EncryptedMessageDto();
-//        enc.setCiphertext("CIPHERTEXT_ABC");
-//        enc.setNonce("NONCE_123");
-//        enc.setMessageNumber(42L);
-//        enc.setRatchetPublicKey("RATCHET_KEY_XYZ");
-//        dto.setEncryptedMessage(enc);
-//
-//        Message saved = communicationService.sendEncryptedMessage(sender.getEmail(), dto);
-//
-//        assertAll("saved message",
-//            () -> assertNotNull(saved, "Saved message should not be null"),
-//            () -> assertEquals(sender.getEmail(), saved.getSender().getEmail()),
-//            () -> assertEquals(recipient.getEmail(), saved.getRecipient().getEmail()),
-//            () -> assertEquals(dto.getSenderIdentityKey(), saved.getSenderIdentityKey()),
-//            () -> assertEquals(dto.getSenderEphemeralKey(), saved.getSenderEphemeralKey()),
-//            () -> assertEquals(dto.getUsedOneTimePreKeyId(), saved.getUsedOneTimePreKeyId()),
-//            () -> assertNotNull(saved.getCiphertext()),
-//            () -> assertEquals(enc.getCiphertext(), saved.getCiphertext()),
-//            () -> assertEquals(enc.getNonce(), saved.getNonce()),
-//            () -> assertEquals(enc.getMessageNumber(), saved.getMessageNumber()),
-//            () -> assertEquals(enc.getRatchetPublicKey(), saved.getRatchetPublicKey())
-//        );
-//    }
-//
-//    @Test
-//    void retrieveMessagesByFriendAndTimestamp_whenNotFriends_shouldThrowAccessDenied() {
-//        ApplicationUser user = new ApplicationUser("rm_user@example.com", "pw", "R", "One");
-//        ApplicationUser friend = new ApplicationUser("rm_friend@example.com", "pw", "R", "Friend");
-//        userRepository.save(user);
-//        userRepository.save(friend);
-//
-//        Instant since = Instant.now().minusSeconds(3600);
-//
-//        assertThrows(AccessDeniedException.class,
-//                () -> communicationService.retrieveMessagesByFriendAndTimestamp(user.getEmail(), friend.getEmail(), since));
-//    }
-//
-//    @Test
-//    void retrieveMessagesByFriendAndTimestamp_whenFriends_returnsMessagesSinceTimestamp() throws InterruptedException {
-//        ApplicationUser user = new ApplicationUser("rm_user2@example.com", "pw", "R", "Two");
-//        ApplicationUser friend = new ApplicationUser("rm_friend2@example.com", "pw", "R", "Friend2");
-//        userRepository.save(user);
-//        userRepository.save(friend);
-//
-//        Friendship f = new Friendship();
-//        f.setSender(user);
-//        f.setReceiver(friend);
-//        f.setStatus(FriendshipStatus.ACCEPTED);
-//        friendshipRepository.save(f);
-//
-//        Message mOld = new Message();
-//        mOld.setSender(user);
-//        mOld.setRecipient(friend);
-//        mOld.setCiphertext("OLD");
-//        messageRepository.save(mOld);
-//
-//        Thread.sleep(1000); // ensure timestamp difference
-//
-//        Message mNew = new Message();
-//        mNew.setSender(friend);
-//        mNew.setRecipient(user);
-//        mNew.setCiphertext("NEW");
-//        messageRepository.save(mNew);
-//
-//        messageRepository.flush();
-//
-//        Message persistedOld = messageRepository.findById(mOld.getId()).orElseThrow();
-//        Instant base = persistedOld.getTimestamp().plusMillis(100); // slightly after old message
-//
-//        // retrieve messages since 'base'
-//        var results = communicationService.retrieveMessagesByFriendAndTimestamp(user.getEmail(), friend.getEmail(), base);
-//
-//        assertAll("results",
-//            () -> assertNotNull(results),
-//            () -> assertEquals(1, results.size(), "Only the message with timestamp > base should be returned"),
-//            () -> assertEquals("NEW", results.getFirst().getCiphertext())
-//        );
-//    }
-//
-//}
+package com.smartroute.smartroute1.unittest;
+
+import com.smartroute.smartroute1.basetest.BaseTest;
+import com.smartroute.smartroute1.endpoint.dto.DeviceKeysDto;
+import com.smartroute.smartroute1.endpoint.dto.EncryptedMessageDto;
+import com.smartroute.smartroute1.endpoint.dto.FriendDeviceBundlesDto;
+import com.smartroute.smartroute1.endpoint.dto.MessageDetailDto;
+import com.smartroute.smartroute1.endpoint.dto.OneTimePreKeyDto;
+import com.smartroute.smartroute1.endpoint.mapper.MessageMapper;
+import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.Message;
+import com.smartroute.smartroute1.entity.PreKey;
+import com.smartroute.smartroute1.entity.UserDevice;
+import com.smartroute.smartroute1.exception.ValidationException;
+import com.smartroute.smartroute1.repository.DeviceRepository;
+import com.smartroute.smartroute1.repository.MessageRepository;
+import com.smartroute.smartroute1.repository.PreKeyRepository;
+import com.smartroute.smartroute1.repository.UserRepository;
+import com.smartroute.smartroute1.service.FriendshipService;
+import com.smartroute.smartroute1.service.UserService;
+import com.smartroute.smartroute1.service.impl.CommunicationServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
+
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
+
+
+@ExtendWith(MockitoExtension.class)
+class CommunicationServiceTest {
+
+    @Mock
+    private UserService userService;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private PreKeyRepository preKeyRepository;
+
+    @Mock
+    private FriendshipService friendshipService;
+
+    @Mock
+    private MessageRepository messageRepository;
+
+    @Mock
+    private MessageMapper messageMapper;
+
+    @Mock
+    private DeviceRepository deviceRepository;
+
+    @InjectMocks
+    private CommunicationServiceImpl communicationService;
+
+    private ApplicationUser testUser;
+    private ApplicationUser friendUser;
+    private UserDevice testDevice;
+    private UserDevice friendDevice;
+
+    @BeforeEach
+    void setUp() {
+        testUser = new ApplicationUser();
+        testUser.setId(1L);
+        testUser.setEmail("test@example.com");
+
+        friendUser = new ApplicationUser();
+        friendUser.setId(2L);
+        friendUser.setEmail("friend@example.com");
+
+        testDevice = new UserDevice();
+        testDevice.setId(1L);
+        testDevice.setUser(testUser);
+        testDevice.setDeviceId("device123");
+        testDevice.setPublicIdentityKey("identityKey");
+        testDevice.setPublicIdentityDhKey("dhKey");
+        testDevice.setPublicPreKey("preKey");
+        testDevice.setPreKeySignature("signature");
+
+        friendDevice = new UserDevice();
+        friendDevice.setId(2L);
+        friendDevice.setUser(friendUser);
+        friendDevice.setDeviceId("friendDevice123");
+        friendDevice.setPublicIdentityKey("friendIdentityKey");
+        friendDevice.setPublicIdentityDhKey("friendDhKey");
+        friendDevice.setPublicPreKey("friendPreKey");
+        friendDevice.setPreKeySignature("friendSignature");
+    }
+
+    // ==================== uploadIdentityKey Tests ====================
+
+    @Test
+    void uploadIdentityKey_newDevice_createsAndSavesDevice() {
+        // Given
+        String deviceId = "newDevice";
+        String publicKey = "newPublicKey";
+        String publicDhKey = "newDhKey";
+
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, deviceId)).thenReturn(Optional.empty());
+        when(deviceRepository.save(any(UserDevice.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // When
+        ApplicationUser result = communicationService.uploadIdentityKey("test@example.com", deviceId, publicKey, publicDhKey);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(testUser, result);
+        verify(deviceRepository).save(argThat(device ->
+            device.getDeviceId().equals(deviceId) &&
+            device.getPublicIdentityKey().equals(publicKey) &&
+            device.getPublicIdentityDhKey().equals(publicDhKey) &&
+            device.getUser().equals(testUser)
+        ));
+    }
+
+    @Test
+    void uploadIdentityKey_existingDevice_updatesDevice() {
+        // Given
+        String publicKey = "updatedPublicKey";
+        String publicDhKey = "updatedDhKey";
+
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, "device123")).thenReturn(Optional.of(testDevice));
+        when(deviceRepository.save(any(UserDevice.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // When
+        ApplicationUser result = communicationService.uploadIdentityKey("test@example.com", "device123", publicKey, publicDhKey);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(publicKey, testDevice.getPublicIdentityKey());
+        assertEquals(publicDhKey, testDevice.getPublicIdentityDhKey());
+        verify(deviceRepository).save(testDevice);
+    }
+
+    // ==================== uploadSignedPreKey Tests ====================
+
+    @Test
+    void uploadSignedPreKey_validDevice_updatesPreKey() throws ValidationException {
+        // Given
+        String publicPreKey = "newPreKey";
+        String signature = "newSignature";
+
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, "device123")).thenReturn(Optional.of(testDevice));
+        when(deviceRepository.save(any(UserDevice.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // When
+        ApplicationUser result = communicationService.uploadSignedPreKey("test@example.com", publicPreKey, signature, "device123");
+
+        // Then
+        assertNotNull(result);
+        assertEquals(publicPreKey, testDevice.getPublicPreKey());
+        assertEquals(signature, testDevice.getPreKeySignature());
+        verify(deviceRepository).save(testDevice);
+    }
+
+    @Test
+    void uploadSignedPreKey_unknownDevice_throwsValidationException() {
+        // Given
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, "unknownDevice")).thenReturn(Optional.empty());
+
+        // When & Then
+        ValidationException exception = assertThrows(ValidationException.class, () ->
+            communicationService.uploadSignedPreKey("test@example.com", "preKey", "signature", "unknownDevice")
+        );
+        assertEquals("Unknown device", exception.getMessage());
+        verify(deviceRepository, never()).save(any());
+    }
+
+    // ==================== uploadOneTimePreKeys Tests ====================
+
+    @Test
+    void uploadOneTimePreKeys_nullKeys_returnsEarlyWithoutSaving() throws ValidationException {
+        // Given
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+
+        // When
+        communicationService.uploadOneTimePreKeys("test@example.com", "device123", null);
+
+        // Then
+        verify(deviceRepository, never()).findByUserAndDeviceId(any(), any());
+        verify(preKeyRepository, never()).save(any());
+    }
+
+    @Test
+    void uploadOneTimePreKeys_emptyKeys_returnsEarlyWithoutSaving() throws ValidationException {
+        // Given
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+
+        // When
+        communicationService.uploadOneTimePreKeys("test@example.com", "device123", new ArrayList<>());
+
+        // Then
+        verify(deviceRepository, never()).findByUserAndDeviceId(any(), any());
+        verify(preKeyRepository, never()).save(any());
+    }
+
+    @Test
+    void uploadOneTimePreKeys_validKeys_savesAllKeys() throws ValidationException {
+        // Given
+        OneTimePreKeyDto key1 = new OneTimePreKeyDto();
+        key1.setUuid(UUID.randomUUID());
+        key1.setPublicKey("key1");
+
+        OneTimePreKeyDto key2 = new OneTimePreKeyDto();
+        key2.setUuid(UUID.randomUUID());
+        key2.setPublicKey("key2");
+
+        List<OneTimePreKeyDto> keys = List.of(key1, key2);
+
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, "device123")).thenReturn(Optional.of(testDevice));
+        when(preKeyRepository.countByDevice_Id(testDevice.getId())).thenReturn(0L);
+        when(preKeyRepository.existsByDevice_IdAndUuid(anyLong(), any(UUID.class))).thenReturn(false);
+        when(preKeyRepository.save(any(PreKey.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // When
+        communicationService.uploadOneTimePreKeys("test@example.com", "device123", keys);
+
+        // Then
+        verify(preKeyRepository, times(2)).save(argThat(preKey ->
+            preKey.getDevice().equals(testDevice)
+        ));
+    }
+
+    @Test
+    void uploadOneTimePreKeys_atMaxCapacity_doesNotSaveAnyKeys() throws ValidationException {
+        // Given
+        OneTimePreKeyDto key = new OneTimePreKeyDto();
+        key.setUuid(UUID.randomUUID());
+        key.setPublicKey("key1");
+
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, "device123")).thenReturn(Optional.of(testDevice));
+        when(preKeyRepository.countByDevice_Id(testDevice.getId())).thenReturn(150L); // MAX_ONE_TIME_PRE_KEYS
+
+        // When
+        communicationService.uploadOneTimePreKeys("test@example.com", "device123", List.of(key));
+
+        // Then
+        verify(preKeyRepository, never()).save(any());
+    }
+
+    @Test
+    void uploadOneTimePreKeys_partialCapacity_savesOnlyWhatFits() throws ValidationException {
+        // Given
+        List<OneTimePreKeyDto> keys = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            OneTimePreKeyDto key = new OneTimePreKeyDto();
+            key.setUuid(UUID.randomUUID());
+            key.setPublicKey("key" + i);
+            keys.add(key);
+        }
+
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, "device123")).thenReturn(Optional.of(testDevice));
+        when(preKeyRepository.countByDevice_Id(testDevice.getId())).thenReturn(145L); // 5 slots available
+        when(preKeyRepository.existsByDevice_IdAndUuid(anyLong(), any(UUID.class))).thenReturn(false);
+        when(preKeyRepository.save(any(PreKey.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // When
+        communicationService.uploadOneTimePreKeys("test@example.com", "device123", keys);
+
+        // Then
+        verify(preKeyRepository, times(5)).save(any(PreKey.class)); // Only 5 saved, not 10
+    }
+
+    @Test
+    void uploadOneTimePreKeys_duplicateUuid_skipsKey() throws ValidationException {
+        // Given
+        UUID duplicateUuid = UUID.randomUUID();
+        OneTimePreKeyDto key1 = new OneTimePreKeyDto();
+        key1.setUuid(duplicateUuid);
+        key1.setPublicKey("key1");
+
+        OneTimePreKeyDto key2 = new OneTimePreKeyDto();
+        key2.setUuid(UUID.randomUUID());
+        key2.setPublicKey("key2");
+
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, "device123")).thenReturn(Optional.of(testDevice));
+        when(preKeyRepository.countByDevice_Id(testDevice.getId())).thenReturn(0L);
+        when(preKeyRepository.existsByDevice_IdAndUuid(testDevice.getId(), duplicateUuid)).thenReturn(true);
+        when(preKeyRepository.existsByDevice_IdAndUuid(eq(testDevice.getId()), argThat(uuid -> !uuid.equals(duplicateUuid)))).thenReturn(false);
+        when(preKeyRepository.save(any(PreKey.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // When
+        communicationService.uploadOneTimePreKeys("test@example.com", "device123", List.of(key1, key2));
+
+        // Then
+        verify(preKeyRepository, times(1)).save(argThat(preKey ->
+            preKey.getPublicKey().equals("key2")
+        ));
+    }
+
+    @Test
+    void uploadOneTimePreKeys_unknownDevice_throwsValidationException() {
+        // Given
+        OneTimePreKeyDto key = new OneTimePreKeyDto();
+        key.setUuid(UUID.randomUUID());
+        key.setPublicKey("key1");
+
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, "unknownDevice")).thenReturn(Optional.empty());
+
+        // When & Then
+        ValidationException exception = assertThrows(ValidationException.class, () ->
+            communicationService.uploadOneTimePreKeys("test@example.com", "unknownDevice", List.of(key))
+        );
+        assertEquals("Unknown device", exception.getMessage());
+        verify(preKeyRepository, never()).save(any());
+    }
+
+    // ==================== countOneTimePreKeys Tests ====================
+
+    @Test
+    void countOneTimePreKeys_validDevice_returnsCount() throws ValidationException {
+        // Given
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, "device123")).thenReturn(Optional.of(testDevice));
+        when(preKeyRepository.countByDevice_Id(testDevice.getId())).thenReturn(42L);
+
+        // When
+        long count = communicationService.countOneTimePreKeys("test@example.com", "device123");
+
+        // Then
+        assertEquals(42L, count);
+        verify(preKeyRepository).countByDevice_Id(testDevice.getId());
+    }
+
+    @Test
+    void countOneTimePreKeys_unknownDevice_throwsValidationException() {
+        // Given
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, "unknownDevice")).thenReturn(Optional.empty());
+
+        // When & Then
+        ValidationException exception = assertThrows(ValidationException.class, () ->
+            communicationService.countOneTimePreKeys("test@example.com", "unknownDevice")
+        );
+        assertEquals("Unknown device", exception.getMessage());
+    }
+
+    // ==================== getKeysOfFriendAllDevices Tests ====================
+
+    @Test
+    void getKeysOfFriendAllDevices_notFriends_throwsAccessDeniedException() {
+        // Given
+        when(friendshipService.areFriends("test@example.com", "friend@example.com")).thenReturn(false);
+
+        // When & Then
+        assertThrows(AccessDeniedException.class, () ->
+            communicationService.getKeysOfFriendAllDevices("friend@example.com", "test@example.com")
+        );
+        verify(userService, never()).findApplicationUserByEmail(any());
+    }
+
+    @Test
+    void getKeysOfFriendAllDevices_friends_returnsAllDeviceKeys() {
+        // Given
+        when(friendshipService.areFriends("test@example.com", "friend@example.com")).thenReturn(true);
+        when(userService.findApplicationUserByEmail("friend@example.com")).thenReturn(friendUser);
+        when(deviceRepository.findAllByUser(friendUser)).thenReturn(List.of(friendDevice));
+        when(preKeyRepository.findFirstByDevice_IdOrderByIdAsc(friendDevice.getId())).thenReturn(null);
+
+        // When
+        FriendDeviceBundlesDto result = communicationService.getKeysOfFriendAllDevices("friend@example.com", "test@example.com");
+
+        // Then
+        assertNotNull(result);
+        assertNotNull(result.getDevices());
+        assertEquals(1, result.getDevices().size());
+        DeviceKeysDto deviceKeys = result.getDevices().get(0);
+        assertEquals("friendDevice123", deviceKeys.getDeviceId());
+        assertEquals("friendIdentityKey", deviceKeys.getIdentityKey());
+        assertEquals("friendDhKey", deviceKeys.getIdentityDhKey());
+        assertEquals("friendPreKey", deviceKeys.getSignedPreKey());
+        assertEquals("friendSignature", deviceKeys.getSignedPreKeySignature());
+        assertNull(deviceKeys.getOneTimePreKey());
+    }
+
+    @Test
+    void getKeysOfFriendAllDevices_withOneTimePreKey_returnsKeyAndDeletesIt() {
+        // Given
+        PreKey oneTimePreKey = new PreKey();
+        oneTimePreKey.setId(1L);
+        oneTimePreKey.setUuid(UUID.randomUUID());
+        oneTimePreKey.setPublicKey("oneTimeKey");
+        oneTimePreKey.setDevice(friendDevice);
+
+        when(friendshipService.areFriends("test@example.com", "friend@example.com")).thenReturn(true);
+        when(userService.findApplicationUserByEmail("friend@example.com")).thenReturn(friendUser);
+        when(deviceRepository.findAllByUser(friendUser)).thenReturn(List.of(friendDevice));
+        when(preKeyRepository.findFirstByDevice_IdOrderByIdAsc(friendDevice.getId())).thenReturn(oneTimePreKey);
+
+        // When
+        FriendDeviceBundlesDto result = communicationService.getKeysOfFriendAllDevices("friend@example.com", "test@example.com");
+
+        // Then
+        assertNotNull(result);
+        assertEquals(1, result.getDevices().size());
+        DeviceKeysDto deviceKeys = result.getDevices().get(0);
+        assertNotNull(deviceKeys.getOneTimePreKey());
+        assertEquals("oneTimeKey", deviceKeys.getOneTimePreKey().getPublicKey());
+        verify(preKeyRepository).delete(oneTimePreKey);
+    }
+
+    // ==================== getKeysOfAllMyDevices Tests ====================
+
+    @Test
+    void getKeysOfAllMyDevices_returnsAllMyDevices() {
+        // Given
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findAllByUser(testUser)).thenReturn(List.of(testDevice));
+        when(preKeyRepository.findFirstByDevice_IdOrderByIdAsc(testDevice.getId())).thenReturn(null);
+
+        // When
+        FriendDeviceBundlesDto result = communicationService.getKeysOfAllMyDevices("test@example.com");
+
+        // Then
+        assertNotNull(result);
+        assertNotNull(result.getDevices());
+        assertEquals(1, result.getDevices().size());
+        assertEquals("device123", result.getDevices().get(0).getDeviceId());
+    }
+
+    // ==================== sendEncryptedMessage Tests ====================
+
+    @Test
+    void sendEncryptedMessage_notFriends_throwsAccessDeniedException() {
+        // Given
+        MessageDetailDto dto = createValidMessageDto("friend@example.com");
+
+        when(friendshipService.areFriends("test@example.com", "friend@example.com")).thenReturn(false);
+
+        // When & Then
+        assertThrows(AccessDeniedException.class, () ->
+            communicationService.sendEncryptedMessage("test@example.com", dto)
+        );
+        verify(messageRepository, never()).save(any());
+    }
+
+    @Test
+    void sendEncryptedMessage_invalidDto_throwsValidationException() {
+        // Given
+        MessageDetailDto dto = new MessageDetailDto();
+        dto.setRecipientEmail("friend@example.com");
+        dto.setEncryptedMessage(null); // Invalid - missing encrypted message
+
+        when(friendshipService.areFriends("test@example.com", "friend@example.com")).thenReturn(true);
+
+        // When & Then
+        assertThrows(ValidationException.class, () ->
+            communicationService.sendEncryptedMessage("test@example.com", dto)
+        );
+    }
+
+    @Test
+    void sendEncryptedMessage_unknownSenderDevice_throwsValidationException() {
+        // Given
+        MessageDetailDto dto = createValidMessageDto("friend@example.com");
+
+        when(friendshipService.areFriends("test@example.com", "friend@example.com")).thenReturn(true);
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(userService.findApplicationUserByEmail("friend@example.com")).thenReturn(friendUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, dto.getSenderDeviceId())).thenReturn(Optional.empty());
+
+        // When & Then
+        ValidationException exception = assertThrows(ValidationException.class, () ->
+            communicationService.sendEncryptedMessage("test@example.com", dto)
+        );
+        assertEquals("Unknown sender device", exception.getMessage());
+    }
+
+    @Test
+    void sendEncryptedMessage_unknownRecipientDevice_throwsValidationException() {
+        // Given
+        MessageDetailDto dto = createValidMessageDto("friend@example.com");
+
+        when(friendshipService.areFriends("test@example.com", "friend@example.com")).thenReturn(true);
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(userService.findApplicationUserByEmail("friend@example.com")).thenReturn(friendUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, dto.getSenderDeviceId())).thenReturn(Optional.of(testDevice));
+        when(deviceRepository.findByUserAndDeviceId(friendUser, dto.getRecipientDeviceId())).thenReturn(Optional.empty());
+
+        // When & Then
+        ValidationException exception = assertThrows(ValidationException.class, () ->
+            communicationService.sendEncryptedMessage("test@example.com", dto)
+        );
+        assertEquals("Unknown recipient device", exception.getMessage());
+    }
+
+    @Test
+    void sendEncryptedMessage_validMessage_savesAndReturnsMessage() throws ValidationException {
+        // Given
+        MessageDetailDto dto = createValidMessageDto("friend@example.com");
+        Message mappedMessage = new Message();
+        Message savedMessage = new Message();
+        savedMessage.setId(1L);
+
+        when(friendshipService.areFriends("test@example.com", "friend@example.com")).thenReturn(true);
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(userService.findApplicationUserByEmail("friend@example.com")).thenReturn(friendUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, dto.getSenderDeviceId())).thenReturn(Optional.of(testDevice));
+        when(deviceRepository.findByUserAndDeviceId(friendUser, dto.getRecipientDeviceId())).thenReturn(Optional.of(friendDevice));
+        when(messageMapper.messageDetailDtoToEntity(dto, testUser, friendUser)).thenReturn(mappedMessage);
+        when(messageRepository.save(mappedMessage)).thenReturn(savedMessage);
+
+        // When
+        Message result = communicationService.sendEncryptedMessage("test@example.com", dto);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(savedMessage, result);
+        assertEquals("device123", mappedMessage.getSenderDeviceId());
+        assertEquals("friendDevice123", mappedMessage.getRecipientDeviceId());
+        verify(messageRepository).save(mappedMessage);
+    }
+
+    // ==================== sendEncryptedMessageToMyDevices Tests ====================
+
+    @Test
+    void sendEncryptedMessageToMyDevices_validMessage_savesMessage() throws ValidationException {
+        // Given
+        MessageDetailDto dto = createValidMessageDto("test@example.com"); // Sending to self
+        dto.setRecipientDeviceId("device456"); // Different device
+
+        UserDevice anotherDevice = new UserDevice();
+        anotherDevice.setDeviceId("device456");
+        anotherDevice.setUser(testUser);
+
+        Message mappedMessage = new Message();
+        Message savedMessage = new Message();
+
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, dto.getSenderDeviceId())).thenReturn(Optional.of(testDevice));
+        when(deviceRepository.findByUserAndDeviceId(testUser, dto.getRecipientDeviceId())).thenReturn(Optional.of(anotherDevice));
+        when(messageMapper.messageDetailDtoToEntity(dto, testUser, testUser)).thenReturn(mappedMessage);
+        when(messageRepository.save(mappedMessage)).thenReturn(savedMessage);
+
+        // When
+        Message result = communicationService.sendEncryptedMessageToMyDevices("test@example.com", dto);
+
+        // Then
+        assertNotNull(result);
+        verify(messageRepository).save(mappedMessage);
+    }
+
+    // ==================== retrieveMessagesByFriendAndTimestamp Tests ====================
+
+    @Test
+    void retrieveMessagesByFriendAndTimestamp_notFriends_throwsAccessDeniedException() {
+        // Given
+        Instant timestamp = Instant.now();
+        when(friendshipService.areFriends("test@example.com", "friend@example.com")).thenReturn(false);
+
+        // When & Then
+        assertThrows(AccessDeniedException.class, () ->
+            communicationService.retrieveMessagesByFriendAndTimestamp("test@example.com", "friend@example.com", timestamp, "device123")
+        );
+    }
+
+    @Test
+    void retrieveMessagesByFriendAndTimestamp_unknownDevice_throwsAccessDeniedException() {
+        // Given
+        Instant timestamp = Instant.now();
+        when(friendshipService.areFriends("test@example.com", "friend@example.com")).thenReturn(true);
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(userService.findApplicationUserByEmail("friend@example.com")).thenReturn(friendUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, "unknownDevice")).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThrows(AccessDeniedException.class, () ->
+            communicationService.retrieveMessagesByFriendAndTimestamp("test@example.com", "friend@example.com", timestamp, "unknownDevice")
+        );
+    }
+
+    @Test
+    void retrieveMessagesByFriendAndTimestamp_validRequest_returnsMessages() {
+        // Given
+        Instant timestamp = Instant.now();
+        List<Message> messages = List.of(new Message(), new Message());
+
+        when(friendshipService.areFriends("test@example.com", "friend@example.com")).thenReturn(true);
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(userService.findApplicationUserByEmail("friend@example.com")).thenReturn(friendUser);
+        when(deviceRepository.findByUserAndDeviceId(testUser, "device123")).thenReturn(Optional.of(testDevice));
+        when(messageRepository.findConversationSince(testUser, friendUser, timestamp, "device123")).thenReturn(messages);
+
+        // When
+        List<Message> result = communicationService.retrieveMessagesByFriendAndTimestamp("test@example.com", "friend@example.com", timestamp, "device123");
+
+        // Then
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        verify(messageRepository).findConversationSince(testUser, friendUser, timestamp, "device123");
+    }
+
+    // ==================== getDevicesOfFriend Tests ====================
+
+    @Test
+    void getDevicesOfFriend_notFriends_throwsAccessDeniedException() {
+        // Given
+        when(friendshipService.areFriends("test@example.com", "friend@example.com")).thenReturn(false);
+
+        // When & Then
+        assertThrows(AccessDeniedException.class, () ->
+            communicationService.getDevicesOfFriend("test@example.com", "friend@example.com")
+        );
+    }
+
+    @Test
+    void getDevicesOfFriend_friends_returnsDeviceIds() {
+        // Given
+        UserDevice device1 = new UserDevice();
+        device1.setDeviceId("device1");
+        UserDevice device2 = new UserDevice();
+        device2.setDeviceId("device2");
+
+        when(friendshipService.areFriends("test@example.com", "friend@example.com")).thenReturn(true);
+        when(userService.findApplicationUserByEmail("friend@example.com")).thenReturn(friendUser);
+        when(deviceRepository.findAllByUser(friendUser)).thenReturn(List.of(device1, device2));
+
+        // When
+        List<String> result = communicationService.getDevicesOfFriend("test@example.com", "friend@example.com");
+
+        // Then
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertTrue(result.contains("device1"));
+        assertTrue(result.contains("device2"));
+    }
+
+    // ==================== getMyDevices Tests ====================
+
+    @Test
+    void getMyDevices_returnsAllDeviceIds() {
+        // Given
+        UserDevice device1 = new UserDevice();
+        device1.setDeviceId("myDevice1");
+        UserDevice device2 = new UserDevice();
+        device2.setDeviceId("myDevice2");
+
+        when(userService.findApplicationUserByEmail("test@example.com")).thenReturn(testUser);
+        when(deviceRepository.findAllByUser(testUser)).thenReturn(List.of(device1, device2));
+
+        // When
+        List<String> result = communicationService.getMyDevices("test@example.com");
+    }
+
+    MessageDetailDto createValidMessageDto(String email){
+        return new MessageDetailDto() {{
+            setSenderDeviceId("device123");
+            setRecipientEmail(email);
+            setRecipientDeviceId("friendDevice123");
+            setEncryptedMessage(new EncryptedMessageDto() {{
+                setCiphertext("ciphertext");
+                setNonce("nonce");
+                setMessageNumber(1L);
+                setRatchetPublicKey("publicKey");
+            }});
+        }};
+    }
+}
