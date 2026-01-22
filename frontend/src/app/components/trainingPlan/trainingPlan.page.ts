@@ -197,7 +197,18 @@ export class TrainingPlanPage implements OnInit {
     const lat = location?.lat ?? 48.21;
     const lng = location?.lng ?? 16.36;
 
-    this.plan7dService.getNext7Days(lat, lng).subscribe({
+    this.plan7dService.getNext7Days(lat, lng, {
+        debug: false,
+        seed: 20,
+        regen: true,
+        historyDays: 60,
+        historyMean: 35,
+        historyStd: 8,
+        readiness: 90,
+        injuryIndex: 0.9,
+        ctl: 50,
+        atl: 35
+      }).subscribe({
       next: (plan: TrainingPlan7dDto) => {
         this.weekPlan = plan;
         this.planId = plan.planId ?? null;
@@ -273,7 +284,6 @@ export class TrainingPlanPage implements OnInit {
       }
 
       // 1) refresh training plan for this location
-      await firstValueFrom(this.plan7dService.getNext7Days(location.lat, location.lng))
 
       // 2) generate route using the new plan distance
       await this.generateRouteFromLocationAsync(location, updateBaseline);
@@ -1125,7 +1135,7 @@ private rebuildLayers() {
 
   // dummy for now
   showConfidence(): boolean {
-    return false;
+    return true;
   }
 
   protected readonly SessionType = SessionType;

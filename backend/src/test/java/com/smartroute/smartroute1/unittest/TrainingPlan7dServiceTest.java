@@ -4,8 +4,11 @@ import com.smartroute.smartroute1.endpoint.dto.trainingplan.DailySummary;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.LoadDistributionDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlan7dDto;
 import com.smartroute.smartroute1.endpoint.dto.RouteDto;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.PlannedDayDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
+import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.*;
 import com.smartroute.smartroute1.service.impl.TrainingPlan7dServiceImpl;
@@ -14,6 +17,7 @@ import com.smartroute.smartroute1.util.ForecastState;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -25,14 +29,22 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -261,6 +273,42 @@ public class TrainingPlan7dServiceTest {
         assertTrue(hardDays <= 2, "Under high fatigue, plan should avoid many hard days");
     }
 
+    @Test
+    void returnsCachedPlanWithoutRecomputing() {
+        ApplicationUser user = new ApplicationUser();
+        user.setId(5L);
+        user.setEmail("cache@test.com");
+
+        when(userRepository.findUserByEmail("cache@test.com")).thenReturn(user);
+
+        String expectedPlanId = "week:2026-01-12";
+        TrainingPlan7dDto cached = new TrainingPlan7dDto(List.of(
+                new PlannedDayDto(
+                        LocalDate.of(2026, 1, 15),
+                        WorkoutType.REST_DAY,
+                        new LoadDistributionDto(0, 0, 0, 0, 0),
+                        new LoadDistributionDto(0, 0, 0, 0, 0),
+                        null,
+                        "high",
+                        List.of(),
+                        null,
+                        null
+                )
+        ));
+        cached.setPlanId(expectedPlanId);
+
+        when(trainingPlanStore.get("cache@test.com", expectedPlanId)).thenReturn(Optional.of(cached));
+
+        TrainingPlan7dService service = createService();
+        TrainingPlan7dDto dto = service.buildNext7Days("cache@test.com", latitude, longitude);
+
+        assertSame(cached, dto);
+        verify(trainingPlanStore).get("cache@test.com", expectedPlanId);
+        verify(trainingPlanStore, never()).put(anyString(), anyString(), any());
+        verifyNoInteractions(loadForecaster, dailyAggregationService, fatigueAndOverloadService,
+                readinessScoreService, weatherService, gymWorkoutSelectorService, routeGenerationService);
+    }
+
     private static List<DailySummary> fakeHistory(Clock clock, int days, int load) {
         ZoneId zone = clock.getZone();
         LocalDate end = LocalDate.now(clock);
@@ -271,4 +319,3 @@ public class TrainingPlan7dServiceTest {
                 .toList();
     }
 }
-
