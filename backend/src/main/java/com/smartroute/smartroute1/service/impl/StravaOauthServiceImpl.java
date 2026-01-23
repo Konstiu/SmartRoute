@@ -122,6 +122,13 @@ public class StravaOauthServiceImpl implements StravaOauthService {
                     "Could not reach Strava OAuth service",
                     e
             );
+        } catch (StravaAuthorizationException e) {
+            stravaAccountRepository.delete(account.get());
+
+            return new StravaAccountConnectionStateDto(
+                false,
+                ""
+            );
         }
 
         stravaAccountRepository.delete(account.get());
