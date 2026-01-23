@@ -87,12 +87,20 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
 
             timeInHrZones = calculateTimeInZones(heartRateStream, activity.getUser());
 
-            trimp = calculateTrimp(timeInHrZones, activity.getSportType());
+            String activityType = activity.getSportType();
+            if (activityType == null)  {
+                activityType = "Run";
+            }
+            trimp = calculateTrimp(timeInHrZones, activityType);
 
             return Math.round(trimp * elevationFactor);
         } catch (NoSuchElementException e) {
             // Fall back to distance/time method
-            return calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain(), activity.getSportType());
+            String activityType = activity.getSportType();
+            if (activityType == null) {
+                activityType = "Run";
+            }
+            return calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain(), activityType);
         }
     }
 
@@ -105,11 +113,19 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
         try {
             Map<Integer, Float> timeInHrZones;
             timeInHrZones = calculateTimeInZones(heartRates, timestamps, activity.getUser());
-            trimp = calculateTrimp(timeInHrZones, activity.getSportType());
+            String activityType = activity.getSportType();
+            if (activityType == null)  {
+                activityType = "Run";
+            }
+            trimp = calculateTrimp(timeInHrZones, activityType);
             return Math.round(trimp * elevationFactor);
         } catch (NoSuchElementException e) {
             // Fall back to distance/time method
-            return calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain(), activity.getSportType());
+            String activityType = activity.getSportType();
+            if (activityType == null)  {
+                activityType = "Run";
+            }
+            return calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain(), activityType);
         }
 
     }
