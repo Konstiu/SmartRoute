@@ -168,9 +168,9 @@ public class InjuryDataGenerator {
 
         for (int i = 0; i < users.size(); i++) {
             switch (i) {
-                case 1 -> saveInjuryPeriods(users.get(i), getBeginnerInjuryPeriods());
-                case 2 -> saveInjuryPeriods(users.get(i), getAdvancedInjuryPeriods());
-                case 3 -> saveInjuryPeriods(users.get(i), getProInjuryPeriods());
+                case 1 -> saveInjuryPeriods(users.get(i), getInjuryAwareBeginnerPeriods());
+                case 2 -> saveInjuryPeriods(users.get(i), getInjuryAwareAdvancedPeriods());
+                case 3 -> saveInjuryPeriods(users.get(i), getEliteWithOneInjuryPeriods());
                 case 4 -> saveInjuryPeriods(users.get(i), getEliteInjuryPeriods());
                 case 5 -> saveInjuryPeriods(users.get(i), getInjuryAwareBeginnerPeriods()); // NEW
                 case 6 -> saveInjuryPeriods(users.get(i), getInjuryAwareAdvancedPeriods()); // NEW
