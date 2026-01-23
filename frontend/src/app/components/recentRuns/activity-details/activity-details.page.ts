@@ -9,7 +9,7 @@ import {decodePolyline, encodePolyline} from "../../../util/polyline-encode-deco
 import {SaveRouteDto} from "../../../dtos/recommended-activity";
 import {RouteService} from "../../../../services/route.service";
 import {Layer, polyline} from 'leaflet';
-import {MapComponent} from '../../../components/map/map.component';
+import {MapComponent} from '../../map/map.component';
 import {RunTypeLabel} from "../../../dtos/run-classification";
 import {ChangeClassificationComponent} from "../change-classification/change-classification.component";
 
@@ -26,10 +26,11 @@ export class ActivityDetailPage implements OnInit {
   error: string | null = null;
   map: L.Map | null = null;
   isRouteSaved = false;
-  private routeService = inject(RouteService);
   mapLayers: Layer[] = [];
   routePolyline: any = null;
   @ViewChild(MapComponent) mapComponent!: MapComponent;
+  protected readonly runTypeLabel = RunTypeLabel;
+  private routeService = inject(RouteService);
 
   constructor(
     private route: ActivatedRoute,
@@ -252,15 +253,13 @@ export class ActivityDetailPage implements OnInit {
     return `${dateStr} at ${timeString}`;
   }
 
-  protected readonly runTypeLabel = RunTypeLabel;
-
   saveRoute() {
     if (this.isRouteSaved) {
       return;
     }
 
     if (this.isLoading) {
-      console.warn('Acitivity hasnt been loaded yet');
+      console.warn('Activity hasnt been loaded yet');
       return;
     }
     // Convert Leaflet LatLng objects to [lat, lng] for polyline encoding
@@ -268,7 +267,7 @@ export class ActivityDetailPage implements OnInit {
 
     const today = new Date();
     const formattedDate = today.toLocaleDateString("en-US", {day: "2-digit", month: "short", year: "numeric"}); // "09 Jan 2026"
-    const name = `Activity, ${formattedDate}`;  //TODO: Rename it with Runtype Classification when branches are merged
+    const name = `Activity, ${formattedDate}`;
 
     const dto: SaveRouteDto = {
       name: name,
