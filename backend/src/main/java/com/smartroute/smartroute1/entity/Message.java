@@ -42,6 +42,7 @@ public class Message {
 
     private UUID usedOneTimePreKeyId;
 
+    @Column(columnDefinition = "TEXT")
     private String ciphertext;
 
     private String nonce;

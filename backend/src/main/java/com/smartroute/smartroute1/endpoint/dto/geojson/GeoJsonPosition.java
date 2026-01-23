@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import lombok.Data;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import lombok.Setter;
 
 import java.io.IOException;
@@ -19,17 +21,13 @@ import java.util.List;
 @Data
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @JsonDeserialize(using = GeoJsonPosition.GeoJsonPositionDeserializer.class)
 public class GeoJsonPosition {
     private double latitude;
     private double longitude;
     private Double altitude;
-
-    public GeoJsonPosition(double latitude, double longitude, Double altitude) {
-        this.latitude = latitude;
-        this.longitude = longitude;
-        this.altitude = altitude;
-    }
 
     @JsonValue
     public List<Double> toJson() {

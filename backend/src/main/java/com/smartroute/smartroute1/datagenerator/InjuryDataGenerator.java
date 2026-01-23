@@ -31,15 +31,123 @@ public class InjuryDataGenerator {
     private final InjuryRepository injuryRepository;
     private final UserRepository userRepository;
 
-    private static final int MAX_DAYS_BACK = 365;
-    private static final int RECENT_DAYS = 14;
-    private static final int MAX_HEALTHY_DAYS = 28;
-    private static final int BATCH_SIZE = 500;
-
     public InjuryDataGenerator(InjuryRepository injuryRepository,
                                UserRepository userRepository) {
         this.injuryRepository = injuryRepository;
         this.userRepository = userRepository;
+    }
+
+    // Public methods to get injury periods for each user type
+    public List<InjuryPeriod> getBeginnerInjuryPeriods() {
+        LocalDate today = LocalDate.now();
+        List<InjuryPeriod> periods = new ArrayList<>();
+
+        periods.add(new InjuryPeriod(
+                today.minusDays(120),
+                today.minusDays(106),
+                BodyPart.FEET_REGION,
+                0.35
+        ));
+        periods.add(new InjuryPeriod(
+                today.minusDays(65),
+                today.minusDays(55),
+                BodyPart.KNEE_REGION,
+                0.42
+        ));
+        periods.add(new InjuryPeriod(
+                today.minusDays(30),
+                today.minusDays(23),
+                BodyPart.LOWER_LEG_REGION,
+                0.28
+        ));
+
+        return periods;
+    }
+
+    public List<InjuryPeriod> getAdvancedInjuryPeriods() {
+        LocalDate today = LocalDate.now();
+        List<InjuryPeriod> periods = new ArrayList<>();
+
+        periods.add(new InjuryPeriod(
+                today.minusDays(180),
+                today.minusDays(159),
+                BodyPart.UPPER_LEG_REGION,
+                0.55
+        ));
+        periods.add(new InjuryPeriod(
+                today.minusDays(95),
+                today.minusDays(67),
+                BodyPart.CORE_REGION,
+                0.48
+        ));
+        periods.add(new InjuryPeriod(
+                today.minusDays(45),
+                today.minusDays(27),
+                BodyPart.FEET_REGION,
+                0.52
+        ));
+        // Active injury (no end date)
+        periods.add(new InjuryPeriod(
+                today.minusDays(8),
+                null, // still injured!
+                BodyPart.FEET_REGION,
+                0.58
+        ));
+
+        return periods;
+    }
+
+    public List<InjuryPeriod> getProInjuryPeriods() {
+        LocalDate today = LocalDate.now();
+        List<InjuryPeriod> periods = new ArrayList<>();
+
+        periods.add(new InjuryPeriod(
+                today.minusDays(240),
+                today.minusDays(198),
+                BodyPart.BONE_FRACTURE,
+                0.82
+        ));
+        periods.add(new InjuryPeriod(
+                today.minusDays(150),
+                today.minusDays(125),
+                BodyPart.CORE_REGION,
+                0.62
+        ));
+        periods.add(new InjuryPeriod(
+                today.minusDays(90),
+                today.minusDays(76),
+                BodyPart.LOWER_LEG_REGION,
+                0.45
+        ));
+        periods.add(new InjuryPeriod(
+                today.minusDays(50),
+                today.minusDays(38),
+                BodyPart.UPPER_REGION,
+                0.38
+        ));
+        periods.add(new InjuryPeriod(
+                today.minusDays(25),
+                today.minusDays(17),
+                BodyPart.LOWER_LEG_REGION,
+                0.35
+        ));
+
+        return periods;
+    }
+
+    public List<InjuryPeriod> getEliteInjuryPeriods() {
+        LocalDate today = LocalDate.now();
+        List<InjuryPeriod> periods = new ArrayList<>();
+
+        // Elite runner with just ONE significant injury mid-season
+        periods.add(new InjuryPeriod(
+                today.minusDays(180),
+                today.minusDays(160),
+                BodyPart.UPPER_LEG_REGION,
+                0.68
+        ));
+
+        return periods;
     }
 
     @PostConstruct
@@ -49,199 +157,153 @@ public class InjuryDataGenerator {
             LOGGER.info("Injuries already generated, skipping datagen.");
             return;
         }
+
         List<ApplicationUser> users = userRepository.findAll();
         if (users.isEmpty()) {
             LOGGER.warn("No users found, cannot generate injuries.");
             return;
         }
+
         LOGGER.info("Generating injuries for {} users…", users.size());
-        LocalDate today = LocalDate.now();
-        BodyPart[] bodyParts = BodyPart.values();
-        int bodyPartsLength = bodyParts.length;
-        List<Injuries> batch = new ArrayList<>(BATCH_SIZE);
-        int totalInjuries = 0;
-        ThreadLocalRandom random = ThreadLocalRandom.current();
 
-        for (int j = 0; j < users.size(); j++) {
-            switch (j) {
-                case 1 -> {
-                    // User 1 (Beginner): 3 past injuries, all recovered
-                    generateBeginnerInjuries(users.get(j), today, batch);
-                }
-                case 2 -> {
-                    // User 2 (Advanced): 4 injuries, 1 currently active
-                    generateAdvancedInjuries(users.get(j), today, batch);
-                }
-                case 3 -> {
-                    // User 3 (Pro): 5 past injuries, all recovered
-                    generateProInjuries(users.get(j), today, batch);
-                }
-                case 4 -> {
-
-                }
+        for (int i = 0; i < users.size(); i++) {
+            switch (i) {
+                case 1 -> saveInjuryPeriods(users.get(i), getInjuryAwareBeginnerPeriods());
+                case 2 -> saveInjuryPeriods(users.get(i), getInjuryAwareAdvancedPeriods());
+                case 3 -> saveInjuryPeriods(users.get(i), getEliteWithOneInjuryPeriods());
+                case 4 -> saveInjuryPeriods(users.get(i), getEliteInjuryPeriods());
+                case 5 -> saveInjuryPeriods(users.get(i), getInjuryAwareBeginnerPeriods()); // NEW
+                case 6 -> saveInjuryPeriods(users.get(i), getInjuryAwareAdvancedPeriods()); // NEW
+                case 7 -> saveInjuryPeriods(users.get(i), getEliteWithOneInjuryPeriods()); // NEW
                 default -> {
-                    int injuryCount = random.nextInt(20);
-                    if (injuryCount == 0) {
-                        continue;
-                    }
-                    for (int i = 0; i < injuryCount; i++) {
-                        Injuries injury = new Injuries();
-                        injury.setApplicationUser(users.get(j));
-                        injury.setAffectedArea(bodyParts[random.nextInt(bodyPartsLength)]);
-                        boolean recent = random.nextDouble() < 0.3;
-                        int daysAgo = recent
-                                ? random.nextInt(RECENT_DAYS + 1)
-                                : random.nextInt(RECENT_DAYS + 1, MAX_DAYS_BACK + 1);
-
-                        LocalDate lastHealthyDate = today.minusDays(daysAgo);
-                        injury.setLastHealthyDate(lastHealthyDate);
-
-                        BodyPart area = injury.getAffectedArea();
-                        double injuryIndex = (area == BodyPart.BONE_FRACTURE
-                                || area == BodyPart.SPINAL_INJURY
-                                || area == BodyPart.RESPIRATION_REGION)
-                                ? 0.6 + random.nextDouble() * 0.4
-                                : 0.1 + random.nextDouble() * 0.7;
-
-                        injury.setInjuryIndex(injuryIndex);
-                        LocalDate lastInjuryDate = null;
-                        if (!recent || random.nextDouble() < 0.3) {
-                            int daysToHealthy = random.nextInt(1, MAX_HEALTHY_DAYS + 1);
-                            lastInjuryDate = lastHealthyDate.plusDays(daysToHealthy);
-                            if (lastInjuryDate.isAfter(today)) {
-                                lastInjuryDate = today;
-                            }
-                        }
-                        injury.setLastInjuryDate(lastInjuryDate);
-                        batch.add(injury);
-                        if (batch.size() >= BATCH_SIZE) {
-                            injuryRepository.saveAll(batch);
-                            totalInjuries += batch.size();
-                            batch.clear();
-                        }
-                    }
+                    // Random injuries for other users (existing logic)
+                    generateRandomInjuries(users.get(i));
                 }
             }
         }
-        if (!batch.isEmpty()) {
-            injuryRepository.saveAll(batch);
-            totalInjuries += batch.size();
+
+        LOGGER.info("Generated injuries for {} users.", users.size());
+    }
+
+    private void saveInjuryPeriods(ApplicationUser user, List<InjuryPeriod> periods) {
+        for (InjuryPeriod period : periods) {
+            Injuries injury = new Injuries();
+            injury.setApplicationUser(user);
+            injury.setAffectedArea(period.bodyPart());
+            injury.setLastHealthyDate(period.start());
+            injury.setLastInjuryDate(period.end()); // can be null for active injuries
+            injury.setInjuryIndex(period.injuryIndex());
+            injuryRepository.save(injury);
         }
-        LOGGER.info("Generated {} injuries for {} users.", totalInjuries, users.size());
     }
 
+    private void generateRandomInjuries(ApplicationUser user) {
+        // Your existing random injury generation logic
+        LocalDate today = LocalDate.now();
+        BodyPart[] bodyParts = BodyPart.values();
+        ThreadLocalRandom random = ThreadLocalRandom.current();
 
-    private void generateBeginnerInjuries(ApplicationUser user, LocalDate today, List<Injuries> batch) {
-        Injuries injury1 = new Injuries();
-        injury1.setApplicationUser(user);
-        injury1.setAffectedArea(BodyPart.FEET_REGION);
-        injury1.setLastHealthyDate(today.minusDays(120));
-        injury1.setLastInjuryDate(today.minusDays(106)); // recovered
-        injury1.setInjuryIndex(0.35);
-        injuryRepository.save(injury1);
-        //batch.add(injury1);
+        int injuryCount = random.nextInt(20);
+        if (injuryCount == 0) {
+            return;
+        }
 
-        Injuries injury2 = new Injuries();
-        injury2.setApplicationUser(user);
-        injury2.setAffectedArea(BodyPart.KNEE_REGION);
-        injury2.setLastHealthyDate(today.minusDays(65));
-        injury2.setLastInjuryDate(today.minusDays(55)); // recovered
-        injury2.setInjuryIndex(0.42);
-        injuryRepository.save(injury2);
-        //batch.add(injury2);
+        for (int i = 0; i < injuryCount; i++) {
+            Injuries injury = new Injuries();
+            injury.setApplicationUser(user);
+            injury.setAffectedArea(bodyParts[random.nextInt(bodyParts.length)]);
 
-        Injuries injury3 = new Injuries();
-        injury3.setApplicationUser(user);
-        injury3.setAffectedArea(BodyPart.LOWER_LEG_REGION);
-        injury3.setLastHealthyDate(today.minusDays(30));
-        injury3.setLastInjuryDate(today.minusDays(23)); // recovered
-        injury3.setInjuryIndex(0.28);
-        injuryRepository.save(injury3);
-        //batch.add(injury3);
+            boolean recent = random.nextDouble() < 0.3;
+            int daysAgo = recent
+                    ? random.nextInt(15)
+                    : random.nextInt(15, 366);
+
+            LocalDate lastHealthyDate = today.minusDays(daysAgo);
+            injury.setLastHealthyDate(lastHealthyDate);
+
+            BodyPart area = injury.getAffectedArea();
+            double injuryIndex = (area == BodyPart.BONE_FRACTURE
+                    || area == BodyPart.SPINAL_INJURY
+                    || area == BodyPart.RESPIRATION_REGION)
+                    ? 0.6 + random.nextDouble() * 0.4
+                    : 0.1 + random.nextDouble() * 0.7;
+
+            injury.setInjuryIndex(injuryIndex);
+
+            LocalDate lastInjuryDate = null;
+            if (!recent || random.nextDouble() < 0.3) {
+                int daysToHealthy = random.nextInt(1, 29);
+                lastInjuryDate = lastHealthyDate.plusDays(daysToHealthy);
+                if (lastInjuryDate.isAfter(today)) {
+                    lastInjuryDate = today;
+                }
+            }
+            injury.setLastInjuryDate(lastInjuryDate);
+            injuryRepository.save(injury);
+        }
     }
 
-    private void generateAdvancedInjuries(ApplicationUser user, LocalDate today, List<Injuries> batch) {
-        Injuries injury1 = new Injuries();
-        injury1.setApplicationUser(user);
-        injury1.setAffectedArea(BodyPart.UPPER_LEG_REGION);
-        injury1.setLastHealthyDate(today.minusDays(180));
-        injury1.setLastInjuryDate(today.minusDays(159)); // recovered
-        injury1.setInjuryIndex(0.55);
-        injuryRepository.save(injury1);
-        //batch.add(injury1);
+    public List<InjuryPeriod> getInjuryAwareBeginnerPeriods() {
+        LocalDate today = LocalDate.now();
+        List<InjuryPeriod> periods = new ArrayList<>();
 
-        Injuries injury2 = new Injuries();
-        injury2.setApplicationUser(user);
-        injury2.setAffectedArea(BodyPart.CORE_REGION);
-        injury2.setLastHealthyDate(today.minusDays(95));
-        injury2.setLastInjuryDate(today.minusDays(67)); // recovered
-        injury2.setInjuryIndex(0.48);
-        injuryRepository.save(injury2);
-        //batch.add(injury2);
+        // Beginner with 2 injuries over the year
+        periods.add(new InjuryPeriod(
+                today.minusDays(280),
+                today.minusDays(266), // 14 days
+                BodyPart.KNEE_REGION,
+                0.38
+        ));
+        periods.add(new InjuryPeriod(
+                today.minusDays(120),
+                today.minusDays(106), // 14 days
+                BodyPart.FEET_REGION,
+                0.32
+        ));
 
-        Injuries injury3 = new Injuries();
-        injury3.setApplicationUser(user);
-        injury3.setAffectedArea(BodyPart.FEET_REGION);
-        injury3.setLastHealthyDate(today.minusDays(45));
-        injury3.setLastInjuryDate(today.minusDays(27)); // recovered
-        injury3.setInjuryIndex(0.52);
-        injuryRepository.save(injury3);
-        //batch.add(injury3);
-
-        Injuries injury4 = new Injuries();
-        injury4.setApplicationUser(user);
-        injury4.setAffectedArea(BodyPart.FEET_REGION);
-        injury4.setLastHealthyDate(today.minusDays(8));
-        injury4.setLastInjuryDate(null); // active injury
-        injury4.setInjuryIndex(0.58);
-        injuryRepository.save(injury4);
-        //batch.add(injury4);
+        return periods;
     }
 
-    private void generateProInjuries(ApplicationUser user, LocalDate today, List<Injuries> batch) {
-        Injuries injury1 = new Injuries();
-        injury1.setApplicationUser(user);
-        injury1.setAffectedArea(BodyPart.BONE_FRACTURE);
-        injury1.setLastHealthyDate(today.minusDays(240));
-        injury1.setLastInjuryDate(today.minusDays(198)); // recovered
-        injury1.setInjuryIndex(0.82);
-        injuryRepository.save(injury1);
-        //batch.add(injury1);
+    public List<InjuryPeriod> getInjuryAwareAdvancedPeriods() {
+        LocalDate today = LocalDate.now();
+        List<InjuryPeriod> periods = new ArrayList<>();
 
-        Injuries injury2 = new Injuries();
-        injury2.setApplicationUser(user);
-        injury2.setAffectedArea(BodyPart.CORE_REGION);
-        injury2.setLastHealthyDate(today.minusDays(150));
-        injury2.setLastInjuryDate(today.minusDays(125)); // recovered
-        injury2.setInjuryIndex(0.62);
-        injuryRepository.save(injury2);
-        //batch.add(injury2);
+        // Advanced runner with 3 injuries
+        periods.add(new InjuryPeriod(
+                today.minusDays(310),
+                today.minusDays(289), // 21 days
+                BodyPart.UPPER_LEG_REGION,
+                0.52
+        ));
+        periods.add(new InjuryPeriod(
+                today.minusDays(180),
+                today.minusDays(165), // 15 days
+                BodyPart.CORE_REGION,
+                0.45
+        ));
+        periods.add(new InjuryPeriod(
+                today.minusDays(60),
+                today.minusDays(48), // 12 days
+                BodyPart.LOWER_LEG_REGION,
+                0.48
+        ));
 
-        Injuries injury3 = new Injuries();
-        injury3.setApplicationUser(user);
-        injury3.setAffectedArea(BodyPart.LOWER_LEG_REGION);
-        injury3.setLastHealthyDate(today.minusDays(90));
-        injury3.setLastInjuryDate(today.minusDays(76)); // recovered
-        injury3.setInjuryIndex(0.45);
-        injuryRepository.save(injury3);
-        //batch.add(injury3);
+        return periods;
+    }
 
-        Injuries injury4 = new Injuries();
-        injury4.setApplicationUser(user);
-        injury4.setAffectedArea(BodyPart.UPPER_REGION);
-        injury4.setLastHealthyDate(today.minusDays(50));
-        injury4.setLastInjuryDate(today.minusDays(38)); // recovered
-        injury4.setInjuryIndex(0.38);
-        injuryRepository.save(injury4);
-        //batch.add(injury4);
+    public List<InjuryPeriod> getEliteWithOneInjuryPeriods() {
+        LocalDate today = LocalDate.now();
+        List<InjuryPeriod> periods = new ArrayList<>();
 
-        Injuries injury5 = new Injuries();
-        injury5.setApplicationUser(user);
-        injury5.setAffectedArea(BodyPart.LOWER_LEG_REGION);
-        injury5.setLastHealthyDate(today.minusDays(25));
-        injury5.setLastInjuryDate(today.minusDays(17)); // recovered
-        injury5.setInjuryIndex(0.35);
-        injuryRepository.save(injury5);
-        //batch.add(injury5);
+        // Elite runner with ONE significant injury mid-season
+        // This will show dramatic ATL drop and rebuild
+        periods.add(new InjuryPeriod(
+                today.minusDays(180),
+                today.minusDays(155), // 25 days off - significant!
+                BodyPart.UPPER_LEG_REGION,
+                0.72
+        ));
+
+        return periods;
     }
 }

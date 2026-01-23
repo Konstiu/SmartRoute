@@ -1,0 +1,59 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Change Classification</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+
+  <!-- Run Type Selection -->
+  <div class="form-section">
+    <h3 class="section-title">Select Run Type</h3>
+
+    <div class="run-types-grid">
+      @for (type of runTypes; track type) {
+        <ion-button
+          class="run-type-button"
+          [fill]="dto.runType === type ? 'solid' : 'outline'"
+          [color]="dto.runType === type ? 'primary' : 'medium'"
+          (click)="selectRunType(type)">
+
+          <div class="button-content">
+            <ion-icon [name]="icon(type)"></ion-icon>
+            <span>{{ label(type) }}</span>
+          </div>
+
+        </ion-button>
+      }
+    </div>
+  </div>
+
+  <!-- Model Confidence -->
+  <div class="form-section probabilities">
+    <h3 class="section-title">Model Confidence</h3>
+
+    @for (type of runTypes; track type) {
+      <div class="probability-row">
+        <span class="label">{{ label(type) }}</span>
+        <span class="value">
+          {{ probability(type) | percent:'1.0-0' }}
+        </span>
+      </div>
+    }
+  </div>
+
+  <!-- Save -->
+  <ion-button
+    expand="block"
+    class="submit-button"
+    [disabled]="!hasChanges"
+    (click)="confirm()">
+    Save Classification
+  </ion-button>
+
+</ion-content>

@@ -8,12 +8,14 @@ import com.smartroute.smartroute1.endpoint.dto.UpdateInjuryDto;
 import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
 import com.smartroute.smartroute1.endpoint.dto.PersonalDataDto;
 import com.smartroute.smartroute1.endpoint.dto.UserDetailDto;
+import com.smartroute.smartroute1.endpoint.dto.statistics.HistoryDto;
 import com.smartroute.smartroute1.endpoint.mapper.InjuryMapper;
 import com.smartroute.smartroute1.endpoint.mapper.UserMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Injuries;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
+import com.smartroute.smartroute1.service.StatisticsService;
 import com.smartroute.smartroute1.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -48,18 +50,20 @@ import java.util.Map;
 @RequestMapping(value = "/api/v1/user")
 @Tag(name = "User Endpoint")
 public class UserEndpoint {
-    private final UserService userService;
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+    private final UserService userService;
     private final UserMapper mapper;
     private final InjuryAwareTrainingService injuryAwareTrainingService;
     private final InjuryMapper injuryMapper;
+    private final StatisticsService statisticsService;
 
 
-    public UserEndpoint(UserService userService, UserMapper mapper, InjuryAwareTrainingService injuryAwareTrainingService, InjuryMapper injuryMapper) {
+    public UserEndpoint(UserService userService, UserMapper mapper, InjuryAwareTrainingService injuryAwareTrainingService, InjuryMapper injuryMapper, StatisticsService statisticsService) {
         this.userService = userService;
         this.mapper = mapper;
         this.injuryAwareTrainingService = injuryAwareTrainingService;
         this.injuryMapper = injuryMapper;
+        this.statisticsService = statisticsService;
     }
 
     @Operation(
@@ -89,8 +93,8 @@ public class UserEndpoint {
     }
 
     @Operation(
-        description = "Retrieves the personal data of the authenticated user.",
-        summary = "Get personal user data")
+            description = "Retrieves the personal data of the authenticated user.",
+            summary = "Get personal user data")
     @Secured("ROLE_USER")
     @GetMapping(value = "/personal-data")
     @ResponseStatus(HttpStatus.OK)
@@ -229,5 +233,20 @@ public class UserEndpoint {
         LOGGER.info("DELETE /api/v1/user/account");
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         this.userService.deleteAccount(authentication.getName());
+    }
+
+    @GetMapping(value = "/statistics")
+    @ResponseStatus(HttpStatus.OK)
+    @Secured("ROLE_USER")
+    public HistoryDto getStatistics() {
+        LOGGER.info("GET /api/v1/user/statistics");
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        ApplicationUser user = userService.findApplicationUserByEmail(authentication.getName());
+        return new HistoryDto(
+                statisticsService.getConsistencyHistory(user),
+                statisticsService.getGymHistory(user),
+                statisticsService.getInjuryHistory(user),
+                statisticsService.getRunHistory(user)
+        );
     }
 }

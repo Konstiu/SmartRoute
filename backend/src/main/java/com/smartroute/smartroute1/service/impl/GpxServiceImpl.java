@@ -1,12 +1,20 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.google.maps.internal.PolylineEncoding;
+import com.google.maps.model.LatLng;
+import com.smartroute.smartroute1.entity.ActivityStream;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.WeatherResponse;
+import com.smartroute.smartroute1.entity.enums.ActivityStreamSource;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
+import com.smartroute.smartroute1.repository.ActivityStreamRepository;
+import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
 import com.smartroute.smartroute1.service.GpxService;
 import com.smartroute.smartroute1.service.UserService;
+import com.smartroute.smartroute1.service.WeatherService;
 import io.jenetics.jpx.Length;
 import io.jenetics.jpx.Metadata;
 import io.jenetics.jpx.WayPoint;
@@ -32,6 +40,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
@@ -44,6 +53,8 @@ public class GpxServiceImpl implements GpxService {
     private final UserService userService;
     private final ActivityRepository activityRepository;
     private final FitnessScoreService fitnessScoreService;
+    private final ActivityProcessingService activityProcessingService;
+    private final ActivityStreamRepository activityStreamRepository;
 
     @Override
     @Transactional
@@ -190,10 +201,39 @@ public class GpxServiceImpl implements GpxService {
             if (maxHeartRate > 0) {
                 sessionLoad = fitnessScoreService.calculateSessionLoad(heartRates, timestamps, activity);
             } else {
-                sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain());
+                sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain(), activity.getSportType());
             }
             activity.setSessionLoad(sessionLoad);
 
+            // Calculate time in hr-zones
+            Map<Integer, Float> timeInZones = fitnessScoreService.calculateTimeInZones(heartRates, timestamps, user);
+
+            // Fetch weather data
+            activityProcessingService.fetchWeatherForActivity(activity);
+
+            // Set time in hr-zones
+            timeInZones.forEach((zone, time) -> {
+                switch (zone) {
+                    case 1 -> activity.setTimeZ1(Math.round(time));
+                    case 2 -> activity.setTimeZ2(Math.round(time));
+                    case 3 -> activity.setTimeZ3(Math.round(time));
+                    case 4 -> activity.setTimeZ4(Math.round(time));
+                    case 5 -> activity.setTimeZ5(Math.round(time));
+                    default -> throw new IllegalStateException("Unexpected value: " + zone);
+                }
+            });
+
+            // Create activity streams
+            ActivityStream activityStream = activityProcessingService.createActivityStream(
+                timestamps.stream().mapToDouble(Float::doubleValue).boxed().toList(),
+                segDistances,
+                heartRates.stream().mapToDouble(Float::doubleValue).boxed().toList(),
+                ActivityStreamSource.GPX);
+
+            if (activityStream != null) {
+                activityStreamRepository.save(activityStream);
+                activity.setActivityStream(activityStream);
+            }
 
             List<Activity> storedActivities = activityRepository.findAllByUserAndStartDate(user, activity.getStartDate());
             Activity storedActivity = null;
@@ -228,6 +268,16 @@ public class GpxServiceImpl implements GpxService {
                 storedActivity.setElapsedTime(activity.getElapsedTime());
                 storedActivity.setMovingTime(activity.getMovingTime());
                 storedActivity.setMaxHeartrate(activity.getMaxHeartrate());
+
+                // Update time in zones only if it was not stored before
+                if (activity.getTimeZ1() != null && storedActivity.getTimeZ1() == null) {
+                    storedActivity.setTimeZ1(activity.getTimeZ1());
+                    storedActivity.setTimeZ2(activity.getTimeZ2());
+                    storedActivity.setTimeZ3(activity.getTimeZ3());
+                    storedActivity.setTimeZ4(activity.getTimeZ4());
+                    storedActivity.setTimeZ5(activity.getTimeZ5());
+                }
+
                 storedActivity.setExternalId(activity.getExternalId());
                 storedActivity.setSummaryPolyline(storedActivity.getSummaryPolyline());
                 storedActivity.setAverageWatts(storedActivity.getAverageWatts());

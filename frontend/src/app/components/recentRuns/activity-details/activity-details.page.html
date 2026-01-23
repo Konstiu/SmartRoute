@@ -33,41 +33,48 @@
       </div>
     }
 
-    <!-- Stats Container -->
-    <div class="stats-container">
-      <!-- Header card with name + date -->
-      <ion-card>
-        <ion-card-header>
-          <ion-toolbar>
-            <ion-title>
-              {{ activity.name }}
-              <ion-card-subtitle>
-                {{ activity.sportType }} · {{ formatDate(activity.startDateLocal) }}
-              </ion-card-subtitle>
-            </ion-title>
-            @if (activity.summaryPolyline) {
-              <ion-buttons slot="end">
-                <ion-button
-                  size="small"
-                  fill="clear"
-                  class="favorite-btn"
-                  [class.saved]="isRouteSaved"
-                  (click)="saveRoute()"
-                >
-                  <ion-icon
-                    slot="icon-only"
-                    [name]="isRouteSaved ? 'heart' : 'heart-outline'">
-                  </ion-icon>
-                </ion-button>
-              </ion-buttons>
-            }
-          </ion-toolbar>
-        </ion-card-header>
-      </ion-card>
+        <!-- Stats Container-->
+        <div class="stats-container" *ngIf="activity">
+            <!-- Header card with name + date -->
+            <ion-card class="rounded-card">
+                <ion-card-header>
+                  <ion-toolbar>
+                    <ion-title>
+                      {{ activity.name }}
+                      @if (activity.runClassification?.runType) {
+                        <ion-chip
+                          (click)="editClassification(activity)"
+                          color="primary">
+                          {{ runTypeLabel[activity.runClassification!.runType] }}
+                        </ion-chip>
+                      }
+                      <ion-card-subtitle>
+                        {{ activity.sportType }} · {{ formatDate(activity.startDateLocal) }}
+                      </ion-card-subtitle>
+                    </ion-title>
+                    @if (activity.summaryPolyline) {
+                      <ion-buttons slot="end">
+                        <ion-button
+                          size="small"
+                          fill="clear"
+                          class="favorite-btn"
+                          [class.saved]="isRouteSaved"
+                          (click)="saveRoute()"
+                        >
+                          <ion-icon
+                            slot="icon-only"
+                            [name]="isRouteSaved ? 'heart' : 'heart-outline'">
+                          </ion-icon>
+                        </ion-button>
+                      </ion-buttons>
+                    }
+                  </ion-toolbar>
+                </ion-card-header>
+            </ion-card>
 
 
       <!-- Overview: key metrics -->
-      <ion-card>
+      <ion-card  class="rounded-card">
         <ion-card-header>
           <ion-card-title>Overview</ion-card-title>
         </ion-card-header>
@@ -113,7 +120,7 @@
       </ion-card>
 
       <!-- Details: everything else -->
-      <ion-card>
+      <ion-card  class="rounded-card">
         <ion-card-header>
           <ion-card-title>Details</ion-card-title>
         </ion-card-header>

@@ -109,4 +109,8 @@ export class AccountPage implements OnInit {
   delete() {
     this.userService.deleteAccount();
   }
+
+  navigateToStatistics() {
+    this.router.navigate(['/stats']);
+  }
 }

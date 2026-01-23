@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
@@ -20,10 +21,16 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @AutoConfigureMockMvc
@@ -38,24 +45,44 @@ class GymWorkoutEndpointTest {
     private ObjectMapper objectMapper;
     @MockBean
     private GymWorkoutSelectorService gymWorkoutSelectorService;
+
     @MockBean
     private UserService userService;
+
     @MockBean
     private InjuryAwareTrainingService injuryAwareTrainingService;
+
     @MockBean
     private ReadinessScoreService readinessScoreService;
 
     @Test
+    void test_GetGymWorkouts_ReturnsList() throws Exception {
+
+        String email = "test@example.com";
     @WithMockUser(username = EMAIL, roles = "USER")
     void getGymWorkouts_shouldReturnList() throws Exception {
         GymWorkoutDto workout = new GymWorkoutDto();
         workout.setId(1L);
 
+        GymWorkoutDto workout1 = new GymWorkoutDto();
+        workout1.setId(1L);
+        GymWorkoutDto workout2 = new GymWorkoutDto();
+        workout2.setId(2L);
         Mockito.when(gymWorkoutSelectorService.getAllGymWorkouts(EMAIL))
                 .thenReturn(List.of(workout));
 
+        List<GymWorkoutDto> mockWorkouts = List.of(workout1, workout2);
+
+        when(gymWorkoutSelectorService.getAllGymWorkouts(email))
+                .thenReturn(mockWorkouts);
+
+        mockMvc.perform(get("/api/v1/gym")
+                        .with(user(email).roles("USER")))
         mockMvc.perform(get("/api/v1/gym"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[1].id").value(2));
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$[0].id").value(1L));
     }
@@ -64,29 +91,20 @@ class GymWorkoutEndpointTest {
     @Test
     @WithMockUser(username = EMAIL, roles = "USER")
     void generateGymWorkout_shouldReturnWorkout() throws Exception {
+    @WithMockUser(username = "user@test.com", roles = {"USER"})
+    void test_GenerateGymWorkout_ReturnsWorkout() throws Exception {
         ApplicationUser user = new ApplicationUser();
-        user.setEmail(EMAIL);
+        user.setEmail("user@test.com");
 
-        GymWorkoutDto workout = new GymWorkoutDto();
-        workout.setId(42L);
+        Map<BodyPart, Double> injuryMap = new HashMap<>();
+        GymWorkoutDto generatedWorkout = new GymWorkoutDto();
+        generatedWorkout.setId(10L);
 
-        Mockito.when(userService.findApplicationUserByEmail(EMAIL))
-                .thenReturn(user);
-
-        Mockito.when(injuryAwareTrainingService.findInjuriesByEmail(EMAIL))
-                .thenReturn(List.of());
-
-        Mockito.when(injuryAwareTrainingService.calculateInjuriesMap(List.of()))
-                .thenReturn(Map.of(BodyPart.HIP, 0.0));
-
-        Mockito.when(readinessScoreService.calculateReadinessScore(user, LocalDate.now()))
-                .thenReturn(85);
-
-        Mockito.when(gymWorkoutSelectorService.getGymWorkout(
-                Mockito.eq(user),
-                Mockito.anyMap(),
-                Mockito.eq(85)
-        )).thenReturn(workout);
+        when(userService.findApplicationUserByEmail("user@test.com")).thenReturn(user);
+        when(injuryAwareTrainingService.findInjuriesByEmail("user@test.com")).thenReturn(List.of());
+        when(injuryAwareTrainingService.calculateInjuriesMap(any())).thenReturn(injuryMap);
+        when(readinessScoreService.calculateReadinessScore(user, LocalDate.now())).thenReturn(50);
+        when(gymWorkoutSelectorService.getGymWorkout(user, injuryMap, 50)).thenReturn(generatedWorkout);
 
         mockMvc.perform(get("/api/v1/gym/generate"))
                 .andExpect(status().isOk())
@@ -100,17 +118,20 @@ class GymWorkoutEndpointTest {
         GymWorkoutDto workout = new GymWorkoutDto();
         workout.setId(99L);
 
-        Mockito.when(gymWorkoutSelectorService.getGymWorkoutById(99L, EMAIL))
+        when(gymWorkoutSelectorService.getGymWorkoutById(99L, "user@test.com"))
                 .thenReturn(workout);
 
-        mockMvc.perform(get("/api/v1/gym/get/{id}", 99))
+        mockMvc.perform(get("/api/v1/gym/get/99"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(99L));
+                .andExpect(jsonPath("$.id").value(99));
     }
 
     @Test
-    void getGymWorkouts_unauthenticated_shouldReturn401() throws Exception {
+    void test_UnauthorizedAccess_Returns403() throws Exception {
+        // no @WithMockUser, so user is unauthenticated
         mockMvc.perform(get("/api/v1/gym"))
                 .andExpect(status().isForbidden());
     }
+
+
 }
