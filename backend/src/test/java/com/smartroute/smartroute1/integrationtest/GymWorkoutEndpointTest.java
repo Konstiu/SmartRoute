@@ -1,6 +1,5 @@
-package com.smartroute.smartroute1.endpoint;
+package com.smartroute.smartroute1.integrationtest;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.enums.BodyPart;
@@ -9,13 +8,13 @@ import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import com.smartroute.smartroute1.service.ReadinessScoreService;
 import com.smartroute.smartroute1.service.UserService;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.http.MediaType;
+
+
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -31,18 +30,15 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@AutoConfigureMockMvc
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest
 @ActiveProfiles({"test", "generateData"})
-class GymWorkoutEndpointTest {
+@AutoConfigureMockMvc
+public class GymWorkoutEndpointTest {
 
-    private static final String EMAIL = "testuser@example.com";
     @Autowired
     private MockMvc mockMvc;
-    @Autowired
-    private ObjectMapper objectMapper;
+
     @MockBean
     private GymWorkoutSelectorService gymWorkoutSelectorService;
 
@@ -59,17 +55,11 @@ class GymWorkoutEndpointTest {
     void test_GetGymWorkouts_ReturnsList() throws Exception {
 
         String email = "test@example.com";
-    @WithMockUser(username = EMAIL, roles = "USER")
-    void getGymWorkouts_shouldReturnList() throws Exception {
-        GymWorkoutDto workout = new GymWorkoutDto();
-        workout.setId(1L);
 
         GymWorkoutDto workout1 = new GymWorkoutDto();
         workout1.setId(1L);
         GymWorkoutDto workout2 = new GymWorkoutDto();
         workout2.setId(2L);
-        Mockito.when(gymWorkoutSelectorService.getAllGymWorkouts(EMAIL))
-                .thenReturn(List.of(workout));
 
         List<GymWorkoutDto> mockWorkouts = List.of(workout1, workout2);
 
@@ -78,19 +68,13 @@ class GymWorkoutEndpointTest {
 
         mockMvc.perform(get("/api/v1/gym")
                         .with(user(email).roles("USER")))
-        mockMvc.perform(get("/api/v1/gym"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2))
                 .andExpect(jsonPath("$[0].id").value(1))
                 .andExpect(jsonPath("$[1].id").value(2));
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
-                .andExpect(jsonPath("$[0].id").value(1L));
     }
 
-
     @Test
-    @WithMockUser(username = EMAIL, roles = "USER")
-    void generateGymWorkout_shouldReturnWorkout() throws Exception {
     @WithMockUser(username = "user@test.com", roles = {"USER"})
     void test_GenerateGymWorkout_ReturnsWorkout() throws Exception {
         ApplicationUser user = new ApplicationUser();
@@ -108,13 +92,12 @@ class GymWorkoutEndpointTest {
 
         mockMvc.perform(get("/api/v1/gym/generate"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(42L));
+                .andExpect(jsonPath("$.id").value(10));
     }
 
-
     @Test
-    @WithMockUser(username = EMAIL, roles = "USER")
-    void getGymWorkoutById_shouldReturnWorkout() throws Exception {
+    @WithMockUser(username = "user@test.com", roles = {"USER"})
+    void test_GetGymWorkoutById_ReturnsWorkout() throws Exception {
         GymWorkoutDto workout = new GymWorkoutDto();
         workout.setId(99L);
 
@@ -135,3 +118,4 @@ class GymWorkoutEndpointTest {
 
 
 }
+
