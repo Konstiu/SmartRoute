@@ -11,4 +11,6 @@ import java.util.List;
 public interface AtlRepository extends JpaRepository<Atl, Double> {
 
     List<Atl> getAtlByUserAndDateBetween(ApplicationUser user, Instant from, Instant to);
+
+    void deleteAtlsByUser(ApplicationUser user);
 }

@@ -32,6 +32,7 @@ import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import com.smartroute.smartroute1.service.FatigueAndOverloadService;
 import com.smartroute.smartroute1.service.StatisticsService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -204,6 +205,20 @@ public class StatisticsServiceImpl implements StatisticsService {
     public GymHistoryDto getGymHistory(ApplicationUser user) {
         List<GymWorkout> workouts = gymWorkoutRepository.findGymWorkoutByUserBetweenDatesOrderByStartDateAsc(user, LocalDate.now().minusDays(numberOfDaysInYear), LocalDate.now());
         return new GymHistoryDto(workouts.size(), workouts);
+    }
+
+
+    private void resetConsistency(ApplicationUser user) {
+        atlRepository.deleteAtlsByUser(user);
+        tsbRepository.deleteTsbsByUser(user);
+        ctlRepository.deleteCtlsByUser(user);
+    }
+
+    @Async
+    @Override
+    public void preLoadConsistencyHistory(ApplicationUser user) {
+        resetConsistency(user);
+        getConsistencyHistory(user);
     }
 
     // Min weekly sessions by experience (recommendations for beginner, intermediate, advanced from: https://pubmed.ncbi.nlm.nih.gov/19204579/)

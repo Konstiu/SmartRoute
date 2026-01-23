@@ -15,6 +15,7 @@ import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.AthleteZoneRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
+import com.smartroute.smartroute1.service.StatisticsService;
 import com.smartroute.smartroute1.service.StravaOauthService;
 import com.smartroute.smartroute1.service.StravaService;
 import lombok.RequiredArgsConstructor;
@@ -48,6 +49,7 @@ public class StravaServiceImpl implements StravaService {
     private final ActivityRepository activityRepository;
     private final StravaActivityMapper activityMapper;
     private final ActivityProcessingService activityProcessingService;
+    private final StatisticsService statisticsService;
 
     @Override
     @Transactional
@@ -103,6 +105,8 @@ public class StravaServiceImpl implements StravaService {
         List<Activity> savedActivities = saveImportedActivities(activities, user);
 
         activityProcessingService.processActivitiesInBatches(45, savedActivities, token);
+
+        statisticsService.preLoadConsistencyHistory(user);
 
         return activities;
     }

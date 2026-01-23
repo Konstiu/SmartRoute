@@ -47,4 +47,12 @@ public interface StatisticsService {
      * @return a GymHistoryDto including all data
      */
     GymHistoryDto getGymHistory(ApplicationUser user);
+
+    /**
+     * delete the old Consistency Scores and recalculate them.
+     * This is used after new activites are loaded in
+     *
+     * @param user the user to reset for
+     */
+    void preLoadConsistencyHistory(ApplicationUser user);
 }
