@@ -1,6 +1,20 @@
 using HTTP, JSON3, StructTypes, Random, Statistics
 
 # --- DTOs (keep them boring + JSON-friendly) ---
+const WORKOUT_ORDER = [
+  "EASY_RUN",
+  "TEMPO_RUN",
+  "INTERVAL_RUN",
+  "LONG_RUN",
+  "GYM_PREHAB",
+  "MOBILITY",
+  "REST_DAY"
+]
+const WT_TO_IDX = Dict(w => i for (i, w) in enumerate(WORKOUT_ORDER))
+
+workout_index(wt::String) = get(WT_TO_IDX, wt, WT_TO_IDX["REST_DAY"])
+const K = length(WORKOUT_ORDER)
+
 struct PlanRequest
     userId::Int
     startDate::String
@@ -42,7 +56,12 @@ function handler(r::HTTP.Request)
         return HTTP.Response(200, "ok")
     end
 
-    # NEW: score a template (this is the one your Java chooseBestPlan uses)
+    if r.method == "POST" && r.target == "/model/fit-user"
+        req = JSON3.read(String(r.body), FitUserModelRequest)
+        resp = fit_user_model(req)
+        return HTTP.Response(200, JSON3.write(resp); headers=["Content-Type"=>"application/json"])
+    end
+
     if r.method == "POST" && r.target == "/plan/score-template"
         req = JSON3.read(String(r.body), ScoreTemplateRequest)
         resp = score_template(req)
@@ -70,20 +89,36 @@ end
 
 HTTP.serve(handler, "0.0.0.0", 8081)
 
+struct Dist
+    p10::Float64
+    p50::Float64
+    p90::Float64
+    mean::Float64
+    std::Float64
+end
+StructTypes.StructType(::Type{Dist}) = StructTypes.Struct()
 
-
+# ---------- Request / Response ----------
 struct ScoreTemplateRequest
+    userId::String
     startDate::String
-    template::Vector{String}      # 7 items
+    effectiveTemplate::Vector{String}
     ctl::Float64
     atl::Float64
     recentLoads::Vector{Int}
+    experienceLevel::String
     injuryIndex::Float64
     readiness::Int
-    weatherScores::Vector{Union{Nothing, Float64}}  # allow nulls
+    weatherScores::Vector{Union{Nothing, Float64}}
     sims::Int
     seed::Int64
     baseUncertaintyMult::Float64
+
+    b::Union{Nothing, Float64}
+    m::Union{Nothing, Vector{Float64}}
+    sigma0::Union{Nothing, Float64}
+    sigmaK::Union{Nothing, Vector{Float64}}
+    betaFat::Union{Nothing, Float64}
 end
 StructTypes.StructType(::Type{ScoreTemplateRequest}) = StructTypes.Struct()
 
@@ -152,6 +187,9 @@ function score_template(req::ScoreTemplateRequest)::ScoreTemplateResponse
     rng = MersenneTwister(req.seed)
     tsb_samples = [Float64[] for _ in 1:7]
 
+    params = get(USER_MODELS, req.userId, nothing)
+    has_model = (params !== nothing)
+
     total_util = 0.0
     for s in 1:req.sims
         st = State(req.ctl, req.atl)
@@ -160,16 +198,41 @@ function score_template(req::ScoreTemplateRequest)::ScoreTemplateResponse
         for i in 1:7
             wt = req.template[i]
 
-            μ = (wt == "REST_DAY") ? 0.0 :
-                (wt == "MOBILITY")  ? 8.0 :
-                (wt == "GYM_PREHAB") ? 18.0 : 40.0
+            μ::Float64 = 0.0
+            σ::Float64 = 0.0
 
-            σ = 10.0 * req.baseUncertaintyMult
+            if wt == "REST_DAY"
+                μ = 0.0
+                σ = 0.0
+
+            elseif has_model
+                k = workout_index(wt)
+
+                # mean from learned baseline * per-type multiplier
+                μ = params.b * params.m[k]
+
+                # optional fatigue effect (if you want it)
+                β = (req.betaFat === nothing) ? 0.0 : req.betaFat
+                fat = clamp(-tsb(st) / 20, 0.0, 2.0)  # 0..2
+                μ *= exp(β * fat)
+
+                # IMPORTANT: since you're sampling Normal, treat σ0/σk as *fraction of mean*
+                stdFrac = params.σ0 * params.σk[k]
+                σ = max(5.0, μ * stdFrac)
+
+            else
+                # fallback heuristic
+                μ = (wt == "MOBILITY")   ? 8.0  :
+                    (wt == "GYM_PREHAB") ? 18.0 : 40.0
+                σ = 10.0
+            end
+
+            # always apply planner uncertainty last
+            σ *= req.baseUncertaintyMult
 
             load = sample_nonneg_normal(rng, μ, σ)
 
             st = next_state(st, load)
-
             push!(tsb_samples[i], tsb(st))
 
             util += reward(wt, load)
@@ -182,39 +245,12 @@ function score_template(req::ScoreTemplateRequest)::ScoreTemplateResponse
     return ScoreTemplateResponse(total_util / req.sims, dists)
 end
 
-using HTTP, JSON3, StructTypes, Random, Statistics
+has_model(req) =
+    req.b !== nothing &&
+    req.m !== nothing &&
+    req.sigma0 !== nothing &&
+    req.sigmaK !== nothing
 
-# ---------- Request / Response ----------
-struct ScoreTemplateRequest
-    startDate::String
-    effectiveTemplate::Vector{String}   # 7 items
-    ctl::Float64
-    atl::Float64
-    recentLoads::Vector{Int}
-    experienceLevel::String
-    injuryIndex::Float64
-    readiness::Int
-    weatherScores::Vector{Union{Nothing, Float64}}
-    sims::Int
-    seed::Int64
-    baseUncertaintyMult::Float64
-end
-StructTypes.StructType(::Type{ScoreTemplateRequest}) = StructTypes.Struct()
-
-struct Dist
-    p10::Float64
-    p50::Float64
-    p90::Float64
-    mean::Float64
-    std::Float64
-end
-StructTypes.StructType(::Type{Dist}) = StructTypes.Struct()
-
-struct ScoreTemplateResponse
-    avgUtility::Float64
-    tsbDists::Vector{Dist}
-end
-StructTypes.StructType(::Type{ScoreTemplateResponse}) = StructTypes.Struct()
 
 # ---------- ForecastState (matches Java exactly) ----------
 struct State
@@ -405,8 +441,17 @@ end
 # ---------- Main scoring ----------
 function score_template(req::ScoreTemplateRequest)::ScoreTemplateResponse
     rng = MersenneTwister(req.seed)
-
     tsb_samples = [Float64[] for _ in 1:7]
+
+    # "Do we have a usable learned model passed in from Java?"
+    has_model =
+        (req.b !== nothing) &&
+        (req.m !== nothing) &&
+        (req.sigma0 !== nothing) &&
+        (req.sigmaK !== nothing) &&
+        !isempty(req.m) &&
+        !isempty(req.sigmaK)
+
     total_util = 0.0
 
     for s in 1:req.sims
@@ -414,27 +459,66 @@ function score_template(req::ScoreTemplateRequest)::ScoreTemplateResponse
         util = 0.0
 
         for i in 1:7
-            wt = req.effectiveTemplate[i]
+            wt = req.effectiveTemplate[i]   # IMPORTANT: use effectiveTemplate (already injury/readiness/weather mapped)
 
-            (μ, σ0) = forecast_load_mean_std(req.experienceLevel, wt, st, req.recentLoads)
+            μ::Float64 = 0.0
+            σ::Float64 = 0.0
 
-            # apply your extra uncertainty multiplier from Java (profile/base + injury/readiness/weather/hard)
-            # you already baked injury/readiness/weather into effectiveTemplate, but uncertainty still uses them.
-            stdAdj = σ0 * req.baseUncertaintyMult
+            if wt == "REST_DAY"
+                μ = 0.0
+                σ = 0.0
 
-            load = sample_nonneg_normal(rng, μ, stdAdj)
+            elseif has_model
+                k = workout_index(wt)  # should be 1..K based on your WORKOUT_ORDER
+
+                # Unknown workout type or mismatched vector lengths -> safe fallback
+                if k <= 0 || k > length(req.m) || k > length(req.sigmaK)
+                    μ = (wt == "MOBILITY")   ? 8.0  :
+                        (wt == "GYM_PREHAB") ? 18.0 : 40.0
+                    σ = 10.0
+                else
+                    μ = req.b * req.m[k]
+
+                    # optional fatigue effect on expected load
+                    β = (req.betaFat === nothing) ? 0.0 : req.betaFat
+                    fat = clamp(-tsb(st) / 20, 0.0, 2.0)   # 0..2
+                    μ *= exp(β * fat)
+
+                    # sigma0/sigmaK are log-space stds (from LogNormal fit)
+                    logσ = req.sigma0 * req.sigmaK[k]
+
+                    # convert log-space sigma -> coefficient of variation (std/mean)
+                    stdFrac = sqrt(exp(logσ * logσ) - 1.0)
+
+                    if μ <= 0.0
+                        μ = 0.0
+                        σ = 0.0
+                    else
+                        σ = max(5.0, μ * stdFrac)
+                    end
+                end
+
+            else
+                # heuristic fallback if no model provided
+                μ = (wt == "MOBILITY")   ? 8.0  :
+                    (wt == "GYM_PREHAB") ? 18.0 : 40.0
+                σ = 10.0
+            end
+
+            # always apply planner uncertainty last
+            σ *= req.baseUncertaintyMult
+
+            load = (σ <= 0.0) ? 0.0 : sample_nonneg_normal(rng, μ, σ)
 
             st = next_state(st, load)
+            push!(tsb_samples[i], tsb(st))
 
-            t = tsb(st)
-            push!(tsb_samples[i], t)
-
-            ws = req.weatherScores[i]
+            # utility + penalties (matches your Java logic)
             util += training_reward(wt, load)
-            util -= fatigue_penalty(t, wt)
+            util -= fatigue_penalty(tsb(st), wt)
             util -= injury_penalty(req.injuryIndex, wt)
             util -= readiness_penalty(req.readiness, wt)
-            util -= weather_penalty(ws, wt)
+            util -= weather_penalty(req.weatherScores[i], wt)
         end
 
         total_util += util
@@ -443,4 +527,148 @@ function score_template(req::ScoreTemplateRequest)::ScoreTemplateResponse
     dists = [to_dist(tsb_samples[i]) for i in 1:7]
     return ScoreTemplateResponse(total_util / req.sims, dists)
 end
+
+@model function load_model(y, wt, tsb, K)
+    # baseline scale
+    b ~ LogNormal(log(40.0), 0.6)
+
+    # per-type multipliers (positive, around 1)
+    m ~ filldist(LogNormal(0.0, 0.35), K)
+
+    # noise terms
+    σ0 ~ LogNormal(log(0.25), 0.5)                 # log-space noise scale
+    σk ~ filldist(LogNormal(log(1.0), 0.25), K)
+
+    # fatigue effect on expected load (optional but useful)
+    β_fat ~ Normal(0.0, 0.25)
+
+    for t in eachindex(y)
+        μ = b * m[wt[t]]
+
+        # tsb is roughly [-40, 40]; convert to "fatigue" 0..~2
+        fat = clamp(-tsb[t] / 20, 0.0, 2.0)
+        μ_adj = μ * exp(β_fat * fat)
+
+        σ = σ0 * σk[wt[t]]
+
+        y[t] ~ LogNormal(log(max(1e-3, μ_adj)), σ)
+    end
+end
+
+
+# ---------- Incoming obs ----------
+struct PplDailyObs
+    date::String
+    workoutType::String
+    totalLoad::Int
+    distanceMeters::Float64
+    movingTimeSeconds::Int
+    elevationGainMeters::Float64
+    weatherScore::Union{Nothing, Float64}
+    tsb::Union{Nothing, Float64}
+end
+StructTypes.StructType(::Type{PplDailyObs}) = StructTypes.Struct()
+
+struct FitUserModelRequest
+    userId::String
+    experienceLevel::String
+    days::Vector{PplDailyObs}
+    ctl0::Float64
+    atl0::Float64
+    seed::Int64
+end
+StructTypes.StructType(::Type{FitUserModelRequest}) = StructTypes.Struct()
+
+# ---------- Stored params ----------
+struct UserModelParams
+    b::Float64              # baseline load scale
+    m::Vector{Float64}      # per-workout multipliers (len K)
+    σ0::Float64             # baseline log-noise
+    σk::Vector{Float64}     # per-workout log-noise multipliers (len K)
+end
+
+# in-memory store keyed by userId
+const USER_MODELS = Dict{String, UserModelParams}()
+
+struct FitUserModelResponse
+    ok::Bool
+    b::Float64
+    m::Vector{Float64}
+    sigma0::Float64
+    sigmaK::Vector{Float64}
+    betaFat::Union{Nothing, Float64}
+end
+StructTypes.StructType(::Type{FitUserModelResponse}) = StructTypes.Struct()
+
+function fit_user_model(req::FitUserModelRequest)::FitUserModelResponse
+    # collect loads per category index
+    loads_by_k = [Float64[] for _ in 1:K]
+
+    for d in req.days
+        y = float(max(0, d.totalLoad))
+        y <= 0 && continue
+
+        k = workout_index(d.workoutType)
+        k == WT_TO_IDX["REST_DAY"] && continue
+        push!(loads_by_k[k], y)
+    end
+
+    # choose baseline b from EASY_RUN if present, else overall median
+    function geom_mean(v)
+        isempty(v) && return NaN
+        lv = log.(max.(v, 1.0))
+        return exp(mean(lv))
+    end
+
+    easy_k = WT_TO_IDX["EASY_RUN"]
+    b = geom_mean(loads_by_k[easy_k])
+
+    if !isfinite(b)
+        # fallback: median of all non-rest loads
+        allv = reduce(vcat, loads_by_k; init=Float64[])
+        b = isempty(allv) ? 40.0 : median(allv)
+    end
+    b = max(10.0, b)
+
+    # multipliers
+    m = ones(Float64, K)
+    for k in 1:K
+        gm = geom_mean(loads_by_k[k])
+        if isfinite(gm)
+            m[k] = clamp(gm / b, 0.2, 3.0)
+        end
+    end
+    m[WT_TO_IDX["REST_DAY"]] = 0.0
+
+    # log-noise estimates
+    # σ0 = typical log std, σk are relative multipliers
+    logstds = fill(NaN, K)
+    for k in 1:K
+        v = loads_by_k[k]
+        if length(v) >= 4
+            resid = log.(max.(v, 1.0)) .- log(max(1e-3, b*m[k]))
+            logstds[k] = std(resid)
+        end
+    end
+
+    # baseline σ0 from median of available types
+    avail = [s for s in logstds if isfinite(s)]
+    σ0 = isempty(avail) ? 0.25 : median(avail)
+    σ0 = clamp(σ0, 0.08, 0.60)
+
+    σk = ones(Float64, K)
+    for k in 1:K
+        if isfinite(logstds[k])
+            σk[k] = clamp(logstds[k] / σ0, 0.6, 1.8)
+        end
+    end
+    σk[WT_TO_IDX["REST_DAY"]] = 1.0
+
+    params = UserModelParams(b, m, σ0, σk)
+    USER_MODELS[req.userId] = params
+
+    return FitUserModelResponse(true, b, m, σ0, σk, nothing)
+end
+
+
 

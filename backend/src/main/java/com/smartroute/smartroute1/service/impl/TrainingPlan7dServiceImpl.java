@@ -9,6 +9,9 @@ import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlanDebugDto
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.TemplateScoreDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.DayDebugDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.JuliaScoreTemplateRequest;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.PplDailyObs;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.FitUserModelRequest;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.FitUserModelResponse;
 import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Injuries;
@@ -26,6 +29,8 @@ import com.smartroute.smartroute1.service.WeatherService;
 import com.smartroute.smartroute1.service.DaySelectorService;
 import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
 import com.smartroute.smartroute1.service.TrainingPlanStore;
+import com.smartroute.smartroute1.service.RouteGenerationService;
+import com.smartroute.smartroute1.service.UserModelStore;
 import com.smartroute.smartroute1.util.ForecastState;
 import com.smartroute.smartroute1.util.LoadConstraints;
 import org.slf4j.Logger;
@@ -35,13 +40,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 import com.smartroute.smartroute1.endpoint.dto.RouteDto;
-import com.smartroute.smartroute1.service.RouteGenerationService;
 
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.temporal.TemporalAdjusters;
 import java.time.DayOfWeek;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -68,6 +72,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     private final TrainingPlanStore trainingPlanStore;
     private static final Logger log = LoggerFactory.getLogger(TrainingPlan7dServiceImpl.class);
     private final JuliaPlannerClient juliaPlannerClient;
+    private final UserModelStore userModelStore;
 
     @Autowired
     public TrainingPlan7dServiceImpl(UserRepository userRepository,
@@ -81,11 +86,13 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                      GymWorkoutSelectorService gymWorkoutSelectorService,
                                      RouteGenerationService routeGenerationService,
                                      TrainingPlanStore trainingPlanStore,
-                                     JuliaPlannerClient juliaPlannerClient) {
+                                     JuliaPlannerClient juliaPlannerClient,
+                                     UserModelStore userModelStore
+                                     ) {
         this(userRepository, dailyAggregationService, loadForecaster, fatigueAndOverloadService,
                 Clock.system(ZoneId.of("Europe/Vienna")), injuryAwareTrainingService, readinessScoreService,
                 weatherService, daySelectorService, gymWorkoutSelectorService, routeGenerationService, trainingPlanStore,
-                juliaPlannerClient);
+                juliaPlannerClient, userModelStore);
     }
 
     public TrainingPlan7dServiceImpl(UserRepository userRepository,
@@ -100,7 +107,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                      GymWorkoutSelectorService gymWorkoutSelectorService,
                                      RouteGenerationService routeGenerationService,
                                      TrainingPlanStore trainingPlanStore,
-                                     JuliaPlannerClient juliaPlannerClient) {
+                                     JuliaPlannerClient juliaPlannerClient,
+                                     UserModelStore userModelStore) {
         this.userRepository = userRepository;
         this.dailyAggregationService = dailyAggregationService;
         this.loadForecaster = loadForecaster;
@@ -114,6 +122,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         this.routeGenerationService = routeGenerationService;
         this.trainingPlanStore = trainingPlanStore;
         this.juliaPlannerClient = juliaPlannerClient;
+        this.userModelStore = userModelStore;
     }
 
     @Override
@@ -174,10 +183,10 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 : safeInt(() -> readinessScoreService.calculateReadinessScore(user, today), 50);
 
         // Injuries (keep real data; feel free to override too if you want)
-        List<Injuries> injuries = safeList(() -> injuryAwareTrainingService.findInjuriesByEmail(email));
-        Map<BodyPart, Double> injuriesMap = injuryAwareTrainingService.calculateInjuriesMap(injuries);
+        final List<Injuries> injuries = safeList(() -> injuryAwareTrainingService.findInjuriesByEmail(email));
+        final Map<BodyPart, Double> injuriesMap = injuryAwareTrainingService.calculateInjuriesMap(injuries);
 
-        LoadConstraints constraints = new LoadConstraints(
+        final LoadConstraints constraints = new LoadConstraints(
                 injuryAwareTrainingService.calculateIntensityScaling(injuryIndex),
                 injuryAwareTrainingService.calculateVolumeScaling(injuryIndex),
                 injuryAwareTrainingService.calculateHighImpactPenalty(injuryIndex)
@@ -199,7 +208,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             recentLoads = history.stream().map(DailySummary::getTotalLoad).toList();
         }
 
-        PlannerProfile profile = buildPlannerProfile(user, recentLoads);
+        final PlannerProfile profile = buildPlannerProfile(user, recentLoads);
 
         // ----------------------------
         // INITIAL CTL/ATL: real OR override
@@ -216,26 +225,40 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 recentLoads.stream().limit(7).toList()
         );
 
+        List<PplDailyObs> pastDays = dailyAggregationService.getPplDailyObs(user, 90);
+
+        FitUserModelRequest fitReq = new FitUserModelRequest(
+                String.valueOf(user.getId()),
+                user.getExperienceLevel() == null ? "INTERMEDIATE" : user.getExperienceLevel().name(),
+                pastDays,
+                initialState.ctl(),
+                initialState.atl(),
+                seed
+        );
+
+        String modelKey = "fit:" + weekStart;
+
+        Optional<FitUserModelResponse> fitModelOpt = Optional.empty();
+        if (!regen) {
+            fitModelOpt = userModelStore.get(email, modelKey);
+        }
+
+        if (fitModelOpt.isEmpty()) {
+            fitModelOpt = juliaPlannerClient.fitUserModel(fitReq);
+            fitModelOpt.ifPresent(m -> userModelStore.put(email, modelKey, m));
+        }
 
         // Candidate weekly templates including gym/mobility
         List<List<WorkoutType>> templates = generateTemplates(user, today);
 
         // Choose best via Monte Carlo utility
         PlanChoice choice = chooseBestPlan(
-                user,
-                today,
-                templates,
-                initialState,
-                recentLoads,
-                injuryIndex,
-                readiness,
-                weatherPerDay,
-                constraints,
-                sims,
-                seed,
-                debug,
-                profile
+                user, today, templates, initialState, recentLoads,
+                injuryIndex, readiness, weatherPerDay, constraints,
+                sims, seed, debug, profile,
+                fitModelOpt
         );
+
 
         List<PlannedDayDto> days = materializePlanWithTsbDists(
                 user,
@@ -545,7 +568,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                       int sims,
                                       long seed,
                                       boolean debug,
-                                      PlannerProfile profile) {
+                                      PlannerProfile profile,
+                                      Optional<FitUserModelResponse> fitUserModelOpt) {
 
         List<TemplateScoreDto> templateScores = debug ? new ArrayList<>() : null;
 
@@ -571,7 +595,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     weatherPerDay,
                     sims,
                     templateSeed,
-                    profile
+                    profile,
+                    fitUserModelOpt
             );
 
             double avgUtility;
@@ -693,7 +718,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             List<CompactWeatherDto> weatherPerDay,
             int sims,
             long seed,
-            PlannerProfile profile
+            PlannerProfile profile,
+            Optional<FitUserModelResponse> fitModelOpt
     ) {
         if (juliaPlannerClient == null) {
             return Optional.empty();
@@ -705,7 +731,23 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         String exp = (user.getExperienceLevel() == null) ? "INTERMEDIATE" : user.getExperienceLevel().name();
 
         // 2) Send *effectiveTemplate* to Julia (so Julia doesn't need to map)
+        Double b = null;
+        Double sigma0 = null;
+        Double betaFat = null;
+        List<Double> m = null;
+        List<Double> sigmaK = null;
+
+        if (fitModelOpt != null && fitModelOpt.isPresent()) {
+            var fm = fitModelOpt.get();
+            b = fm.b();
+            m = fm.m();
+            sigma0 = fm.sigma0();
+            sigmaK = fm.sigmaK();
+            betaFat = fm.betaFat();
+        }
+
         var req = new JuliaScoreTemplateRequest(
+                String.valueOf(user.getId()),
                 startDate.toString(),
                 effectiveWeek.effective().stream().map(Enum::name).toList(),
                 initialState.ctl(),
@@ -717,8 +759,14 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 effectiveWeek.weatherScores(),
                 sims,
                 seed,
-                profile.baseUncertaintyMult()
+                profile.baseUncertaintyMult(),
+                b,
+                m,
+                sigma0,
+                sigmaK,
+                betaFat
         );
+
 
         return juliaPlannerClient.scoreTemplate(req)
                 .map(resp -> {
@@ -1556,6 +1604,12 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         // clamp so std doesn't explode
         return Math.max(0.75, Math.min(2.2, m));
     }
+
+    // --------------------------------------------------------------------------
+    // JULIA
+    // --------------------------------------------------------------------------
+
+
 
 
 
