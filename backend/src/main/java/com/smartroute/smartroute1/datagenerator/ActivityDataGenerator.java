@@ -294,7 +294,7 @@ public class ActivityDataGenerator {
                             Integer sessionLoad = fitnessScoreService.calculateSessionLoad(
                                 distance / 1000,
                                 movingTime / 60,
-                                totalElevationGain);
+                                totalElevationGain, "Run");
                             sa.setSessionLoad(sessionLoad);
                             activityRepository.save(sa);
                         }
@@ -417,7 +417,8 @@ public class ActivityDataGenerator {
         Integer sessionLoad = fitnessScoreService.calculateSessionLoad(
             distanceKm,
             movingTime / 60,
-            activity.getTotalElevationGain()
+            activity.getTotalElevationGain(),
+            activity.getSportType()
         );
         activity.setSessionLoad(sessionLoad);
 

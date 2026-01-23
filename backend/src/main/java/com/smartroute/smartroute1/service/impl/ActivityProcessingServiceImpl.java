@@ -64,9 +64,11 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         // Lists of activities with and without sufferScore are separated to immediately calculate fitnessScore for
         // all activities with the necessary data available.
 
+        List<String> processableActivityTypes = List.of("Run", "Walk", "Ride");
+
         // Find running activities with strava sufferScore and missing sessionLoad and calculate sessionLoad
         List<Activity> activitiesWithStravaSufferScore = activities.stream()
-            .filter(a -> a.getSportType() != null && a.getSportType().equals("Run") && a.getSufferScore() != null && a.getSessionLoad() == null)
+            .filter(a -> a.getSportType() != null && processableActivityTypes.contains(a.getSportType()) && a.getSufferScore() != null && a.getSessionLoad() == null)
             .toList();
         activitiesWithStravaSufferScore.forEach(a ->
             processActivity(a, token)
@@ -75,7 +77,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         // Find running activities without Strava sufferScore and missing sessionLoad, fetch heartrate stream if available
         // and calculate sessionLoad
         List<Activity> activitiesMissingSessionLoad = activities.stream()
-            .filter(a -> a.getSportType() != null && a.getSportType().equals("Run") && a.getSessionLoad() == null && a.getSufferScore() == null)
+            .filter(a -> a.getSportType() != null && processableActivityTypes.contains(a.getSportType()) && a.getSessionLoad() == null && a.getSufferScore() == null)
             .sorted((a, b) -> b.getStartDate().compareTo(a.getStartDate()))
             .toList();
 
@@ -191,7 +193,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getKilojoules(), user.getWeight().floatValue(), activity.getTotalElevationGain());
             } else {
                 // 5. No energy information available: use distance and moving time
-                sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain());
+                sessionLoad = fitnessScoreService.calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain(), activity.getSportType());
             }
 
             activity.setSessionLoad(sessionLoad);
