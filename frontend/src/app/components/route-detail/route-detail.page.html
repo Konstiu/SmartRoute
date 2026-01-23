@@ -3,6 +3,12 @@
     <ion-buttons slot="start">
       <ion-back-button defaultHref="/tabs/route"></ion-back-button>
     </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-button (click)="shareRoute()">
+        <ion-icon slot="icon-only" name="share-social-outline"></ion-icon>
+      </ion-button>
+
+    </ion-buttons>
     <ion-title>Route Details</ion-title>
   </ion-toolbar>
 </ion-header>
@@ -103,14 +109,5 @@
 
     </div>
   }
-
-  <div class="strava-disclaimer">
-    <p>
-      This application is not an official Strava product and is not endorsed by or
-      otherwise affiliated with Strava.
-    </p>
-    <p>Data is provided via the Strava API. Compatible with Strava.</p>
-    <p>Visit <a href="https://www.strava.com" target="_blank">strava.com</a>.</p>
-  </div>
 
 </ion-content>

@@ -132,7 +132,7 @@ class AddStopsServiceTest {
                 new GeoJsonPosition(48.20830, 16.37390, null), // start anchor
                 new GeoJsonPosition(viaDto.getLatitude(), viaDto.getLongitude(), null), // via
                 new GeoJsonPosition(48.20840, 16.37400, null)  // end anchor
-        )).when(spy).routeThroughPoint(any(), any(), any());
+        )).when(spy).routeThroughPoint(any(), any(), any(), eq(false));
 
         GeoJsonDto out = spy.addWaypoints(dto);
 
@@ -217,7 +217,7 @@ class AddStopsServiceTest {
                 new GeoJsonPosition(0.0, 0.0, null),
                 new GeoJsonPosition(50.0, 50.0, null)
         ));
-        when(orsService.generateRoute(anyList())).thenReturn(baselineTooLong);
+        when(orsService.generateRoute(anyList(), eq(false))).thenReturn(baselineTooLong);
 
         AddStopsDto dto = new AddStopsDto(
                 sampleRoute(),

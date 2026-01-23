@@ -2,6 +2,7 @@ package com.smartroute.smartroute1.service;
 
 import com.smartroute.smartroute1.endpoint.dto.RouteDto;
 import com.smartroute.smartroute1.endpoint.dto.SaveRouteDto;
+import com.smartroute.smartroute1.endpoint.dto.ShareRouteDto;
 import com.smartroute.smartroute1.endpoint.dto.ViewRouteDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 
@@ -41,4 +42,13 @@ public interface RouteService {
      */
     void deleteRoute(Long id, String email);
 
+
+    /**
+     * Shares a route with other users.
+     *
+     * @param id the id of the route
+     * @param email1 the email of the owner of the route
+     * @param firends the emails of the friends we share the route with
+     */
+    void addShare(Long id, String email1, ShareRouteDto firends);
 }

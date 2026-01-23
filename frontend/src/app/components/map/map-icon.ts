@@ -22,18 +22,45 @@ export function coloredMarker(
   });
 }
 
+// Super simple emoji markers with colored backgrounds
+export function emojiMarker(
+  type: 'toilet' | 'fountain',
+  options?: Partial<L.DivIconOptions>
+): L.DivIcon {
+  const config = {
+    toilet: {
+      emoji: '🚻',
+    },
+    fountain: {
+      emoji: '🚰',
+    }
+  }[type];
+
+  return L.divIcon({
+    className: 'emoji-marker',
+    html: `<div class="emoji-marker-icon">${config.emoji}</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+    popupAnchor: [0, -16],
+    ...options
+  });
+}
+
 export type MarkerType =
   | 'start'
   | 'added'
   | 'confirmed'
   | 'route'
-  | 'warning';
+  | 'warning'
+  | 'toilet'
+  | 'fountain';
 
 export const MAP_MARKER_COLORS: Record<MarkerType, string> = {
-  start: '#2dd36f',        // user start / location
-  added: '#3880ff',        // unconfirmed points
-  confirmed: '#ffc409',   // confirmed points
-  route: '#7044ff',       // optional route markers
-  warning: '#eb445a',     // errors / invalid points
+  start: '#2dd36f',
+  added: '#3880ff',
+  confirmed: '#ffc409',
+  route: '#7044ff',
+  warning: '#eb445a',
+  toilet: '#8B5CF6',
+  fountain: '#3B82F6',
 };
-
