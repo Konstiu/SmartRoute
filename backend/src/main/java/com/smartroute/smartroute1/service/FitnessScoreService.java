@@ -75,9 +75,10 @@ public interface FitnessScoreService {
      * @param distance the distance of the activity
      * @param movingTime the moving time of the activity
      * @param totalElevationGain the total elevation gain for the activity
+     * @param activityType the type of the activity
      * @return the calculated sessionLoad
      */
-    Integer calculateSessionLoad(float distance, int movingTime, float totalElevationGain);
+    Integer calculateSessionLoad(float distance, int movingTime, float totalElevationGain, String activityType);
 
     /**
      * Calculates the time (in s) in each hr-zone.

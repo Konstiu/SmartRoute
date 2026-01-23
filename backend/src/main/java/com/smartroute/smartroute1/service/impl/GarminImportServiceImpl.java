@@ -795,7 +795,8 @@ public class GarminImportServiceImpl implements GarminImportService {
             sessionLoad = fitnessScoreService.calculateSessionLoad(
                     distance,
                     actualMovingTime,
-                    elevationGain
+                    elevationGain,
+                    activity.getSportType()
             );
 
             log.debug("Calculated session load using distance/time method for activity {}",
