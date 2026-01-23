@@ -16,5 +16,4 @@ public class TrainingPlanDebugDto {
 
     private List<TemplateScoreDto> templateScores;
     private List<DayDebugDto> dayDebug; // for the chosen plan
-    String scoringEngine; // "JULIA" or "JAVA"
 }

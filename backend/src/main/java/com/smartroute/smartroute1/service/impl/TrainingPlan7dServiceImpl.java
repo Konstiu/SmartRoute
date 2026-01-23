@@ -58,6 +58,7 @@ import java.util.Optional;
 public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
     private static final ZoneId ZONE = ZoneId.of("Europe/Vienna");
+    private static final Logger log = LoggerFactory.getLogger(TrainingPlan7dServiceImpl.class);
 
     private final UserRepository userRepository;
     private final DailyAggregationService dailyAggregationService;
@@ -71,8 +72,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     private final GymWorkoutSelectorService gymWorkoutSelectorService;
     private final RouteGenerationService routeGenerationService;
     private final TrainingPlanStore trainingPlanStore;
-    private static final Logger log = LoggerFactory.getLogger(TrainingPlan7dServiceImpl.class);
-    private final JuliaPlannerClient juliaPlannerClient;
     private final UserModelStore userModelStore;
 
     @Autowired
@@ -87,13 +86,11 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                      GymWorkoutSelectorService gymWorkoutSelectorService,
                                      RouteGenerationService routeGenerationService,
                                      TrainingPlanStore trainingPlanStore,
-                                     JuliaPlannerClient juliaPlannerClient,
                                      UserModelStore userModelStore
     ) {
         this(userRepository, dailyAggregationService, loadForecaster, fatigueAndOverloadService,
                 Clock.system(ZoneId.of("Europe/Vienna")), injuryAwareTrainingService, readinessScoreService,
-                weatherService, daySelectorService, gymWorkoutSelectorService, routeGenerationService, trainingPlanStore,
-                juliaPlannerClient, userModelStore);
+                weatherService, daySelectorService, gymWorkoutSelectorService, routeGenerationService, trainingPlanStore, userModelStore);
     }
 
     public TrainingPlan7dServiceImpl(UserRepository userRepository,
@@ -108,7 +105,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                      GymWorkoutSelectorService gymWorkoutSelectorService,
                                      RouteGenerationService routeGenerationService,
                                      TrainingPlanStore trainingPlanStore,
-                                     JuliaPlannerClient juliaPlannerClient,
                                      UserModelStore userModelStore) {
         this.userRepository = userRepository;
         this.dailyAggregationService = dailyAggregationService;
@@ -122,7 +118,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         this.gymWorkoutSelectorService = gymWorkoutSelectorService;
         this.routeGenerationService = routeGenerationService;
         this.trainingPlanStore = trainingPlanStore;
-        this.juliaPlannerClient = juliaPlannerClient;
         this.userModelStore = userModelStore;
     }
 
@@ -242,11 +237,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         Optional<FitUserModelResponse> fitModelOpt = Optional.empty();
         if (!regen) {
             fitModelOpt = userModelStore.get(email, modelKey);
-        }
-
-        if (fitModelOpt.isEmpty()) {
-            fitModelOpt = juliaPlannerClient.fitUserModel(fitReq);
-            fitModelOpt.ifPresent(m -> userModelStore.put(email, modelKey, m));
         }
 
         // Candidate weekly templates including gym/mobility
@@ -578,54 +568,32 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         int bestTemplateIndex = -1;
         List<WorkoutType> bestTemplate = null;
         List<LoadDistributionDto> bestTsbDists = null;
-        boolean usedJulia = false;
 
         for (int templateIndex = 0; templateIndex < templates.size(); templateIndex++) {
             List<WorkoutType> template = templates.get(templateIndex);
 
-            // 1) Ask Julia to score this template (optional)
             long templateSeed = seed ^ (templateIndex * 1315423911L);
 
-            var juliaRespOpt = scoreTemplateWithJulia(
+
+            // fallback to your existing Java simulation
+            SimResult sim = simulateTemplateJava(
+                    user,
                     startDate,
                     template,
                     initialState,
                     recentLoads,
-                    user,
                     injuryIndex,
                     readiness,
                     weatherPerDay,
                     sims,
                     templateSeed,
-                    profile,
-                    fitUserModelOpt
+                    profile
             );
 
-
-            SimResult sim;
-            if (juliaRespOpt.isPresent()) {
-                sim = juliaRespOpt.get();
-            } else {
-                // fallback to your existing Java simulation
-                sim = simulateTemplateJava(
-                        user,
-                        startDate,
-                        template,
-                        initialState,
-                        recentLoads,
-                        injuryIndex,
-                        readiness,
-                        weatherPerDay,
-                        sims,
-                        templateSeed,
-                        profile
-                );
-            }
-
             double prior = templatePrior(profile, template);
-            double scored = sim.riskAdjustedScore() + prior;
             double avgUtility = sim.avgUtility();
-            usedJulia = juliaRespOpt.isPresent();
+            double shape = weekShapeScore(template, profile);
+            double scored = sim.riskAdjustedScore() + prior + shape;
 
             List<LoadDistributionDto> tsbDists = sim.tsbDists();
 
@@ -708,95 +676,77 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     bestTemplateIndex,
                     bestScore,
                     templateScores == null ? List.of() : templateScores,
-                    dayDebug,
-                    usedJulia ? "JULIA" : "JAVA"
+                    dayDebug
             );
         }
 
         return new PlanChoice(bestTemplateIndex, bestScore, bestTemplate, bestTsbDists, debugDto);
     }
 
-    private Optional<SimResult> scoreTemplateWithJulia(
-            LocalDate startDate,
-            List<WorkoutType> plannedTemplate,
-            ForecastState initialState,
-            List<Integer> recentLoads,
-            ApplicationUser user,
-            double injuryIndex,
-            int readiness,
-            List<CompactWeatherDto> weatherPerDay,
-            int sims,
-            long seed,
-            PlannerProfile profile,
-            Optional<FitUserModelResponse> fitModelOpt
-    ) {
-        log.info("Julia scoreTemplate attempt user={} seed={} sims={}", user.getId(), seed, sims);
-
-        if (juliaPlannerClient == null) {
-            return Optional.empty();
+    private double weekShapeScore(List<WorkoutType> template, PlannerProfile profile) {
+        if (template == null || template.size() != 7) {
+            return 0.0;
         }
 
-        // 1) Precompute weatherScores + effectiveTemplate ONCE (same as Java fallback)
-        EffectiveWeek effectiveWeek = computeEffectiveWeek(plannedTemplate, injuryIndex, readiness, weatherPerDay);
+        double s = 0.0;
 
-        String exp = (user.getExperienceLevel() == null) ? "INTERMEDIATE" : user.getExperienceLevel().name();
-
-        // 2) Send *effectiveTemplate* to Julia (so Julia doesn't need to map)
-        Double b = null;
-        Double sigma0 = null;
-        Double betaFat = null;
-        List<Double> m = null;
-        List<Double> sigmaK = null;
-
-        if (fitModelOpt != null && fitModelOpt.isPresent()) {
-            var fm = fitModelOpt.get();
-            b = fm.b();
-            m = fm.m();
-            sigma0 = fm.sigma0();
-            sigmaK = fm.sigmaK();
-            betaFat = fm.betaFat();
+        // 1) penalize consecutive hard days
+        for (int i = 1; i < 7; i++) {
+            if (isHard(template.get(i - 1)) && isHard(template.get(i))) {
+                s -= 18.0;
+            }
         }
 
-        var req = new JuliaScoreTemplateRequest(
-                String.valueOf(user.getId()),
-                startDate.toString(),
-                plannedTemplate.stream().map(Enum::name).toList(),
-                effectiveWeek.effective().stream().map(Enum::name).toList(),
-                initialState.ctl(),
-                initialState.atl(),
-                recentLoads,
-                exp,
-                injuryIndex,
-                readiness,
-                effectiveWeek.weatherScores(),
-                sims,
-                seed,
-                profile.baseUncertaintyMult(),
-                b,
-                m,
-                sigma0,
-                sigmaK,
-                betaFat
-        );
+        // 2) penalize long run too early (unless the week has very few run days)
+        int longIdx = -1;
+        for (int i = 0; i < 7; i++) {
+            if (template.get(i) == WorkoutType.LONG_RUN) {
+                longIdx = i;
+            }
+        }
+        if (longIdx >= 0) {
+            if (longIdx <= 2) {
+                s -= 6.0;
+            }
+            if (longIdx >= 4) {
+                s += 3.0; // later tends to feel more “weekly climax”
+            }
+        }
 
+        // 3) reward having at least one true recovery day
+        boolean hasFullRest = template.stream().anyMatch(w -> w == WorkoutType.REST_DAY);
+        if (hasFullRest) {
+            s += 5.0;
+        } else {
+            s -= 10.0;
+        }
 
-        double lambda = 0.6; // start here; later move into PlannerProfile
+        // 4) discourage 6-7 consecutive run days (especially if inconsistent)
+        int maxRunStreak = 0;
+        int cur = 0;
+        for (int i = 0; i < 7; i++) {
+            boolean run = isRun(template.get(i));
+            if (run) {
+                cur++;
+                maxRunStreak = Math.max(maxRunStreak, cur);
+            } else {
+                cur = 0;
+            }
+        }
+        if (maxRunStreak >= 6) {
+            s -= 20.0;
+        } else if (maxRunStreak == 5) {
+            s -= (profile.consistency() < 0.6 ? 12.0 : 6.0);
+        }
 
-        return juliaPlannerClient.scoreTemplate(req)
-                .map(resp -> {
-                    List<LoadDistributionDto> tsbDists = resp.getTsbDists().stream()
-                            .map(d -> new LoadDistributionDto(d.getP10(), d.getP50(), d.getP90(), d.getMean(), d.getStd()))
-                            .toList();
-
-                    var ud = resp.getUtilDist(); // <-- new field from Julia
-                    JuliaDist utilDist = new JuliaDist(ud.getP10(), ud.getP50(), ud.getP90(), ud.getMean(), ud.getStd());
-
-                    double riskAdjusted = resp.getAvgUtility() - lambda * utilDist.getStd();
-
-                    return new SimResult(resp.getAvgUtility(), utilDist, riskAdjusted, tsbDists);
-                });
-
+        return s;
     }
+
+    private boolean isRun(WorkoutType wt) {
+        return wt == WorkoutType.EASY_RUN || wt == WorkoutType.TEMPO_RUN
+                || wt == WorkoutType.INTERVAL_RUN || wt == WorkoutType.LONG_RUN;
+    }
+
 
     private SimResult simulateTemplateJava(
             ApplicationUser user,
@@ -836,7 +786,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
                 // forecast load based on current state
                 LoadDistributionDto loadDist =
-                        loadForecaster.forecastLoad(user, d, effective, st, recentLoads /*, constraints if your signature has it */);
+                        loadForecaster.forecastLoad(user, d, effective, st, recentLoads);
 
                 double stdAdj = loadDist.getStd() * uncertaintyMultiplier(profile, injuryIndex, readiness, ws, effective);
 
@@ -862,7 +812,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
         double avgUtility = totalUtility / sims;
         JuliaDist utilDist = toDist(utilSamples);
-        double lambda = 0.6;
+        double lambda = 0.35 + 0.9 * profile.riskAversion(); // e.g. ~0.6..1.6
         double riskAdjusted = avgUtility - lambda * utilDist.getStd();
 
         // samples -> distributions
@@ -1484,184 +1434,191 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     }
 
     private PlannerProfile buildPlannerProfile(ApplicationUser user, List<Integer> recentLoads) {
-        // --- Consistency from recent loads (simple + effective)
-        // Use last 28 days if available
-        List<Integer> last = recentLoads.size() > 28
+        List<Integer> last = (recentLoads != null && recentLoads.size() > 28)
                 ? recentLoads.subList(recentLoads.size() - 28, recentLoads.size())
-                : recentLoads;
+                : (recentLoads == null ? List.of() : recentLoads);
 
-        double mean = last.stream().mapToDouble(x -> x).average().orElse(0.0);
+        double mean = last.stream().mapToDouble(x -> x == null ? 0 : x).average().orElse(0.0);
+
         double std = 0.0;
         if (last.size() >= 2) {
             double var = 0.0;
-            for (int v : last) {
-                double d = v - mean;
+            for (Integer xi : last) {
+                double x = (xi == null ? 0 : xi);
+                double d = x - mean;
                 var += d * d;
             }
             var /= (last.size() - 1);
             std = Math.sqrt(var);
         }
 
-        // coefficient of variation (avoid div by 0)
         double cv = std / Math.max(1.0, mean);
 
-        // map cv -> consistencyScore (0..1)
-        // cv ~0.2 good, cv ~0.8 messy
-        double consistencyScore = 1.0 - clamp01((cv - 0.2) / 0.6);
+        // map cv -> consistency in 0..1 (tune these two numbers freely)
+        // cv ~0.15 -> very consistent; cv >=0.7 -> chaotic
+        double consistency = 1.0 - clamp01((cv - 0.15) / (0.70 - 0.15));
 
-        // --- Experience-based desired intensity & uncertainty baseline
-        int intensity;
-        boolean wantLong;
-        double baseUnc;
+        // risk aversion higher when consistency is low
+        double riskAversion = 0.25 + (1.10 * (1.0 - consistency)); // ~0.25..1.35
 
-        switch (user.getExperienceLevel()) {
-            case BEGINNER -> {
-                intensity = 0;
-                wantLong = false;      // or true if you still want it, but easy-only
-                baseUnc = 1.35;
-            }
-            case INTERMEDIATE -> {
-                intensity = 1;
-                wantLong = true;
-                baseUnc = 1.15;
-            }
-            case ADVANCED -> {
-                intensity = 2;
-                wantLong = true;
-                baseUnc = 0.95;
-            }
-            default -> {
-                intensity = 1;
-                wantLong = true;
-                baseUnc = 1.10;
-            }
-        }
-
-        // More consistent users get tighter uncertainty; inconsistent users get wider
-        // consistencyScore 1 -> -10%, 0 -> +25%
-        double consistencyMult = 0.9 + (1.0 - consistencyScore) * 0.35;
+        // uncertaintyScale higher when consistency low
+        double uncertaintyScale = 0.85 + (0.75 * (1.0 - consistency)); // ~0.85..1.6
 
         return new PlannerProfile(
-                intensity,
-                wantLong,
-                baseUnc * consistencyMult,
-                consistencyScore
+                mean,
+                std,
+                cv,
+                consistency,
+                riskAversion,
+                mean * 7.0,
+                uncertaintyScale
         );
     }
+
 
     private double clamp01(double x) {
         return Math.max(0.0, Math.min(1.0, x));
     }
 
-    private double templatePrior(PlannerProfile profile, List<WorkoutType> plannedWeek) {
-        int intensityCount = 0;
-        int longCount = 0;
-        int gymCount = 0;
-        int mobCount = 0;
+    private double templatePrior(PlannerProfile profile, List<WorkoutType> plannedTemplate) {
+        if (plannedTemplate == null || plannedTemplate.size() != 7) {
+            return 0.0;
+        }
 
-        for (WorkoutType wt : plannedWeek) {
-            if (wt == WorkoutType.INTERVAL_RUN || wt == WorkoutType.TEMPO_RUN) {
-                intensityCount++;
+        int hard = 0;
+        int longRuns = 0;
+        int runDays = 0;
+        int gym = 0;
+        int mob = 0;
+        int rest = 0;
+
+        for (WorkoutType wt : plannedTemplate) {
+            if (wt == null) {
+                continue;
             }
-            if (wt == WorkoutType.LONG_RUN) {
-                longCount++;
+            switch (wt) {
+                case INTERVAL_RUN, TEMPO_RUN -> hard++;
+                case LONG_RUN -> {
+                    hard++;
+                    longRuns++;
+                }
+                case EASY_RUN -> runDays++;
+                case GYM_PREHAB -> gym++;
+                case MOBILITY -> mob++;
+                default -> rest++;
             }
-            if (wt == WorkoutType.GYM_PREHAB) {
-                gymCount++;
-            }
-            if (wt == WorkoutType.MOBILITY) {
-                mobCount++;
+
+            if (wt == WorkoutType.EASY_RUN || wt == WorkoutType.TEMPO_RUN
+                    || wt == WorkoutType.INTERVAL_RUN || wt == WorkoutType.LONG_RUN) {
+                runDays++;
             }
         }
 
-        double p = 0.0;
+        double s = 0.0;
 
-        // intensity: strongly prefer the experience-appropriate count
-        int diff = Math.abs(intensityCount - profile.desiredIntensityPerWeek());
-        p -= diff * 6.0; // each mismatch hurts
-
-        // long run preference
-        if (profile.wantLongRun()) {
-            if (longCount == 0) {
-                p -= 8.0;
-            }
-            if (longCount >= 2) {
-                p -= 4.0; // too many longs
-            }
-        } else {
-            if (longCount > 0) {
-                p -= 10.0; // beginners: avoid long by default
-            }
+        // Encourage exactly 1 long run if you have enough run days
+        if (runDays >= 3) {
+            s += (longRuns == 1 ? 8.0 : (longRuns == 0 ? -10.0 : -12.0));
         }
 
-        // keep some recovery modalities in the week (small nudge)
-        if (gymCount + mobCount == 0) {
-            p -= 3.0;
+        // Prefer 0-2 hard days depending on consistency
+        double preferredHard = (profile.consistency() > 0.6) ? 2 : 1;
+        s -= 6.0 * Math.abs(hard - preferredHard);
+
+        // Too few rest days is bad (especially for inconsistent athletes)
+        int minRest = (profile.consistency() > 0.7) ? 1 : 2;
+        if (rest < minRest) {
+            s -= (minRest - rest) * 10.0;
         }
 
-        // tiny reward for at least one true rest day (optional, tune)
-        long restDays = plannedWeek.stream().filter(w -> w == WorkoutType.REST_DAY).count();
-        if (restDays == 0) {
-            p -= 2.0;
+        // Too much gym/mob crowds out running
+        if (gym > 2) {
+            s -= (gym - 2) * 6.0;
+        }
+        if (mob > 2) {
+            s -= (mob - 2) * 4.0;
         }
 
-        return p;
+        // Encourage “soft buffer” around long/hard days
+        s += bufferBonus(plannedTemplate);
+
+        return s;
     }
+
+    private double bufferBonus(List<WorkoutType> t) {
+        double s = 0.0;
+        for (int i = 0; i < 7; i++) {
+            WorkoutType wt = t.get(i);
+            if (wt == WorkoutType.LONG_RUN) {
+                if (i > 0 && (t.get(i - 1) == WorkoutType.EASY_RUN || t.get(i - 1) == WorkoutType.REST_DAY)) {
+                    s += 4.0;
+                }
+                if (i < 6 && (t.get(i + 1) == WorkoutType.REST_DAY || t.get(i + 1) == WorkoutType.MOBILITY)) {
+                    s += 4.0;
+                }
+            }
+            if (wt == WorkoutType.INTERVAL_RUN || wt == WorkoutType.TEMPO_RUN) {
+                if (i > 0 && (t.get(i - 1) == WorkoutType.EASY_RUN || t.get(i - 1) == WorkoutType.REST_DAY)) {
+                    s += 2.5;
+                }
+                if (i < 6 && (t.get(i + 1) == WorkoutType.EASY_RUN || t.get(i + 1) == WorkoutType.REST_DAY
+                        || t.get(i + 1) == WorkoutType.MOBILITY)) {
+                    s += 2.5;
+                }
+            }
+        }
+        return s;
+    }
+
 
     private double uncertaintyMultiplier(
             PlannerProfile profile,
             double injuryIndex,
             int readiness,
             Double weatherScore,
-            WorkoutType effective
+            WorkoutType wt
     ) {
-        double m = profile.baseUncertaintyMult();
+        double m = profile.uncertaintyScale();
 
-        // more uncertainty for hard sessions
-        if (effective == WorkoutType.INTERVAL_RUN || effective == WorkoutType.TEMPO_RUN || effective == WorkoutType.LONG_RUN) {
-            m *= 1.10;
+        // harder workouts are more uncertain
+        if (wt == WorkoutType.INTERVAL_RUN) {
+            m *= 1.25;
+        }
+        if (wt == WorkoutType.TEMPO_RUN) {
+            m *= 1.15;
+        }
+        if (wt == WorkoutType.LONG_RUN) {
+            m *= 1.18;
         }
 
-        // injury adds variability
+        // injury / readiness increase uncertainty (more “things can go wrong”)
         if (injuryIndex >= 0.7) {
             m *= 1.25;
         } else if (injuryIndex >= 0.4) {
-            m *= 1.12;
+            m *= 1.10;
         }
 
-        // low readiness -> variability / unpredictability
         if (readiness < 40) {
-            m *= 1.20;
+            m *= 1.25;
         } else if (readiness < 55) {
-            m *= 1.08;
+            m *= 1.10;
         }
 
-        // bad weather -> variability in actual load (route changes, treadmill swap, etc.)
+        // bad weather makes outdoor execution more variable
         if (weatherScore != null) {
             if (weatherScore < 0.3) {
-                m *= 1.18;
+                m *= 1.25;
             } else if (weatherScore < 0.5) {
-                m *= 1.08;
+                m *= 1.10;
             }
         }
 
-        // clamp so std doesn't explode
-        return Math.max(0.75, Math.min(2.2, m));
+        return Math.max(0.7, Math.min(2.2, m));
     }
-
-    // --------------------------------------------------------------------------
-    // JULIA
-    // --------------------------------------------------------------------------
-
 
     @FunctionalInterface
     private interface SupplierWithException<T> {
         T get() throws Exception;
-    }
-
-    private record PlanResult(List<PlannedDayDto> days,
-                              List<LoadDistributionDto> tsbDistributions,
-                              TrainingPlanDebugDto debug) {
     }
 
     private record PlanChoice(
@@ -1674,12 +1631,14 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     }
 
     private record PlannerProfile(
-            int desiredIntensityPerWeek,
-            boolean wantLongRun,
-            double baseUncertaintyMult,
-            double consistencyScore // 0..1, higher = more consistent
-    ) {
-    }
+            double meanDailyLoad,
+            double stdDailyLoad,
+            double cv,                 // coefficient of variation
+            double consistency,         // 0..1 (1 = very consistent)
+            double riskAversion,        // 0.2..1.2 (higher = more risk-averse)
+            double targetWeeklyLoad,    // meanDailyLoad * 7
+            double uncertaintyScale     // multiplies std in simulations
+    ) {}
 
     private record SimResult(double avgUtility, JuliaDist utilDist, double riskAdjustedScore,
                              List<LoadDistributionDto> tsbDists) {
