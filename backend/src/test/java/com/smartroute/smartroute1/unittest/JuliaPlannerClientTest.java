@@ -94,6 +94,7 @@ class JuliaPlannerClientTest {
                 "123",
                 startDate,
                 List.of("EASY_RUN","REST_DAY","TEMPO_RUN","REST_DAY","INTERVAL_RUN","REST_DAY","LONG_RUN"),
+                List.of("EASY_RUN","REST_DAY","TEMPO_RUN","REST_DAY","INTERVAL_RUN","REST_DAY","LONG_RUN"),
                 40.0,
                 35.0,
                 List.of(10, 20, 30),
@@ -197,6 +198,7 @@ class JuliaPlannerClientTest {
                 "123",
                 LocalDate.of(2026, 1, 20).toString(),
                 List.of("EASY_RUN","REST_DAY","TEMPO_RUN","REST_DAY","INTERVAL_RUN","REST_DAY","LONG_RUN"),
+                List.of("EASY_RUN","REST_DAY","TEMPO_RUN","REST_DAY","INTERVAL_RUN","REST_DAY","LONG_RUN"),
                 40.0, 35.0, List.of(10, 20, 30),
                 "INTERMEDIATE", 0.2, 65,
                 Arrays.asList(0.8, 0.7, 0.55, null, 0.4, 0.9, 0.6),
@@ -237,6 +239,7 @@ class JuliaPlannerClientTest {
         JuliaScoreTemplateRequest scoreReq = new JuliaScoreTemplateRequest(
                 "123",
                 startDate,
+                List.of("EASY_RUN","REST_DAY","TEMPO_RUN","REST_DAY","INTERVAL_RUN","REST_DAY","LONG_RUN"),
                 List.of("EASY_RUN","REST_DAY","TEMPO_RUN","REST_DAY","INTERVAL_RUN","REST_DAY","LONG_RUN"),
                 40.0,
                 35.0,

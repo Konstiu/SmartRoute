@@ -749,6 +749,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         var req = new JuliaScoreTemplateRequest(
                 String.valueOf(user.getId()),
                 startDate.toString(),
+                plannedTemplate.stream().map(Enum::name).toList(),
                 effectiveWeek.effective().stream().map(Enum::name).toList(),
                 initialState.ctl(),
                 initialState.atl(),
