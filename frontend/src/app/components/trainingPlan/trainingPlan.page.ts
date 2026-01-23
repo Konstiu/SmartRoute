@@ -198,14 +198,14 @@ export class TrainingPlanPage implements OnInit {
     const lng = location?.lng ?? 16.36;
 
     this.plan7dService.getNext7Days(lat, lng, {
-        debug: false,
+        debug: true,
         seed: 20,
         regen: true,
         historyDays: 60,
         historyMean: 35,
         historyStd: 8,
-        readiness: 90,
-        injuryIndex: 0.9,
+        readiness: 30,
+        injuryIndex: 0.4,
         ctl: 50,
         atl: 35
       }).subscribe({
