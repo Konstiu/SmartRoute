@@ -379,7 +379,7 @@ public class TrainingPlan7dServiceTest {
         );
 
         when(juliaPlannerClient.scoreTemplate(any()))
-                .thenReturn(Optional.of(new JuliaScoreTemplateResponse(123.4, dists)));
+                .thenReturn(Optional.of(new JuliaScoreTemplateResponse(123.4, dists.getFirst(), dists)));
 
         TrainingPlan7dServiceImpl service = createService();
 

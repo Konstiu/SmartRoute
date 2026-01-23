@@ -12,6 +12,7 @@ import com.smartroute.smartroute1.endpoint.dto.trainingplan.JuliaScoreTemplateRe
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.PplDailyObs;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.FitUserModelRequest;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.FitUserModelResponse;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.JuliaDist;
 import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Injuries;
@@ -88,7 +89,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                                      TrainingPlanStore trainingPlanStore,
                                      JuliaPlannerClient juliaPlannerClient,
                                      UserModelStore userModelStore
-                                     ) {
+    ) {
         this(userRepository, dailyAggregationService, loadForecaster, fatigueAndOverloadService,
                 Clock.system(ZoneId.of("Europe/Vienna")), injuryAwareTrainingService, readinessScoreService,
                 weatherService, daySelectorService, gymWorkoutSelectorService, routeGenerationService, trainingPlanStore,
@@ -402,7 +403,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             GymMobStrategy strat
     ) {
         // Start with REST everywhere
-        WorkoutType[] week = new WorkoutType[]{ WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY };
+        WorkoutType[] week = new WorkoutType[]{WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY};
 
         // Mark training days initially as EASY
         for (int idx : trainIdx) {
@@ -577,6 +578,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         int bestTemplateIndex = -1;
         List<WorkoutType> bestTemplate = null;
         List<LoadDistributionDto> bestTsbDists = null;
+        boolean usedJulia = false;
 
         for (int templateIndex = 0; templateIndex < templates.size(); templateIndex++) {
             List<WorkoutType> template = templates.get(templateIndex);
@@ -599,16 +601,13 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     fitUserModelOpt
             );
 
-            double avgUtility;
-            List<LoadDistributionDto> tsbDists;
 
+            SimResult sim;
             if (juliaRespOpt.isPresent()) {
-                SimResult r = juliaRespOpt.get();
-                avgUtility = r.avgUtility();
-                tsbDists = r.tsbDists();
+                sim = juliaRespOpt.get();
             } else {
                 // fallback to your existing Java simulation
-                SimResult fb = simulateTemplateJava(
+                sim = simulateTemplateJava(
                         user,
                         startDate,
                         template,
@@ -621,14 +620,23 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                         templateSeed,
                         profile
                 );
-                avgUtility = fb.avgUtility();
-                tsbDists = fb.tsbDists();
             }
 
             double prior = templatePrior(profile, template);
-            double scored = avgUtility + prior;
+            double scored = sim.riskAdjustedScore() + prior;
+            double avgUtility = sim.avgUtility();
+            usedJulia = juliaRespOpt.isPresent();
 
-            log.info("template {} avgUtility={} prior={} scored={}", templateIndex, avgUtility, prior, scored);
+            List<LoadDistributionDto> tsbDists = sim.tsbDists();
+
+            log.info("template {} avgUtility={} utilStd={} riskAdj={} prior={} scored={}",
+                    templateIndex,
+                    sim.avgUtility(),
+                    sim.utilDist() == null ? null : sim.utilDist().getStd(),
+                    sim.riskAdjustedScore(),
+                    prior,
+                    scored);
+
 
             // Debug: show planned vs effective template for this candidate
             if (debug) {
@@ -700,7 +708,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     bestTemplateIndex,
                     bestScore,
                     templateScores == null ? List.of() : templateScores,
-                    dayDebug
+                    dayDebug,
+                    usedJulia ? "JULIA" : "JAVA"
             );
         }
 
@@ -721,6 +730,8 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             PlannerProfile profile,
             Optional<FitUserModelResponse> fitModelOpt
     ) {
+        log.info("Julia scoreTemplate attempt user={} seed={} sims={}", user.getId(), seed, sims);
+
         if (juliaPlannerClient == null) {
             return Optional.empty();
         }
@@ -769,13 +780,22 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         );
 
 
+        double lambda = 0.6; // start here; later move into PlannerProfile
+
         return juliaPlannerClient.scoreTemplate(req)
                 .map(resp -> {
                     List<LoadDistributionDto> tsbDists = resp.getTsbDists().stream()
                             .map(d -> new LoadDistributionDto(d.getP10(), d.getP50(), d.getP90(), d.getMean(), d.getStd()))
                             .toList();
-                    return new SimResult(resp.getAvgUtility(), tsbDists);
+
+                    var ud = resp.getUtilDist(); // <-- new field from Julia
+                    JuliaDist utilDist = new JuliaDist(ud.getP10(), ud.getP50(), ud.getP90(), ud.getMean(), ud.getStd());
+
+                    double riskAdjusted = resp.getAvgUtility() - lambda * utilDist.getStd();
+
+                    return new SimResult(resp.getAvgUtility(), utilDist, riskAdjusted, tsbDists);
                 });
+
     }
 
     private SimResult simulateTemplateJava(
@@ -803,6 +823,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
 
         double totalUtility = 0.0;
+        List<Double> utilSamples = new ArrayList<>(sims);
 
         for (int s = 0; s < sims; s++) {
             ForecastState st = initialState;
@@ -836,9 +857,13 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             }
 
             totalUtility += utility;
+            utilSamples.add(utility);
         }
 
         double avgUtility = totalUtility / sims;
+        JuliaDist utilDist = toDist(utilSamples);
+        double lambda = 0.6;
+        double riskAdjusted = avgUtility - lambda * utilDist.getStd();
 
         // samples -> distributions
         List<LoadDistributionDto> tsbDists = new ArrayList<>(7);
@@ -846,10 +871,28 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             tsbDists.add(toDistribution(tsbSamplesPerDay.get(i)));
         }
 
-        return new SimResult(avgUtility, tsbDists);
+        return new SimResult(avgUtility, utilDist, riskAdjusted, tsbDists);
     }
 
-    private record EffectiveWeek(List<WorkoutType> effective, List<Double> weatherScores) {}
+    private JuliaDist toDist(List<Double> samples) {
+        if (samples == null || samples.isEmpty()) {
+            return new JuliaDist(0, 0, 0, 0, 0);
+        }
+        List<Double> sorted = new ArrayList<>(samples);
+        Collections.sort(sorted);
+
+        double mean = sorted.stream().mapToDouble(x -> x).average().orElse(0);
+        double std = std(sorted, mean);
+
+        double p10 = quantile(sorted, 0.10);
+        double p50 = quantile(sorted, 0.50);
+        double p90 = quantile(sorted, 0.90);
+
+        return new JuliaDist(p10, p50, p90, mean, std);
+    }
+
+    private record EffectiveWeek(List<WorkoutType> effective, List<Double> weatherScores) {
+    }
 
     private EffectiveWeek computeEffectiveWeek(
             List<WorkoutType> planned,
@@ -1611,11 +1654,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // --------------------------------------------------------------------------
 
 
-
-
-
-
-
     @FunctionalInterface
     private interface SupplierWithException<T> {
         T get() throws Exception;
@@ -1640,9 +1678,12 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             boolean wantLongRun,
             double baseUncertaintyMult,
             double consistencyScore // 0..1, higher = more consistent
-    ) {}
+    ) {
+    }
 
-    private record SimResult(double avgUtility, List<LoadDistributionDto> tsbDists) {}
+    private record SimResult(double avgUtility, JuliaDist utilDist, double riskAdjustedScore,
+                             List<LoadDistributionDto> tsbDists) {
+    }
 
 
 }
