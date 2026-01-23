@@ -36,7 +36,7 @@ import java.util.stream.Collectors;
 @DependsOn("userDataGenerator")
 @Component
 @AllArgsConstructor
-public class StravaDataGenerator {
+public class ActivityDataGenerator {
     private static final Logger LOGGER = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
     private static final int NUMBER_OF_ACTIVITIES_PER_USER = 10;
 

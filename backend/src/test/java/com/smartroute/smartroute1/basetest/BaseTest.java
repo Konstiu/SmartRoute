@@ -1,7 +1,7 @@
 package com.smartroute.smartroute1.basetest;
 
 import com.smartroute.smartroute1.datagenerator.InjuryDataGenerator;
-import com.smartroute.smartroute1.datagenerator.StravaDataGenerator;
+import com.smartroute.smartroute1.datagenerator.ActivityDataGenerator;
 import com.smartroute.smartroute1.datagenerator.UserDataGenerator;
 import com.smartroute.smartroute1.repository.GarminAccountRepository;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
@@ -35,7 +35,7 @@ public class BaseTest {
     private StravaAccountRepository stravaAccountRepository;
 
     @Autowired
-    private StravaDataGenerator stravaAccountDataGenerator;
+    private ActivityDataGenerator stravaAccountDataGenerator;
 
     @Autowired
     private ActivityRepository activityRepository;
