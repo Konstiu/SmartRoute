@@ -1,27 +1,21 @@
 package com.smartroute.smartroute1.unittest;
 
-import com.smartroute.smartroute1.endpoint.dto.trainingplan.DailySummary;
-import com.smartroute.smartroute1.endpoint.dto.trainingplan.LoadDistributionDto;
-import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlan7dDto;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.*;
 import com.smartroute.smartroute1.endpoint.dto.RouteDto;
-import com.smartroute.smartroute1.endpoint.dto.trainingplan.PlannedDayDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
-import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
-import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.*;
 import com.smartroute.smartroute1.service.impl.JuliaPlannerClient;
 import com.smartroute.smartroute1.service.impl.TrainingPlan7dServiceImpl;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.util.ForecastState;
+import com.smartroute.smartroute1.util.LoadConstraints;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,15 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.anyDouble;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @Transactional
@@ -95,6 +81,40 @@ public class TrainingPlan7dServiceTest {
 
         latitude = 48.210033;
         longitude = 16.363449;
+
+        lenient().when(loadForecaster.forecastLoad(
+                any(ApplicationUser.class),
+                any(LocalDate.class),
+                any(WorkoutType.class),
+                any(ForecastState.class),
+                anyList(),
+                any(LoadConstraints.class)
+        )).thenAnswer(inv -> {
+            WorkoutType wt = inv.getArgument(2);
+
+            if (wt == WorkoutType.REST_DAY) {
+                return new LoadDistributionDto(0, 0, 0, 0, 0);
+            }
+
+            double mean = switch (wt) {
+                case MOBILITY -> 8.0;
+                case GYM_PREHAB -> 18.0;
+                case EASY_RUN -> 40.0;
+                case TEMPO_RUN -> 55.0;
+                case INTERVAL_RUN -> 60.0;
+                case LONG_RUN -> 75.0;
+                default -> 30.0;
+            };
+            double std = Math.max(5.0, mean * 0.2);
+
+            return new LoadDistributionDto(
+                    Math.max(0.0, mean - 10.0),
+                    mean,
+                    mean + 10.0,
+                    mean,
+                    std
+            );
+        });
     }
 
     private TrainingPlan7dServiceImpl createService() {
@@ -116,7 +136,7 @@ public class TrainingPlan7dServiceTest {
         );
     }
 
-    //@Test
+    @Test
     void returns7ConsecutiveDays() {
         ApplicationUser user = new ApplicationUser();
         user.setId(1L);
@@ -134,7 +154,7 @@ public class TrainingPlan7dServiceTest {
         when(fatigueAndOverloadService.currentAtl(user)).thenReturn(55.0);
 
         // Forecaster: always return a stable distribution
-        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any(), any()))
+        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any()))
                 .thenAnswer(inv -> new LoadDistributionDto(10, 20, 30, 20, 5));
 
         TrainingPlan7dService service = createService();
@@ -170,7 +190,7 @@ public class TrainingPlan7dServiceTest {
     }
 
 
-    //@Test
+    @Test
     void includesGymOrMobilityWhenTemplatesContainThem() {
         ApplicationUser user = new ApplicationUser();
         user.setId(2L);
@@ -211,7 +231,7 @@ public class TrainingPlan7dServiceTest {
             return new RouteDto(dist, 5.0, 100.0);
         });
 
-        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any(), any()))
+        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any()))
                 .thenAnswer(inv -> {
                     WorkoutType wt = inv.getArgument(2);
                     // Make gym/mobility non-zero so they appear meaningful
@@ -231,7 +251,7 @@ public class TrainingPlan7dServiceTest {
         assertTrue( hasGym || hasMob, "Expected at least one gym or mobility day in 7-day plan");
     }
 
-    //@Test
+    @Test
     void prefersLowIntensityPlanWhenFatigueHigh() {
         // This test is strongest if you allow injecting templates.
         // But we can still bias optimization by making intensity days heavily penalized via forecaster.
@@ -248,7 +268,7 @@ public class TrainingPlan7dServiceTest {
         when(fatigueAndOverloadService.currentCtl(user)).thenReturn(60.0);
         when(fatigueAndOverloadService.currentAtl(user)).thenReturn(95.0);
 
-        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any(), any()))
+        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any()))
                 .thenAnswer(inv -> {
                     WorkoutType wt = inv.getArgument(2);
                     ForecastState st = inv.getArgument(3);
@@ -280,7 +300,7 @@ public class TrainingPlan7dServiceTest {
         assertTrue(hardDays <= 2, "Under high fatigue, plan should avoid many hard days");
     }
 
-    //@Test
+    @Test
     void returnsCachedPlanWithoutRecomputing() {
         ApplicationUser user = new ApplicationUser();
         user.setId(5L);
@@ -315,6 +335,198 @@ public class TrainingPlan7dServiceTest {
         verifyNoInteractions(loadForecaster, dailyAggregationService, fatigueAndOverloadService,
                 readinessScoreService, weatherService, gymWorkoutSelectorService, routeGenerationService);
     }
+
+    @Test
+    void buildNext7Days_usesJuliaWhenAvailable_andAvoidsJavaSimulationForecastSpam() {
+        ApplicationUser user = new ApplicationUser();
+        user.setId(10L);
+        user.setEmail("julia@test.com");
+        user.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
+
+        when(userRepository.findUserByEmail("julia@test.com")).thenReturn(user);
+
+        // history + state
+        when(dailyAggregationService.getDailySummaries(eq(user), eq(60))).thenReturn(fakeHistory(fixedClock, 60, 35));
+        when(dailyAggregationService.getPplDailyObs(eq(user), eq(90))).thenReturn(List.of());
+        when(fatigueAndOverloadService.currentCtl(user)).thenReturn(40.0);
+        when(fatigueAndOverloadService.currentAtl(user)).thenReturn(35.0);
+
+        // injury/readiness stable
+        when(injuryAwareTrainingService.getInjuryIndex("julia@test.com")).thenReturn(0.0);
+        when(injuryAwareTrainingService.findInjuriesByEmail("julia@test.com")).thenReturn(List.of());
+        when(injuryAwareTrainingService.calculateInjuriesMap(any())).thenReturn(Map.of());
+        when(readinessScoreService.calculateReadinessScore(eq(user), any())).thenReturn(80);
+
+        // training day mask -> ensures many templates exist (so fallback would explode forecastLoad calls)
+        when(daySelectorService.isTrainingDay(any(), eq(user))).thenAnswer(inv -> {
+            LocalDate d = inv.getArgument(0);
+            return switch (d.getDayOfWeek()) {
+                case MONDAY, WEDNESDAY, FRIDAY, SATURDAY -> true;
+                default -> false;
+            };
+        });
+
+        // Julia scoring returns present -> triggers Julia path (NO Java simulation)
+        // Return any valid response shape.
+        List<JuliaDist> dists = List.of(
+                new JuliaDist(-30, -20, -10, -20, 5),
+                new JuliaDist(-29, -19, -9,  -19, 5),
+                new JuliaDist(-28, -18, -8,  -18, 5),
+                new JuliaDist(-27, -17, -7,  -17, 5),
+                new JuliaDist(-26, -16, -6,  -16, 5),
+                new JuliaDist(-25, -15, -5,  -15, 5),
+                new JuliaDist(-24, -14, -4,  -14, 5)
+        );
+
+        when(juliaPlannerClient.scoreTemplate(any()))
+                .thenReturn(Optional.of(new JuliaScoreTemplateResponse(123.4, dists)));
+
+        TrainingPlan7dServiceImpl service = createService();
+
+        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any(), any()))
+                .thenAnswer(inv -> {
+                    WorkoutType wt = inv.getArgument(2);
+
+                    double mean = switch (wt) {
+                        case REST_DAY -> 0.0;
+                        case MOBILITY -> 8.0;
+                        case GYM_PREHAB -> 18.0;
+                        case EASY_RUN -> 40.0;
+                        case TEMPO_RUN -> 55.0;
+                        case INTERVAL_RUN -> 60.0;
+                        case LONG_RUN -> 75.0;
+                        default -> 10.0;
+                    };
+
+                    double std = Math.max(1.0, mean * 0.2);
+                    return new LoadDistributionDto(
+                            Math.max(0.0, mean - 10.0),
+                            mean,
+                            mean + 10.0,
+                            mean,
+                            std
+                    );
+                });
+
+        // IMPORTANT: call the full method so we can keep sims high to make fallback obvious
+        TrainingPlan7dDto dto = service.buildNext7Days(
+                "julia@test.com",
+                latitude,
+                longitude,
+                false,   // debug off => materialize should call forecastLoad ~7 times
+                120,     // high sims: fallback would call forecastLoad hundreds/thousands of times
+                42L,
+                null,
+                true     // regen => bypass cache
+        );
+
+        assertAll("uses Julia path",
+                () -> assertNotNull(dto),
+                () -> assertNotNull(dto.getDays()),
+                () -> assertEquals(7, dto.getDays().size())
+        );
+
+        // Julia was used
+        verify(juliaPlannerClient, atLeast(1)).scoreTemplate(any());
+
+        // Core assertion: forecastLoad should NOT be called "a lot".
+        // If Java simulation ran, it would be huge (templates * sims * 7).
+        verify(loadForecaster, atMost(30)).forecastLoad(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void buildNext7Days_fallsBackToJavaSimulationWhenJuliaEmpty_andForecastLoadBecomesHigh() {
+        ApplicationUser user = new ApplicationUser();
+        user.setId(11L);
+        user.setEmail("fallback@test.com");
+        user.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
+
+        when(userRepository.findUserByEmail("fallback@test.com")).thenReturn(user);
+
+        // history + state
+        when(dailyAggregationService.getDailySummaries(eq(user), eq(60))).thenReturn(fakeHistory(fixedClock, 60, 35));
+        when(dailyAggregationService.getPplDailyObs(eq(user), eq(90))).thenReturn(List.of());
+        when(fatigueAndOverloadService.currentCtl(user)).thenReturn(40.0);
+        when(fatigueAndOverloadService.currentAtl(user)).thenReturn(35.0);
+
+        // injury/readiness stable
+        when(injuryAwareTrainingService.getInjuryIndex("fallback@test.com")).thenReturn(0.0);
+        when(injuryAwareTrainingService.findInjuriesByEmail("fallback@test.com")).thenReturn(List.of());
+        when(injuryAwareTrainingService.calculateInjuriesMap(any())).thenReturn(Map.of());
+        when(readinessScoreService.calculateReadinessScore(eq(user), any())).thenReturn(80);
+
+        // ensure templates > 1
+        when(daySelectorService.isTrainingDay(any(), eq(user))).thenAnswer(inv -> {
+            LocalDate d = inv.getArgument(0);
+            return switch (d.getDayOfWeek()) {
+                case MONDAY, WEDNESDAY, FRIDAY, SATURDAY -> true;
+                default -> false;
+            };
+        });
+
+        when(juliaPlannerClient.fitUserModel(any())).thenReturn(Optional.empty());
+
+        TrainingPlan7dServiceImpl service = createService();
+
+        when(loadForecaster.forecastLoad(
+                any(ApplicationUser.class),
+                any(LocalDate.class),
+                any(WorkoutType.class),
+                any(ForecastState.class),
+                anyList()
+        )).thenAnswer(inv -> {
+            WorkoutType wt = inv.getArgument(2);
+
+            double mean = switch (wt) {
+                case REST_DAY -> 0.0;
+                case MOBILITY -> 8.0;
+                case GYM_PREHAB -> 18.0;
+                case EASY_RUN -> 40.0;
+                case TEMPO_RUN -> 55.0;
+                case INTERVAL_RUN -> 60.0;
+                case LONG_RUN -> 75.0;
+            };
+            double std = Math.max(5.0, mean * 0.2);
+
+            return new LoadDistributionDto(
+                    Math.max(0.0, mean - 10.0),
+                    mean,
+                    mean + 10.0,
+                    mean,
+                    std
+            );
+        });
+
+        TrainingPlan7dDto dto = service.buildNext7Days(
+                "fallback@test.com",
+                latitude,
+                longitude,
+                false,
+                60,     // moderate sims, still enough to show big difference
+                42L,
+                null,
+                true
+        );
+
+        assertAll("fallback path produces plan",
+                () -> assertNotNull(dto),
+                () -> assertNotNull(dto.getDays()),
+                () -> assertEquals(7, dto.getDays().size())
+        );
+
+        verify(juliaPlannerClient, atLeast(1)).scoreTemplate(any());
+
+        verify(loadForecaster, times(7)).forecastLoad(
+                any(ApplicationUser.class),
+                any(LocalDate.class),
+                any(WorkoutType.class),
+                any(ForecastState.class),
+                anyList(),
+                any(LoadConstraints.class)
+        );
+    }
+
+
 
     private static List<DailySummary> fakeHistory(Clock clock, int days, int load) {
         ZoneId zone = clock.getZone();
