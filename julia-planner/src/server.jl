@@ -1,4 +1,4 @@
-using HTTP, JSON3, StructTypes, Random, Statistics
+using HTTP, JSON3, StructTypes, Random, Statistics, Turing, Distributions, MCMCChains
 
 # --- DTOs (keep them boring + JSON-friendly) ---
 const WORKOUT_ORDER = [
@@ -69,21 +69,6 @@ function handler(r::HTTP.Request)
             headers = ["Content-Type" => "application/json"])
     end
 
-    # (optional) old stub endpoint
-    if r.method == "POST" && r.target == "/plan/next-7-days"
-        req = JSON3.read(String(r.body), JuliaPlanRequest)
-        resp = plan(req)
-        return HTTP.Response(200, JSON3.write(resp);
-            headers = ["Content-Type" => "application/json"])
-    end
-
-    if r.method == "POST" && r.target == "/plan/score-template"
-        req = JSON3.read(String(r.body), ScoreTemplateRequest)
-        resp = score_template(req)
-        return HTTP.Response(200, JSON3.write(resp); headers=["Content-Type"=>"application/json"])
-    end
-
-
     return HTTP.Response(404, "Not found")
 end
 
@@ -102,6 +87,7 @@ StructTypes.StructType(::Type{Dist}) = StructTypes.Struct()
 struct ScoreTemplateRequest
     userId::String
     startDate::String
+    template::Vector{String}
     effectiveTemplate::Vector{String}
     ctl::Float64
     atl::Float64
@@ -122,15 +108,6 @@ struct ScoreTemplateRequest
 end
 StructTypes.StructType(::Type{ScoreTemplateRequest}) = StructTypes.Struct()
 
-struct Dist
-    p10::Float64
-    p50::Float64
-    p90::Float64
-    mean::Float64
-    std::Float64
-end
-StructTypes.StructType(::Type{Dist}) = StructTypes.Struct()
-
 struct ScoreTemplateResponse
     avgUtility::Float64
     tsbDists::Vector{Dist}
@@ -141,6 +118,15 @@ struct State
     ctl::Float64
     atl::Float64
 end
+
+struct PosteriorDraw
+    b::Float64
+    m::Vector{Float64}
+    σ0::Float64
+    σk::Vector{Float64}
+    βfat::Float64
+end
+
 
 tsb(st::State) = st.ctl - st.atl
 
@@ -175,31 +161,36 @@ function to_dist(samples::Vector{Float64})
     )
 end
 
-# very simple utility placeholder; swap for your Java logic later
-function reward(workout::String, load::Float64)
-    workout == "REST_DAY" && return 0.0
-    workout == "MOBILITY" && return 3.0
-    workout == "GYM_PREHAB" && return 5.0
-    return 8.0 + 0.02 * load
-end
-
 function score_template(req::ScoreTemplateRequest)::ScoreTemplateResponse
     rng = MersenneTwister(req.seed)
     tsb_samples = [Float64[] for _ in 1:7]
 
-    params = get(USER_MODELS, req.userId, nothing)
-    has_model = (params !== nothing)
+    draws = get(USER_POST, req.userId, nothing)
 
     total_util = 0.0
     for s in 1:req.sims
+        # --- choose params per sim (posterior predictive) ---
+        params::Union{Nothing,PosteriorDraw} = nothing
+
+        if draws !== nothing && !isempty(draws)
+            params = draws[rand(rng, 1:length(draws))]
+        elseif req.b !== nothing && req.m !== nothing && req.sigma0 !== nothing && req.sigmaK !== nothing
+            β = (req.betaFat === nothing) ? 0.0 : req.betaFat
+            params = PosteriorDraw(req.b, req.m, req.sigma0, req.sigmaK, β)
+        end
+
+        has_model = (params !== nothing)
+
         st = State(req.ctl, req.atl)
         util = 0.0
 
         for i in 1:7
-            wt = req.template[i]
+            base = req.template[i]
+            items, wts = map_probs_softmax(base, req.readiness, req.injuryIndex, req.weatherScores[i])
+            wt = sample_categorical(rng, items, wts)
 
-            μ::Float64 = 0.0
-            σ::Float64 = 0.0
+            μ = 0.0
+            σ = 0.0
 
             if wt == "REST_DAY"
                 μ = 0.0
@@ -208,34 +199,44 @@ function score_template(req::ScoreTemplateRequest)::ScoreTemplateResponse
             elseif has_model
                 k = workout_index(wt)
 
-                # mean from learned baseline * per-type multiplier
-                μ = params.b * params.m[k]
+                # safe guard: unknown workout or bad vector lengths => fallback heuristic
+                if k < 1 || k > length(params.m) || k > length(params.σk)
+                    μ = (wt == "MOBILITY")   ? 8.0  :
+                        (wt == "GYM_PREHAB") ? 18.0 : 40.0
+                    σ = 10.0
+                else
+                    # --- model-consistent LogNormal sampling ---
+                    μ_adj = params.b * params.m[k]
+                    fat = clamp(-tsb(st) / 20, 0.0, 2.0)
+                    μ_adj *= exp(params.βfat * fat)
 
-                # optional fatigue effect (if you want it)
-                β = (req.betaFat === nothing) ? 0.0 : req.betaFat
-                fat = clamp(-tsb(st) / 20, 0.0, 2.0)  # 0..2
-                μ *= exp(β * fat)
+                    # log-space sigma from fitted model
+                    logσ = params.σ0 * params.σk[k]
 
-                # IMPORTANT: since you're sampling Normal, treat σ0/σk as *fraction of mean*
-                stdFrac = params.σ0 * params.σk[k]
-                σ = max(5.0, μ * stdFrac)
+                    # apply planner uncertainty in log-space (simple + effective)
+                    logσ *= req.baseUncertaintyMult
+
+                    # sample load (always positive)
+                    load = (μ_adj <= 0.0) ? 0.0 : rand(rng, LogNormal(log(max(1e-3, μ_adj)), logσ))
+
+                    # (optional) set μ, σ for debugging only
+                    μ = μ_adj
+                    σ = 0.0
+                end
 
             else
-                # fallback heuristic
-                μ = (wt == "MOBILITY")   ? 8.0  :
-                    (wt == "GYM_PREHAB") ? 18.0 : 40.0
-                σ = 10.0
+                μ = 40.0
+                stdFrac = 0.25
+                logσ = sqrt(log(1 + stdFrac^2))
+                load = rand(rng, LogNormal(log(μ), logσ))
             end
-
-            # always apply planner uncertainty last
-            σ *= req.baseUncertaintyMult
-
-            load = sample_nonneg_normal(rng, μ, σ)
 
             st = next_state(st, load)
             push!(tsb_samples[i], tsb(st))
 
-            util += reward(wt, load)
+            # use your full utility if you want; keeping your existing reward call here
+            util += training_reward(wt, load)
+            # optionally subtract penalties using req.injuryIndex / req.readiness / req.weatherScores[i]
         end
 
         total_util += util
@@ -250,21 +251,6 @@ has_model(req) =
     req.m !== nothing &&
     req.sigma0 !== nothing &&
     req.sigmaK !== nothing
-
-
-# ---------- ForecastState (matches Java exactly) ----------
-struct State
-    ctl::Float64
-    atl::Float64
-end
-
-tsb(st::State) = st.ctl - st.atl
-
-function next_state(st::State, dailyLoad::Float64)::State
-    nextCtl = st.ctl + (dailyLoad - st.ctl) / 42.0
-    nextAtl = st.atl + (dailyLoad - st.atl) / 7.0
-    return State(nextCtl, nextAtl)
-end
 
 # ---------- Sampling (Box–Muller like your Java) ----------
 function sample_nonneg_normal(rng::AbstractRNG, mean::Float64, std::Float64)
@@ -284,30 +270,6 @@ function count_nonzero(loads::Vector{Int})
     return c
 end
 
-function robust_baseline(loads::Vector{Int})
-    isempty(loads) && return 40.0
-    slice = length(loads) > 28 ? loads[end-27:end] : loads
-    sorted = sort(slice)
-    n = length(sorted)
-    median = isodd(n) ? sorted[(n ÷ 2) + 1] : (sorted[n ÷ 2] + sorted[(n ÷ 2) + 1]) / 2.0
-    if median < 10
-        nz = [x for x in slice if x > 0]
-        meanNonZero = isempty(nz) ? 30.0 : mean(nz)
-        return max(20.0, meanNonZero)
-    end
-    return max(20.0, median)
-end
-
-function experience_factor(exp::String, coldStart::Bool)
-    !coldStart && return 1.0
-    return exp == "BEGINNER" ? 0.75 :
-           exp == "CASUAL" ? 0.85 :
-           exp == "INTERMEDIATE" ? 0.95 :
-           exp == "ADVANCED" ? 1.05 :
-           exp == "COMPETITIVE_ATHLETE" ? 1.10 :
-           0.90
-end
-
 function workout_multiplier(wt::String)
     return wt == "REST_DAY" ? 0.0 :
            wt == "MOBILITY" ? 0.15 :
@@ -324,29 +286,6 @@ function intensity_std_boost(wt::String)
            wt == "TEMPO_RUN" ? 0.06 :
            wt == "LONG_RUN" ? 0.08 :
            0.0
-end
-
-function forecast_load_mean_std(expLevel::String, wt::String, st::State, recentLoads::Vector{Int})
-    wt == "REST_DAY" && return (0.0, 0.0)
-
-    baseline = robust_baseline(recentLoads)
-    coldStart = count_nonzero(recentLoads) < 5
-
-    mult = workout_multiplier(wt)
-
-    # fatiguePenalty from Java (based on tsb)
-    t = tsb(st)
-    fatiguePenalty = (t < -20) ? 0.70 : (t < -10) ? 0.85 : 1.0
-
-    expFactor = experience_factor(expLevel, coldStart)
-
-    meanLoad = baseline * mult * fatiguePenalty * expFactor
-
-    baseStdFrac = coldStart ? 0.40 : 0.22
-    stdFrac = baseStdFrac + intensity_std_boost(wt)
-    stdLoad = max(5.0, meanLoad * stdFrac)
-
-    return (meanLoad, stdLoad)
 end
 
 # ---------- Your penalties/reward (ported from TrainingPlan7dServiceImpl) ----------
@@ -414,120 +353,6 @@ function weather_penalty(weatherScore::Union{Nothing,Float64}, wt::String)
     return 18.0
 end
 
-# ---------- Distributions ----------
-function quantile_sorted(v::Vector{Float64}, q::Float64)
-    n = length(v)
-    n == 1 && return v[1]
-    pos = q * (n - 1)
-    lo = floor(Int, pos) + 1
-    hi = ceil(Int, pos) + 1
-    lo == hi && return v[lo]
-    w = pos - floor(pos)
-    return v[lo] * (1 - w) + v[hi] * w
-end
-
-function to_dist(samples::Vector{Float64})
-    sort!(samples)
-    m = mean(samples)
-    s = length(samples) >= 2 ? std(samples) : 0.0
-    return Dist(
-        quantile_sorted(samples, 0.10),
-        quantile_sorted(samples, 0.50),
-        quantile_sorted(samples, 0.90),
-        m, s
-    )
-end
-
-# ---------- Main scoring ----------
-function score_template(req::ScoreTemplateRequest)::ScoreTemplateResponse
-    rng = MersenneTwister(req.seed)
-    tsb_samples = [Float64[] for _ in 1:7]
-
-    # "Do we have a usable learned model passed in from Java?"
-    has_model =
-        (req.b !== nothing) &&
-        (req.m !== nothing) &&
-        (req.sigma0 !== nothing) &&
-        (req.sigmaK !== nothing) &&
-        !isempty(req.m) &&
-        !isempty(req.sigmaK)
-
-    total_util = 0.0
-
-    for s in 1:req.sims
-        st = State(req.ctl, req.atl)
-        util = 0.0
-
-        for i in 1:7
-            wt = req.effectiveTemplate[i]   # IMPORTANT: use effectiveTemplate (already injury/readiness/weather mapped)
-
-            μ::Float64 = 0.0
-            σ::Float64 = 0.0
-
-            if wt == "REST_DAY"
-                μ = 0.0
-                σ = 0.0
-
-            elseif has_model
-                k = workout_index(wt)  # should be 1..K based on your WORKOUT_ORDER
-
-                # Unknown workout type or mismatched vector lengths -> safe fallback
-                if k <= 0 || k > length(req.m) || k > length(req.sigmaK)
-                    μ = (wt == "MOBILITY")   ? 8.0  :
-                        (wt == "GYM_PREHAB") ? 18.0 : 40.0
-                    σ = 10.0
-                else
-                    μ = req.b * req.m[k]
-
-                    # optional fatigue effect on expected load
-                    β = (req.betaFat === nothing) ? 0.0 : req.betaFat
-                    fat = clamp(-tsb(st) / 20, 0.0, 2.0)   # 0..2
-                    μ *= exp(β * fat)
-
-                    # sigma0/sigmaK are log-space stds (from LogNormal fit)
-                    logσ = req.sigma0 * req.sigmaK[k]
-
-                    # convert log-space sigma -> coefficient of variation (std/mean)
-                    stdFrac = sqrt(exp(logσ * logσ) - 1.0)
-
-                    if μ <= 0.0
-                        μ = 0.0
-                        σ = 0.0
-                    else
-                        σ = max(5.0, μ * stdFrac)
-                    end
-                end
-
-            else
-                # heuristic fallback if no model provided
-                μ = (wt == "MOBILITY")   ? 8.0  :
-                    (wt == "GYM_PREHAB") ? 18.0 : 40.0
-                σ = 10.0
-            end
-
-            # always apply planner uncertainty last
-            σ *= req.baseUncertaintyMult
-
-            load = (σ <= 0.0) ? 0.0 : sample_nonneg_normal(rng, μ, σ)
-
-            st = next_state(st, load)
-            push!(tsb_samples[i], tsb(st))
-
-            # utility + penalties (matches your Java logic)
-            util += training_reward(wt, load)
-            util -= fatigue_penalty(tsb(st), wt)
-            util -= injury_penalty(req.injuryIndex, wt)
-            util -= readiness_penalty(req.readiness, wt)
-            util -= weather_penalty(req.weatherScores[i], wt)
-        end
-
-        total_util += util
-    end
-
-    dists = [to_dist(tsb_samples[i]) for i in 1:7]
-    return ScoreTemplateResponse(total_util / req.sims, dists)
-end
-
 @model function load_model(y, wt, tsb, K)
     # baseline scale
     b ~ LogNormal(log(40.0), 0.6)
@@ -581,14 +406,17 @@ StructTypes.StructType(::Type{FitUserModelRequest}) = StructTypes.Struct()
 
 # ---------- Stored params ----------
 struct UserModelParams
-    b::Float64              # baseline load scale
-    m::Vector{Float64}      # per-workout multipliers (len K)
-    σ0::Float64             # baseline log-noise
-    σk::Vector{Float64}     # per-workout log-noise multipliers (len K)
+    b::Float64
+    m::Vector{Float64}
+    σ0::Float64
+    σk::Vector{Float64}
+    βfat::Float64
 end
 
 # in-memory store keyed by userId
-const USER_MODELS = Dict{String, UserModelParams}()
+const USER_POST = Dict{String, Vector{PosteriorDraw}}()
+const USER_MODELS = Dict{String, PosteriorDraw}()  # optional point-estimate for convenience
+
 
 struct FitUserModelResponse
     ok::Bool
@@ -601,6 +429,116 @@ end
 StructTypes.StructType(::Type{FitUserModelResponse}) = StructTypes.Struct()
 
 function fit_user_model(req::FitUserModelRequest)::FitUserModelResponse
+    rng = MersenneTwister(req.seed)
+
+    # ---------- build dataset ----------
+    y = Float64[]
+    wt = Int[]
+    tsb_raw = Union{Nothing,Float64}[]
+
+    for d in req.days
+        k = workout_index(d.workoutType)
+        k == WT_TO_IDX["REST_DAY"] && continue
+
+        load = float(max(0, d.totalLoad))
+        load <= 0 && continue
+
+        push!(y, load)
+        push!(wt, k)
+        push!(tsb_raw, d.tsb)
+    end
+
+    # ---------- cold start: heuristic fallback ----------
+    if length(y) < 12
+        params = fit_user_model_heuristic(req)  # MUST return UserModelParams(b,m,σ0,σk,βfat)
+        USER_MODELS[req.userId] = params
+        USER_POST[req.userId] = [params]        # trivial posterior
+        return FitUserModelResponse(true, params.b, params.m, params.σ0, params.σk, params.βfat)
+    end
+
+    # ---------- align / compute tsb ----------
+    tsb_vec = Float64[]
+    if any(x === nothing for x in tsb_raw)
+        st = State(req.ctl0, req.atl0)
+        for i in eachindex(y)
+            st = next_state(st, y[i])
+            push!(tsb_vec, tsb(st))
+        end
+    else
+        tsb_vec = Float64[Float64(x) for x in tsb_raw]
+    end
+
+    # ---------- fit with Turing ----------
+    model = load_model(y, wt, tsb_vec, K)
+
+    n_adapt   = 400
+    n_samples = 600
+    chain = sample(rng, model, NUTS(0.65), n_samples; nadapts=n_adapt)
+
+    # ---------- point estimate (posterior means) ----------
+    b_hat  = clamp(mean(chain[:b]), 10.0, 200.0)
+    σ0_hat = clamp(mean(chain[:σ0]), 0.05, 1.0)
+    β_hat  = mean(chain[:β_fat])
+
+    m_hat  = vec(mean(Array(chain[:m]), dims=1))
+    σk_hat = vec(mean(Array(chain[:σk]), dims=1))
+
+    for k in 1:K
+        m_hat[k]  = clamp(m_hat[k], 0.1, 4.0)
+        σk_hat[k] = clamp(σk_hat[k], 0.3, 3.0)
+    end
+    m_hat[WT_TO_IDX["REST_DAY"]] = 0.0
+
+    point = UserModelParams(b_hat, m_hat, σ0_hat, σk_hat, β_hat)
+    USER_MODELS[req.userId] = point
+
+    # ---------- posterior draws for posterior predictive scoring ----------
+    # Extract vectors/matrices robustly
+    b_vec  = vec(Array(chain[:b]))
+    σ0_vec = vec(Array(chain[:σ0]))
+    β_vec  = vec(Array(chain[:β_fat]))
+
+    m_mat  = Array(chain[:m])    # could be (N,K) or (K,N) depending on extraction
+    σk_mat = Array(chain[:σk])
+
+    N = length(b_vec)
+
+    # normalize to (N, K)
+    if size(m_mat, 1) == K && size(m_mat, 2) == N
+        m_mat = permutedims(m_mat)
+    end
+    if size(σk_mat, 1) == K && size(σk_mat, 2) == N
+        σk_mat = permutedims(σk_mat)
+    end
+
+    ndraws = min(40, N)
+    idxs = rand(rng, 1:N, ndraws)
+
+    draws = Vector{UserModelParams}(undef, ndraws)
+    for (j, t) in enumerate(idxs)
+        b  = clamp(b_vec[t], 10.0, 200.0)
+        σ0 = clamp(σ0_vec[t], 0.05, 1.0)
+        β  = β_vec[t]
+
+        m  = vec(m_mat[t, :])
+        σk = vec(σk_mat[t, :])
+
+        for k in 1:K
+            m[k]  = clamp(m[k], 0.1, 4.0)
+            σk[k] = clamp(σk[k], 0.3, 3.0)
+        end
+        m[WT_TO_IDX["REST_DAY"]] = 0.0
+
+        draws[j] = UserModelParams(b, m, σ0, σk, β)
+    end
+
+    USER_POST[req.userId] = draws
+
+    return FitUserModelResponse(true, point.b, point.m, point.σ0, point.σk, point.βfat)
+end
+
+
+function fit_user_model_heuristic(req::FitUserModelRequest)::UserModelParams
     # collect loads per category index
     loads_by_k = [Float64[] for _ in 1:K]
 
@@ -664,11 +602,66 @@ function fit_user_model(req::FitUserModelRequest)::FitUserModelResponse
     end
     σk[WT_TO_IDX["REST_DAY"]] = 1.0
 
-    params = UserModelParams(b, m, σ0, σk)
+    params = UserModelParams(b, m, σ0, σk, 0.0)
     USER_MODELS[req.userId] = params
 
-    return FitUserModelResponse(true, b, m, σ0, σk, nothing)
+    return params
 end
+
+sigmoid(x) = 1 / (1 + exp(-x))
+
+function clamp01(x)
+    return min(1.0, max(0.0, x))
+end
+
+# Pick a workout from candidates using weights
+function sample_categorical(rng, items::Vector{String}, w::Vector{Float64})
+    s = sum(w)
+    if s <= 0
+        return items[end] # fallback
+    end
+    u = rand(rng) * s
+    acc = 0.0
+    for (it, wi) in zip(items, w)
+        acc += wi
+        if u <= acc
+            return it
+        end
+    end
+    return items[end]
+end
+
+softmax(x) = (ex = exp.(x .- maximum(x)); ex ./ sum(ex))
+
+function map_probs_softmax(base, readiness, injury, weather)
+    r = clamp01((70 - readiness)/40)
+    inj = clamp01((injury - 0.4)/0.4)
+    w = weather === nothing ? 0.35 : clamp01((0.7 - weather)/0.7)
+    pressure = clamp01(0.55*r + 0.35*inj + 0.20*w)
+
+    # candidates + "difficulty"
+    if base == "INTERVAL_RUN"
+        items = ["INTERVAL_RUN","TEMPO_RUN","EASY_RUN","REST_DAY"]
+        diff  = [3.0, 2.2, 1.0, 0.0]
+    elseif base == "TEMPO_RUN"
+        items = ["TEMPO_RUN","EASY_RUN","REST_DAY"]
+        diff  = [2.2, 1.0, 0.0]
+    elseif base == "LONG_RUN"
+        items = ["LONG_RUN","EASY_RUN","REST_DAY"]
+        diff  = [2.5, 1.0, 0.0]
+    else
+        return [base], [1.0]
+    end
+
+    # pressure increases penalty on difficulty
+    λ = 0.8 + 2.0*pressure
+    logits = .-(λ .* diff)
+    p = softmax(logits)
+    return items, collect(p)
+end
+
+
+
 
 
 

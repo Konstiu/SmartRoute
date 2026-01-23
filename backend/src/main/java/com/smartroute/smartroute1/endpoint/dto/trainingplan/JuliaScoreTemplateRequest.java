@@ -11,6 +11,7 @@ import java.util.List;
 public class JuliaScoreTemplateRequest {
     String userId;
     String startDate;
+    List<String> template;
     List<String> effectiveTemplate;
     double ctl;
     double atl;
