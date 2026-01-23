@@ -576,11 +576,11 @@ public class ActivityDataGenerator {
 
         Map<Integer, Float> timeInZones = fitnessScoreService.calculateTimeInZones(hrsList, timesList, user);
 
-        activity.setTimeZ1(Math.round(timeInZones.get(1)));
-        activity.setTimeZ2(Math.round(timeInZones.get(2)));
-        activity.setTimeZ3(Math.round(timeInZones.get(3)));
-        activity.setTimeZ4(Math.round(timeInZones.get(4)));
-        activity.setTimeZ5(Math.round(timeInZones.get(5)));
+        activity.setTimeZ1(timeInZones.get(1) == null ? null : Math.round(timeInZones.get(1)));
+        activity.setTimeZ2(timeInZones.get(2) == null ? null : Math.round(timeInZones.get(2)));
+        activity.setTimeZ3(timeInZones.get(3) == null ? null : Math.round(timeInZones.get(3)));
+        activity.setTimeZ4(timeInZones.get(4) == null ? null : Math.round(timeInZones.get(4)));
+        activity.setTimeZ5(timeInZones.get(5) == null ? null : Math.round(timeInZones.get(5)));
 
         activity.setMaxHeartrate(hrsList.stream().max(Float::compareTo).orElse(0f));
         activity.setAverageHeartrate((float) hrsList.stream().mapToDouble(Float::doubleValue).average().orElse(0.0));
