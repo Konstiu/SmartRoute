@@ -594,7 +594,7 @@ public class ActivityDataGenerator {
     }
 
     private String createRealisticActivityName(RunType runType, int seed) {
-        Random r = new Random(seed);
+
         List<String> names = List.of("Run");
         if (runType == RunType.EASY_RUN) {
             names = List.of("Morning Run", "Evening Run", "Afternoon Run", "Night Run", "Easy Run", "Easy Jog", "Evening Run", "Base Run");
@@ -608,7 +608,7 @@ public class ActivityDataGenerator {
         if (runType == RunType.TEMPO_RUN) {
             names = List.of("Morning Run", "Evening Run", "Afternoon Run", "Night Run", "Tempo Run", "Tempo Run", "Tempo Session");
         }
-
+        Random r = new Random(seed);
         int index = r.nextInt(names.size());
         return names.get(index);
     }
@@ -652,11 +652,12 @@ public class ActivityDataGenerator {
             intervalStarts.add((int) (Math.max(0, (duration * .1 * i) + Math.round(r.nextGaussian(0, 20)))));
         }
 
-        float baseHR = RUN_TYPE_HEARTRATE_MAP.get(runType) * (float) getRandomValueFromGaussian(1, 1f, seed, .025f);
+
 
         int intervalCount = 0;
         boolean isInterval = false;
         int intervalLength = 0;
+        float baseHr = RUN_TYPE_HEARTRATE_MAP.get(runType) * (float) getRandomValueFromGaussian(1, 1f, seed, .025f);
         for (int i = 0; i < duration; i++) {
             times.add((double) i);
 
@@ -669,7 +670,7 @@ public class ActivityDataGenerator {
                 }
 
                 // HR with noise
-                float heartRate = (float) getRandomValueFromGaussian(1, baseHR, (seed + 1) * i, .02f);
+                float heartRate = (float) getRandomValueFromGaussian(1, baseHr, (seed + 1) * i, .02f);
                 heartRates.add(heartRate);
             }
             if (runType == RunType.INTERVAL_RUN || runType == RunType.TEMPO_RUN) {
@@ -684,20 +685,20 @@ public class ActivityDataGenerator {
                     if (intervalLength <= 5) {
                         float accelerationFactor = 1.0f + (intervalLength / 5.0f) * 0.5f; // 1.0 to 1.5
                         speeds.add(basePace * accelerationFactor);
-                        heartRates.add(baseHR * (1.0f + (intervalLength / 5.0f) * 0.18f)); // 1.0 to 1.18
+                        heartRates.add(baseHr * (1.0f + (intervalLength / 5.0f) * 0.18f)); // 1.0 to 1.18
                     }
 
                     // peak
                     if (intervalLength > 5 && intervalLength < 40) {
                         speeds.add(basePace * 1.5f);
-                        heartRates.add(baseHR * 1.18f);
+                        heartRates.add(baseHr * 1.18f);
                     }
 
                     // decelerate
                     if (intervalLength >= 40) {
                         float decelerationFactor = 1.0f + ((45 - intervalLength) / 5.0f) * 0.5f; // 1.5 to 1.0
                         speeds.add(basePace * decelerationFactor);
-                        heartRates.add(baseHR * (1.0f + ((45 - intervalLength) / 5.0f) * 0.18f)); // 1.18 to 1.0
+                        heartRates.add(baseHr * (1.0f + ((45 - intervalLength) / 5.0f) * 0.18f)); // 1.18 to 1.0
                     }
 
                     // 45sec intervals
@@ -709,7 +710,7 @@ public class ActivityDataGenerator {
                         }
                     }
                 } else {
-                    float heartRate = (float) getRandomValueFromGaussian(1, baseHR, (seed + 1) * i, .02f);
+                    float heartRate = (float) getRandomValueFromGaussian(1, baseHr, (seed + 1) * i, .02f);
                     heartRates.add(heartRate);
                     speeds.add((float) getRandomValueFromGaussian(1, basePace, (seed + 1) * i, .015f));
                 }
