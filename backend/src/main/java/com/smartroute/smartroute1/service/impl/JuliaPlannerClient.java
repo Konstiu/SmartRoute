@@ -1,5 +1,7 @@
 package com.smartroute.smartroute1.service.impl;
 
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.FitUserModelRequest;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.FitUserModelResponse;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.JuliaScoreTemplateRequest;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.JuliaScoreTemplateResponse;
 import lombok.RequiredArgsConstructor;
@@ -60,6 +62,30 @@ public class JuliaPlannerClient {
 
             return Optional.ofNullable(resp);
         } catch (Exception e) {
+            return Optional.empty();
+        }
+    }
+
+    public Optional<FitUserModelResponse> fitUserModel(FitUserModelRequest req) {
+        if (!enabled) {
+            return Optional.empty();
+        }
+
+        try {
+            FitUserModelResponse resp = juliaWebClient.post()
+                    .uri("/model/fit-user")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(req)
+                    .retrieve()
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(),
+                            r -> r.bodyToMono(String.class).flatMap(msg -> Mono.error(new RuntimeException(msg))))
+                    .bodyToMono(FitUserModelResponse.class)
+                    .timeout(Duration.ofSeconds(8))
+                    .block();
+
+            return Optional.ofNullable(resp);
+        } catch (Exception e) {
+            // optionally log.debug("fitUserModel failed", e);
             return Optional.empty();
         }
     }

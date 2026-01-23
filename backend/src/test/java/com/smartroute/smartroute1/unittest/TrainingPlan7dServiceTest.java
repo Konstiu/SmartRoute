@@ -77,6 +77,8 @@ public class TrainingPlan7dServiceTest {
     TrainingPlanStore trainingPlanStore;
     @Mock
     JuliaPlannerClient juliaPlannerClient;
+    @Mock
+    UserModelStore userModelStore;
 
     private Clock fixedClock;
     private double latitude;
@@ -109,7 +111,8 @@ public class TrainingPlan7dServiceTest {
                 gymWorkoutSelectorService,
                 routeGenerationService,
                 trainingPlanStore,
-                juliaPlannerClient
+                juliaPlannerClient,
+                userModelStore
         );
     }
 
