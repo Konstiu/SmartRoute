@@ -12,8 +12,11 @@ import com.smartroute.smartroute1.endpoint.mapper.RunClassificationMapper;
 import com.smartroute.smartroute1.endpoint.mapper.StravaActivityMapper;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
+import com.smartroute.smartroute1.entity.Atl;
+import com.smartroute.smartroute1.entity.Ctl;
 import com.smartroute.smartroute1.entity.GymWorkout;
 import com.smartroute.smartroute1.entity.Injuries;
+import com.smartroute.smartroute1.entity.Tsb;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.Weekday;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
@@ -22,6 +25,9 @@ import com.smartroute.smartroute1.exception.InsufficientTrainingDataException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.GymWorkoutRepository;
 import com.smartroute.smartroute1.repository.InjuryRepository;
+import com.smartroute.smartroute1.repository.statistics.AtlRepository;
+import com.smartroute.smartroute1.repository.statistics.CtlRepository;
+import com.smartroute.smartroute1.repository.statistics.TsbRepository;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
 import com.smartroute.smartroute1.service.FatigueAndOverloadService;
 import com.smartroute.smartroute1.service.StatisticsService;
@@ -35,7 +41,7 @@ import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -46,6 +52,9 @@ public class StatisticsServiceImpl implements StatisticsService {
     private final ActivityRepository activityRepository;
     private final GymWorkoutRepository gymWorkoutRepository;
     private final InjuryRepository injuryRepository;
+    private final TsbRepository tsbRepository;
+    private final AtlRepository atlRepository;
+    private final CtlRepository ctlRepository;
     private final List<WorkoutType> runTypes = List.of(
             WorkoutType.EASY_RUN,
             WorkoutType.INTERVAL_RUN,
@@ -61,12 +70,21 @@ public class StatisticsServiceImpl implements StatisticsService {
                                  ConsistencyAnalyzerService consistencyAnalyzerService,
                                  ActivityRepository activityRepository,
                                  GymWorkoutRepository gymWorkoutRepository,
-                                 InjuryRepository injuryRepository, InjuryMapper injuryMapper, StravaActivityMapper stravaActivityMapper, RunClassificationMapper runClassificationMapper) {
+                                 InjuryRepository injuryRepository,
+                                 TsbRepository tsbRepository,
+                                 AtlRepository atlRepository,
+                                 CtlRepository ctlRepository,
+                                 InjuryMapper injuryMapper,
+                                 StravaActivityMapper stravaActivityMapper,
+                                 RunClassificationMapper runClassificationMapper) {
         this.fatigueAndOverloadService = fatigueAndOverloadService;
         this.consistencyAnalyzerService = consistencyAnalyzerService;
         this.activityRepository = activityRepository;
         this.gymWorkoutRepository = gymWorkoutRepository;
         this.injuryRepository = injuryRepository;
+        this.tsbRepository = tsbRepository;
+        this.atlRepository = atlRepository;
+        this.ctlRepository = ctlRepository;
         numberOfDaysInYear = 365;
         if (Year.isLeap(LocalDate.now().getYear())) {
             numberOfDaysInYear = 366;
@@ -102,13 +120,31 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Override
     public ConsistencyHistoryDto getConsistencyHistory(ApplicationUser user) {
         HashMap<Instant, ConsistencyScoreResultDto> consistencyHistory = new HashMap<>();
-        HashMap<Instant, Double> ctlHistory = new HashMap<>();
-        HashMap<Instant, Double> atlHistory = new HashMap<>();
-        HashMap<Instant, Double> tsbHistory = new HashMap<>();
+
         Set<Weekday> preferredDays = user.getActiveWeekdays();
         int plannedWeeklySessions = preferredDays.size();
         int minWeeklySessions = getMinWeeklySessions(user.getExperienceLevel());
         int maxWeeklySessions = getMaxWeeklySessions(user.getExperienceLevel());
+
+        HashMap<Instant, Double> ctlHistory = new HashMap<>(ctlRepository.getCtlByUserAndDateBetween(user, LocalDate.now().minusDays(numberOfDaysInYear).atStartOfDay(ZoneId.systemDefault()).toInstant(), Instant.now())
+                .stream()
+                .collect(Collectors.toMap(
+                        Ctl::getDate,
+                        Ctl::getScore
+                )));
+        HashMap<Instant, Double> atlHistory = new HashMap<>(atlRepository.getAtlByUserAndDateBetween(user, LocalDate.now().minusDays(numberOfDaysInYear).atStartOfDay(ZoneId.systemDefault()).toInstant(), Instant.now())
+                .stream()
+                .collect(Collectors.toMap(
+                        Atl::getDate,
+                        Atl::getScore
+                )));
+        HashMap<Instant, Double> tsbHistory =
+                new HashMap<>(tsbRepository.getTsbByUserAndDateBetween(user, LocalDate.now().minusDays(numberOfDaysInYear).atStartOfDay(ZoneId.systemDefault()).toInstant(), Instant.now())
+                        .stream()
+                        .collect(Collectors.toMap(
+                                Tsb::getDate,
+                                Tsb::getScore
+                        )));
 
         for (int i = 0; i < numberOfDaysInYear; i++) {
             LocalDate localDate = LocalDate.now().minusDays(numberOfDaysInYear - i);
@@ -127,9 +163,33 @@ public class StatisticsServiceImpl implements StatisticsService {
             }
 
             try {
-                ctlHistory.put(date, fatigueAndOverloadService.ctlOn(user, localDate));
-                atlHistory.put(date, fatigueAndOverloadService.atlOn(user, localDate));
-                tsbHistory.put(date, fatigueAndOverloadService.tsbOn(user, localDate));
+                if (!ctlHistory.containsKey(date)) {
+                    Double ctl = fatigueAndOverloadService.ctlOn(user, localDate);
+                    Ctl ctlObject = new Ctl();
+                    ctlObject.setDate(date);
+                    ctlObject.setScore(ctl);
+                    ctlObject.setUser(user);
+                    ctlRepository.save(ctlObject);
+                    ctlHistory.put(date, ctl);
+                }
+                if (!atlHistory.containsKey(date)) {
+                    Double atl = fatigueAndOverloadService.atlOn(user, localDate);
+                    Atl atlObject = new Atl();
+                    atlObject.setDate(date);
+                    atlObject.setScore(atl);
+                    atlObject.setUser(user);
+                    atlRepository.save(atlObject);
+                    atlHistory.put(date, atl);
+                }
+                if (!tsbHistory.containsKey(date)) {
+                    Double tsb = fatigueAndOverloadService.tsbOn(user, localDate);
+                    Tsb tsbObject = new Tsb();
+                    tsbObject.setDate(date);
+                    tsbObject.setScore(tsb);
+                    tsbObject.setUser(user);
+                    tsbRepository.save(tsbObject);
+                    tsbHistory.put(date, tsb);
+                }
             } catch (InsufficientTrainingDataException e) {
                 ctlHistory.put(date, 0.0);
                 atlHistory.put(date, 0.0);
@@ -149,11 +209,9 @@ public class StatisticsServiceImpl implements StatisticsService {
     // Min weekly sessions by experience (recommendations for beginner, intermediate, advanced from: https://pubmed.ncbi.nlm.nih.gov/19204579/)
     private int getMinWeeklySessions(ExperienceLevel experienceLevel) {
         return switch (experienceLevel) {
-            case BEGINNER -> 2;
-            case CASUAL -> 2;
+            case BEGINNER, CASUAL -> 2;
             case INTERMEDIATE -> 3;
-            case ADVANCED -> 4;
-            case COMPETITIVE_ATHLETE -> 4;
+            case ADVANCED, COMPETITIVE_ATHLETE -> 4;
         };
     }
 
@@ -161,8 +219,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     private int getMaxWeeklySessions(ExperienceLevel experienceLevel) {
         return switch (experienceLevel) {
             case BEGINNER -> 3;
-            case CASUAL -> 4;
-            case INTERMEDIATE -> 4;
+            case CASUAL, INTERMEDIATE -> 4;
             case ADVANCED -> 5;
             case COMPETITIVE_ATHLETE -> 6;
         };
