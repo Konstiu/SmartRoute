@@ -392,7 +392,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             return activity.getMovingTime() / baseline;
         }
 
-        int index = (int) Math.ceil(durations.size() * 0.8) - 1;
+        int index = (int) Math.ceil(durations.size() * 0.85) - 1;
         index = Math.clamp(index, 0, durations.size() - 1);
 
         int personalNormalUpperDuration = durations.get(index);
@@ -421,7 +421,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             return activity.getDistance() / baseline;
         }
 
-        int index = (int) Math.ceil(distances.size() * 0.8) - 1;
+        int index = (int) Math.ceil(distances.size() * 0.85) - 1;
         index = Math.clamp(index, 0, distances.size() - 1);
 
         double personalNormalUpperDistance = distances.get(index);
@@ -448,7 +448,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             return activity.getAverageSpeed() / baseline;
         }
 
-        int index = (int) Math.ceil(paces.size() * 0.8) - 1;
+        int index = (int) Math.ceil(paces.size() * 0.85) - 1;
         index = Math.clamp(index, 0, paces.size() - 1);
 
         double personalNormalUpperPace = paces.get(index);
