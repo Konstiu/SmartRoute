@@ -192,15 +192,18 @@ public class ActivityDataGenerator {
                 switch (i) {
                     case 1 -> {
                         // User 1: Beginner - irregular 0-3x per week, 2-6 km, moderate-slow pace
-                        generateBeginnerActivities(userList.get(i));
+                        List<InjuryPeriod> beginnerInjuries = injuryDataGenerator.getInjuryAwareBeginnerPeriods();
+                        generateBeginnerActivities(userList.get(i), beginnerInjuries);
                     }
                     case 2 -> {
                         // User 2: Advanced - 1-3x per week, 5-15 km, moderate pace
-                        generateAdvancedActivities(userList.get(i));
+                        List<InjuryPeriod> advancedInjuries = injuryDataGenerator.getInjuryAwareAdvancedPeriods();
+                        generateAdvancedActivities(userList.get(i), advancedInjuries);
                     }
                     case 3 -> {
                         // User 3: Pro - 3-5x per week, 8-28 km, moderate-high pace
-                        generateProActivities(userList.get(i));
+                        List<InjuryPeriod> eliteInjuries = injuryDataGenerator.getEliteWithOneInjuryPeriods();
+                        generateProActivities(userList.get(i), eliteInjuries);
                     }
                     case 4 -> {
                         // User 4 Exhausted pro-athlete marathon run yesterday
@@ -421,51 +424,104 @@ public class ActivityDataGenerator {
         return activity;
     }
 
-    private void generateBeginnerActivities(ApplicationUser user) {
-        // Beginner: 23 activities over 4 months, irregular (0-3x/week)
-        int[] daysAgo = {3, 7, 14, 16, 21, 28, 30, 35, 42, 44, 49, 51, 56, 58, 64, 67, 70, 77, 81, 84, 89, 96, 99};
-        RunType[] runTypes =
-            {RunType.TEMPO_RUN, RunType.EASY_RUN, RunType.EASY_RUN, RunType.EASY_RUN, RunType.LONG_RUN,
-                RunType.EASY_RUN, RunType.EASY_RUN, RunType.TEMPO_RUN, RunType.INTERVAL_RUN, RunType.EASY_RUN,
-                RunType.LONG_RUN, RunType.EASY_RUN, RunType.EASY_RUN, RunType.TEMPO_RUN, RunType.EASY_RUN, RunType.LONG_RUN,
-                RunType.EASY_RUN, RunType.EASY_RUN, RunType.LONG_RUN, RunType.LONG_RUN, RunType.EASY_RUN, RunType.EASY_RUN,
-                RunType.LONG_RUN};
+    private void generateBeginnerActivities(ApplicationUser user, List<InjuryPeriod> injuryPeriods) {
+        List<Integer> daysAgo = new ArrayList<>();
+        List<RunType> runTypes = new ArrayList<>();
+        int days = 0;
+        Random r = new Random(42);
+        while (days <= 365) {
+            days += Math.round((float) r.nextGaussian(4, 1));
+            daysAgo.add(days);
 
-        for (int i = 0; i < daysAgo.length; i++) {
-            Activity activity = createRealisticActivity(user, LocalDate.now().minusDays(daysAgo[i]), ExperienceLevel.BEGINNER, runTypes[i], i);
+            int rand = r.nextInt(0, 10);
+            RunType runType;
+
+            if (rand <= 5) {
+                runType = RunType.EASY_RUN;
+            } else if (rand <= 7) {
+                runType = RunType.LONG_RUN;
+            } else if (rand == 8) {
+                runType = RunType.TEMPO_RUN;
+            } else {
+                runType = RunType.INTERVAL_RUN;
+            }
+            runTypes.add(runType);
+        }
+
+        LocalDate today = LocalDate.now();
+        for (int i = 0; i < daysAgo.size(); i++) {
+            if (isInjuredOnDate(today.minusDays(daysAgo.get(i)), injuryPeriods)) {
+                continue;
+            }
+            Activity activity = createRealisticActivity(user, today.minusDays(daysAgo.get(i)), ExperienceLevel.BEGINNER, runTypes.get(i), i);
             activityRepository.save(activity);
         }
     }
 
-    private void generateAdvancedActivities(ApplicationUser user) {
-        // Advanced: 26 activities over 3 months (1-3x/week)
-        int[] daysAgo = {1, 4, 7, 10, 14, 17, 21, 24, 28, 31, 35, 38, 42, 45, 49, 52, 56, 59, 61, 64, 66, 67, 70, 73, 75, 77};
-        RunType[] runTypes =
-            {RunType.EASY_RUN, RunType.TEMPO_RUN, RunType.EASY_RUN, RunType.EASY_RUN, RunType.LONG_RUN,
-                RunType.EASY_RUN, RunType.EASY_RUN, RunType.TEMPO_RUN, RunType.INTERVAL_RUN, RunType.EASY_RUN, RunType.EASY_RUN,
-                RunType.LONG_RUN, RunType.EASY_RUN, RunType.LONG_RUN, RunType.EASY_RUN, RunType.EASY_RUN, RunType.TEMPO_RUN, RunType.EASY_RUN, RunType.LONG_RUN,
-                RunType.EASY_RUN, RunType.EASY_RUN, RunType.TEMPO_RUN, RunType.LONG_RUN, RunType.EASY_RUN, RunType.EASY_RUN,
-                RunType.LONG_RUN};
+    private void generateAdvancedActivities(ApplicationUser user, List<InjuryPeriod> injuryPeriods) {
+        List<Integer> daysAgo = new ArrayList<>();
+        List<RunType> runTypes = new ArrayList<>();
+        int days = 0;
+        Random r = new Random(42);
+        while (days <= 365) {
+            days += Math.round((float) r.nextGaussian(3, 1));
+            daysAgo.add(days);
 
-        for (int i = 0; i < daysAgo.length; i++) {
-            Activity activity = createRealisticActivity(user, LocalDate.now().minusDays(daysAgo[i]), ExperienceLevel.ADVANCED, runTypes[i], i);
+            int rand = r.nextInt(0, 10);
+            RunType runType;
+
+            if (rand <= 4) {
+                runType = RunType.EASY_RUN;
+            } else if (rand <= 7) {
+                runType = RunType.LONG_RUN;
+            } else if (rand == 8) {
+                runType = RunType.TEMPO_RUN;
+            } else {
+                runType = RunType.INTERVAL_RUN;
+            }
+            runTypes.add(runType);
+        }
+
+        LocalDate today = LocalDate.now();
+        for (int i = 0; i < daysAgo.size(); i++) {
+            if (isInjuredOnDate(today.minusDays(daysAgo.get(i)), injuryPeriods)) {
+                continue;
+            }
+            Activity activity = createRealisticActivity(user, today.minusDays(daysAgo.get(i)), ExperienceLevel.ADVANCED, runTypes.get(i), i);
             activityRepository.save(activity);
         }
     }
 
-    private void generateProActivities(ApplicationUser user) {
-        // Pro: 35 activities over 2.5 months (3-5x/week)
-        int[] daysAgo = {1, 3, 5, 8, 10, 12, 15, 17, 19, 22, 24, 26, 29, 31, 33, 36, 38, 40, 43, 45, 47, 50, 52, 54,
-            57, 60, 61, 63, 66, 67, 69, 71, 73, 75, 77};
-        RunType[] runTypes =
-            {RunType.EASY_RUN, RunType.EASY_RUN, RunType.TEMPO_RUN, RunType.EASY_RUN, RunType.EASY_RUN, RunType.LONG_RUN,
-                RunType.EASY_RUN, RunType.EASY_RUN, RunType.TEMPO_RUN, RunType.INTERVAL_RUN, RunType.EASY_RUN, RunType.EASY_RUN,
-                RunType.LONG_RUN, RunType.INTERVAL_RUN, RunType.TEMPO_RUN, RunType.EASY_RUN, RunType.EASY_RUN, RunType.TEMPO_RUN, RunType.EASY_RUN, RunType.LONG_RUN,
-                RunType.EASY_RUN, RunType.EASY_RUN, RunType.TEMPO_RUN, RunType.LONG_RUN, RunType.EASY_RUN, RunType.EASY_RUN,
-                RunType.LONG_RUN, RunType.EASY_RUN, RunType.EASY_RUN, RunType.INTERVAL_RUN, RunType.LONG_RUN, RunType.EASY_RUN, RunType.EASY_RUN, RunType.EASY_RUN, RunType.LONG_RUN};
+    private void generateProActivities(ApplicationUser user, List<InjuryPeriod> injuryPeriods) {
+        List<Integer> daysAgo = new ArrayList<>();
+        List<RunType> runTypes = new ArrayList<>();
+        int days = 0;
+        Random r = new Random(42);
+        while (days <= 365) {
+            days += Math.round((float) r.nextGaussian(1.6f, .25));
+            daysAgo.add(days);
 
-        for (int i = 0; i < daysAgo.length; i++) {
-            Activity activity = createRealisticActivity(user, LocalDate.now().minusDays(daysAgo[i]), ExperienceLevel.COMPETITIVE_ATHLETE, runTypes[i], i);
+            int rand = r.nextInt(0, 10);
+            RunType runType;
+
+            if (rand <= 5) {
+                runType = RunType.EASY_RUN;
+            } else if (rand <= 7) {
+                runType = RunType.LONG_RUN;
+            } else if (rand == 8) {
+                runType = RunType.TEMPO_RUN;
+            } else {
+                runType = RunType.INTERVAL_RUN;
+            }
+            runTypes.add(runType);
+        }
+
+        LocalDate today = LocalDate.now();
+        for (int i = 0; i < daysAgo.size(); i++) {
+            if (isInjuredOnDate(today.minusDays(daysAgo.get(i)), injuryPeriods)) {
+                continue;
+            }
+            Activity activity = createRealisticActivity(user, today.minusDays(daysAgo.get(i)), ExperienceLevel.COMPETITIVE_ATHLETE, runTypes.get(i), i);
             activityRepository.save(activity);
         }
     }
@@ -548,7 +604,7 @@ public class ActivityDataGenerator {
         activity.setWeather(weatherResponse);
         activity.setName(createRealisticActivityName(runType, seed));
 
-        float distance = (float) (BASE_DISTANCE_MAP.get(experienceLevel) * getRandomValueFromGaussian(1, RUN_TYPE_DISTANCE_MAP.get(runType), seed, .05f));
+        float distance = (float) (BASE_DISTANCE_MAP.get(experienceLevel) * getRandomValueFromGaussian(1, RUN_TYPE_DISTANCE_MAP.get(runType), seed, .075f));
         float pace = (float) (BASE_PACE_MAP.get(experienceLevel) * getRandomValueFromGaussian(1, RUN_TYPE_PACE_MAP.get(runType), seed, .03f));
 
 
