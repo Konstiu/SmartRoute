@@ -3,6 +3,7 @@ package com.smartroute.smartroute1.datagenerator;
 import com.smartroute.smartroute1.entity.ActivityStream;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.StravaAccount;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.RunType;
@@ -25,6 +26,7 @@ import java.lang.invoke.MethodHandles;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -245,6 +247,16 @@ public class ActivityDataGenerator {
                     }
                     default -> {
                         // Random activities for other users
+                        StravaAccount account = new StravaAccount();
+                        account.setScopes("read");
+                        account.setAccessToken("dummy-token");
+                        account.setRefreshToken("dummy-token");
+                        account.setExpiresAt(LocalDate.now().plusDays(30).atStartOfDay().toInstant(ZoneOffset.UTC));
+                        account.setConnectedAt(LocalDate.now().minusDays(10).atStartOfDay().toInstant(ZoneOffset.UTC));
+                        account.setUser(userList.get(i));
+
+                        stravaAccountRepository.save(account);
+
                         for (int j = 0; j < NUMBER_OF_ACTIVITIES_PER_USER; j++) {
                             Activity sa = new Activity();
                             sa.setName("Activity " + j);
