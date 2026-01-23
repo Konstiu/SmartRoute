@@ -1,10 +1,13 @@
-import { Platform } from '@ionic/angular';
-import { KeyManagementService } from 'src/services/key-management.service';
+import {Platform} from '@ionic/angular';
+import {KeyManagementService} from 'src/services/key-management.service';
 import {AfterViewInit, Component, ElementRef, OnInit, ViewChild, ChangeDetectorRef} from '@angular/core';
 import {PushNotificationService} from "../../services/push-notification.service";
 import {Gesture, GestureController, AlertController, ToastController} from '@ionic/angular';
 import {UserService} from 'src/services/user.service';
 import {AuthService} from 'src/services/auth.service';
+import {ChatMessageService} from 'src/services/chat-message.service';
+import {FriendshipService} from 'src/services/friendship.service';
+import {Geolocation} from "@capacitor/geolocation"
 
 @Component({
   selector: 'app-root',
@@ -13,7 +16,7 @@ import {AuthService} from 'src/services/auth.service';
   standalone: false,
 })
 export class AppComponent implements OnInit, AfterViewInit {
-  @ViewChild('alertFab', { read: ElementRef }) set alertFabElement(element: ElementRef<HTMLElement>) {
+  @ViewChild('alertFab', {read: ElementRef}) set alertFabElement(element: ElementRef<HTMLElement>) {
     if (element && this.emergencyAlertVisible) {
       this.alertFab = element;
       // Re-initialize gesture when element becomes available
@@ -58,6 +61,8 @@ export class AppComponent implements OnInit, AfterViewInit {
     private authService: AuthService,
     private platform: Platform,
     private keyManagementService: KeyManagementService,
+    private chatMessageService: ChatMessageService,
+    private friendshipService: FriendshipService
   ) {
   }
 
@@ -259,7 +264,7 @@ export class AppComponent implements OnInit, AfterViewInit {
           text: 'Send Alert',
           role: 'confirm',
           cssClass: 'alert-button-confirm',
-          handler: () =>     this.alertFriends(),
+          handler: () => this.alertFriends(),
         },
       ],
     });
@@ -269,12 +274,12 @@ export class AppComponent implements OnInit, AfterViewInit {
 
 
   alertFriends() {
-    // Your existing push notification logic
     this.userService.getUserData()
       .subscribe({
         next: user => {
           const name = user.firstname ?? 'A friend';
 
+          // send push notifications to all friends
           this.pushService
             .sendTestNotification(
               '!!ALERT!!',
@@ -288,6 +293,37 @@ export class AppComponent implements OnInit, AfterViewInit {
                 this.showToast('Failed to send notification', 'danger');
               }
             });
+
+          // send chat message with alert to all friends
+          this.friendshipService.getFriends().subscribe(async friendships => {
+            try {
+              // get current location
+              const location = await Geolocation.getCurrentPosition({
+                enableHighAccuracy: true,
+                maximumAge: 0
+              });
+
+              friendships.forEach(friendship => {
+                const friendEmail: string = friendship.sender.email === user.email ? friendship.receiver.email : friendship.sender.email;
+                this.chatMessageService.sendLocationMessage(
+                  '!!EMERGENCY ALERT!! Please check on me.',
+                  location.coords.latitude,
+                  location.coords.longitude,
+                  friendEmail,
+                );
+              });
+            } catch (e) {
+              // send text-only alert if location fetch fails
+              console.error("ERROR: unable to determine position:", e);
+              friendships.forEach(friendship => {
+                const friendEmail: string = friendship.sender.email === user.email ? friendship.receiver.email : friendship.sender.email;
+                this.chatMessageService.sendTextMessage(
+                  '!!EMERGENCY ALERT!! Please check on me.',
+                  friendEmail,
+                );
+              });
+            }
+          });
         }
       });
   }

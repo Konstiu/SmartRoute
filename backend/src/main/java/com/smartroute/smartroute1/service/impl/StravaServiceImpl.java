@@ -102,7 +102,7 @@ public class StravaServiceImpl implements StravaService {
 
         List<Activity> savedActivities = saveImportedActivities(activities, user);
 
-        activityProcessingService.fetchHeartRateDataForActivities(45, savedActivities, token);
+        activityProcessingService.processActivitiesInBatches(45, savedActivities, token);
 
         return activities;
     }

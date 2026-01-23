@@ -42,6 +42,9 @@ public class BaseTest {
     private ActivityRepository activityRepository;
 
     @Autowired
+    private ActivityStreamRepository aStreamRepository;
+
+    @Autowired
     private GarminAccountRepository garminAccountRepository;
 
     @Autowired
@@ -58,6 +61,10 @@ public class BaseTest {
 
     @Autowired
     private FriendshipRepository friendshipRepository;
+    @Autowired
+    private ActivityStreamRepository activityStreamRepository;
+    @Autowired
+    private ConsistencyRepository consistencyRepository;
 
     @BeforeEach
     void setUp() {
@@ -79,6 +86,7 @@ public class BaseTest {
         userDataGenerator.generateUser();
         stravaAccountDataGenerator.generateAccounts();
         injuryDataGenerator.generateInjuries();
+        friendshipRepository.deleteAllInBatch();
 
     }
 
@@ -87,9 +95,11 @@ public class BaseTest {
         garminAccountRepository.deleteAllInBatch();
         athleteZoneRepository.deleteAllInBatch();
         activityRepository.deleteAllInBatch();
+        activityStreamRepository.deleteAllInBatch();
         stravaAccountRepository.deleteAllInBatch();
         injuryRepository.deleteAllInBatch();
         friendshipRepository.deleteAllInBatch();
+        consistencyRepository.deleteAllInBatch();
         userRepository.deleteAllInBatch();
         stravaAccountRepository.deleteAll();
         userRepository.deleteAll();
