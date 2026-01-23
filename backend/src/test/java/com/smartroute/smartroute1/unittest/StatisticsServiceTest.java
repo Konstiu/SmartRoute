@@ -1,6 +1,6 @@
 package com.smartroute.smartroute1.unittest;
 
-import com.smartroute.smartroute1.endpoint.UserEndpoint;
+
 import com.smartroute.smartroute1.endpoint.dto.ConsistencyScoreResultDto;
 import com.smartroute.smartroute1.endpoint.dto.statistics.*;
 import com.smartroute.smartroute1.entity.Activity;
@@ -9,7 +9,7 @@ import com.smartroute.smartroute1.entity.Injuries;
 import com.smartroute.smartroute1.entity.enums.BodyPart;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.Weekday;
-import com.smartroute.smartroute1.entity.enums.WorkoutType;
+
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.InjuryRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
@@ -20,11 +20,10 @@ import com.smartroute.smartroute1.service.StatisticsService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -35,10 +34,12 @@ import java.time.Year;
 import java.time.ZoneId;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
@@ -51,6 +52,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @ActiveProfiles({"test", "generateData"})
 @Transactional
 @AutoConfigureMockMvc
+@EnableAsync
 public class StatisticsServiceTest {
 
     @Autowired
@@ -260,6 +262,25 @@ public class StatisticsServiceTest {
                 () -> Assertions.assertTrue(result.getTsbHistory().containsValue(-10.0))
         );
     }
+
+    @Test
+    @Transactional
+    void test_WhenPreLoadConsistency_ThenRunsOnDifferentThread() throws Exception {
+        ApplicationUser user = userRepository.saveAndFlush(createUser());
+
+        String callingThread = Thread.currentThread().getName();
+        AtomicReference<String> asyncThread = new AtomicReference<>();
+
+
+        CompletableFuture.runAsync(() -> {
+            service.preLoadConsistencyHistory(user)
+                    .thenRun(() -> asyncThread.set(Thread.currentThread().getName()));
+        });
+
+
+        assertNotEquals(callingThread, asyncThread.get());
+    }
+
 
     private ApplicationUser createUser() {
         ApplicationUser user = new ApplicationUser("stattest@stattest.com", "Max12345678", "Max", "Mustermann");

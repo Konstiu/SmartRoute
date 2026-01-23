@@ -42,6 +42,7 @@ import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -216,9 +217,10 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     @Async
     @Override
-    public void preLoadConsistencyHistory(ApplicationUser user) {
+    public CompletableFuture<Void> preLoadConsistencyHistory(ApplicationUser user) {
         resetConsistency(user);
         getConsistencyHistory(user);
+        return CompletableFuture.completedFuture(null);
     }
 
     // Min weekly sessions by experience (recommendations for beginner, intermediate, advanced from: https://pubmed.ncbi.nlm.nih.gov/19204579/)
