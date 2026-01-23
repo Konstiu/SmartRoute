@@ -51,28 +51,20 @@ function plan(req::PlanRequest)::PlanResponse
 end
 
 function handler(r::HTTP.Request)
-    # simple health check
-    if r.method == "GET" && r.target == "/health"
-        return HTTP.Response(200, "ok")
-    end
+    path = String(r.target)
+    path = first(split(path, '?'))          # remove query
+    path = endswith(path, "/") ? path[1:end-1] : path
 
-    if r.method == "POST" && r.target == "/model/fit-user"
-        req = JSON3.read(String(r.body), FitUserModelRequest)
-        resp = fit_user_model(req)
-        return HTTP.Response(200, JSON3.write(resp); headers=["Content-Type"=>"application/json"])
-    end
+    @info "REQ" method=r.method target=String(r.target) normpath=path
 
-    if r.method == "POST" && r.target == "/plan/score-template"
-        req = JSON3.read(String(r.body), ScoreTemplateRequest)
+    if r.method == "POST" && path == "/plan/score-template"
+        req  = JSON3.read(String(r.body), ScoreTemplateRequest)
         resp = score_template(req)
-        return HTTP.Response(200, JSON3.write(resp);
-            headers = ["Content-Type" => "application/json"])
+        return HTTP.Response(200, JSON3.write(resp); headers=["Content-Type"=>"application/json"])
     end
 
     return HTTP.Response(404, "Not found")
 end
-
-HTTP.serve(handler, "0.0.0.0", 8081)
 
 struct Dist
     p10::Float64
@@ -110,6 +102,7 @@ StructTypes.StructType(::Type{ScoreTemplateRequest}) = StructTypes.Struct()
 
 struct ScoreTemplateResponse
     avgUtility::Float64
+    utilDist::Dist
     tsbDists::Vector{Dist}
 end
 StructTypes.StructType(::Type{ScoreTemplateResponse}) = StructTypes.Struct()
@@ -164,6 +157,7 @@ end
 function score_template(req::ScoreTemplateRequest)::ScoreTemplateResponse
     rng = MersenneTwister(req.seed)
     tsb_samples = [Float64[] for _ in 1:7]
+    util_samples = Float64[]
 
     draws = get(USER_POST, req.userId, nothing)
 
@@ -239,11 +233,13 @@ function score_template(req::ScoreTemplateRequest)::ScoreTemplateResponse
             # optionally subtract penalties using req.injuryIndex / req.readiness / req.weatherScores[i]
         end
 
+        push!(util_samples, util)
         total_util += util
     end
 
+    utilDist = to_dist(util_samples)
     dists = [to_dist(tsb_samples[i]) for i in 1:7]
-    return ScoreTemplateResponse(total_util / req.sims, dists)
+    return ScoreTemplateResponse(total_util / req.sims, utilDist, dists)
 end
 
 has_model(req) =
@@ -660,6 +656,8 @@ function map_probs_softmax(base, readiness, injury, weather)
     return items, collect(p)
 end
 
+println("Starting Julia planner on :8081")
+HTTP.serve(handler, "0.0.0.0", 8081)
 
 
 

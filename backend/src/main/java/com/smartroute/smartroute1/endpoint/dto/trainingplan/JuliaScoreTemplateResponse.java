@@ -11,6 +11,7 @@ import java.util.List;
 @NoArgsConstructor
 public class JuliaScoreTemplateResponse {
     double avgUtility;
+    JuliaDist utilDist;
     List<JuliaDist> tsbDists;  // size 7
 }
 

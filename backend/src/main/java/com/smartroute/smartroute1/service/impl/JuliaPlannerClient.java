@@ -5,6 +5,8 @@ import com.smartroute.smartroute1.endpoint.dto.trainingplan.FitUserModelResponse
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.JuliaScoreTemplateRequest;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.JuliaScoreTemplateResponse;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
@@ -18,8 +20,8 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class JuliaPlannerClient {
-
-    private final WebClient juliaWebClient;
+    private final @Qualifier("juliaWebClient") WebClient juliaWebClient;
+    private static final Logger log = LoggerFactory.getLogger(TrainingPlan7dServiceImpl.class);
 
     public Mono<Boolean> health() {
         return juliaWebClient.get()
@@ -57,7 +59,10 @@ public class JuliaPlannerClient {
                     .retrieve()
                     .bodyToMono(JuliaScoreTemplateResponse.class)
                     .timeout(Duration.ofSeconds(3))
-                    .onErrorResume(ex -> Mono.empty())
+                    .onErrorResume(ex -> {
+                        log.warn("Julia scoreTemplate failed, falling back: {}", ex.toString());
+                        return Mono.empty();
+                    })
                     .block();
 
             return Optional.ofNullable(resp);
