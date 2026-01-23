@@ -40,6 +40,18 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
     private static final int K4 = 240;
     private static final int K5 = 480;
 
+    private static final int K1_RIDE = 12;
+    private static final int K2_RIDE = 24;
+    private static final int K3_RIDE = 45;
+    private static final int K4_RIDE = 100;
+    private static final int K5_RIDE = 120;
+
+    private static final int K1_WALK = 20;
+    private static final int K2_WALK = 40;
+    private static final int K3_WALK = 80;
+    private static final int K4_WALK = 160;
+    private static final int K5_WALK = 320;
+
     private static final float ELEVATION_COEFFICIENT = 0.05f;
     private static final float TIME_MODIFIER = 75;
 
@@ -75,12 +87,20 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
 
             timeInHrZones = calculateTimeInZones(heartRateStream, activity.getUser());
 
-            trimp = calculateTrimp(timeInHrZones);
+            String activityType = activity.getSportType();
+            if (activityType == null)  {
+                activityType = "Run";
+            }
+            trimp = calculateTrimp(timeInHrZones, activityType);
 
             return Math.round(trimp * elevationFactor);
         } catch (NoSuchElementException e) {
             // Fall back to distance/time method
-            return calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain());
+            String activityType = activity.getSportType();
+            if (activityType == null) {
+                activityType = "Run";
+            }
+            return calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain(), activityType);
         }
     }
 
@@ -93,11 +113,19 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
         try {
             Map<Integer, Float> timeInHrZones;
             timeInHrZones = calculateTimeInZones(heartRates, timestamps, activity.getUser());
-            trimp = calculateTrimp(timeInHrZones);
+            String activityType = activity.getSportType();
+            if (activityType == null)  {
+                activityType = "Run";
+            }
+            trimp = calculateTrimp(timeInHrZones, activityType);
             return Math.round(trimp * elevationFactor);
         } catch (NoSuchElementException e) {
             // Fall back to distance/time method
-            return calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain());
+            String activityType = activity.getSportType();
+            if (activityType == null)  {
+                activityType = "Run";
+            }
+            return calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain(), activityType);
         }
 
     }
@@ -122,26 +150,52 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
     }
 
     @Override
-    public Integer calculateSessionLoad(float distance, int movingTime, float totalElevationGain) {
+    public Integer calculateSessionLoad(float distance, int movingTime, float totalElevationGain, String activityType) {
         LOGGER.trace("calculateSessionLoad({},{},{})", distance, movingTime, totalElevationGain);
 
         float elevationFactor = 1 + ELEVATION_COEFFICIENT * totalElevationGain / 100;
         float load = distance * movingTime / 12;
+        if (activityType.equals("Ride")) {
+            return Math.round(load * .25f * elevationFactor);
+        }
         return Math.round(load * elevationFactor);
     }
 
-    private int calculateTrimp(Map<Integer, Float> timeInZones) {
+    private int calculateTrimp(Map<Integer, Float> timeInZones, String activityType) {
         float trimp = 0;
         for (Map.Entry<Integer, Float> entry : timeInZones.entrySet()) {
             float timeInZone = entry.getValue();
-            int coefficient = switch (entry.getKey()) {
-                case 1 -> K1;
-                case 2 -> K2;
-                case 3 -> K3;
-                case 4 -> K4;
-                case 5 -> K5;
-                default -> 0;
-            };
+            int coefficient;
+
+            if (activityType.equals("Run")) {
+                coefficient = switch (entry.getKey()) {
+                    case 1 -> K1;
+                    case 2 -> K2;
+                    case 3 -> K3;
+                    case 4 -> K4;
+                    case 5 -> K5;
+                    default -> 0;
+                };
+            } else if (activityType.equals("Ride")) {
+                coefficient = switch (entry.getKey()) {
+                    case 1 -> K1_RIDE;
+                    case 2 -> K2_RIDE;
+                    case 3 -> K3_RIDE;
+                    case 4 -> K4_RIDE;
+                    case 5 -> K5_RIDE;
+                    default -> 0;
+                };
+            } else {
+                coefficient = switch (entry.getKey()) {
+                    case 1 -> K1_WALK;
+                    case 2 -> K2_WALK;
+                    case 3 -> K3_WALK;
+                    case 4 -> K4_WALK;
+                    case 5 -> K5_WALK;
+                    default -> 0;
+                };
+            }
+
 
             // Reduce weight for Zone 1 and 2 for shorter activities
             float timeCoefficient = 1;

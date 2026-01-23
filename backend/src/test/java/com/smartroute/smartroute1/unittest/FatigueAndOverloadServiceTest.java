@@ -726,7 +726,7 @@ class FatigueAndOverloadServiceTest extends BaseTest {
         activity.setMovingTime(movingTime);
         activity.setTotalElevationGain(elevation);
 
-        Integer sessionLoad = fitnessScoreService.calculateSessionLoad(distance, movingTime, elevation);
+        Integer sessionLoad = fitnessScoreService.calculateSessionLoad(distance, movingTime, elevation, "Run");
         activity.setSessionLoad(sessionLoad);
 
         return activityRepository.save(activity);
