@@ -691,6 +691,7 @@ export class TrainingPlanPage implements OnInit {
         temperatureText: summary.temperatureText,
         windText: summary.windText,
         precipitationText: summary.precipitationText,
+        uvText: summary.uvText,
         weatherScore: this.recommendedActivity!.weather.weatherScore
       }
     });
