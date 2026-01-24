@@ -20,6 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Profile;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
 import java.lang.invoke.MethodHandles;
@@ -34,7 +35,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.stream.Collectors;
 
-@Profile("generateData")
+@Profile({"generateData", "test"})
 @DependsOn("userDataGenerator")
 @Component
 @AllArgsConstructor
@@ -181,11 +182,21 @@ public class ActivityDataGenerator {
     private final WeatherRepository weatherRepository;
     private final ActivityStreamRepository activityStreamRepository;
 
+    private final Environment environment;
+
     @PostConstruct
     public void generateActivities() {
         List<ApplicationUser> userList = userRepository.findAll();
         if (!activityRepository.findAll().isEmpty()) {
             LOGGER.info("Activities already generated");
+            return;
+        }
+
+        boolean isTestProfile = Arrays.asList(environment.getActiveProfiles()).contains("test");
+        if (isTestProfile) {
+            for (int i = 0; i < userList.size(); i++) {
+                createDefault(userList, i);
+            }
         } else {
             long id = 0;
             for (int i = 0; i < userList.size(); i++) {
@@ -250,54 +261,7 @@ public class ActivityDataGenerator {
                     }
                     default -> {
                         // Random activities for other users
-                        StravaAccount account = new StravaAccount();
-                        account.setScopes("read");
-                        account.setAccessToken("dummy-token");
-                        account.setRefreshToken("dummy-token");
-                        account.setExpiresAt(LocalDate.now().plusDays(30).atStartOfDay().toInstant(ZoneOffset.UTC));
-                        account.setConnectedAt(LocalDate.now().minusDays(10).atStartOfDay().toInstant(ZoneOffset.UTC));
-                        account.setUser(userList.get(i));
-
-                        stravaAccountRepository.save(account);
-
-                        for (int j = 0; j < NUMBER_OF_ACTIVITIES_PER_USER; j++) {
-                            Activity sa = new Activity();
-                            sa.setName("Activity " + j);
-                            float distance = (float) (1 + Math.random() * 25) * 1000;
-                            float avgSpeed = (float) (1000 / ((2.5 + Math.random() * 7.5) * 60));
-                            int movingTime = (int) (distance / avgSpeed);
-                            float maxSpeed = (float) Math.min(avgSpeed * 1.25, 1000 / (6 + Math.random() * 24 * 60));
-                            float totalElevationGain = (float) (Math.random() * .1 * distance);
-
-                            sa.setDistance(distance);
-                            sa.setAverageSpeed(avgSpeed);
-                            sa.setMovingTime(movingTime);
-                            sa.setMaxSpeed(maxSpeed);
-                            sa.setElapsedTime(sa.getMovingTime() + (int) (Math.random() * 600));
-                            sa.setTotalElevationGain(totalElevationGain);
-                            sa.setType("Run");
-                            sa.setSportType("Run");
-                            sa.setStartDate(Instant.now().minusSeconds((long) (Math.random() * 30 * 24 * 3600)));
-                            sa.setStartDateLocal(Instant.now().minusSeconds((long) (Math.random() * 30 * 24 * 3600)));
-
-                            float averageHeartrate = (float) (120 + Math.random() * 60);
-                            sa.setAverageHeartrate(averageHeartrate);
-                            float maxHeartrate = (float) Math.min(averageHeartrate * 1.1, (140 + Math.random() * 60));
-                            sa.setMaxHeartrate(maxHeartrate);
-
-                            float averageWatts = (float) (120 + Math.random() * 230);
-                            sa.setAverageWatts(averageWatts);
-                            sa.setKilojoules(averageWatts * movingTime / 1000);
-                            sa.setSummaryPolyline(polyline.substring(0, (int) (polyline.length() * ((distance / 1000.0) / 42.195))));
-                            sa.setUser(userList.get(i));
-
-                            Integer sessionLoad = fitnessScoreService.calculateSessionLoad(
-                                distance / 1000,
-                                movingTime / 60,
-                                totalElevationGain, "Run");
-                            sa.setSessionLoad(sessionLoad);
-                            activityRepository.save(sa);
-                        }
+                        createDefault(userList, i);
                     }
                 }
             }
@@ -305,6 +269,57 @@ public class ActivityDataGenerator {
             for (ApplicationUser user : userList) {
                 LOGGER.debug("generating activities for user {}", user.getEmail());
             }
+        }
+    }
+
+    private void createDefault(List<ApplicationUser> userList, int i) {
+        StravaAccount account = new StravaAccount();
+        account.setScopes("read");
+        account.setAccessToken("dummy-token");
+        account.setRefreshToken("dummy-token");
+        account.setExpiresAt(LocalDate.now().plusDays(30).atStartOfDay().toInstant(ZoneOffset.UTC));
+        account.setConnectedAt(LocalDate.now().minusDays(10).atStartOfDay().toInstant(ZoneOffset.UTC));
+        account.setUser(userList.get(i));
+
+        stravaAccountRepository.save(account);
+
+        for (int j = 0; j < NUMBER_OF_ACTIVITIES_PER_USER; j++) {
+            Activity sa = new Activity();
+            sa.setName("Activity " + j);
+            float distance = (float) (1 + Math.random() * 25) * 1000;
+            float avgSpeed = (float) (1000 / ((2.5 + Math.random() * 7.5) * 60));
+            int movingTime = (int) (distance / avgSpeed);
+            float maxSpeed = (float) Math.min(avgSpeed * 1.25, 1000 / (6 + Math.random() * 24 * 60));
+            float totalElevationGain = (float) (Math.random() * .1 * distance);
+
+            sa.setDistance(distance);
+            sa.setAverageSpeed(avgSpeed);
+            sa.setMovingTime(movingTime);
+            sa.setMaxSpeed(maxSpeed);
+            sa.setElapsedTime(sa.getMovingTime() + (int) (Math.random() * 600));
+            sa.setTotalElevationGain(totalElevationGain);
+            sa.setType("Run");
+            sa.setSportType("Run");
+            sa.setStartDate(Instant.now().minusSeconds((long) (Math.random() * 30 * 24 * 3600)));
+            sa.setStartDateLocal(Instant.now().minusSeconds((long) (Math.random() * 30 * 24 * 3600)));
+
+            float averageHeartrate = (float) (120 + Math.random() * 60);
+            sa.setAverageHeartrate(averageHeartrate);
+            float maxHeartrate = (float) Math.min(averageHeartrate * 1.1, (140 + Math.random() * 60));
+            sa.setMaxHeartrate(maxHeartrate);
+
+            float averageWatts = (float) (120 + Math.random() * 230);
+            sa.setAverageWatts(averageWatts);
+            sa.setKilojoules(averageWatts * movingTime / 1000);
+            sa.setSummaryPolyline(polyline.substring(0, (int) (polyline.length() * ((distance / 1000.0) / 42.195))));
+            sa.setUser(userList.get(i));
+
+            Integer sessionLoad = fitnessScoreService.calculateSessionLoad(
+                    distance / 1000,
+                    movingTime / 60,
+                    totalElevationGain, "Run");
+            sa.setSessionLoad(sessionLoad);
+            activityRepository.save(sa);
         }
     }
 

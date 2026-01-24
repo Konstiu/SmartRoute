@@ -8,6 +8,7 @@ import com.smartroute.smartroute1.endpoint.dto.StravaZoneDataDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.StravaAccount;
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.exception.StravaAuthorizationException;
 import com.smartroute.smartroute1.repository.StravaAccountRepository;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
@@ -19,10 +20,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.HttpStatus;
+import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 
@@ -32,6 +35,7 @@ import static org.mockito.Mockito.when;
 @SpringBootTest
 @ActiveProfiles({"test", "generateData"})
 @Transactional
+@Rollback
 class StravaServiceTest extends BaseTest {
 
     @Autowired
@@ -65,6 +69,7 @@ class StravaServiceTest extends BaseTest {
         activityDto.setMaxSpeed(6.0f);
         return activityDto;
     }
+
     private static StravaActivityDto getTestActivityDto2() {
         StravaActivityDto activityDto = new StravaActivityDto();
         activityDto.setStravaId(1L);
@@ -215,6 +220,50 @@ class StravaServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
+    void testImportStravaActivities_stravaAuthorizationException_throwsUnauthorized() {
+        ApplicationUser user = userRepository.findAll().getFirst();
+        String email = user.getEmail();
+        StravaAccount account = stravaAccountRepository.findByUser(user).orElseThrow();
+
+        when(authService.ensureValidAccessToken(account)).thenThrow(StravaAuthorizationException.class);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> stravaService.importStravaActivities(email, 50));
+
+        assertAll(
+                () -> assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode()),
+                () -> {
+                    assertNotNull(ex.getReason());
+                    assertTrue(ex.getReason().contains("Failed to get Strava access token"));
+                }
+        );
+    }
+
+    @Test
+    void testImportStravaActivities_webClientRequestException_throwsServiceUnavailable() throws IOException {
+        ApplicationUser user = userRepository.findAll().getFirst();
+        String email = user.getEmail();
+        StravaAccount account = stravaAccountRepository.findByUser(user).orElseThrow();
+
+        when(authService.ensureValidAccessToken(account)).thenReturn("dummy-token");
+
+        mockApiServer.shutdown();
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> stravaService.importStravaActivities(email, 50));
+
+        assertAll(
+                () -> assertEquals(HttpStatus.SERVICE_UNAVAILABLE, ex.getStatusCode()),
+                () -> {
+                    assertNotNull(ex.getReason());
+                    assertTrue(ex.getReason().contains("Strava API unavailable"));
+                }
+        );
+    }
+
+    @Test
+    @Transactional
     void testImportStravaActivities_multipleActivities_savedCorrectly() throws Exception {
         ApplicationUser user = userRepository.findAll().getFirst();
         String email = user.getEmail();
@@ -368,12 +417,49 @@ class StravaServiceTest extends BaseTest {
 
     }
 
+    @Test
+    void testImportStravaZoneData_stravaAuthorizationException_throwsUnauthorized() {
+        ApplicationUser user = userRepository.findAll().getFirst();
+        String email = user.getEmail();
+        StravaAccount account = stravaAccountRepository.findByUser(user).orElseThrow();
+
+        when(authService.ensureValidAccessToken(account)).thenThrow(StravaAuthorizationException.class);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> stravaService.importStravaZoneData(email));
+
+        assertAll(
+                () -> assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode()),
+                () -> assertTrue(ex.getReason().contains("Failed to get Strava access token"))
+        );
+    }
+
+    @Test
+    void testImportStravaZoneData_webClientRequestException_throwsServiceUnavailable() throws IOException {
+        ApplicationUser user = userRepository.findAll().getFirst();
+        String email = user.getEmail();
+        StravaAccount account = stravaAccountRepository.findByUser(user).orElseThrow();
+
+        when(authService.ensureValidAccessToken(account)).thenReturn("dummy-token");
+
+        mockApiServer.shutdown();
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> stravaService.importStravaZoneData(email));
+
+        assertAll(
+                () -> assertEquals(HttpStatus.SERVICE_UNAVAILABLE, ex.getStatusCode()),
+                () -> assertTrue(ex.getReason().contains("Strava API unavailable"))
+        );
+    }
+
     // Test importStravaAthlete
 
     @Test
     void testImportStravaAthlete_success() throws Exception {
         ApplicationUser user = userRepository.findAll().getFirst();
         String email = user.getEmail();
+        user.setSex(null);
         StravaAccount account = stravaAccountRepository.findByUser(user).orElseThrow();
 
         when(authService.ensureValidAccessToken(account)).thenReturn("dummy-token");
@@ -403,7 +489,9 @@ class StravaServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testImportStravaAthlete_noLinkedAccount_throwsNotFound() {
+
         ApplicationUser user = userRepository.findAll().getFirst();
         String email = user.getEmail();
         stravaAccountRepository.deleteAll();
@@ -468,4 +556,54 @@ class StravaServiceTest extends BaseTest {
                 }
         );
     }
+
+    @Test
+    void testImportStravaAthlete_stravaAuthorizationException_throwsUnauthorized() {
+        ApplicationUser user = userRepository.findAll().getFirst();
+        String email = user.getEmail();
+        StravaAccount account = stravaAccountRepository.findByUser(user).orElseThrow();
+
+        when(authService.ensureValidAccessToken(account)).thenThrow(StravaAuthorizationException.class);
+
+        mockApiServer.enqueue(new MockResponse()
+                .setResponseCode(401)
+                .setHeader("Content-Type", "application/json")
+                .setBody("{\"message\":\"Unauthorized\"}")
+        );
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> stravaService.importStravaAthlete(email));
+
+        assertAll(
+                () -> assertEquals(HttpStatus.UNAUTHORIZED, ex.getStatusCode()),
+                () -> {
+                    assertNotNull(ex.getReason());
+                    assertTrue(ex.getReason().contains("Failed to get Strava access token"));
+                }
+        );
+    }
+
+    @Test
+    void testImportStravaAthlete_webClientRequestException_throwsServiceUnavailable() throws IOException {
+        ApplicationUser user = userRepository.findAll().getFirst();
+        String email = user.getEmail();
+        StravaAccount account = stravaAccountRepository.findByUser(user).orElseThrow();
+
+        when(authService.ensureValidAccessToken(account)).thenReturn("dummy-token");
+
+        mockApiServer.shutdown();
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> stravaService.importStravaAthlete(email));
+
+        assertAll(
+                () -> assertEquals(HttpStatus.SERVICE_UNAVAILABLE, ex.getStatusCode()),
+                () -> {
+                    assertNotNull(ex.getReason());
+                    assertTrue(ex.getReason().contains("Strava API unavailable"));
+                }
+        );
+    }
+
+
 }
