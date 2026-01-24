@@ -14,6 +14,7 @@ export class WeatherInfoComponent {
   @Input() temperatureText!: string;
   @Input() windText!: string;
   @Input() precipitationText!: string;
+  @Input() uvText!: string;
   @Input() weatherScore!: number;
 
   constructor(private modalCtrl: ModalController) {}
@@ -27,6 +28,7 @@ export class WeatherInfoComponent {
       temperature: this.temperatureText,
       wind: this.windText,
       precipitation: this.precipitationText,
+      uv: this.uvText,
       weatherScore: this.weatherScore
     });
   }
