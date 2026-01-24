@@ -106,7 +106,7 @@ public class StravaServiceImpl implements StravaService {
 
         activityProcessingService.processActivitiesInBatches(45, savedActivities, token);
 
-        statisticsService.preLoadConsistencyHistory(user);
+        statisticsService.preLoadConsistencyHistory(user.getEmail());
 
         return activities;
     }

@@ -34,6 +34,7 @@ import java.time.Year;
 import java.time.ZoneId;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -240,12 +241,12 @@ public class StatisticsServiceTest {
                 anyInt()
         )).thenReturn(score);
 
-        when(fatigueAndOverloadService.ctlOn(any(), any()))
-                .thenReturn(45.0);
-        when(fatigueAndOverloadService.atlOn(any(), any()))
-                .thenReturn(55.0);
-        when(fatigueAndOverloadService.tsbOn(any(), any()))
-                .thenReturn(-10.0);
+        when(fatigueAndOverloadService.getCtlHistory(any()))
+                .thenReturn(List.of(45.0));
+        when(fatigueAndOverloadService.getAtlHistory(any()))
+                .thenReturn(List.of(55.0));
+        when(fatigueAndOverloadService.getTsbHistory(any()))
+                .thenReturn(List.of(-10.0));
 
 
         ConsistencyHistoryDto result = service.getConsistencyHistory(user);
@@ -253,9 +254,9 @@ public class StatisticsServiceTest {
 
         assertAll(
                 () -> assertEquals(numberOfDaysInYear, result.getConsistencyHistory().size()),
-                () -> assertEquals(numberOfDaysInYear, result.getCtlHistory().size()),
-                () -> assertEquals(numberOfDaysInYear, result.getAtlHistory().size()),
-                () -> assertEquals(numberOfDaysInYear, result.getTsbHistory().size()),
+                () -> assertEquals(1, result.getCtlHistory().size()),
+                () -> assertEquals(1, result.getAtlHistory().size()),
+                () -> assertEquals(1, result.getTsbHistory().size()),
                 () -> Assertions.assertTrue(result.getConsistencyHistory().containsValue(score)),
                 () -> Assertions.assertTrue(result.getAtlHistory().containsValue(55.0)),
                 () -> Assertions.assertTrue(result.getCtlHistory().containsValue(45.0)),
@@ -273,7 +274,7 @@ public class StatisticsServiceTest {
 
 
         CompletableFuture.runAsync(() -> {
-            service.preLoadConsistencyHistory(user)
+            service.preLoadConsistencyHistory(user.getEmail())
                     .thenRun(() -> asyncThread.set(Thread.currentThread().getName()));
         });
 

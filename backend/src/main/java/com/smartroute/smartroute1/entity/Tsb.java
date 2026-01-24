@@ -19,7 +19,7 @@ import java.time.Instant;
 @NoArgsConstructor
 public class Tsb {
 
-    @ManyToOne(optional = false, cascade = CascadeType.PERSIST)
+    @ManyToOne(optional = false)
     @JoinColumn(name = "user_id")
     ApplicationUser user;
     Instant date;

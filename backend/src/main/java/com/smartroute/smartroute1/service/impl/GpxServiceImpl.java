@@ -288,7 +288,7 @@ public class GpxServiceImpl implements GpxService {
 
                 Activity result = activityRepository.save(storedActivity);
 
-                statisticsService.preLoadConsistencyHistory(user);
+                statisticsService.preLoadConsistencyHistory(user.getEmail());
                 return result;
             }
         } catch (IOException | NoSuchElementException e) {

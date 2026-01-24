@@ -57,5 +57,5 @@ public interface StatisticsService {
      * @param user the user to reset for
      * @return A completeable future that equals null, meaning the thread is finished
      */
-    CompletableFuture<Void> preLoadConsistencyHistory(ApplicationUser user);
+    CompletableFuture<Void> preLoadConsistencyHistory(String user);
 }

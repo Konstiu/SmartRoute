@@ -20,7 +20,7 @@ import java.time.Instant;
 public class Atl {
 
     Double score;
-    @ManyToOne(optional = false, cascade = CascadeType.PERSIST)
+    @ManyToOne(optional = false)
     @JoinColumn(name = "user_id")
     ApplicationUser user;
     Instant date;

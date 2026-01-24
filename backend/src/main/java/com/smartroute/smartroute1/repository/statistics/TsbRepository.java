@@ -11,5 +11,5 @@ public interface TsbRepository extends JpaRepository<Tsb, Integer> {
 
     List<Tsb> getTsbByUserAndDateBetween(ApplicationUser user, Instant from, Instant to);
 
-    void deleteTsbsByUser(ApplicationUser user);
+    void deleteAllByUser(ApplicationUser user);
 }

@@ -241,7 +241,7 @@ public class GarminImportServiceImpl implements GarminImportService {
             int count = processActivitiesFromFile(user, result);
             log.trace("Garmin activity sync for user {} synced {} activities", user.getEmail(), count);
 
-            statisticsService.preLoadConsistencyHistory(user);
+            statisticsService.preLoadConsistencyHistory(user.getEmail());
 
             return null; //result.activities;
 

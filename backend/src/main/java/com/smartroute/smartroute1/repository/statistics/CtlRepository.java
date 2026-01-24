@@ -11,5 +11,5 @@ public interface CtlRepository extends JpaRepository<Ctl, Double> {
 
     List<Ctl> getCtlByUserAndDateBetween(ApplicationUser user, Instant from, Instant to);
 
-    void deleteCtlsByUser(ApplicationUser user);
+    void deleteAllByUser(ApplicationUser user);
 }
