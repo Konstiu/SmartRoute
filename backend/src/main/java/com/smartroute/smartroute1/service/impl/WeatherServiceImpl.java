@@ -156,6 +156,34 @@ public class WeatherServiceImpl implements WeatherService {
         };
     }
 
+    // Provides a description to uv Index.
+    private static String uvToText(UvRiskCategory uvRisk) {
+        return switch (uvRisk) {
+            case NONE -> "UV is negligible right now.";
+            case LOW -> """
+                Low UV exposure.\
+                
+                Minimal sunburn risk for most people. Sunglasses are still a good idea.""";
+            case MODERATE -> """
+                Moderate UV exposure.\
+                
+                Sunburn is possible with longer exposure. Consider sunscreen if you'll be outside for a while.""";
+            case HIGH -> """
+                High UV exposure.\
+                
+                Increased risk of sunburn. Wear sunscreen (SPF 30+), sunglasses, and consider a cap.""";
+            case VERY_HIGH -> """
+                Very high UV exposure.\
+                
+                Sunburn can happen quickly. Use sunscreen (SPF 30+), cover skin, and try to avoid midday sun.""";
+            default -> """
+                Extreme UV exposure.\
+                
+                Very high risk of harm from unprotected sun exposure. Strongly consider running in shade or at another time.""";
+        };
+    }
+
+
     @Transactional
     @Override
     public WeatherResponse getWeatherAtTime(double latitude, double longitude, String timeUtc) throws ValidationException {
@@ -175,7 +203,10 @@ public class WeatherServiceImpl implements WeatherService {
             LocalDate fetchedDay = old.getForecastGeneratedAt();
             LocalDate today = LocalDate.now(ZoneOffset.UTC);
 
-            if (fetchedDay.equals(today)) {
+            boolean isFresh = fetchedDay != null && fetchedDay.equals(today);
+            boolean hasUv = old.getUvIndex() != null;
+
+            if (isFresh && hasUv) {
                 LOGGER.trace("Cached weather is still fresh");
                 return old; // cache hit and still fresh
             }
@@ -725,6 +756,27 @@ public class WeatherServiceImpl implements WeatherService {
         return WindIntensity.GALE_AND_BEYOND;
     }
 
+    // Classifies uv index.
+    private UvRiskCategory classifyUvRisk(Double uvIndex) {
+        if (uvIndex == null || uvIndex <= 0.0) {
+            return UvRiskCategory.NONE;
+        }
+        if (uvIndex < 3.0) {
+            return UvRiskCategory.LOW;
+        }
+        if (uvIndex < 6.0) {
+            return UvRiskCategory.MODERATE;
+        }
+        if (uvIndex < 8.0) {
+            return UvRiskCategory.HIGH;
+        }
+        if (uvIndex < 11.0) {
+            return UvRiskCategory.VERY_HIGH;
+        }
+        return UvRiskCategory.EXTREME;
+    }
+
+
     @Override
     public String evaluateWeatherScore(double weatherScore) {
         if (weatherScore < 0.0 || weatherScore > 1.0) {
@@ -768,16 +820,18 @@ public class WeatherServiceImpl implements WeatherService {
 
         WindIntensity windIntensity = classifyWindSeverity(weather.getWindSpeed10m());
         PrecipitationIntensity precipitationIntensity = classifyPrecipitationSeverity(weather.getPrecipitation());
+        UvRiskCategory uvRiskCategory = classifyUvRisk(weather.getUvIndex());
 
-        return build(heatRisk, windIntensity, precipitationIntensity);
+        return build(heatRisk, windIntensity, precipitationIntensity, uvRiskCategory);
     }
 
     // Build the extended weather summary.
-    private WeatherSummaryDto build(HeatRiskCategory heatRisk, WindIntensity windIntensity, PrecipitationIntensity precipitationIntensity) {
+    private WeatherSummaryDto build(HeatRiskCategory heatRisk, WindIntensity windIntensity, PrecipitationIntensity precipitationIntensity, UvRiskCategory uvRiskCategory) {
         return new WeatherSummaryDto(
                 temperatureToText(heatRisk),
                 windToText(windIntensity),
-                precipitationToText(precipitationIntensity));
+                precipitationToText(precipitationIntensity),
+                uvToText(uvRiskCategory));
     }
 
     private enum WindIntensity {
@@ -812,5 +866,14 @@ public class WeatherServiceImpl implements WeatherService {
         MODERATE,
         HEAVY,
         VIOLENT
+    }
+
+    private enum UvRiskCategory {
+        NONE,
+        LOW,
+        MODERATE,
+        HIGH,
+        VERY_HIGH,
+        EXTREME
     }
 }

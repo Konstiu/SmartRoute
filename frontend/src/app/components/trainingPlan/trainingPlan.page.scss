@@ -82,3 +82,36 @@ ion-list {
   gap: 6px;
 }
 
+.weather-grid {
+  padding: 0;
+}
+
+.weather-grid ion-list {
+  padding: 0;
+}
+
+.weather-grid ion-item {
+  --inner-padding-end: 0;
+  --padding-start: 0;
+}
+
+.weather-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.weather-info-btn {
+  --padding-start: 0;
+  --padding-end: 0;
+  height: 24px;
+  margin: 0;
+}
+
+.weather-info-btn ion-icon {
+  font-size: 20px;
+}
+
+
+
