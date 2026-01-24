@@ -2,6 +2,7 @@ package com.smartroute.smartroute1.repository;
 
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.GymWorkout;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -25,4 +26,19 @@ public interface GymWorkoutRepository extends JpaRepository<GymWorkout, Long> {
 
     @Query("SELECT gw FROM GymWorkout gw WHERE gw.user = :user AND gw.creationDate >= :startDate AND gw.creationDate <= :endDate ORDER BY gw.creationDate ASC")
     List<GymWorkout> findGymWorkoutByUserBetweenDatesOrderByStartDateAsc(@Param("user") ApplicationUser user, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    @Query("""
+                SELECT DISTINCT gw
+                FROM GymWorkout gw
+                LEFT JOIN FETCH gw.exercises
+                WHERE gw.user = :user
+                  AND gw.creationDate = :creationDate
+                ORDER BY gw.id DESC
+            """)
+    List<GymWorkout> findByUserAndCreationDateFetchExercisesOrderByIdDesc(
+            @Param("user") ApplicationUser user,
+            @Param("creationDate") LocalDate creationDate,
+            Pageable pageable
+    );
+
 }

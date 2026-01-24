@@ -199,13 +199,13 @@ export class TrainingPlanPage implements OnInit {
 
     this.plan7dService.getNext7Days(lat, lng, {
         debug: false,
-        seed: 25,
+        seed: 20,
         regen: true,
         historyDays: 60,
         historyMean: 35,
         historyStd: 8,
-        readiness: 90,
-        injuryIndex: 0.7,
+        readiness: 50,
+        injuryIndex: 0.5,
         ctl: 50,
         atl: 35
       }).subscribe({
