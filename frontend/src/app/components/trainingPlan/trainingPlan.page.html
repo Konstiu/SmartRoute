@@ -91,52 +91,61 @@
                   </ion-list>
                 </ion-col>
                 <ion-col>
-                  <!--Weather-->
+                  <!-- Weather -->
                   <ion-list lines="none">
-                    <ion-list-header lines="inset">
+                    <ion-list-header lines="inset" class="weather-header">
                       <ion-label class="info-header">Weather</ion-label>
+
+                      <ion-button fill="clear" size="small" class="weather-info-btn" (click)="openWeatherExplanation()">
+                        <ion-icon slot="icon-only" name="information-circle-outline"></ion-icon>
+                      </ion-button>
                     </ion-list-header>
 
-                    <!-- Temperature -->
-                    <ion-item>
-                        <span><ion-icon name="thermometer-outline"></ion-icon>
-                          {{ formatTemperature(recommendedActivity!.weather.temperature) }}</span>
-                    </ion-item>
+                    <ion-grid class="weather-grid">
+                      <ion-row>
+                        <!-- LEFT COLUMN -->
+                        <ion-col size="12" size-md="6">
+                          <ion-list lines="none">
+                            <!-- Temperature -->
+                            <ion-item>
+                              <ion-icon name="thermometer-outline"></ion-icon>
+                              <span>{{ formatTemperature(recommendedActivity!.weather.temperature) }}</span>
+                            </ion-item>
 
-                    <!-- Wind -->
-                    <ion-item>
-                      <ion-label class="wind-info">
-                        <div class="wind-row">
-                          <ion-icon name="flag-outline"></ion-icon>
-                          {{ formatWindSpeed(recommendedActivity!.weather.windSpeed) }}
-                        </div>
-                      </ion-label>
-                    </ion-item>
+                            <!-- Wind -->
+                            <ion-item>
+                              <ion-icon name="flag-outline"></ion-icon>
+                              <span>{{ formatWindSpeed(recommendedActivity!.weather.windSpeed) }}</span>
+                            </ion-item>
 
-                    <!-- Relative Humidity -->
-                    <ion-item>
-                            <span>
+                            <!-- Relative Humidity -->
+                            <ion-item>
                               <ion-icon name="water-outline"></ion-icon>
-                              {{ recommendedActivity!.weather.relativeHumidity }} %
-                            </span>
-                    </ion-item>
+                              <span>{{ recommendedActivity!.weather.relativeHumidity }} %</span>
+                            </ion-item>
+                          </ion-list>
+                        </ion-col>
 
-                    <!-- Precipitation -->
-                    <ion-item>
-                          <span><ion-icon
-                            [name]="getPrecipitationIcon(recommendedActivity!.weather.precipitation)"></ion-icon>
-                            {{ formatPrecipitation(recommendedActivity!.weather.precipitation) }}
-                          </span>
-                    </ion-item>
+                        <!-- RIGHT COLUMN -->
+                        <ion-col size="12" size-md="6">
+                          <ion-list lines="none">
+                            <!-- Precipitation -->
+                            <ion-item>
+                              <ion-icon [name]="getPrecipitationIcon(recommendedActivity!.weather.precipitation)"></ion-icon>
+                              <span>{{ formatPrecipitation(recommendedActivity!.weather.precipitation) }}</span>
+                            </ion-item>
 
-<!--                    &lt;!&ndash; UV Index &ndash;&gt;-->
-<!--                    <ion-item>-->
-<!--                          <span><ion-icon-->
-<!--                            [name]="sun-outline"></ion-icon>-->
-<!--                            {{ recommendedActivity!.weather.uvIndex) }}-->
-<!--                          </span>-->
-<!--                    </ion-item>-->
+                            <!-- UV Index (same style) -->
+                            <ion-item>
+                              <ion-icon name="sunny-outline"></ion-icon>
+                              <span>UV {{ recommendedActivity!.weather.uvIndex }}</span>
+                            </ion-item>
+                          </ion-list>
+                        </ion-col>
+                      </ion-row>
+                    </ion-grid>
                   </ion-list>
+
                 </ion-col>
               </ion-row>
             </ion-grid>
@@ -227,11 +236,6 @@
                   Weather Score: {{ (recommendedActivity!.weather.weatherScore * 100) | number:'1.0-0' }} -
                   {{ recommendedActivity!.weather.weatherScoreDescription }}
                 </ion-label>
-                <ion-icon
-                  name="information-circle-outline"
-                  class="weather-info-icon"
-                  (click)="openWeatherExplanation()">
-                </ion-icon>
               </ion-item>
             </ion-list>
           </ion-card-content>
