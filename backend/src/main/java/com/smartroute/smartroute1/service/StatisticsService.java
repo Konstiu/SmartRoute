@@ -6,6 +6,8 @@ import com.smartroute.smartroute1.endpoint.dto.statistics.InjuryHistoryDto;
 import com.smartroute.smartroute1.endpoint.dto.statistics.RunHistoryDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 
+import java.util.concurrent.CompletableFuture;
+
 public interface StatisticsService {
     /**
      * A statistics function that returns all of the following stats for the last 365 days.
@@ -47,4 +49,13 @@ public interface StatisticsService {
      * @return a GymHistoryDto including all data
      */
     GymHistoryDto getGymHistory(ApplicationUser user);
+
+    /**
+     * delete the old Consistency Scores and recalculate them.
+     * This is used after new activites are loaded in and is async
+     *
+     * @param user the user to reset for
+     * @return A completeable future that equals null, meaning the thread is finished
+     */
+    CompletableFuture<Void> preLoadConsistencyHistory(String user);
 }

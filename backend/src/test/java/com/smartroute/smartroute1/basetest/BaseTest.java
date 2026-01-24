@@ -8,6 +8,9 @@ import com.smartroute.smartroute1.repository.StravaAccountRepository;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.repository.*;
+import com.smartroute.smartroute1.repository.statistics.AtlRepository;
+import com.smartroute.smartroute1.repository.statistics.CtlRepository;
+import com.smartroute.smartroute1.repository.statistics.TsbRepository;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,6 +67,12 @@ public class BaseTest {
     private ActivityStreamRepository activityStreamRepository;
     @Autowired
     private ConsistencyRepository consistencyRepository;
+    @Autowired
+    private CtlRepository ctlRepository;
+    @Autowired
+    private AtlRepository atlRepository;
+    @Autowired
+    private TsbRepository tsbRepository;
 
     @BeforeEach
     void setUp() {
@@ -90,6 +99,9 @@ public class BaseTest {
     }
 
     private void clearData() {
+        tsbRepository.deleteAllInBatch();
+        ctlRepository.deleteAllInBatch();
+        atlRepository.deleteAllInBatch();
         gymWorkoutRepository.deleteAllInBatch();
         garminAccountRepository.deleteAllInBatch();
         athleteZoneRepository.deleteAllInBatch();
