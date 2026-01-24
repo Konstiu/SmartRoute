@@ -1,11 +1,8 @@
 package com.smartroute.smartroute1.service.impl;
 
-import com.google.maps.internal.PolylineEncoding;
-import com.google.maps.model.LatLng;
 import com.smartroute.smartroute1.entity.ActivityStream;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Activity;
-import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.entity.enums.ActivityStreamSource;
 import com.smartroute.smartroute1.exception.ValidationException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
@@ -13,8 +10,8 @@ import com.smartroute.smartroute1.repository.ActivityStreamRepository;
 import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
 import com.smartroute.smartroute1.service.GpxService;
+import com.smartroute.smartroute1.service.StatisticsService;
 import com.smartroute.smartroute1.service.UserService;
-import com.smartroute.smartroute1.service.WeatherService;
 import io.jenetics.jpx.Length;
 import io.jenetics.jpx.Metadata;
 import io.jenetics.jpx.WayPoint;
@@ -55,6 +52,7 @@ public class GpxServiceImpl implements GpxService {
     private final FitnessScoreService fitnessScoreService;
     private final ActivityProcessingService activityProcessingService;
     private final ActivityStreamRepository activityStreamRepository;
+    private final StatisticsService statisticsService;
 
     @Override
     @Transactional
@@ -101,7 +99,7 @@ public class GpxServiceImpl implements GpxService {
             List<WayPoint> allPoints = new ArrayList<>();
             gpx.tracks().forEach(track -> {
                 track.segments().forEach(segment ->
-                    allPoints.addAll(segment.getPoints())
+                        allPoints.addAll(segment.getPoints())
                 );
             });
 
@@ -185,11 +183,11 @@ public class GpxServiceImpl implements GpxService {
 
             // calculate summary polyline
             final List<Position> path = allPoints
-                .stream()
-                .map(wp -> Position.fromLngLat(
-                    wp.getLongitude().doubleValue(),
-                    wp.getLatitude().doubleValue()
-                )).toList();
+                    .stream()
+                    .map(wp -> Position.fromLngLat(
+                            wp.getLongitude().doubleValue(),
+                            wp.getLatitude().doubleValue()
+                    )).toList();
             String polyline = PolylineUtils.encode(path, 5);
             activity.setSummaryPolyline(polyline);
 
@@ -225,10 +223,10 @@ public class GpxServiceImpl implements GpxService {
 
             // Create activity streams
             ActivityStream activityStream = activityProcessingService.createActivityStream(
-                timestamps.stream().mapToDouble(Float::doubleValue).boxed().toList(),
-                segDistances,
-                heartRates.stream().mapToDouble(Float::doubleValue).boxed().toList(),
-                ActivityStreamSource.GPX);
+                    timestamps.stream().mapToDouble(Float::doubleValue).boxed().toList(),
+                    segDistances,
+                    heartRates.stream().mapToDouble(Float::doubleValue).boxed().toList(),
+                    ActivityStreamSource.GPX);
 
             if (activityStream != null) {
                 activityStreamRepository.save(activityStream);
@@ -287,20 +285,25 @@ public class GpxServiceImpl implements GpxService {
                 storedActivity.setSportType(storedActivity.getSportType());
                 // always the first name is going to be the new name of the Activity
                 //storedActivity.setName(entity.getName());
-                return activityRepository.save(storedActivity);
+
+                Activity result = activityRepository.save(storedActivity);
+
+                statisticsService.preLoadConsistencyHistory(user.getEmail());
+                return result;
             }
         } catch (IOException | NoSuchElementException e) {
             throw new ValidationException("Failed to read GPX file", List.of("GPX file could not be processed"));
         }
     }
 
-    /** Helper method to extract heart rate from WayPoint extensions.
+    /**
+     * Helper method to extract heart rate from WayPoint extensions.
      * The XML looks like this:
      * <extensions>
-     *   <gpxtpx:TrackPointExtension>
-     *     <gpxtpx:hr>91</gpxtpx:hr>
-     *     <gpxtpx:cad>51</gpxtpx:cad>
-     *   </gpxtpx:TrackPointExtension>
+     * <gpxtpx:TrackPointExtension>
+     * <gpxtpx:hr>91</gpxtpx:hr>
+     * <gpxtpx:cad>51</gpxtpx:cad>
+     * </gpxtpx:TrackPointExtension>
      * </extensions>
      *
      * @param wayPoint the WayPoint to extract heart rate from
@@ -308,16 +311,16 @@ public class GpxServiceImpl implements GpxService {
      */
     private Optional<Double> extractHeartRateFromWayPoint(WayPoint wayPoint) {
         return wayPoint.getExtensions()
-            .map(Document::getDocumentElement)
-            .map(ext -> {
-                NodeList tpxList = ext.getElementsByTagNameNS("*", "TrackPointExtension");
-                return tpxList.getLength() > 0 ? (Element) tpxList.item(0) : null;
-            })
-            .map(tpx -> {
-                NodeList hrList = tpx.getElementsByTagNameNS("*", "hr");
-                return hrList.getLength() > 0 ? hrList.item(0).getTextContent() : null;
-            })
-            .flatMap(str -> Optional.of(str).map(Double::valueOf));
+                .map(Document::getDocumentElement)
+                .map(ext -> {
+                    NodeList tpxList = ext.getElementsByTagNameNS("*", "TrackPointExtension");
+                    return tpxList.getLength() > 0 ? (Element) tpxList.item(0) : null;
+                })
+                .map(tpx -> {
+                    NodeList hrList = tpx.getElementsByTagNameNS("*", "hr");
+                    return hrList.getLength() > 0 ? hrList.item(0).getTextContent() : null;
+                })
+                .flatMap(str -> Optional.of(str).map(Double::valueOf));
     }
 
     public double calculateMaxSpeed(List<Double> segDurations, List<Double> segDistances) {

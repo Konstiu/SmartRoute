@@ -1,6 +1,6 @@
 package com.smartroute.smartroute1.unittest;
 
-import com.smartroute.smartroute1.endpoint.UserEndpoint;
+
 import com.smartroute.smartroute1.endpoint.dto.ConsistencyScoreResultDto;
 import com.smartroute.smartroute1.endpoint.dto.statistics.*;
 import com.smartroute.smartroute1.entity.Activity;
@@ -9,7 +9,7 @@ import com.smartroute.smartroute1.entity.Injuries;
 import com.smartroute.smartroute1.entity.enums.BodyPart;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.Weekday;
-import com.smartroute.smartroute1.entity.enums.WorkoutType;
+
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.InjuryRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
@@ -20,11 +20,10 @@ import com.smartroute.smartroute1.service.StatisticsService;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -35,10 +34,13 @@ import java.time.Year;
 import java.time.ZoneId;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
@@ -51,6 +53,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 @ActiveProfiles({"test", "generateData"})
 @Transactional
 @AutoConfigureMockMvc
+@EnableAsync
 public class StatisticsServiceTest {
 
     @Autowired
@@ -238,12 +241,12 @@ public class StatisticsServiceTest {
                 anyInt()
         )).thenReturn(score);
 
-        when(fatigueAndOverloadService.ctlOn(any(), any()))
-                .thenReturn(45.0);
-        when(fatigueAndOverloadService.atlOn(any(), any()))
-                .thenReturn(55.0);
-        when(fatigueAndOverloadService.tsbOn(any(), any()))
-                .thenReturn(-10.0);
+        when(fatigueAndOverloadService.getCtlHistory(any()))
+                .thenReturn(List.of(45.0));
+        when(fatigueAndOverloadService.getAtlHistory(any()))
+                .thenReturn(List.of(55.0));
+        when(fatigueAndOverloadService.getTsbHistory(any()))
+                .thenReturn(List.of(-10.0));
 
 
         ConsistencyHistoryDto result = service.getConsistencyHistory(user);
@@ -251,15 +254,34 @@ public class StatisticsServiceTest {
 
         assertAll(
                 () -> assertEquals(numberOfDaysInYear, result.getConsistencyHistory().size()),
-                () -> assertEquals(numberOfDaysInYear, result.getCtlHistory().size()),
-                () -> assertEquals(numberOfDaysInYear, result.getAtlHistory().size()),
-                () -> assertEquals(numberOfDaysInYear, result.getTsbHistory().size()),
+                () -> assertEquals(1, result.getCtlHistory().size()),
+                () -> assertEquals(1, result.getAtlHistory().size()),
+                () -> assertEquals(1, result.getTsbHistory().size()),
                 () -> Assertions.assertTrue(result.getConsistencyHistory().containsValue(score)),
                 () -> Assertions.assertTrue(result.getAtlHistory().containsValue(55.0)),
                 () -> Assertions.assertTrue(result.getCtlHistory().containsValue(45.0)),
                 () -> Assertions.assertTrue(result.getTsbHistory().containsValue(-10.0))
         );
     }
+
+    @Test
+    @Transactional
+    void test_WhenPreLoadConsistency_ThenRunsOnDifferentThread() throws Exception {
+        ApplicationUser user = userRepository.saveAndFlush(createUser());
+
+        String callingThread = Thread.currentThread().getName();
+        AtomicReference<String> asyncThread = new AtomicReference<>();
+
+
+        CompletableFuture.runAsync(() -> {
+            service.preLoadConsistencyHistory(user.getEmail())
+                    .thenRun(() -> asyncThread.set(Thread.currentThread().getName()));
+        });
+
+
+        assertNotEquals(callingThread, asyncThread.get());
+    }
+
 
     private ApplicationUser createUser() {
         ApplicationUser user = new ApplicationUser("stattest@stattest.com", "Max12345678", "Max", "Mustermann");

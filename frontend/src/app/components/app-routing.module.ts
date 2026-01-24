@@ -69,11 +69,6 @@ const routes: Routes = [
     loadComponent: () => import('./agb/agb.page').then( m => m.AgbPage)
   },
   {
-    path: 'account/key-sync',
-    loadComponent: () => import('./account/key-sync/key-sync.page').then(m => m.KeySyncPage),
-    canActivate: [AuthGuard]
-  },
-  {
     path: 'not-found',
     loadComponent: () => import('./not-found/not-found.page').then(m => m.NotFoundPage),
   },

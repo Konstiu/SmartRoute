@@ -68,18 +68,18 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
 
         // Find running activities with strava sufferScore and missing sessionLoad and calculate sessionLoad
         List<Activity> activitiesWithStravaSufferScore = activities.stream()
-            .filter(a -> a.getSportType() != null && processableActivityTypes.contains(a.getSportType()) && a.getSufferScore() != null && a.getSessionLoad() == null)
-            .toList();
+                .filter(a -> a.getSportType() != null && processableActivityTypes.contains(a.getSportType()) && a.getSufferScore() != null && a.getSessionLoad() == null)
+                .toList();
         activitiesWithStravaSufferScore.forEach(a ->
-            processActivity(a, token)
+                processActivity(a, token)
         );
 
         // Find running activities without Strava sufferScore and missing sessionLoad, fetch heartrate stream if available
         // and calculate sessionLoad
         List<Activity> activitiesMissingSessionLoad = activities.stream()
-            .filter(a -> a.getSportType() != null && processableActivityTypes.contains(a.getSportType()) && a.getSessionLoad() == null && a.getSufferScore() == null)
-            .sorted((a, b) -> b.getStartDate().compareTo(a.getStartDate()))
-            .toList();
+                .filter(a -> a.getSportType() != null && processableActivityTypes.contains(a.getSportType()) && a.getSessionLoad() == null && a.getSufferScore() == null)
+                .sorted((a, b) -> b.getStartDate().compareTo(a.getStartDate()))
+                .toList();
 
         LOGGER.info("Calculate sessionLoad for {} activities", activitiesMissingSessionLoad.size());
         try {
@@ -90,8 +90,8 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
 
                 // Schedule fetching of batches every 5 minutes to avoid hitting Strava API limits
                 taskScheduler.schedule(
-                    () -> batch.forEach(activity -> processActivity(activity, token)),
-                    Instant.now().plus(Duration.ofMinutes(5L * batchNumber))
+                        () -> batch.forEach(activity -> processActivity(activity, token)),
+                        Instant.now().plus(Duration.ofMinutes(5L * batchNumber))
                 );
             }
         } catch (Exception ex) {
@@ -144,10 +144,10 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
 
                 // Extract stravaStreams, map to double list or null if not found and create an ActivityStream object
                 ActivityStream activityStream = createActivityStream(
-                    stravaStreams.stream().filter(s -> s.getType().equals("time")).findFirst().map(s -> s.getData().stream().map(f -> (double) f).toList()).orElse(null),
-                    stravaStreams.stream().filter(s -> s.getType().equals("distance")).findFirst().map(s -> s.getData().stream().map(f -> (double) f).toList()).orElse(null),
-                    stravaStreams.stream().filter(s -> s.getType().equals("heartrate")).findFirst().map(s -> s.getData().stream().map(f -> (double) f).toList()).orElse(null),
-                    ActivityStreamSource.STRAVA
+                        stravaStreams.stream().filter(s -> s.getType().equals("time")).findFirst().map(s -> s.getData().stream().map(f -> (double) f).toList()).orElse(null),
+                        stravaStreams.stream().filter(s -> s.getType().equals("distance")).findFirst().map(s -> s.getData().stream().map(f -> (double) f).toList()).orElse(null),
+                        stravaStreams.stream().filter(s -> s.getType().equals("heartrate")).findFirst().map(s -> s.getData().stream().map(f -> (double) f).toList()).orElse(null),
+                        ActivityStreamSource.STRAVA
                 );
 
                 if (activityStream != null) {
@@ -159,20 +159,20 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
                 // If stravaStreams are already stored decode time and heartrate streams and add to StravaStreamDto list
                 stravaStreams = new ArrayList<>();
                 stravaStreams.add(new StravaStreamDto(
-                        "time",
-                        Codec.toFloatList(Codec.decodeDoubleArray(activity.getActivityStream().getTimeStream())),
-                        null,
-                        -1,
-                        null
-                    )
+                                "time",
+                                Codec.toFloatList(Codec.decodeDoubleArray(activity.getActivityStream().getTimeStream())),
+                                null,
+                                -1,
+                                null
+                        )
                 );
                 stravaStreams.add(new StravaStreamDto(
-                        "heartrate",
-                        Codec.toFloatList(Codec.decodeDoubleArray(activity.getActivityStream().getTimeStream())),
-                        null,
-                        -1,
-                        null
-                    )
+                                "heartrate",
+                                Codec.toFloatList(Codec.decodeDoubleArray(activity.getActivityStream().getTimeStream())),
+                                null,
+                                -1,
+                                null
+                        )
                 );
             } else {
                 // Streams list is empty if no hr or time stream stored
@@ -245,8 +245,8 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
             if (activity.getSummaryPolyline() != null && activity.getStartDate() != null) {
                 LatLng startLatLng = PolylineEncoding.decode(activity.getSummaryPolyline()).getFirst();
                 ZonedDateTime utcDateTime = activity.getStartDate()
-                    .atZone(ZoneId.systemDefault())
-                    .withZoneSameInstant(ZoneId.of("UTC")).withMinute(0).withSecond(0).withNano(0);
+                        .atZone(ZoneId.systemDefault())
+                        .withZoneSameInstant(ZoneId.of("UTC")).withMinute(0).withSecond(0).withNano(0);
                 String utcTimeStr = utcDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
 
                 if (utcDateTime.isBefore(LocalDate.now().minusDays(90).atStartOfDay(ZoneId.systemDefault()))) {
@@ -291,30 +291,30 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
     private List<StravaStreamDto> fetchStreams(Long activityId, String token) {
         LOGGER.trace("fetchStreams({}, *token*)", activityId);
         UriComponentsBuilder builder = UriComponentsBuilder
-            .fromUriString("https://www.strava.com/api/v3/activities/" + activityId + "/streams")
-            .queryParam("keys", "heartrate,distance,time");
+                .fromUriString("https://www.strava.com/api/v3/activities/" + activityId + "/streams")
+                .queryParam("keys", "heartrate,distance,time");
 
         return webClient.get()
-            .uri(builder.build().toUri())
-            .headers(h -> h.setBearerAuth(token))
-            .retrieve()
-            .onStatus(HttpStatusCode::is4xxClientError, response ->
-                response.bodyToMono(String.class)
-                    .defaultIfEmpty("")
-                    .flatMap(body -> Mono.error(
-                        new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                            "Strava API 4xx: " + body)))
-            )
-            .onStatus(HttpStatusCode::is5xxServerError, response ->
-                response.bodyToMono(String.class)
-                    .defaultIfEmpty("")
-                    .flatMap(body -> Mono.error(
-                        new ResponseStatusException(HttpStatus.BAD_GATEWAY,
-                            "Strava API 5xx: " + body)))
-            )
-            .bodyToFlux(StravaStreamDto.class)
-            .collectList()
-            .block();
+                .uri(builder.build().toUri())
+                .headers(h -> h.setBearerAuth(token))
+                .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response ->
+                        response.bodyToMono(String.class)
+                                .defaultIfEmpty("")
+                                .flatMap(body -> Mono.error(
+                                        new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                                "Strava API 4xx: " + body)))
+                )
+                .onStatus(HttpStatusCode::is5xxServerError, response ->
+                        response.bodyToMono(String.class)
+                                .defaultIfEmpty("")
+                                .flatMap(body -> Mono.error(
+                                        new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                                                "Strava API 5xx: " + body)))
+                )
+                .bodyToFlux(StravaStreamDto.class)
+                .collectList()
+                .block();
     }
 
     @Override
@@ -330,21 +330,21 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         ActivityStream stream = new ActivityStream();
 
         stream.setTimeStream(
-            time == null ? null : Codec.encodeDoubleArray(
-                time.stream().mapToDouble(Double::doubleValue).toArray()
-            )
+                time == null ? null : Codec.encodeDoubleArray(
+                        time.stream().mapToDouble(Double::doubleValue).toArray()
+                )
         );
 
         stream.setDistanceStream(
-            distance == null ? null : Codec.encodeDoubleArray(
-                distance.stream().mapToDouble(Double::doubleValue).toArray()
-            )
+                distance == null ? null : Codec.encodeDoubleArray(
+                        distance.stream().mapToDouble(Double::doubleValue).toArray()
+                )
         );
 
         stream.setHeartrateStream(
-            heartRate == null ? null : Codec.encodeDoubleArray(
-                heartRate.stream().mapToDouble(Double::doubleValue).toArray()
-            )
+                heartRate == null ? null : Codec.encodeDoubleArray(
+                        heartRate.stream().mapToDouble(Double::doubleValue).toArray()
+                )
         );
 
         stream.setSource(source);
@@ -395,65 +395,10 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         ApplicationUser user = userRepository.findUserByEmail(email);
         Instant instant = date.atStartOfDay(ZoneId.systemDefault()).toInstant();
         return activityRepository.findTopByUserAndWorkoutTypeInAndStartDateBeforeOrderByStartDateDesc(
-            user,
-            List.of(WorkoutType.EASY_RUN, WorkoutType.TEMPO_RUN, WorkoutType.INTERVAL_RUN, WorkoutType.LONG_RUN),
-            instant
+                user,
+                List.of(WorkoutType.EASY_RUN, WorkoutType.TEMPO_RUN, WorkoutType.INTERVAL_RUN, WorkoutType.LONG_RUN),
+                instant
         );
-    }
-
-    /**
-     * Configuration for spike detection behavior.
-     */
-    private static class SpikeConfig {
-        final double minChange;           // Minimum change to consider (bpm or m/s)
-        final double maxSpikeDuration;    // Max seconds for the change to occur
-        final double minSustainDuration;  // Must stay changed for at least this long
-        final double minSustainThreshold;  // Below which value relative to baseline must a spike drop before it is not sustained
-        final double baselineWindow;      // Seconds to calculate baseline
-        final double noiseThreshold;      // Std devs for outlier filtering
-        final double minRateOfChange;     // Minimum rate of change per second
-        final boolean detectIncreases;    // true = detect increases, false = detect decreases
-
-        SpikeConfig(double minChange, double maxSpikeDuration, double minSustainDuration, double minSustainThreshold,
-                    double baselineWindow, double noiseThreshold, double minRateOfChange,
-                    boolean detectIncreases) {
-            this.minChange = minChange;
-            this.maxSpikeDuration = maxSpikeDuration;
-            this.minSustainDuration = minSustainDuration;
-            this.minSustainThreshold = minSustainThreshold;
-            this.baselineWindow = baselineWindow;
-            this.noiseThreshold = noiseThreshold;
-            this.minRateOfChange = minRateOfChange;
-            this.detectIncreases = detectIncreases;
-        }
-
-        // Preset for HR spikes (sudden increases)
-        static SpikeConfig forHeartRate() {
-            return new SpikeConfig(
-                14.0,   // 14 bpm increase
-                15.0,   // within 15 seconds
-                3.0,    // sustained for 3 seconds
-                0.7,    // 70% of hr before spike is not sustained
-                30.0,   // 30 second baseline
-                2.5,    // noise threshold
-                2,    // 2 bpm/second minimum
-                true    // detect increases
-            );
-        }
-
-        // Preset for pace spikes (sudden accelerations = speed increases)
-        static SpikeConfig forPace() {
-            return new SpikeConfig(
-                0.95,    // 0.9 m/s increase in speed
-                15.0,    // within 15 seconds
-                10.0,    // sustained for 10 seconds
-                0.90,    // 90% of pace before spike is not sustained
-                25.0,   // 25 second baseline
-                2.5,    // noise threshold
-                0.25,    // 0.25 m/s per second minimum
-                true    // detect increases
-            );
-        }
     }
 
     /**
@@ -477,7 +422,7 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
 
             // Look ahead for potential spike
             SpikeCandidate candidate = findSpikeCandidate(
-                time, filtered, i, baseline, config
+                    time, filtered, i, baseline, config
             );
 
             if (candidate != null) {
@@ -558,16 +503,16 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         Collections.sort(values);
         int mid = values.size() / 2;
         return values.size() % 2 == 0
-            ? (values.get(mid - 1) + values.get(mid)) / 2.0
-            : values.get(mid);
+                ? (values.get(mid - 1) + values.get(mid)) / 2.0
+                : values.get(mid);
     }
 
     /**
      * Find a potential spike candidate starting from index.
      */
     private SpikeCandidate findSpikeCandidate(
-        double[] time, double[] data, int startIndex,
-        double baseline, SpikeConfig config
+            double[] time, double[] data, int startIndex,
+            double baseline, SpikeConfig config
     ) {
         double extremeValue = data[startIndex];
         int extremeIndex = startIndex;
@@ -593,8 +538,8 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
 
             // Check if we found a sufficient change
             double change = config.detectIncreases
-                ? (extremeValue - baseline)
-                : (baseline - extremeValue);
+                    ? (extremeValue - baseline)
+                    : (baseline - extremeValue);
 
             if (change >= config.minChange) {
                 // Calculate rate of change per second
@@ -616,13 +561,13 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
      * Returns -1 if not sustained.
      */
     private int getSustainEndIndex(
-        double[] time, double[] data, SpikeCandidate spike,
-        SpikeConfig config, double baseline
+            double[] time, double[] data, SpikeCandidate spike,
+            SpikeConfig config, double baseline
     ) {
         int sustainStart = spike.peakIndex;
         double threshold = config.detectIncreases
-            ? baseline + (spike.change * config.minSustainThreshold)  // above baseline
-            : baseline - (spike.change * config.minSustainThreshold); // below baseline
+                ? baseline + (spike.change * config.minSustainThreshold)  // above baseline
+                : baseline - (spike.change * config.minSustainThreshold); // below baseline
 
         int lastSustainedIndex = spike.peakIndex;
         double sustainedTime = 0;
@@ -630,8 +575,8 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         // Check how long value stays changed
         for (int i = spike.peakIndex; i < data.length; i++) {
             boolean isStillChanged = config.detectIncreases
-                ? (data[i] >= threshold)
-                : (data[i] <= threshold);
+                    ? (data[i] >= threshold)
+                    : (data[i] <= threshold);
 
             if (isStillChanged) {
                 sustainedTime = time[i] - time[sustainStart];
@@ -643,25 +588,6 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
 
         // Return end index if sustained long enough, otherwise -1
         return sustainedTime >= config.minSustainDuration ? lastSustainedIndex : -1;
-    }
-
-    /**
-     * Data class to hold spike candidate information.
-     */
-    private static class SpikeCandidate {
-        int startIndex;
-        int peakIndex;
-        double peakValue;
-        double baseline;
-        double change;
-
-        SpikeCandidate(int startIndex, int peakIndex, double peakValue, double baseline, double change) {
-            this.startIndex = startIndex;
-            this.peakIndex = peakIndex;
-            this.peakValue = peakValue;
-            this.baseline = baseline;
-            this.change = change;
-        }
     }
 
     @Override
@@ -729,5 +655,79 @@ public class ActivityProcessingServiceImpl implements ActivityProcessingService 
         }
 
         return speed;
+    }
+
+    /**
+     * Configuration for spike detection behavior.
+     */
+    private static class SpikeConfig {
+        final double minChange;           // Minimum change to consider (bpm or m/s)
+        final double maxSpikeDuration;    // Max seconds for the change to occur
+        final double minSustainDuration;  // Must stay changed for at least this long
+        final double minSustainThreshold;  // Below which value relative to baseline must a spike drop before it is not sustained
+        final double baselineWindow;      // Seconds to calculate baseline
+        final double noiseThreshold;      // Std devs for outlier filtering
+        final double minRateOfChange;     // Minimum rate of change per second
+        final boolean detectIncreases;    // true = detect increases, false = detect decreases
+
+        SpikeConfig(double minChange, double maxSpikeDuration, double minSustainDuration, double minSustainThreshold,
+                    double baselineWindow, double noiseThreshold, double minRateOfChange,
+                    boolean detectIncreases) {
+            this.minChange = minChange;
+            this.maxSpikeDuration = maxSpikeDuration;
+            this.minSustainDuration = minSustainDuration;
+            this.minSustainThreshold = minSustainThreshold;
+            this.baselineWindow = baselineWindow;
+            this.noiseThreshold = noiseThreshold;
+            this.minRateOfChange = minRateOfChange;
+            this.detectIncreases = detectIncreases;
+        }
+
+        // Preset for HR spikes (sudden increases)
+        static SpikeConfig forHeartRate() {
+            return new SpikeConfig(
+                    14.0,   // 14 bpm increase
+                    15.0,   // within 15 seconds
+                    3.0,    // sustained for 3 seconds
+                    0.7,    // 70% of hr before spike is not sustained
+                    30.0,   // 30 second baseline
+                    2.5,    // noise threshold
+                    2,    // 2 bpm/second minimum
+                    true    // detect increases
+            );
+        }
+
+        // Preset for pace spikes (sudden accelerations = speed increases)
+        static SpikeConfig forPace() {
+            return new SpikeConfig(
+                    0.95,    // 0.9 m/s increase in speed
+                    15.0,    // within 15 seconds
+                    10.0,    // sustained for 10 seconds
+                    0.90,    // 90% of pace before spike is not sustained
+                    25.0,   // 25 second baseline
+                    2.5,    // noise threshold
+                    0.25,    // 0.25 m/s per second minimum
+                    true    // detect increases
+            );
+        }
+    }
+
+    /**
+     * Data class to hold spike candidate information.
+     */
+    private static class SpikeCandidate {
+        int startIndex;
+        int peakIndex;
+        double peakValue;
+        double baseline;
+        double change;
+
+        SpikeCandidate(int startIndex, int peakIndex, double peakValue, double baseline, double change) {
+            this.startIndex = startIndex;
+            this.peakIndex = peakIndex;
+            this.peakValue = peakValue;
+            this.baseline = baseline;
+            this.change = change;
+        }
     }
 }

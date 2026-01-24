@@ -8,6 +8,7 @@ import com.smartroute.smartroute1.service.GymWorkoutSelectorService;
 import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import com.smartroute.smartroute1.service.ReadinessScoreService;
 import com.smartroute.smartroute1.service.UserService;
+import com.smartroute.smartroute1.service.impl.CalculateReadinessScoreImpl;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -76,7 +77,9 @@ public class GymWorkoutEndpoint {
                 .calculateInjuriesMap(injuryAwareTrainingService
                         .findInjuriesByEmail(email));
         ApplicationUser user = userService.findApplicationUserByEmail(email);
-        return gymWorkoutSelectorService.getGymWorkout(user, injuryMap, readinessScoreService.calculateReadinessScore(user, LocalDate.now()));
+
+        int readinessScore = readinessScoreService.calculateReadinessScore(user, LocalDate.now());
+        return gymWorkoutSelectorService.getGymWorkout(user, injuryMap, readinessScore);
     }
 
     @GetMapping("/get/{id}")

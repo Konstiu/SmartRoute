@@ -129,12 +129,14 @@ class PushNotificationServiceTest {
         assertEquals(1, subscriptions.size());
 
         PushSubscription saved = subscriptions.get(0);
-        assertEquals(testUser.getId(), saved.getUser().getId());
-        assertEquals("web", saved.getPlatform());
-        assertEquals(webSubscriptionDto.getEndpoint(), saved.getEndpoint());
-        assertEquals(webSubscriptionDto.getKeys().getP256dh(), saved.getP256dh());
-        assertEquals(webSubscriptionDto.getKeys().getAuth(), saved.getAuth());
-        assertNull(saved.getFcmToken());
+        assertAll(
+                () -> assertEquals(testUser.getId(), saved.getUser().getId()),
+                () -> assertEquals("web", saved.getPlatform()),
+                () -> assertEquals(webSubscriptionDto.getEndpoint(), saved.getEndpoint()),
+                () -> assertEquals(webSubscriptionDto.getKeys().getP256dh(), saved.getP256dh()),
+                () -> assertEquals(webSubscriptionDto.getKeys().getAuth(), saved.getAuth()),
+                () -> assertNull(saved.getFcmToken())
+        );
     }
 
     @Test
@@ -185,9 +187,11 @@ class PushNotificationServiceTest {
         List<PushSubscription> user1Subs = subscriptionRepository.findPushSubscriptionByUser(testUser);
         List<PushSubscription> user2Subs = subscriptionRepository.findPushSubscriptionByUser(secondUser);
 
-        assertEquals(1, user1Subs.size());
-        assertEquals(1, user2Subs.size());
-        assertNotEquals(user1Subs.get(0).getUser().getId(), user2Subs.get(0).getUser().getId());
+        assertAll(
+                () -> assertEquals(1, user1Subs.size()),
+                () -> assertEquals(1, user2Subs.size()),
+                () -> assertNotEquals(user1Subs.get(0).getUser().getId(), user2Subs.get(0).getUser().getId())
+        );
     }
 
     // ==================== Native Subscription Tests ====================
@@ -202,12 +206,16 @@ class PushNotificationServiceTest {
         assertEquals(1, subscriptions.size());
 
         PushSubscription saved = subscriptions.get(0);
-        assertEquals(testUser.getId(), saved.getUser().getId());
-        assertEquals(nativeSubscriptionDto.getPlatform(), saved.getPlatform());
-        assertEquals(nativeSubscriptionDto.getToken(), saved.getFcmToken());
-        assertNull(saved.getEndpoint());
-        assertNull(saved.getP256dh());
-        assertNull(saved.getAuth());
+
+        assertAll(
+                () -> assertEquals(testUser.getId(), saved.getUser().getId()),
+                () -> assertEquals(nativeSubscriptionDto.getPlatform(), saved.getPlatform()),
+                () -> assertEquals(nativeSubscriptionDto.getToken(), saved.getFcmToken()),
+                () -> assertNull(saved.getEndpoint()),
+                () -> assertNull(saved.getP256dh()),
+                () -> assertNull(saved.getAuth())
+        );
+
     }
 
     @Test
@@ -462,59 +470,6 @@ class PushNotificationServiceTest {
         }
     }
 
-//    // ==================== Send to All Tests ====================
-//
-//    @Test
-//    void sendNotificationToAll_WithNoSubscriptions_ShouldNotThrowException() {
-//        // Act & Assert
-//        assertDoesNotThrow(() ->
-//                pushNotificationService.sendNotificationToAll("Test", "Message")
-//        );
-//
-//        verifyNoInteractions(webPushService);
-//    }
-//
-//    @Test
-//    void sendNotificationToAll_WithMultipleUsers_ShouldSendToAll() throws Exception {
-//        // Arrange
-//        ApplicationUser user2 = new ApplicationUser();
-//        user2.setEmail("user2@example.com");
-//        user2.setPassword("password");
-//        user2 = userRepository.save(user2);
-//
-//        ApplicationUser user3 = new ApplicationUser();
-//        user3.setEmail("user3@example.com");
-//        user3.setPassword("password");
-//        user3 = userRepository.save(user3);
-//
-//        pushNotificationService.subscribe(webSubscriptionDto, testUser);
-//        pushNotificationService.subscribeNative(nativeSubscriptionDto, user2);
-//
-//        SubscriptionDto webSub2 = new SubscriptionDto();
-//        webSub2.setEndpoint("https://push.example.com/user3");
-//        KeyDto keys = new KeyDto();
-//        keys.setP256dh("user3-key");
-//        keys.setAuth("user3-auth");
-//        webSub2.setKeys(keys);
-//        pushNotificationService.subscribe(webSub2, user3);
-//
-//        doNothing().when(webPushService).send(any(Notification.class));
-//
-//        try (MockedStatic<FirebaseMessaging> mockedFirebase = mockStatic(FirebaseMessaging.class)) {
-//            FirebaseMessaging mockMessaging = mock(FirebaseMessaging.class);
-//            mockedFirebase.when(FirebaseMessaging::getInstance).thenReturn(mockMessaging);
-//            when(mockMessaging.send(any(Message.class))).thenReturn("message-id");
-//
-//            // Act
-//            pushNotificationService.sendNotificationToAll("Broadcast", "Message to all");
-//
-//            // Assert
-//            verify(webPushService, times(2)).send(any(Notification.class)); // 2 web subscriptions
-//            verify(mockMessaging, times(1)).send(any(Message.class)); // 1 native subscription
-//        }
-//    }
-
-    // ==================== Data Integrity Tests ====================
 
     @Test
     void subscribe_ShouldPersistAcrossTransactions() {
@@ -524,9 +479,11 @@ class PushNotificationServiceTest {
         // Assert - force flush to ensure DB persistence
         subscriptionRepository.flush();
         List<PushSubscription> subscriptions = subscriptionRepository.findPushSubscriptionByUser(testUser);
+        assertAll(
+                () -> assertEquals(1, subscriptions.size()),
+                () -> assertNotNull(subscriptions.get(0).getId())
 
-        assertEquals(1, subscriptions.size());
-        assertNotNull(subscriptions.get(0).getId());
+        );
     }
 
     @Test
@@ -538,9 +495,13 @@ class PushNotificationServiceTest {
         List<PushSubscription> subscriptions = subscriptionRepository.findPushSubscriptionByUser(testUser);
         PushSubscription saved = subscriptions.get(0);
 
-        assertNotNull(saved.getUser());
-        assertEquals(testUser.getId(), saved.getUser().getId());
-        assertEquals(testUser.getEmail(), saved.getUser().getEmail());
+        assertAll(
+
+                () -> assertNotNull(saved.getUser()),
+                () -> assertEquals(testUser.getId(), saved.getUser().getId()),
+                () -> assertEquals(testUser.getEmail(), saved.getUser().getEmail())
+
+        );
     }
 
     @Test
