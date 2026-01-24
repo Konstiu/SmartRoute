@@ -19,15 +19,23 @@ export class RouteService {
   /**
    * Generate route for ('lat', 'long') with length 'length'.
    */
-  getGeneratedRoute(lat: number, long: number, length: number): Observable<GeneratedRouteDto> {
-    let route = this.httpClient.get<GeneratedRouteDto>(this.routeBaseUri, {
-      params: {
-        "lat": lat,
-        "long": long,
-        "length": length
-      }
-    });
-    return route;
+  getGeneratedRoute(
+    lat: number,
+    long: number,
+    length: number,
+    seed?: number
+  ): Observable<GeneratedRouteDto> {
+    const params: { [key: string]: string } = {
+      lat: String(lat),
+      long: String(long),
+      length: String(length),
+    };
+
+    if (seed !== undefined && seed !== null) {
+      params['seed'] = String(seed);
+    }
+
+    return this.httpClient.get<GeneratedRouteDto>(this.routeBaseUri, { params });
   }
 
   getLastGeneratedRoute(): GeneratedRouteDto | null {
