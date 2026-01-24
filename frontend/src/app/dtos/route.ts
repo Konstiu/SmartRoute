@@ -4,4 +4,5 @@ export interface GeneratedRouteDto {
   coordinates3d: Array<[number, number, number | null]>;
   distance: number,
   elevation: number,
+  seed: number,
 }
