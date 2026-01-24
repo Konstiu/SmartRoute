@@ -219,19 +219,13 @@ public class WeatherServiceImpl implements WeatherService {
         List<Double> directRadiation = extractDoubleList(hourly, "direct_radiation");
         List<Double> diffuseRadiation = extractDoubleList(hourly, "diffuse_radiation");
         List<Double> snowDepth = extractDoubleList(hourly, "snow_depth");
+        List<Double> uvIndex = extractDoubleList(hourly, "uv_index");
 
         List<WeatherResponse> entities = new ArrayList<>();
 
         LocalDate fetchedAt = LocalDate.now(ZoneOffset.UTC);
-        LocalDate nowUtc = fetchedAt;
-        LocalDate cutoff = nowUtc.plusDays(3); // keep only the next 72 hours
 
         for (int i = 0; i < time.size(); i++) {
-            LocalDate entryTime = LocalDate.parse(time.get(i), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
-            // Skip anything beyond the 3-day window
-            if (entryTime.isAfter(cutoff)) {
-                continue;
-            }
 
             WeatherDto dto = new WeatherDto(
                     time.get(i),
@@ -244,7 +238,8 @@ public class WeatherServiceImpl implements WeatherService {
                     diffuseRadiation.get(i),
                     surfacePressure.get(i),
                     dewPoint.get(i),
-                    snowDepth.get(i)
+                    snowDepth.get(i),
+                    uvIndex.get(i)
             );
 
             // Check if existing entry in DB
@@ -284,6 +279,7 @@ public class WeatherServiceImpl implements WeatherService {
         List<Double> directRadiation = extractDoubleList(hourly, "direct_radiation");
         List<Double> diffuseRadiation = extractDoubleList(hourly, "diffuse_radiation");
         List<Double> snowDepth = extractDoubleList(hourly, "snow_depth");
+        List<Double> uvIndex = extractDoubleList(hourly, "uv_index");
 
         List<WeatherResponse> entities = new ArrayList<>();
 
@@ -309,7 +305,8 @@ public class WeatherServiceImpl implements WeatherService {
                     diffuseRadiation.get(i),
                     surfacePressure.get(i),
                     dewPoint.get(i),
-                    snowDepth.get(i)
+                    snowDepth.get(i),
+                    uvIndex.get(i)
             );
 
             // Check if existing entry in DB
@@ -332,13 +329,13 @@ public class WeatherServiceImpl implements WeatherService {
         if (timeUtc != null) {
             return "https://api.open-meteo.com/v1/forecast?latitude=" + latitude
                     + "&longitude=" + longitude
-                    + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation,snow_depth"
+                    + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation,snow_depth,uv_index"
                     + "&start_date=" + timeUtc
                     + "&end_date=" + timeUtc;
         }
         return "https://api.open-meteo.com/v1/forecast?latitude=" + latitude
                 + "&longitude=" + longitude
-                + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation,snow_depth";
+                + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation,snow_depth,uv_index";
     }
 
     // Fetch weather data from open-meteo.

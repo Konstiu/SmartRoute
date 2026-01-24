@@ -103,6 +103,7 @@ class WeatherServiceTest {
         ArrayNode directRadiation = hourly.putArray("direct_radiation");
         ArrayNode diffuseRadiation = hourly.putArray("diffuse_radiation");
         ArrayNode snowDepth = hourly.putArray("snow_depth");
+        ArrayNode uvIndex = hourly.putArray("uv_index");
 
         for (WeatherDto dto : dtos) {
             t.add(dto.getTime());
@@ -116,6 +117,7 @@ class WeatherServiceTest {
             directRadiation.add(dto.getDirectRadiation());
             diffuseRadiation.add(dto.getDiffuseRadiation());
             snowDepth.add(dto.getSnowDepth());
+            uvIndex.add(dto.getUvIndex());
         }
 
         return mapper.writeValueAsString(root);
@@ -280,6 +282,7 @@ class WeatherServiceTest {
 
     private WeatherResponse getStandardWeatherResponse() {
         WeatherResponse weather = new WeatherResponse();
+        weather.setUvIndex(1.0);
         weather.setPrecipitation(0.0);
         weather.setTemperature2m(3.9);
         weather.setRelativeHumidity(80.0);
@@ -296,8 +299,6 @@ class WeatherServiceTest {
 
         return weather;
     }
-
-    final static int AGE = 20;
 
     @Test
     void goodConditions_calculatingWeatherScore_highScoreAndLowRisk() throws ValidationException {
@@ -827,6 +828,48 @@ class WeatherServiceTest {
         );
 
         assertTrue(ex.errors().contains("snowDepth is unrealistically high (> 2000 cm)"));
+    }
+
+    //
+    // UV INDEX
+    //
+    @Test
+    void uvIndexNull_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setUvIndex(null);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest)
+        );
+
+        assertTrue(ex.errors().contains("uvIndex is null"));
+    }
+
+    @Test
+    void uvIndexNegative_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setUvIndex(-1.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest)
+        );
+
+        assertTrue(ex.errors().contains("uvIndex must be between 0 and 100"));
+    }
+
+    @Test
+    void uvIndexTooHigh_calculatingWeatherScore_throwsValidationException() {
+        WeatherResponse weatherTest = getStd();
+        weatherTest.setUvIndex(5000.0);
+
+        ValidationException ex = assertThrows(
+                ValidationException.class,
+                () -> service.calculateWeatherScore(weatherTest)
+        );
+
+        assertTrue(ex.errors().contains("uvIndex must be between 0 and 100"));
     }
 
     @Test

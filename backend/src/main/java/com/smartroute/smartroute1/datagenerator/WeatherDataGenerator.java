@@ -46,23 +46,27 @@ public class WeatherDataGenerator {
 
                 for (int hour = 0; hour < 24; hour++) {
 
-                    LocalDateTime t = now.plusHours(hour);
-
-                    double temp = baseTemp + Math.sin((hour / 24.0) * 2 * Math.PI) * amplitude;
-
                     double humidity = 50 + Math.sin((hour / 24.0) * 2 * Math.PI + Math.PI) * 20;
                     humidity += random.nextDouble() * 5;
                     humidity = Math.max(20, Math.min(100, humidity));
 
                     double wind = 1 + random.nextDouble() * 6;
 
-                    double precipitation =
-                            random.nextDouble() > 0.85 ? random.nextDouble() * 5 : 0;
+                    double precipitation = random.nextDouble() > 0.85 ? random.nextDouble() * 5 : 0;
 
                     double daylight = Math.sin((hour - 6) / 12.0 * Math.PI);
                     double solar = daylight > 0 ? daylight * 800 : 0;
                     double directRadiation = daylight > 0 ? daylight * 800 : 0;
                     double diffuseRadiation = daylight > 0 ? daylight * 800 : 0;
+
+                    double uvIndex = solar / 80.0;
+                    uvIndex += (random.nextDouble() - 0.5) * 1.2;
+                    uvIndex = Math.max(0.0, Math.min(11.0, uvIndex));
+
+                    LocalDateTime t = now.plusHours(hour);
+
+                    double temp = baseTemp + Math.sin((hour / 24.0) * 2 * Math.PI) * amplitude;
+
                     double surfacePressure = 1000;
                     double dewPoint = 4;
                     double snowDepth = temp - 1;
@@ -78,15 +82,13 @@ public class WeatherDataGenerator {
                             diffuseRadiation,
                             surfacePressure,
                             dewPoint,
-                            snowDepth
+                            snowDepth,
+                            uvIndex
                     );
 
                     entity = mapper.toEntity(dto, null, latitude, longitude);
-
-
                     list.add(entity);
                 }
-
 
                 repository.saveAll(list);
             } catch (ArithmeticException e) {
