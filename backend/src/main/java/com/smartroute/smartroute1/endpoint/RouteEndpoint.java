@@ -58,10 +58,13 @@ public class RouteEndpoint {
     @PermitAll
     @GetMapping
     public String generateRoute(@RequestParam("lat") double latitude, @RequestParam("long") double longitude,
-                                @RequestParam("length") double length) {
+                                @RequestParam("length") double length, @RequestParam(name = "seed", required = false) Integer seed) {
         List<GeoJsonPosition> coordinates = new ArrayList<>();
         coordinates.add(new GeoJsonPosition(latitude, longitude, null));
-        GeoJsonDto route = openRouteServiceService.generateRoundTrip(coordinates, (int) length, 7, 0);
+        if (seed == null) {
+            seed = 0;
+        }
+        GeoJsonDto route = openRouteServiceService.generateRoundTrip(coordinates, (int) length, 7, seed);
 
         var geom = route.getFeatures().getFirst().getGeometry();
         var props = route.getFeatures().getFirst().getProperties();
