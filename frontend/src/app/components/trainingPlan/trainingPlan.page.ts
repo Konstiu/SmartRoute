@@ -30,6 +30,19 @@ import {encodePolyline} from "../../util/polyline-encode-decode";
 
 type RouteUpdate = { layers: Layer[]; bounds: LatLngBounds | null };
 
+type Coord3d = [number, number, number | null];
+
+type RouteOption = {
+  seed: number;
+  polyline: string;
+  coordinates3d?: Coord3d[];
+  distance: number;
+  elevation: number;
+  bounds: LatLngBounds;
+  latlngs: LatLng[];
+};
+
+
 @Component({
   selector: 'app-trainingplan',
   templateUrl: 'trainingPlan.page.html',
@@ -76,6 +89,9 @@ export class TrainingPlanPage implements OnInit {
   alertController = inject(AlertController);
   isRouteSaved = false;
   date: string = new Date().toLocaleDateString();
+
+  routeOptions: RouteOption[] = [];
+  selectedRouteIndex = 0;
 
   recommendedActivity: RecommendedActivityDto | undefined = {
     name: "Gym Session",
@@ -242,7 +258,7 @@ export class TrainingPlanPage implements OnInit {
       this.recommendedActivity = plan;
 
       // 2) generate route using the new plan distance
-      await this.generateRouteFromLocationAsync(location, updateBaseline);
+      await this.generateRouteOptionsFromLocationAsync(location, updateBaseline);
 
       // (generateRouteFromLocationAsync already rebuilds layers + refits)
     } catch (err: any) {
@@ -317,10 +333,49 @@ export class TrainingPlanPage implements OnInit {
 
   /** Generates a route for the current start using Observable API */
   private generateRouteFromLocation(location: LatLng, updateBaseline: boolean) {
-    void this.generateRouteFromLocationAsync(location, updateBaseline);
+    void this.generateRouteOptionsFromLocationAsync(location, updateBaseline);
   }
 
-  /** Generates a route for the current start using async/await */
+  /** Generates three different routes for the current start using async/await */
+  private async generateRouteOptionsFromLocationAsync(location: LatLng, updateBaseline: boolean): Promise<void> {
+    const targetDistance = this.recommendedActivity!.route!.distance;
+
+    // 3 distinct seeds
+    const base = Date.now() % 1_000_000_000;
+    const seeds = [base, base + 1, base + 2];
+
+    try {
+      const results = await Promise.all(
+        seeds.map(seed =>
+          firstValueFrom(this.routeService.getGeneratedRoute(location.lat, location.lng, targetDistance, seed))
+        )
+      );
+
+      this.routeOptions = results.map(r => {
+        const latlngs = convertPolylineToCoordinateList(r.polyline).map(p => latLng(p[0], p[1]));
+        const line = polyline(latlngs);
+        return {
+          seed: r.seed ?? 0,
+          polyline: r.polyline,
+          coordinates3d: r.coordinates3d,
+          distance: r.distance,
+          elevation: r.elevation,
+          latlngs,
+          bounds: line.getBounds()
+        };
+      });
+
+      // default select first
+      this.selectRouteOption(0, updateBaseline, location);
+
+    } catch (err) {
+      console.error('Failed to generate route options', err);
+      await this.showToast('Failed to generate route options.', 3500, 'danger');
+      this.resetRouteToOriginal();
+    }
+  }
+
+  /** Generates a route for the current start using async/await (not used here, but will be useful later!)*/
   private async generateRouteFromLocationAsync(location: LatLng, updateBaseline: boolean): Promise<void> {
     try {
       const e = await firstValueFrom(
@@ -375,6 +430,52 @@ export class TrainingPlanPage implements OnInit {
     }
     return false;
   }
+
+  private selectRouteOption(index: number, updateBaseline: boolean, startLocation?: LatLng) {
+    if (!this.routeOptions[index]) return;
+
+    this.selectedRouteIndex = index;
+
+    const opt = this.routeOptions[index];
+
+    // switching route should discard edits/stops (recommended)
+    this.committedStops = [];
+
+    this.routeLine = polyline(opt.latlngs);
+    this.latlngs = opt.latlngs;
+    this.routeBounds = opt.bounds;
+
+    // if you need geo positions for add-stops backend:
+    this.routeLineGeoPosition = opt.coordinates3d?.length
+      ? opt.coordinates3d.map(([lat, lng, alt]) => ({ latitude: lat, longitude: lng, altitude: alt }))
+      : opt.latlngs.map(p => ({ latitude: p.lat, longitude: p.lng, altitude: null }));
+
+    // update displayed stats
+    if (this.recommendedActivity?.route) {
+      this.recommendedActivity.route.distance = opt.distance;
+      this.recommendedActivity.route.elevation = opt.elevation;
+    }
+
+    if (updateBaseline) {
+      this.originalLatlngs = [...opt.latlngs];
+      this.originalRouteLineGeoPosition = [...this.routeLineGeoPosition];
+      this.originalRouteBounds = opt.bounds;
+      this.originalDistance = opt.distance;
+      this.originalElevation = opt.elevation;
+      if (startLocation && !this.originalStart) this.originalStart = startLocation;
+    }
+
+    this.rebuildLayers();
+    this.refitPreviewMap();
+  }
+
+  cycleRoute(updateBaseline = true) {
+    if (!this.routeOptions || this.routeOptions.length === 0) return;
+
+    const next = (this.selectedRouteIndex + 1) % this.routeOptions.length;
+    this.selectRouteOption(next, updateBaseline);
+  }
+
 
   // =====================================================
   // Stops / reshape / insert

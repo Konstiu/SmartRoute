@@ -52,11 +52,32 @@
           @if (recommendedActivity) {
             @if (recommendedActivity!.type === SessionType.RUN) {
           <ion-card class="rounded-card map-card">
-            <ion-fab class="map-fab" vertical="top" horizontal="end">
-              <ion-fab-button size="small" (click)="openMapModal()">
-                <ion-icon name="expand-outline"></ion-icon>
-              </ion-fab-button>
-            </ion-fab>
+
+            <div class="map-overlay-actions" *ngIf="recommendedActivity?.type === SessionType.RUN">
+              <!-- Cycle -->
+              <ion-button
+                *ngIf="routeOptions.length > 1"
+                class="map-overlay-btn"
+                fill="solid"
+                shape="round"
+                (click)="cycleRoute()">
+                <ion-icon slot="icon-only" name="shuffle-outline"></ion-icon>
+              </ion-button>
+
+              <!-- Expand -->
+              <ion-button
+                class="map-overlay-btn"
+                fill="solid"
+                shape="round"
+                (click)="openMapModal()">
+                <ion-icon slot="icon-only" name="expand-outline"></ion-icon>
+              </ion-button>
+            </div>
+
+            <!-- Optional tiny indicator -->
+            <div *ngIf="routeOptions.length > 1" class="route-chip-br">
+              {{ selectedRouteIndex + 1 }}/{{ routeOptions.length }}
+            </div>
 
             <app-map
               [showLocation]="true"
@@ -65,7 +86,10 @@
               (locationSelected)="onLocationSelected($event)"
               (locationError)="onGeolocationError()">
             </app-map>
+
           </ion-card>
+
+
 
           <ion-card class="rounded-card" color="light">
             <ion-card-content>
