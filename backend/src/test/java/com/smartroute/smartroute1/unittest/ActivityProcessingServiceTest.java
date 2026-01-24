@@ -81,6 +81,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testProcessActivitiesInBatches_setsSessionLoad() {
         activityRepository.deleteAll();
         activityStreamRepository.deleteAll();
@@ -139,6 +140,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testProcessActivitiesInBatches_schedulesTasksCorrectly() {
         ApplicationUser user = userRepository.findAll().getFirst();
         Activity act1 = getStravaActivity();
@@ -164,6 +166,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testGetLastActivityBeforeDate_returnsLatestBefore() {
         activityRepository.deleteAll();
         activityRepository.flush();
@@ -199,6 +202,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     // createActivityStream tests
 
     @Test
+    @Transactional
     void testCreateActivityStream_returnsCorrectly() {
         List<Double> time = List.of(0.0, 1.0);
         List<Double> distance = List.of(0.0, 3.0);
@@ -217,6 +221,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testCreateActivityStream_WithAllStreamsNull_returnsCorrectly() {
         List<Double> time = null;
         List<Double> distance = null;
@@ -235,6 +240,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testCreateActivityStream_WithSomeStreamsNull_returnsCorrectly() {
         List<Double> time = null;
         List<Double> distance = null;
@@ -253,6 +259,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testCreateActivityStream_WithSizeMismatch_returnsNull() {
         List<Double> time = List.of(0.0, 1.0, 2.0, 3.0);
         List<Double> distance = List.of(0.0, 3.0);
@@ -267,6 +274,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testCreateActivityStream_WithSizeMismatchAndNullStream_returnsNull() {
         List<Double> time = List.of(0.0, 1.0, 2.0, 3.0);
         List<Double> distance = List.of(0.0, 3.0);
@@ -283,6 +291,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     // detectHeartRateSpikes tests
 
     @Test
+    @Transactional
     void testDetectHeartRateSpikes_With1Spike_returnsCorrectly() {
         activityRepository.deleteAll();
         activityRepository.flush();
@@ -331,6 +340,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testDetectHeartRateSpikes_With1SpikeAndIrregularTimeStream_returnsCorrectly() {
         activityRepository.deleteAll();
         activityRepository.flush();
@@ -386,6 +396,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testDetectHeartRateSpikes_With0Spikes_returnsCorrectly() {
         activityRepository.deleteAll();
         activityRepository.flush();
@@ -430,6 +441,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testDetectHeartRateSpikes_With0SpikesAndOutlier_returnsCorrectly() {
         activityRepository.deleteAll();
         activityRepository.flush();
@@ -480,6 +492,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testDetectHeartRateSpikes_With2Spikes_returnsCorrectly() {
         activityRepository.deleteAll();
         activityRepository.flush();
@@ -532,6 +545,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testDetectHeartRateSpikes_WithEmptyData_returnsErrorValue() {
         activityRepository.deleteAll();
         activityRepository.flush();
@@ -554,6 +568,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testDetectHeartRateSpikes_WithMissingTimeStream_returnsErrorValue() {
         activityRepository.deleteAll();
         activityRepository.flush();
@@ -576,6 +591,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testDetectHeartRateSpikes_WithMissingHeartRateStream_returnsErrorValue() {
         activityRepository.deleteAll();
         activityRepository.flush();
@@ -598,6 +614,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testDetectHeartRateSpikes_WithStreamSizeMismatch_throws() {
         activityRepository.deleteAll();
         activityRepository.flush();
@@ -617,6 +634,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testDetectHeartRateSpikes_WithMultipleConsecutiveSpikes_countsEachSeparately() {
         activityRepository.deleteAll();
         activityRepository.flush();
@@ -682,6 +700,7 @@ class ActivityProcessingServiceTest extends BaseTest {
     }
 
     @Test
+    @Transactional
     void testDetectHeartRateSpikes_WithGradualIncrease_doesNotDetectSpike() {
         activityRepository.deleteAll();
         activityRepository.flush();
