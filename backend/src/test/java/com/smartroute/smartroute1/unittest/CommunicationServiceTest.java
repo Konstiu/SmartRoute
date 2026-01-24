@@ -119,10 +119,10 @@ class CommunicationServiceTest {
         assertNotNull(result);
         assertEquals(testUser, result);
         verify(deviceRepository).save(argThat(device ->
-            device.getDeviceId().equals(deviceId) &&
-            device.getPublicIdentityKey().equals(publicKey) &&
-            device.getPublicIdentityDhKey().equals(publicDhKey) &&
-            device.getUser().equals(testUser)
+                device.getDeviceId().equals(deviceId) &&
+                        device.getPublicIdentityKey().equals(publicKey) &&
+                        device.getPublicIdentityDhKey().equals(publicDhKey) &&
+                        device.getUser().equals(testUser)
         ));
     }
 
@@ -140,9 +140,12 @@ class CommunicationServiceTest {
         ApplicationUser result = communicationService.uploadIdentityKey("test@example.com", "device123", publicKey, publicDhKey);
 
         // Then
-        assertNotNull(result);
-        assertEquals(publicKey, testDevice.getPublicIdentityKey());
-        assertEquals(publicDhKey, testDevice.getPublicIdentityDhKey());
+        assertAll(
+                () ->
+                        assertNotNull(result),
+                () -> assertEquals(publicKey, testDevice.getPublicIdentityKey()),
+                () -> assertEquals(publicDhKey, testDevice.getPublicIdentityDhKey())
+        );
         verify(deviceRepository).save(testDevice);
     }
 
@@ -162,9 +165,12 @@ class CommunicationServiceTest {
         ApplicationUser result = communicationService.uploadSignedPreKey("test@example.com", publicPreKey, signature, "device123");
 
         // Then
-        assertNotNull(result);
-        assertEquals(publicPreKey, testDevice.getPublicPreKey());
-        assertEquals(signature, testDevice.getPreKeySignature());
+        assertAll(
+
+                () -> assertNotNull(result),
+                () -> assertEquals(publicPreKey, testDevice.getPublicPreKey()),
+                () -> assertEquals(signature, testDevice.getPreKeySignature())
+        );
         verify(deviceRepository).save(testDevice);
     }
 
@@ -176,7 +182,7 @@ class CommunicationServiceTest {
 
         // When & Then
         ValidationException exception = assertThrows(ValidationException.class, () ->
-            communicationService.uploadSignedPreKey("test@example.com", "preKey", "signature", "unknownDevice")
+                communicationService.uploadSignedPreKey("test@example.com", "preKey", "signature", "unknownDevice")
         );
         assertEquals("Unknown device", exception.getMessage());
         verify(deviceRepository, never()).save(any());
@@ -234,7 +240,7 @@ class CommunicationServiceTest {
 
         // Then
         verify(preKeyRepository, times(2)).save(argThat(preKey ->
-            preKey.getDevice().equals(testDevice)
+                preKey.getDevice().equals(testDevice)
         ));
     }
 
@@ -304,7 +310,7 @@ class CommunicationServiceTest {
 
         // Then
         verify(preKeyRepository, times(1)).save(argThat(preKey ->
-            preKey.getPublicKey().equals("key2")
+                preKey.getPublicKey().equals("key2")
         ));
     }
 
@@ -320,7 +326,7 @@ class CommunicationServiceTest {
 
         // When & Then
         ValidationException exception = assertThrows(ValidationException.class, () ->
-            communicationService.uploadOneTimePreKeys("test@example.com", "unknownDevice", List.of(key))
+                communicationService.uploadOneTimePreKeys("test@example.com", "unknownDevice", List.of(key))
         );
         assertEquals("Unknown device", exception.getMessage());
         verify(preKeyRepository, never()).save(any());
@@ -351,7 +357,7 @@ class CommunicationServiceTest {
 
         // When & Then
         ValidationException exception = assertThrows(ValidationException.class, () ->
-            communicationService.countOneTimePreKeys("test@example.com", "unknownDevice")
+                communicationService.countOneTimePreKeys("test@example.com", "unknownDevice")
         );
         assertEquals("Unknown device", exception.getMessage());
     }
@@ -365,7 +371,7 @@ class CommunicationServiceTest {
 
         // When & Then
         assertThrows(AccessDeniedException.class, () ->
-            communicationService.getKeysOfFriendAllDevices("friend@example.com", "test@example.com")
+                communicationService.getKeysOfFriendAllDevices("friend@example.com", "test@example.com")
         );
         verify(userService, never()).findApplicationUserByEmail(any());
     }
@@ -382,16 +388,19 @@ class CommunicationServiceTest {
         FriendDeviceBundlesDto result = communicationService.getKeysOfFriendAllDevices("friend@example.com", "test@example.com");
 
         // Then
-        assertNotNull(result);
-        assertNotNull(result.getDevices());
-        assertEquals(1, result.getDevices().size());
+        assertAll(
+                () -> assertNotNull(result),
+                () -> assertNotNull(result.getDevices()),
+                () -> assertEquals(1, result.getDevices().size()));
         DeviceKeysDto deviceKeys = result.getDevices().get(0);
-        assertEquals("friendDevice123", deviceKeys.getDeviceId());
-        assertEquals("friendIdentityKey", deviceKeys.getIdentityKey());
-        assertEquals("friendDhKey", deviceKeys.getIdentityDhKey());
-        assertEquals("friendPreKey", deviceKeys.getSignedPreKey());
-        assertEquals("friendSignature", deviceKeys.getSignedPreKeySignature());
-        assertNull(deviceKeys.getOneTimePreKey());
+        assertAll(
+                () -> assertEquals("friendDevice123", deviceKeys.getDeviceId()),
+                () -> assertEquals("friendIdentityKey", deviceKeys.getIdentityKey()),
+                () -> assertEquals("friendDhKey", deviceKeys.getIdentityDhKey()),
+                () -> assertEquals("friendPreKey", deviceKeys.getSignedPreKey()),
+                () -> assertEquals("friendSignature", deviceKeys.getSignedPreKeySignature()),
+                () -> assertNull(deviceKeys.getOneTimePreKey())
+        );
     }
 
     @Test
@@ -433,10 +442,12 @@ class CommunicationServiceTest {
         FriendDeviceBundlesDto result = communicationService.getKeysOfAllMyDevices("test@example.com");
 
         // Then
-        assertNotNull(result);
-        assertNotNull(result.getDevices());
-        assertEquals(1, result.getDevices().size());
-        assertEquals("device123", result.getDevices().get(0).getDeviceId());
+        assertAll(
+                () -> assertNotNull(result),
+                () -> assertNotNull(result.getDevices()),
+                () -> assertEquals(1, result.getDevices().size()),
+                () -> assertEquals("device123", result.getDevices().get(0).getDeviceId())
+        );
     }
 
     // ==================== sendEncryptedMessage Tests ====================
@@ -450,7 +461,7 @@ class CommunicationServiceTest {
 
         // When & Then
         assertThrows(AccessDeniedException.class, () ->
-            communicationService.sendEncryptedMessage("test@example.com", dto)
+                communicationService.sendEncryptedMessage("test@example.com", dto)
         );
         verify(messageRepository, never()).save(any());
     }
@@ -466,7 +477,7 @@ class CommunicationServiceTest {
 
         // When & Then
         assertThrows(ValidationException.class, () ->
-            communicationService.sendEncryptedMessage("test@example.com", dto)
+                communicationService.sendEncryptedMessage("test@example.com", dto)
         );
     }
 
@@ -482,7 +493,7 @@ class CommunicationServiceTest {
 
         // When & Then
         ValidationException exception = assertThrows(ValidationException.class, () ->
-            communicationService.sendEncryptedMessage("test@example.com", dto)
+                communicationService.sendEncryptedMessage("test@example.com", dto)
         );
         assertEquals("Unknown sender device", exception.getMessage());
     }
@@ -500,7 +511,7 @@ class CommunicationServiceTest {
 
         // When & Then
         ValidationException exception = assertThrows(ValidationException.class, () ->
-            communicationService.sendEncryptedMessage("test@example.com", dto)
+                communicationService.sendEncryptedMessage("test@example.com", dto)
         );
         assertEquals("Unknown recipient device", exception.getMessage());
     }
@@ -525,10 +536,13 @@ class CommunicationServiceTest {
         Message result = communicationService.sendEncryptedMessage("test@example.com", dto);
 
         // Then
-        assertNotNull(result);
-        assertEquals(savedMessage, result);
-        assertEquals("device123", mappedMessage.getSenderDeviceId());
-        assertEquals("friendDevice123", mappedMessage.getRecipientDeviceId());
+
+        assertAll(
+                () -> assertNotNull(result),
+                () -> assertEquals(savedMessage, result),
+                () -> assertEquals("device123", mappedMessage.getSenderDeviceId()),
+                () -> assertEquals("friendDevice123", mappedMessage.getRecipientDeviceId())
+        );
         verify(messageRepository).save(mappedMessage);
     }
 
@@ -571,7 +585,7 @@ class CommunicationServiceTest {
 
         // When & Then
         assertThrows(AccessDeniedException.class, () ->
-            communicationService.retrieveMessagesByFriendAndTimestamp("test@example.com", "friend@example.com", timestamp, "device123")
+                communicationService.retrieveMessagesByFriendAndTimestamp("test@example.com", "friend@example.com", timestamp, "device123")
         );
     }
 
@@ -586,7 +600,7 @@ class CommunicationServiceTest {
 
         // When & Then
         assertThrows(AccessDeniedException.class, () ->
-            communicationService.retrieveMessagesByFriendAndTimestamp("test@example.com", "friend@example.com", timestamp, "unknownDevice")
+                communicationService.retrieveMessagesByFriendAndTimestamp("test@example.com", "friend@example.com", timestamp, "unknownDevice")
         );
     }
 
@@ -620,7 +634,7 @@ class CommunicationServiceTest {
 
         // When & Then
         assertThrows(AccessDeniedException.class, () ->
-            communicationService.getDevicesOfFriend("test@example.com", "friend@example.com")
+                communicationService.getDevicesOfFriend("test@example.com", "friend@example.com")
         );
     }
 
@@ -640,10 +654,12 @@ class CommunicationServiceTest {
         List<String> result = communicationService.getDevicesOfFriend("test@example.com", "friend@example.com");
 
         // Then
-        assertNotNull(result);
-        assertEquals(2, result.size());
-        assertTrue(result.contains("device1"));
-        assertTrue(result.contains("device2"));
+
+        assertAll(
+                () -> assertNotNull(result),
+                () -> assertEquals(2, result.size()),
+                () -> assertTrue(result.contains("device1")),
+                () -> assertTrue(result.contains("device2")));
     }
 
     // ==================== getMyDevices Tests ====================
@@ -661,9 +677,13 @@ class CommunicationServiceTest {
 
         // When
         List<String> result = communicationService.getMyDevices("test@example.com");
+        assertAll(
+                () -> assertNotNull(result),
+                () -> assertEquals(2, result.size()),
+                () -> assertTrue(result.contains("myDevice1")));
     }
 
-    MessageDetailDto createValidMessageDto(String email){
+    MessageDetailDto createValidMessageDto(String email) {
         return new MessageDetailDto() {{
             setSenderDeviceId("device123");
             setRecipientEmail(email);

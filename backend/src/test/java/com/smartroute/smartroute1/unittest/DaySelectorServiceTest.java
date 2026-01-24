@@ -39,7 +39,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
-@ActiveProfiles({"test"})
+//@ActiveProfiles({"test"})
 @Transactional
 class DaySelectorServiceTest {
     @Autowired
