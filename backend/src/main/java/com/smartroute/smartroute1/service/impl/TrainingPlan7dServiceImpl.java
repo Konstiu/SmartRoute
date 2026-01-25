@@ -598,6 +598,10 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
      * Picks different run-day subsets from availability (creates rest/gym/mob slots).
      */
     private List<List<Integer>> runDaySubsets(List<Integer> availableIdx, TemplateGenCfg cfg) {
+        if (availableIdx == null || availableIdx.isEmpty()) {
+            return List.of();
+        }
+
         int n = availableIdx.size();
 
         int desiredRunDays = n;
@@ -607,52 +611,102 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         if (cfg.minRestDays() >= 2) {
             desiredRunDays = Math.min(desiredRunDays, 4);
         }
+
         desiredRunDays = Math.max(1, Math.min(n, desiredRunDays));
 
-        // generate combinations of size desiredRunDays (capped)
-        int cap = 18; // keep this modest; you already blow up later with long/intensity/strategy loops
-        List<List<Integer>> out = new ArrayList<>();
+        final int cap = 24;
 
-        int k = desiredRunDays;
-        int[] idx = new int[k];
-        for (int i = 0; i < k; i++) {
-            idx[i] = i;
+        final List<List<Integer>> out = new ArrayList<>();
+
+        // Explore a couple of k values to widen template variety:
+        // - baseline desiredRunDays
+        // - maybe desiredRunDays-1
+        // - maybe desiredRunDays-2 if cfg expects more rest
+        List<Integer> kchoices = new ArrayList<>();
+        kchoices.add(desiredRunDays);
+
+        if (desiredRunDays - 1 >= cfg.minRunDays()) {
+            kchoices.add(desiredRunDays - 1);
         }
 
-        while (out.size() < cap) {
-            List<Integer> comb = new ArrayList<>(k);
-            for (int i = 0; i < k; i++) {
-                comb.add(availableIdx.get(idx[i]));
-            }
-            out.add(comb);
+        if (cfg.minRestDays() >= 2 && desiredRunDays - 2 >= cfg.minRunDays()) {
+            kchoices.add(desiredRunDays - 2);
+        }
 
-            // next combination
-            int t = k - 1;
-            while (t >= 0 && idx[t] == n - k + t) {
-                t--;
-            }
-            if (t < 0) {
+        // Generate combinations for each k until cap is reached.
+        for (Integer kobj : kchoices) {
+            if (out.size() >= cap) {
                 break;
             }
-            idx[t]++;
-            for (int i = t + 1; i < k; i++) {
-                idx[i] = idx[i - 1] + 1;
+
+            int k = kobj;
+
+            if (k <= 0 || k > n) {
+                continue;
+            }
+
+            int[] idx = new int[k];
+
+            for (int i = 0; i < k; i++) {
+                idx[i] = i;
+            }
+
+            while (out.size() < cap) {
+                List<Integer> comb = new ArrayList<>(k);
+
+                for (int i = 0; i < k; i++) {
+                    comb.add(availableIdx.get(idx[i]));
+                }
+
+                out.add(comb);
+
+                int t = k - 1;
+
+                while (t >= 0 && idx[t] == n - k + t) {
+                    t--;
+                }
+
+                if (t < 0) {
+                    break;
+                }
+
+                idx[t]++;
+
+                for (int i = t + 1; i < k; i++) {
+                    idx[i] = idx[i - 1] + 1;
+                }
             }
         }
 
-        List<Integer> alt = new ArrayList<>();
-        for (int i = 0; i < n; i += 2) {
-            alt.add(availableIdx.get(i));
-        }
-        while (alt.size() > k) {
-            alt.remove(alt.size() - 1);
-        }
-        if (!alt.isEmpty()) {
-            out.add(alt);
+        // Add a "spaced" variant (every other available day) for variety.
+        if (out.size() < cap) {
+            int baseK = desiredRunDays;
+
+            List<Integer> alt = new ArrayList<>();
+            for (int i = 0; i < n; i += 2) {
+                alt.add(availableIdx.get(i));
+            }
+
+            // If the alt is too small, pad with remaining days (still deterministic).
+            for (int i = 1; alt.size() < baseK && i < n; i += 2) {
+                alt.add(availableIdx.get(i));
+            }
+
+            while (alt.size() > baseK) {
+                alt.remove(alt.size() - 1);
+            }
+
+            if (!alt.isEmpty()) {
+                out.add(alt);
+            }
         }
 
-        return out.stream().distinct().toList();
+        // De-duplicate while preserving order
+        java.util.LinkedHashSet<List<Integer>> uniq = new java.util.LinkedHashSet<>(out);
+
+        return new ArrayList<>(uniq);
     }
+
 
     /**
      * Strategy variants for assigning gym/mobility within a template.
@@ -934,26 +988,20 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         final double wexp = 0.30;
         final double wshape = 0.40;
 
-        List<TemplateScoreDto> templateScores = debug ? new ArrayList<>() : null;
-
-        double bestScore = Double.NEGATIVE_INFINITY;
-        int bestTemplateIndex = -1;
-        List<WorkoutType> bestTemplate = null;
-        List<LoadDistributionDto> bestTsbDists = null;
+        List<TemplateScoreDto> templateScores = null;
+        if (debug) {
+            templateScores = new ArrayList<>();
+        }
 
         ExperienceConfig cfg = expCfg(user);
+
+        List<ScoredCandidate> candidates = new ArrayList<>();
 
         for (int templateIndex = 0; templateIndex < templates.size(); templateIndex++) {
             List<WorkoutType> template = templates.get(templateIndex);
 
             EffectiveWeek effectiveWeek = computeEffectiveWeek(template, injuryIndex, readiness, weatherPerDay, cfg);
             List<WorkoutType> effectiveTemplate = effectiveWeek.effective();
-
-            long hardCount = effectiveTemplate.stream().filter(this::isHard).count();
-            long longCount = effectiveTemplate.stream().filter(w -> w == WorkoutType.LONG_RUN).count();
-            long qualityCount = effectiveTemplate.stream().filter(w -> w == WorkoutType.TEMPO_RUN || w == WorkoutType.INTERVAL_RUN).count();
-
-            log.info("cand {} effective hard={} long={} qual={} template={}", templateIndex, hardCount, longCount, qualityCount, effectiveTemplate);
 
             long templateSeed = seed ^ (templateIndex * 1315423911L);
 
@@ -972,43 +1020,67 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     constraints
             );
 
-            double simScore = sim.riskAdjustedScore();
-            double tp = templatePrior(profile, effectiveTemplate, cfg);
-            double mk = missingKeySessionsPenalty(effectiveTemplate, profile, injuryIndex, readiness, cfg);
-            double ep = experienceTemplatePrior(cfg, effectiveTemplate);
-            double sh = weekShapeScore(effectiveTemplate, profile, cfg);
+            final double simScore = sim.riskAdjustedScore();
+            final double templatePrior = templatePrior(profile, effectiveTemplate, cfg);
+            final double missingPenalty = missingKeySessionsPenalty(effectiveTemplate, profile, injuryIndex, readiness, cfg);
+            final double expPrior = experienceTemplatePrior(cfg, effectiveTemplate);
+            final double shape = weekShapeScore(effectiveTemplate, profile, cfg);
 
-            double scored = wsim * simScore
-                    + wtemplateprior * tp
-                    + wmissing * mk
-                    + wexp * ep
-                    + wshape * sh;
+            double total = 0.0;
+            total += wsim * simScore;
+            total += wtemplateprior * templatePrior;
+            total += wmissing * missingPenalty;
+            total += wexp * expPrior;
+            total += wshape * shape;
 
             if (debug) {
-                logBreakdown(templateIndex, effectiveTemplate, new ScoreBreakdown(simScore, tp, mk, ep, sh, scored));
+                logBreakdown(
+                        templateIndex,
+                        effectiveTemplate,
+                        new ScoreBreakdown(simScore, templatePrior, missingPenalty, expPrior, shape, total)
+                );
             }
 
             if (debug && templateScores != null) {
-                templateScores.add(new TemplateScoreDto(templateIndex, sim.avgUtility(), new ArrayList<>(template), new ArrayList<>(effectiveTemplate)));
+                templateScores.add(
+                        new TemplateScoreDto(
+                                templateIndex,
+                                sim.avgUtility(),
+                                new ArrayList<>(template),
+                                new ArrayList<>(effectiveTemplate)
+                        )
+                );
             }
 
-            if (scored > bestScore) {
-                bestScore = scored;
-                bestTemplateIndex = templateIndex;
-                bestTemplate = template;
-                bestTsbDists = sim.tsbDists();
-            }
+            candidates.add(
+                    new ScoredCandidate(
+                            templateIndex,
+                            total,
+                            sim.avgUtility(),
+                            simScore,
+                            templatePrior,
+                            missingPenalty,
+                            expPrior,
+                            shape,
+                            template,
+                            effectiveTemplate,
+                            sim.tsbDists()
+                    )
+            );
         }
 
-        if (bestTemplate == null) {
-            bestTemplateIndex = -1;
-            bestScore = 0.0;
-            bestTemplate = List.of(
-                    WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY,
-                    WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY,
+        if (candidates.isEmpty()) {
+            List<WorkoutType> fallbackTemplate = List.of(
+                    WorkoutType.REST_DAY,
+                    WorkoutType.REST_DAY,
+                    WorkoutType.REST_DAY,
+                    WorkoutType.REST_DAY,
+                    WorkoutType.REST_DAY,
+                    WorkoutType.REST_DAY,
                     WorkoutType.REST_DAY
             );
-            bestTsbDists = List.of(
+
+            List<LoadDistributionDto> fallbackDists = List.of(
                     new LoadDistributionDto(0, 0, 0, 0, 0),
                     new LoadDistributionDto(0, 0, 0, 0, 0),
                     new LoadDistributionDto(0, 0, 0, 0, 0),
@@ -1017,10 +1089,55 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     new LoadDistributionDto(0, 0, 0, 0, 0),
                     new LoadDistributionDto(0, 0, 0, 0, 0)
             );
-            if (debug && templateScores != null && templateScores.isEmpty()) {
-                templateScores = new ArrayList<>();
+
+            TrainingPlanDebugDto debugDto = null;
+            if (debug) {
+                List<DayDebugDto> dayDebug = buildDayDebug(
+                        user,
+                        startDate,
+                        fallbackTemplate,
+                        initialState,
+                        recentLoads,
+                        fallbackDists,
+                        injuryIndex,
+                        readiness,
+                        weatherPerDay,
+                        constraints
+                );
+
+                debugDto = new TrainingPlanDebugDto(
+                        sims,
+                        seed,
+                        -1,
+                        0.0,
+                        templateScores == null ? List.of() : templateScores,
+                        dayDebug
+                );
             }
+
+            return new PlanChoice(-1, 0.0, fallbackTemplate, fallbackDists, debugDto);
         }
+
+        candidates.sort((a, b) -> Double.compare(b.totalScore(), a.totalScore()));
+
+        Random selectionRng = new Random(seed ^ 0xD1B54A32D192ED03L);
+
+        int topkCount = 6;
+
+        double temperature = 6.0;
+        if (profile != null) {
+            double consistency = clamp01(profile.consistency());
+            double base = 4.0 + 8.0 * (1.0 - consistency);
+            temperature = Math.max(3.0, Math.min(12.0, base));
+        }
+
+        int chosenPos = sampleIndexSoftmaxTopK(candidates, selectionRng, topkCount, temperature);
+        ScoredCandidate chosen = candidates.get(chosenPos);
+
+        int bestTemplateIndex = chosen.templateIndex();
+        double bestScore = chosen.totalScore();
+        List<WorkoutType> bestTemplate = chosen.planned();
+        List<LoadDistributionDto> bestTsbDists = chosen.tsbDists();
 
         TrainingPlanDebugDto debugDto = null;
         if (debug) {
@@ -1049,6 +1166,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
         return new PlanChoice(bestTemplateIndex, bestScore, bestTemplate, bestTsbDists, debugDto);
     }
+
 
     /**
      * Scores a template for “week shape” like rest distribution and spacing.
@@ -2749,28 +2867,28 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                         0,
                         false,
                         false,
-                        true,
-                        1,
+                        false,
+                        2,
                         2,
                         true,
                         2,
                         0,
-                        1
+                        0
                 );
             }
             case CASUAL -> {
                 yield new TemplateGenCfg(
                         2,
                         1,
-                        true,
+                        false,
                         false,
                         true,
-                        1,
+                        2,
                         2,
                         true,
-                        1,
+                        2,
                         0,
-                        1
+                        0
                 );
             }
             case INTERMEDIATE -> {
@@ -2778,11 +2896,11 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                         3,
                         1,
                         true,
-                        true,
+                        false,
                         true,
                         2,
                         1,
-                        false,
+                        true,
                         1,
                         1,
                         0
@@ -2810,7 +2928,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                         true,
                         true,
                         true,
-                        1,
+                        2,
                         1,
                         false,
                         0,
@@ -3131,6 +3249,37 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
     }
 
+    private int sampleIndexSoftmaxTopK(List<ScoredCandidate> ranked, Random rng, int topK, double temperature) {
+        int k = Math.min(topK, ranked.size());
+        if (k <= 1) {
+            return ranked.get(0).templateIndex();
+        }
+
+        double maxScore = ranked.get(0).totalScore();
+        double sum = 0.0;
+
+        double[] weights = new double[k];
+
+        for (int i = 0; i < k; i++) {
+            double z = (ranked.get(i).totalScore() - maxScore) / Math.max(1e-9, temperature);
+            double w = Math.exp(z);
+            weights[i] = w;
+            sum += w;
+        }
+
+        double r = rng.nextDouble() * sum;
+        double acc = 0.0;
+
+        for (int i = 0; i < k; i++) {
+            acc += weights[i];
+            if (r <= acc) {
+                return ranked.get(i).templateIndex();
+            }
+        }
+
+        return ranked.get(0).templateIndex();
+    }
+
     /**
      * Safely evaluates a list supplier, returning an empty list on exceptions.
      */
@@ -3237,4 +3386,20 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             double atl
     ) {
     }
+
+    record ScoredCandidate(
+            int templateIndex,
+            double totalScore,
+            double avgUtility,
+            double simRiskAdj,
+            double templatePrior,
+            double missingPenalty,
+            double expPrior,
+            double shape,
+            List<WorkoutType> planned,
+            List<WorkoutType> effective,
+            List<LoadDistributionDto> tsbDists
+    ) {
+    }
+
 }

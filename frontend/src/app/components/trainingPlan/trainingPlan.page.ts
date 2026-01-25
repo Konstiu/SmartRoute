@@ -83,6 +83,8 @@ export class TrainingPlanPage implements OnInit {
   private dayLoadSeq = 0;
   private weekLoadSeq = 0;
 
+  private currentWeekSeed: number | null = null;
+
   error: string | null = null;
   isLoadingWeek: boolean = true;
   isLoadingDay: boolean = false;
@@ -204,37 +206,93 @@ export class TrainingPlanPage implements OnInit {
   // Training plan loading
   // =====================================================
 
-  loadWeekPlan(location?: LatLng): void {
+  loadWeekPlan(location?: LatLng, regen: boolean = false): void
+  {
     const seq = ++this.weekLoadSeq;
 
     this.isLoadingWeek = true;
     this.error = null;
 
-    const lat = location?.lat ?? 48.21;
-    const lng = location?.lng ?? 16.36;
+    // Always prefer the currently active start
+    const requestStart = location ?? this.resolvePlanLocation();
 
-    this.lastPlanLocation = latLng(lat, lng);
+    this.lastPlanLocation = latLng(requestStart.lat, requestStart.lng);
 
-    this.plan7dService.getNext7Days(lat, lng, { /* ... regen:false ... */ }).subscribe({
+    // Do NOT move the marker here. Only ensure it exists.
+    if (!this.userLocationMarker)
+    {
+      this.userLocationMarker = marker(requestStart, { icon: coloredMarker(MAP_MARKER_COLORS.start) });
+      this.rebuildLayers();
+    }
+
+    // Fresh seed only when regenerating
+    const seed = regen ? this.generateFreshSeed() : (this.currentWeekSeed ?? undefined);
+
+    this.plan7dService.getNext7Days(requestStart.lat, requestStart.lng, {
+      regen: regen,
+      seed: seed
+    }).subscribe({
       next: (plan) => {
-        if (seq !== this.weekLoadSeq) return;
+        if (seq !== this.weekLoadSeq)
+        {
+          return;
+        }
+
         this.weekPlan = plan;
         this.planId = plan.planId ?? null;
 
         const todayIso = this.todayIso();
         const initial = plan.days.find(d => d.date === todayIso) ?? plan.days[0];
 
-        this.selectDay(initial);
+        // On regen: do NOT restore today snapshot; we want the new plan to drive route
+        if (regen)
+        {
+          this.todayRouteSnapshot = null;
+        }
+
+        // Avoid selectDay() because it saves a snapshot for "today" right before switching
+        this.selectedDay = initial;
+        this.reloadSelectedDay(false);
+
         this.isLoadingWeek = false;
       },
       error: (err) => {
-        if (seq !== this.weekLoadSeq) return;
+        if (seq !== this.weekLoadSeq)
+        {
+          return;
+        }
+
         console.error(err);
         this.isLoadingWeek = false;
-        this.error = "Failed to load 7-day plan.";
+        this.error = regen ? "Failed to regenerate 7-day plan." : "Failed to load 7-day plan.";
       }
     });
   }
+
+private generateFreshSeed(): number
+{
+  // Prefer crypto for better uniqueness
+  const cryptoObj = window.crypto as Crypto | undefined;
+
+  if (cryptoObj && cryptoObj.getRandomValues)
+  {
+    const arr = new Uint32Array(1);
+    cryptoObj.getRandomValues(arr);
+
+    // Keep it in signed int range if your backend expects int
+    const seed = Number(arr[0] % 2147483647);
+
+    this.currentWeekSeed = seed;
+    return seed;
+  }
+
+  // Fallback: still fine in practice
+  const seed = Math.floor(Math.random() * 2147483647);
+
+  this.currentWeekSeed = seed;
+  return seed;
+}
+
 
   loadTrainingPlan(location?: LatLng): void {
     this.isLoadingDay = true;
@@ -493,16 +551,31 @@ export class TrainingPlanPage implements OnInit {
       }
 
 
-    } catch (err: any) {
-      if (await this.handleRouteError(err)) {
+    } catch (err: any)
+    {
+      if (await this.handleRouteError(err))
+      {
         return;
       }
 
       console.error('Failed to generate route', err);
       await this.showToast('Failed to generate route. Please try another location.', 3500, 'danger');
-      this.resetRouteToOriginal();
+
+      // IMPORTANT: Do NOT reset to originalStart here.
+      // Keep current start marker and keep the previous route (if any).
+      // If there is no previous route, clear route UI safely.
+
+      if (!this.routeLine)
+      {
+        this.latlngs = null;
+        this.routeBounds = null;
+        this.routeLineGeoPosition = [];
+        this.showRoute = false;
+        this.routeArrows = null;
+        this.rebuildLayers();
+      }
     }
-  }
+}
 
   private async handleRouteError(err: any) {
     if (err?.error?.code === this.ROUTE_NOT_FOUND_CODE) {
@@ -1428,6 +1501,21 @@ private reloadSelectedDay(allowSnapshotRestore: boolean): void {
       this.committedStops = [];
       this.rebuildLayers();
     }
+  }
+
+  async onRegenerateWeekClicked(): Promise<void>
+  {
+    if (this.isLoadingWeek)
+    {
+      return;
+    }
+
+    const startLocation = this.resolvePlanLocation();
+
+    this.committedStops = [];
+    this.todayRouteSnapshot = null;
+
+    this.loadWeekPlan(startLocation, true);
   }
 
   protected readonly SessionType = SessionType;
