@@ -5,6 +5,8 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Injuries;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.Weekday;
+import com.smartroute.smartroute1.exception.CannotCalculateConsistencyScoreException;
+import com.smartroute.smartroute1.exception.InsufficientTrainingDataException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.ConsistencyAnalyzerService;
@@ -37,7 +39,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
-@ActiveProfiles({"test"})
+//@ActiveProfiles({"test"})
 @Transactional
 class DaySelectorServiceTest {
     @Autowired
@@ -127,7 +129,7 @@ class DaySelectorServiceTest {
     void testIsTrainingDayWithLowImpactInjuryIndexAndPerfectScoresReturnsTrue() {
 
         user.setActiveWeekdays(Set.of(Weekday.values()));
-        user.setExperienceLevel(ExperienceLevel.BEGINNER);
+        user.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
 
         Injuries injury = new Injuries();
         injury.setInjuryIndex(.2);
@@ -154,7 +156,7 @@ class DaySelectorServiceTest {
     void testIsTrainingDayWithHighOverloadReturnsFalse() {
 
         user.setActiveWeekdays(Set.of(Weekday.values()));
-        user.setExperienceLevel(ExperienceLevel.BEGINNER);
+        user.setExperienceLevel(ExperienceLevel.ADVANCED);
 
         when(activityRepository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(any(), any(), any()))
                 .thenReturn(List.of(activity()));
@@ -176,7 +178,7 @@ class DaySelectorServiceTest {
     void testIsTrainingDayWithGoodConsistencyModerateOverloadReturnsTrue() {
 
         user.setActiveWeekdays(Set.of(Weekday.values()));
-        user.setExperienceLevel(ExperienceLevel.BEGINNER);
+        user.setExperienceLevel(ExperienceLevel.COMPETITIVE_ATHLETE);
 
         when(activityRepository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(any(), any(), any()))
                 .thenReturn(List.of(activity()));
@@ -291,6 +293,31 @@ class DaySelectorServiceTest {
         verify(consistencyAnalyzerService).computeScore(any(), any(), any(), anyInt());
         verify(readinessScoreService).calculateReadinessScore(any(), any());
         verify(fatigueAndOverloadService).tsbOn(any(), any());
+    }
+
+    @Test
+    void testIsTrainingDayWhenDependenciesThrowUseFallbackValues() {
+        user.setActiveWeekdays(Set.of(Weekday.values()));
+        // no experience level specified = fallback to CASUAL
+
+        when(activityRepository.findAllByUserAndStartDateBetweenOrderByStartDateAsc(any(), any(), any()))
+            .thenReturn(List.of());
+
+        // fallback to consistencyScore = 0.0
+        when(consistencyAnalyzerService.computeScore(any(), any(), any(), anyInt()))
+            .thenThrow(CannotCalculateConsistencyScoreException.class);
+        // fallback to readinessScore = 50, overloadScore = 0
+        when(readinessScoreService.calculateReadinessScore(any(), any()))
+            .thenThrow(InsufficientTrainingDataException.class);
+
+        when(injuryAwareService.findInjuriesByEmail(any()))
+            .thenReturn(List.of());
+        when(injuryAwareService.getInjuryConstraint(any())).thenReturn(1.0);
+
+        boolean trainingDay = service.isTrainingDay(date, user);
+
+        // CASUAL with 0.0 consistency, 50 readiness, 0 overload, no injury, is preferred weekday -> should return trainingDay=true
+        assertTrue(trainingDay);
     }
 
     @ParameterizedTest

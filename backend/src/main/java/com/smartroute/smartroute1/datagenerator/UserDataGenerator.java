@@ -66,6 +66,7 @@ public class UserDataGenerator {
                     user.setWeight(BigDecimal.valueOf(90L));
                     user.setHeight(184);
                     user.setSex(Sex.MALE);
+                    user.setBirthdate(LocalDate.of(2000, 1, 1));
                 }
                 case 2 -> {
                     Set<Weekday> weekdays = new HashSet<>();
@@ -78,6 +79,7 @@ public class UserDataGenerator {
                     user.setWeight(BigDecimal.valueOf(80L));
                     user.setHeight(173);
                     user.setSex(Sex.OTHER);
+                    user.setBirthdate(LocalDate.of(2000, 1, 1));
                 }
                 case 3 -> {
                     Set<Weekday> weekdays = new HashSet<>();
@@ -93,6 +95,7 @@ public class UserDataGenerator {
                     user.setWeight(BigDecimal.valueOf(70L));
                     user.setHeight(175);
                     user.setSex(Sex.FEMALE);
+                    user.setBirthdate(LocalDate.of(2000, 1, 1));
                 }
                 default -> {
                     Set<Weekday> weekdays = new HashSet<>();

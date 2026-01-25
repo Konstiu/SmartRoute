@@ -440,6 +440,36 @@ ion-list {
   opacity: 0.75;
 }
 
+.map-overlay-actions {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2000;      // above leaflet panes
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: auto;
+}
+
+.map-overlay-btn {
+  --padding-start: 0;
+  --padding-end: 0;
+  width: 38px;
+  height: 38px;
+}
+
+.route-chip-br {
+  position: absolute;
+  right: 10px;
+  bottom: 96px;       // above the two buttons
+  z-index: 2000;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  pointer-events: none;
+}
 
 
 

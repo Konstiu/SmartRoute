@@ -47,6 +47,7 @@ import java.util.Set;
 @AllArgsConstructor
 public class TrainingPlanServiceImpl implements TrainingPlanService {
 
+    private final RouteGenerationService routeGenerationService;
     private WorkoutTypeSelectorService typeSelectorService;
     private WeatherService weatherService;
     private FatigueAndOverloadService fatigueAndOverloadService;
@@ -55,7 +56,6 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
     private InjuryAwareTrainingService injuryAwareTrainingService;
     private InjuryMapper injuryMapper;
     private GymWorkoutSelectorService gymWorkoutSelectorService;
-    private final RouteGenerationService routeGenerationService;
 
     private final TrainingPlan7dService trainingPlan7dService;
     private final Clock clock = Clock.system(ZoneId.of("Europe/Vienna"));
@@ -152,10 +152,8 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
 
             } else if (gymWorkouts.contains(selectedWorkout)) {
                 dto.setType(RecommendedActivityDto.SessionType.GYM);
-                // TODO take name from selected workout when different gym workouts have been implemented
                 dto.setName("Gym Workout");
 
-                // TODO generate only one new workout per day
                 // get gym workout
                 GymWorkoutDto gymWorkout = gymWorkoutSelectorService.getGymWorkout(
                         user,

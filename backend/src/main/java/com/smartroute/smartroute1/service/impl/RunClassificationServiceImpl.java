@@ -231,7 +231,8 @@ public class RunClassificationServiceImpl implements RunClassificationService {
 
             case "elevation_gain" -> activity.getTotalElevationGain();
 
-            case "session_load" -> activity.getSessionLoad() == null ? fitnessScoreService.calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain()) : activity.getSessionLoad();
+            case "session_load" -> activity.getSessionLoad() == null ? fitnessScoreService.calculateSessionLoad(activity.getDistance(),
+                activity.getMovingTime(), activity.getTotalElevationGain(), activity.getSportType()) : activity.getSessionLoad();
 
             case "num_pace_spikes" -> activityProcessingService.detectPaceSpikes(activity);
             case "num_pace_spikes_missing" -> activityProcessingService.detectPaceSpikes(activity) != -1 ? 0 : 1;
@@ -392,7 +393,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             return activity.getMovingTime() / baseline;
         }
 
-        int index = (int) Math.ceil(durations.size() * 0.8) - 1;
+        int index = (int) Math.ceil(durations.size() * 0.85) - 1;
         index = Math.clamp(index, 0, durations.size() - 1);
 
         int personalNormalUpperDuration = durations.get(index);
@@ -421,7 +422,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             return activity.getDistance() / baseline;
         }
 
-        int index = (int) Math.ceil(distances.size() * 0.8) - 1;
+        int index = (int) Math.ceil(distances.size() * 0.85) - 1;
         index = Math.clamp(index, 0, distances.size() - 1);
 
         double personalNormalUpperDistance = distances.get(index);
@@ -448,7 +449,7 @@ public class RunClassificationServiceImpl implements RunClassificationService {
             return activity.getAverageSpeed() / baseline;
         }
 
-        int index = (int) Math.ceil(paces.size() * 0.8) - 1;
+        int index = (int) Math.ceil(paces.size() * 0.85) - 1;
         index = Math.clamp(index, 0, paces.size() - 1);
 
         double personalNormalUpperPace = paces.get(index);
