@@ -1303,7 +1303,7 @@ private reloadSelectedDay(allowSnapshotRestore: boolean): void {
 
   // dummy for now
   showConfidence(): boolean {
-    return true;
+    return false;
   }
 
   private async maybePromptRegeneratePlan(): Promise<void>
