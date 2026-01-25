@@ -148,31 +148,37 @@
             @if (recommendedActivity!.type === SessionType.RUN) {
           <ion-card class="rounded-card map-card">
 
-            <div class="map-overlay-actions" *ngIf="recommendedActivity?.type === SessionType.RUN">
-              <!-- Cycle -->
+            @if (canEditSelectedDay()) {
+
+            <div class="map-overlay-actions">
               <ion-button
                 *ngIf="routeOptions.length > 1"
                 class="map-overlay-btn"
                 fill="solid"
                 shape="round"
-                (click)="cycleRoute()">
+                (click)="cycleRoute()"
+                aria-label="Cycle route"
+              >
                 <ion-icon slot="icon-only" name="shuffle-outline"></ion-icon>
               </ion-button>
 
-              <!-- Expand -->
               <ion-button
                 class="map-overlay-btn"
                 fill="solid"
                 shape="round"
-                (click)="openMapModal()">
+                (click)="openMapModal()"
+                aria-label="Expand map"
+              >
                 <ion-icon slot="icon-only" name="expand-outline"></ion-icon>
               </ion-button>
             </div>
 
-            <!-- Optional tiny indicator -->
             <div *ngIf="routeOptions.length > 1" class="route-chip-br">
               {{ selectedRouteIndex + 1 }}/{{ routeOptions.length }}
             </div>
+
+            }
+
 
             <app-map
               [showLocation]="true"
