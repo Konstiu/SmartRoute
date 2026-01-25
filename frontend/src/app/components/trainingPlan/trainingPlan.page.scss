@@ -163,5 +163,13 @@ ion-list {
   transition: opacity 150ms ease, max-height 150ms ease;
 }
 
+/* trainingPlan.page.scss */
+.live-toggle {
+  --padding-start: 0;
+  --inner-padding-end: 0;
+  margin-top: 6px;
+}
+
+
 
 
