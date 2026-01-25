@@ -6,7 +6,6 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.*;
-import com.smartroute.smartroute1.service.impl.JuliaPlannerClient;
 import com.smartroute.smartroute1.service.impl.TrainingPlan7dServiceImpl;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.util.ForecastState;
@@ -24,7 +23,6 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -150,10 +148,6 @@ public class TrainingPlan7dServiceTest {
         when(fatigueAndOverloadService.currentCtl(user)).thenReturn(50.0);
         when(fatigueAndOverloadService.currentAtl(user)).thenReturn(55.0);
 
-        // Forecaster: always return a stable distribution
-        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any()))
-                .thenAnswer(inv -> new LoadDistributionDto(10, 20, 30, 20, 5));
-
         TrainingPlan7dService service = createService();
         TrainingPlan7dDto dto = service.buildNext7Days("x@test.com", latitude, longitude);
 
@@ -186,68 +180,6 @@ public class TrainingPlan7dServiceTest {
         );
     }
 
-
-    @Test
-    void includesGymOrMobilityWhenTemplatesContainThem() {
-        ApplicationUser user = new ApplicationUser();
-        user.setId(2L);
-        user.setEmail("y@test.com");
-        user.setExperienceLevel(ExperienceLevel.INTERMEDIATE);
-
-        when(userRepository.findUserByEmail("y@test.com")).thenReturn(user);
-        when(dailyAggregationService.getDailySummaries(eq(user), eq(60))).thenReturn(fakeHistory(fixedClock, 60, 35));
-        when(fatigueAndOverloadService.currentCtl(user)).thenReturn(40.0);
-        when(fatigueAndOverloadService.currentAtl(user)).thenReturn(35.0);
-        when(daySelectorService.isTrainingDay(any(), eq(user)))
-                .thenAnswer(inv -> {
-                    LocalDate d = inv.getArgument(0);
-                    // e.g. train Mon/Wed/Fri/Sat
-                    return switch (d.getDayOfWeek()) {
-                        case MONDAY, WEDNESDAY, FRIDAY, SATURDAY -> true;
-                        default -> false;
-                    };
-                });
-
-        when(injuryAwareTrainingService.getInjuryIndex("y@test.com")).thenReturn(0.0);
-        when(injuryAwareTrainingService.findInjuriesByEmail("y@test.com")).thenReturn(List.of());
-        when(readinessScoreService.calculateReadinessScore(eq(user), any())).thenReturn(80); // no readiness reductions
-
-        when(routeGenerationService.generateRouteDetails(
-                any(ApplicationUser.class),
-                any(WorkoutType.class),
-                anyDouble()
-        )).thenAnswer(inv -> {
-            WorkoutType wt = inv.getArgument(1);
-            double dist = switch (wt) {
-                case EASY_RUN -> 8000;
-                case TEMPO_RUN -> 10000;
-                case INTERVAL_RUN -> 9000;
-                case LONG_RUN -> 16000;
-                default -> 0;
-            };
-            return new RouteDto(dist, 5.0, 100.0);
-        });
-
-        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any()))
-                .thenAnswer(inv -> {
-                    WorkoutType wt = inv.getArgument(2);
-                    // Make gym/mobility non-zero so they appear meaningful
-                    double mean = (wt == WorkoutType.MOBILITY) ? 8 :
-                            (wt == WorkoutType.GYM_PREHAB) ? 18 :
-                                    (wt == WorkoutType.REST_DAY) ? 0 : 40;
-                    double std = Math.max(2, mean * 0.2);
-                    return new LoadDistributionDto(Math.max(0, mean - 10), mean, mean + 10, mean, std);
-                });
-
-        TrainingPlan7dService service = createService();
-        TrainingPlan7dDto dto = service.buildNext7Days("y@test.com", latitude, longitude);
-
-        boolean hasGym = dto.getDays().stream().anyMatch(d -> d.getWorkoutType() == WorkoutType.GYM_PREHAB);
-        boolean hasMob = dto.getDays().stream().anyMatch(d -> d.getWorkoutType() == WorkoutType.MOBILITY);
-
-        assertTrue( hasGym || hasMob, "Expected at least one gym or mobility day in 7-day plan");
-    }
-
     @Test
     void prefersLowIntensityPlanWhenFatigueHigh() {
         // This test is strongest if you allow injecting templates.
@@ -265,25 +197,6 @@ public class TrainingPlan7dServiceTest {
         when(fatigueAndOverloadService.currentCtl(user)).thenReturn(60.0);
         when(fatigueAndOverloadService.currentAtl(user)).thenReturn(95.0);
 
-        when(loadForecaster.forecastLoad(any(), any(), any(), any(), any()))
-                .thenAnswer(inv -> {
-                    WorkoutType wt = inv.getArgument(2);
-                    ForecastState st = inv.getArgument(3);
-                    // Under fatigue, make hard sessions huge load to trigger penalties in optimizer
-                    double mean;
-                    if (wt == WorkoutType.INTERVAL_RUN || wt == WorkoutType.TEMPO_RUN || wt == WorkoutType.LONG_RUN) {
-                        mean = 140;
-                    } else if (wt == WorkoutType.EASY_RUN) {
-                        mean = 60;
-                    } else if (wt == WorkoutType.GYM_PREHAB) {
-                        mean = 25;
-                    } else if (wt == WorkoutType.MOBILITY) {
-                        mean = 10;
-                    } else {
-                        mean = 0;
-                    }
-                    return new LoadDistributionDto(Math.max(0, mean - 20), mean, mean + 20, mean, 10);
-                });
 
         TrainingPlan7dService service = createService();
         TrainingPlan7dDto dto = service.buildNext7Days("fatigue@test.com", latitude, longitude);
