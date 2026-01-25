@@ -46,7 +46,9 @@ export class TrainingPlanPage implements OnInit {
   private readonly service: TrainingPlanService = inject(TrainingPlanService);
   private readonly plan7dService: TrainingPlan7dService = inject(TrainingPlan7dService);
   private readonly ROUTE_NOT_FOUND_CODE = 'ROUTE_NOT_FOUND';
+  private readonly trainingPlanInjuryChangedFlagKey: string = 'trainingPlanInjuryChanged';
 
+  private showingRegenPrompt: boolean = false;
   private routeLine: Polyline | null = null;
   private routeLineGeoPosition: GeoJsonPosition[] = [];
   private userLocationMarker: Marker | null = null;
@@ -186,6 +188,11 @@ export class TrainingPlanPage implements OnInit {
     this.forceMapResize();
   }
 
+  ionViewWillEnter(): void
+  {
+    void this.maybePromptRegeneratePlan();
+  }
+
   // =====================================================
   // Training plan loading
   // =====================================================
@@ -200,7 +207,7 @@ export class TrainingPlanPage implements OnInit {
     this.plan7dService.getNext7Days(lat, lng, {
         debug: false,
         seed: 20,
-        regen: true,
+        regen: false,
         historyDays: 60,
         historyMean: 35,
         historyStd: 8,
@@ -1136,6 +1143,55 @@ private rebuildLayers() {
   // dummy for now
   showConfidence(): boolean {
     return true;
+  }
+
+  private async maybePromptRegeneratePlan(): Promise<void>
+  {
+    if (this.showingRegenPrompt) {
+      return;
+    }
+
+    const hasChanges = localStorage.getItem(this.trainingPlanInjuryChangedFlagKey) === 'true';
+    if (!hasChanges) {
+      return;
+    }
+
+    this.showingRegenPrompt = true;
+
+    try {
+      const alert = await this.alertController.create({
+        header: 'Regenerate training plan?',
+        message: 'Your injuries changed. Do you want to regenerate the 7-day plan?',
+        buttons: [
+          {
+            text: 'Not now',
+            role: 'cancel',
+            handler: () => {
+              // Keep the flag so we can ask again next time (optional behavior)
+              // If you want to only ask once, remove the flag here instead.
+            }
+          },
+          {
+            text: 'Regenerate',
+            handler: () => {
+              localStorage.removeItem(this.trainingPlanInjuryChangedFlagKey);
+              const startLocation =
+                this.userLocationMarker?.getLatLng()
+                ?? this.originalStart
+                ?? this.pendingInitialLocation
+                ?? undefined;
+
+              this.todayRouteSnapshot = null;
+              this.loadWeekPlan(startLocation);
+            }
+          }
+        ]
+      });
+
+      await alert.present();
+    } finally {
+      this.showingRegenPrompt = false;
+    }
   }
 
   protected readonly SessionType = SessionType;
