@@ -154,7 +154,6 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
         double lat = coordinate.getLatitude();
         double factor = 500; // TODO
         int num = 10;
-        length = 10000;
 
         List<GeoJsonPosition> pos = new ArrayList<>();
         for (int i = -num / 2; i <= num / 2; i++) {
@@ -193,7 +192,7 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
         GeoJsonDto route = openRouteServiceService.requestRoute(List.of(new GeoJsonPosition(center.getLatitude(), center.getLongitude(), null),
                 new GeoJsonPosition(point.getLatitude(), point.getLongitude(), null),
                 new GeoJsonPosition(center.getLatitude(), center.getLongitude(), null)
-        ));
+        ), false); // TODO: vienna bool
         List<GeoJsonPosition> coords = route.getFeatures().getFirst().getGeometry().getCoordinates();
         double realDistance = routeEvaluationService.evaluateRoute(coords);
         double error = (realDistance - length) / length;
