@@ -11,6 +11,7 @@ import java.time.ZoneId;
 import java.time.Instant;
 import java.time.DayOfWeek;
 import java.time.temporal.TemporalAdjusters;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -64,6 +65,17 @@ public class TrainingPlanStoreImpl implements TrainingPlanStore {
         }
         store.remove(key(email, planId));
     }
+
+    @Override
+    public void removeAllForUser(String email) {
+        if (email == null) {
+            return;
+        }
+
+        String prefix = email + "::";
+        store.keySet().removeIf(k -> k.startsWith(prefix));
+    }
+
 
     private String key(String email, String planId) {
         return email + "::" + planId;

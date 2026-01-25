@@ -3,13 +3,13 @@ package com.smartroute.smartroute1.service.impl;
 import com.smartroute.smartroute1.endpoint.dto.CompactWeatherDto;
 import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.endpoint.dto.RouteDto;
+import com.smartroute.smartroute1.endpoint.dto.ViewInjuryDto;
+import com.smartroute.smartroute1.endpoint.dto.AthleteStatusDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.DailySummary;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.DayDebugDto;
-import com.smartroute.smartroute1.endpoint.dto.trainingplan.FitUserModelRequest;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.FitUserModelResponse;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.JuliaDist;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.LoadDistributionDto;
-import com.smartroute.smartroute1.endpoint.dto.trainingplan.PplDailyObs;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.PlannedDayDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.TemplateScoreDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlan7dDto;
@@ -173,8 +173,48 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         String planId = "week:" + weekStart;
 
         Optional<TrainingPlan7dDto> cached = loadFromCache(email, planId, debug, overrides, regen);
-        if (cached.isPresent()) {
-            return cached.get();
+
+        if (cached.isPresent() && !regen) {
+            TrainingPlan7dDto cachedPlan = cached.get();
+
+            List<Injuries> injuriesNow = safeList(() -> injuryAwareTrainingService.findInjuriesByEmail(email));
+            long currentSignature = injuriesSignatureFromEntities(injuriesNow);
+
+            if (!shouldPatchForInjuryChange(cachedPlan, currentSignature)) {
+                return cachedPlan;
+            }
+
+            LocalDate cutoffDate = computeCutoffDate(today, injuriesNow);
+
+            Optional<LocalDate> clampedOpt = clampCutoffToWeek(cutoffDate, weekStart);
+            if (clampedOpt.isEmpty()) {
+                return cachedPlan;
+            }
+
+            LocalDate clampedCutoff = clampedOpt.get();
+
+            TrainingPlan7dDto recomputedFromCutoff = computePlanNoCache(
+                    user,
+                    email,
+                    latitude,
+                    longitude,
+                    debug,
+                    sims,
+                    seed,
+                    overrides,
+                    clampedCutoff,
+                    planId
+            );
+
+            TrainingPlan7dDto merged = mergeByDateKeepingPrefix(
+                    cachedPlan,
+                    recomputedFromCutoff,
+                    clampedCutoff
+            );
+
+            trainingPlanStore.put(email, planId, merged);
+
+            return merged;
         }
 
         OverridesResolved resolved = resolveOverrides(user, email, today, overrides, seed);
@@ -234,6 +274,12 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         TrainingPlan7dDto dto = new TrainingPlan7dDto(days);
         dto.setPlanId(planId);
         dto.setDebug(choice.debug());
+
+        dto.setGeneratedAt(java.time.Instant.now(clock));
+
+        List<Injuries> injuriesNow = safeList(() -> injuryAwareTrainingService.findInjuriesByEmail(email));
+        dto.setCurrentAthleteStatus(buildAthleteStatusDto(resolved, injuriesNow));
+
 
         trainingPlanStore.put(email, planId, dto);
         return dto;
@@ -608,7 +654,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             TemplateGenCfg cfg
     ) {
         WorkoutType[] week
-                = new WorkoutType[]{ WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY };
+                = new WorkoutType[]{WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY};
 
         for (int idx : runIdx) {
             week[idx] = WorkoutType.EASY_RUN;
@@ -1023,6 +1069,327 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 || workoutType == WorkoutType.INTERVAL_RUN
                 || workoutType == WorkoutType.LONG_RUN;
     }
+
+    private long injuriesSignatureFromEntities(List<Injuries> injuries) {
+        if (injuries == null || injuries.isEmpty()) {
+            return 0L;
+        }
+
+        long signature = 1469598103934665603L;
+
+        for (Injuries injury : injuries) {
+            if (injury == null) {
+                continue;
+            }
+
+            Long injuryId = injury.getId();
+            BodyPart affectedArea = injury.getAffectedArea();
+            LocalDate lastHealthyDate = injury.getLastHealthyDate();
+            LocalDate lastInjuryDate = injury.getLastInjuryDate();
+            Double injuryIndex = injury.getInjuryIndex();
+
+            final long p1 = (injuryId == null) ? 0L : injuryId.longValue();
+            final long p2 = (affectedArea == null) ? 0L : (long) affectedArea.ordinal();
+            final long p3 = (lastHealthyDate == null) ? 0L : lastHealthyDate.toEpochDay();
+            final long p4 = (lastInjuryDate == null) ? 0L : lastInjuryDate.toEpochDay();
+            final long p5 = (injuryIndex == null) ? 0L : Double.doubleToLongBits(injuryIndex.doubleValue());
+
+            signature ^= p1;
+            signature *= 1099511628211L;
+
+            signature ^= p2;
+            signature *= 1099511628211L;
+
+            signature ^= p3;
+            signature *= 1099511628211L;
+
+            signature ^= p4;
+            signature *= 1099511628211L;
+
+            signature ^= p5;
+            signature *= 1099511628211L;
+        }
+
+        return signature;
+    }
+
+
+    private long injuriesSignatureFromView(List<ViewInjuryDto> injuries) {
+        if (injuries == null || injuries.isEmpty()) {
+            return 0L;
+        }
+
+        long signature = 1469598103934665603L;
+
+        for (ViewInjuryDto injury : injuries) {
+            if (injury == null) {
+                continue;
+            }
+
+            Long injuryId = injury.getInjuryId();
+            BodyPart affectedArea = injury.getAffectedArea();
+            LocalDate lastHealthyDate = injury.getLastHealthyDate();
+            LocalDate lastInjuryDate = injury.getLastInjuryDate();
+            double injuryIndex = injury.getInjuryIndex();
+
+            final long p1 = (injuryId == null) ? 0L : injuryId.longValue();
+            final long p2 = (affectedArea == null) ? 0L : (long) affectedArea.ordinal();
+            final long p3 = (lastHealthyDate == null) ? 0L : lastHealthyDate.toEpochDay();
+            final long p4 = (lastInjuryDate == null) ? 0L : lastInjuryDate.toEpochDay();
+            final long p5 = Double.doubleToLongBits(injuryIndex);
+
+            signature ^= p1;
+            signature *= 1099511628211L;
+
+            signature ^= p2;
+            signature *= 1099511628211L;
+
+            signature ^= p3;
+            signature *= 1099511628211L;
+
+            signature ^= p4;
+            signature *= 1099511628211L;
+
+            signature ^= p5;
+            signature *= 1099511628211L;
+        }
+
+        return signature;
+    }
+
+    private LocalDate computeCutoffDate(LocalDate today, List<Injuries> injuries) {
+        LocalDate cutoffDate = today;
+
+        if (injuries == null || injuries.isEmpty()) {
+            return cutoffDate;
+        }
+
+        for (Injuries injury : injuries) {
+            if (injury == null) {
+                continue;
+            }
+
+            LocalDate lastHealthyDate = injury.getLastHealthyDate();
+            if (lastHealthyDate != null && lastHealthyDate.isAfter(cutoffDate)) {
+                cutoffDate = lastHealthyDate;
+            }
+
+            LocalDate healedDate = injury.getLastInjuryDate();
+            if (healedDate != null && healedDate.isAfter(cutoffDate)) {
+                cutoffDate = healedDate;
+            }
+        }
+
+        if (cutoffDate.isBefore(today)) {
+            cutoffDate = today;
+        }
+
+        return cutoffDate;
+    }
+
+    private Optional<LocalDate> clampCutoffToWeek(LocalDate cutoffDate, LocalDate weekStart) {
+        LocalDate weekEnd = weekStart.plusDays(6);
+
+        if (cutoffDate.isBefore(weekStart)) {
+            return Optional.of(weekStart);
+        }
+
+        if (cutoffDate.isAfter(weekEnd)) {
+            return Optional.empty();
+        }
+
+        return Optional.of(cutoffDate);
+    }
+
+
+    private boolean shouldPatchForInjuryChange(TrainingPlan7dDto cachedPlan, long currentSignature) {
+        if (cachedPlan == null) {
+            return false;
+        }
+
+        AthleteStatusDto cachedStatus = cachedPlan.getCurrentAthleteStatus();
+
+        if (cachedStatus == null) {
+            if (currentSignature == 0L) {
+                return false;
+            }
+
+            return true;
+        }
+
+        long cachedSignature = injuriesSignatureFromView(cachedStatus.getInjuries());
+
+        if (cachedSignature != currentSignature) {
+            return true;
+        }
+
+        return false;
+    }
+
+
+    private TrainingPlan7dDto computePlanNoCache(
+            ApplicationUser user,
+            String email,
+            double latitude,
+            double longitude,
+            boolean debug,
+            int sims,
+            long seed,
+            DevOverrides overrides,
+            LocalDate startDate,
+            String planId
+    ) {
+        OverridesResolved resolved = resolveOverrides(user, email, startDate, overrides, seed);
+
+        List<CompactWeatherDto> weatherPerDay = precomputeWeather(startDate, latitude, longitude, 18);
+        List<Integer> recentLoads = resolved.recentLoads();
+
+        PlannerProfile profile = buildPlannerProfile(user, recentLoads);
+
+        ForecastState initialState = new ForecastState(resolved.ctl(), resolved.atl());
+        boolean coldStart = isColdStart(initialState.ctl(), initialState.atl(), recentLoads);
+
+        List<List<WorkoutType>> templates = generateTemplates(user, startDate, coldStart);
+
+        PlanChoice choice = chooseBestPlan(
+                user,
+                startDate,
+                templates,
+                initialState,
+                recentLoads,
+                resolved.injuryIndex(),
+                resolved.readiness(),
+                weatherPerDay,
+                resolved.constraints(),
+                sims,
+                seed,
+                debug,
+                profile,
+                Optional.empty()
+        );
+
+        List<PlannedDayDto> days = materializePlanWithTsbDists(
+                user,
+                startDate,
+                choice.bestTemplate(),
+                initialState,
+                recentLoads,
+                choice.bestTsbDists(),
+                resolved.injuryIndex(),
+                resolved.injuriesMap(),
+                resolved.readiness(),
+                weatherPerDay,
+                resolved.constraints(),
+                planId
+        );
+
+        List<Injuries> injuries = safeList(() -> injuryAwareTrainingService.findInjuriesByEmail(email));
+
+        TrainingPlan7dDto dto = new TrainingPlan7dDto(days);
+
+        dto.setPlanId(planId);
+        dto.setDebug(choice.debug());
+        dto.setGeneratedAt(java.time.Instant.now(clock));
+        dto.setCurrentAthleteStatus(buildAthleteStatusDto(resolved, injuries));
+
+        return dto;
+    }
+
+    private TrainingPlan7dDto mergeByDateKeepingPrefix(
+            TrainingPlan7dDto cachedWeek,
+            TrainingPlan7dDto recomputedFromCutoff,
+            LocalDate cutoffDate
+    ) {
+        if (cachedWeek == null || cachedWeek.getDays() == null) {
+            return recomputedFromCutoff;
+        }
+
+        if (recomputedFromCutoff == null || recomputedFromCutoff.getDays() == null) {
+            return cachedWeek;
+        }
+
+        java.util.Map<LocalDate, PlannedDayDto> patchByDate = new java.util.HashMap<>();
+
+        for (PlannedDayDto patchDay : recomputedFromCutoff.getDays()) {
+            if (patchDay == null || patchDay.getDate() == null) {
+                continue;
+            }
+
+            patchByDate.put(patchDay.getDate(), patchDay);
+        }
+
+        List<PlannedDayDto> mergedDays = new ArrayList<>(cachedWeek.getDays().size());
+
+        for (PlannedDayDto cachedDay : cachedWeek.getDays()) {
+            if (cachedDay == null || cachedDay.getDate() == null) {
+                mergedDays.add(cachedDay);
+                continue;
+            }
+
+            LocalDate date = cachedDay.getDate();
+
+            if (date.isBefore(cutoffDate)) {
+                mergedDays.add(cachedDay);
+                continue;
+            }
+
+            PlannedDayDto replacement = patchByDate.get(date);
+            if (replacement != null) {
+                mergedDays.add(replacement);
+            } else {
+                mergedDays.add(cachedDay);
+            }
+        }
+
+        TrainingPlan7dDto merged = new TrainingPlan7dDto(mergedDays);
+
+        merged.setPlanId(cachedWeek.getPlanId());
+        merged.setDebug(cachedWeek.getDebug());
+        merged.setGeneratedAt(java.time.Instant.now(clock));
+
+        merged.setCurrentAthleteStatus(recomputedFromCutoff.getCurrentAthleteStatus());
+
+        return merged;
+    }
+
+
+    private AthleteStatusDto buildAthleteStatusDto(OverridesResolved resolved, List<Injuries> injuries) {
+        Double tsb = null;
+
+        return new AthleteStatusDto(
+                tsb,
+                resolved.readiness(),
+                resolved.injuryIndex(),
+                toViewInjuries(injuries)
+        );
+    }
+
+    private List<ViewInjuryDto> toViewInjuries(List<Injuries> injuries) {
+        if (injuries == null || injuries.isEmpty()) {
+            return List.of();
+        }
+
+        List<ViewInjuryDto> out = new ArrayList<>(injuries.size());
+
+        for (Injuries injury : injuries) {
+            if (injury == null) {
+                continue;
+            }
+
+            ViewInjuryDto dto = new ViewInjuryDto();
+
+            dto.setInjuryId(injury.getId());
+            dto.setInjuryIndex(injury.getInjuryIndex());
+            dto.setAffectedArea(injury.getAffectedArea());
+            dto.setLastHealthyDate(injury.getLastHealthyDate());
+            dto.setLastInjuryDate(injury.getLastInjuryDate());
+
+            out.add(dto);
+        }
+
+        return out;
+    }
+
 
     // =====================================================================
     // 5) SIMULATION
@@ -2494,7 +2861,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     /**
      * Container for resolved overrides + derived state.
      */
-    private record OverridesResolved(
+    record OverridesResolved(
             double injuryIndex,
             int readiness,
             Map<BodyPart, Double> injuriesMap,

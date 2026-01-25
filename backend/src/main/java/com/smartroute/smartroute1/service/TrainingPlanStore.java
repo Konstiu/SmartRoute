@@ -11,4 +11,6 @@ public interface TrainingPlanStore {
     Optional<TrainingPlan7dDto> get(String email, String planId);
 
     void remove(String email, String planId);
+
+    void removeAllForUser(String email);
 }
