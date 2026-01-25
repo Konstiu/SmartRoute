@@ -19,6 +19,10 @@ const routes: Routes = [
     // NO canActivate - public route!
   },
   {
+    path: 'stats',
+    loadComponent: () => import('./statistics/statistics.page').then(m => m.StatsPage)
+  },
+  {
     path: 'request-password-reset',
     loadComponent: () => import('./resetPassword/request-password-reset/request-reset-password.page').then(m => m.RequestResetPasswordPage),
   },
@@ -52,6 +56,11 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'chat',
+    loadComponent: () => import('./chat/chat.page').then(m => m.ChatPage),
+    canActivate: [AuthGuard]
+  },
+  {
     path: 'privacy',
     loadComponent: () => import('./privacy/privacy.page').then( m => m.PrivacyPage)
   },
@@ -67,7 +76,6 @@ const routes: Routes = [
     path: '**',
     loadComponent: () => import('./not-found/not-found.page').then(m => m.NotFoundPage),
   }
-
 ];
 
 @NgModule({

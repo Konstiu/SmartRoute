@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.smartroute.smartroute1.endpoint.dto.WeatherDto;
 import com.smartroute.smartroute1.entity.WeatherResponse;
 import com.smartroute.smartroute1.exception.ValidationException;
+import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.WeatherRepository;
 import com.smartroute.smartroute1.service.WeatherService;
 import com.smartroute.smartroute1.util.Coordinate;
@@ -49,6 +50,8 @@ class WeatherServiceTest {
 
     @Autowired
     private WeatherRepository weatherRepository;
+    @Autowired
+    private ActivityRepository activityRepository;
 
     @BeforeAll
     static void setupServer() throws IOException {
@@ -79,6 +82,7 @@ class WeatherServiceTest {
 
     @BeforeEach
     void resetData() {
+        activityRepository.deleteAll();
         weatherRepository.deleteAll();
     }
 

@@ -5,10 +5,10 @@ import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.Sex;
-import com.smartroute.smartroute1.repository.ActivityRepository;
-import com.smartroute.smartroute1.repository.StravaAccountRepository;
-import com.smartroute.smartroute1.repository.UserRepository;
-import com.smartroute.smartroute1.repository.InjuryRepository;
+import com.smartroute.smartroute1.repository.*;
+import com.smartroute.smartroute1.repository.statistics.AtlRepository;
+import com.smartroute.smartroute1.repository.statistics.CtlRepository;
+import com.smartroute.smartroute1.repository.statistics.TsbRepository;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,7 +38,22 @@ public class ActivityRepositoryTest {
     private UserRepository userRepository;
 
     @Autowired
+    private FriendshipRepository friendshipRepository;
+
+    @Autowired
     private InjuryRepository injuryRepository;
+
+    @Autowired
+    private CtlRepository ctlRepository;
+
+    @Autowired
+    private AtlRepository atlRepository;
+
+    @Autowired
+    private TsbRepository tsbRepository;
+
+    @Autowired
+    private ConsistencyRepository consistencyRepository;
 
     private Activity activity(long id, ApplicationUser user, String date) {
         Activity a = new Activity();
@@ -67,13 +82,19 @@ public class ActivityRepositoryTest {
 
     @BeforeEach
     public void setUp() {
+        consistencyRepository.deleteAll();
+        tsbRepository.deleteAll();
+        ctlRepository.deleteAll();
+        atlRepository.deleteAll();
         activityRepository.deleteAll();
         accountRepository.deleteAll();
         injuryRepository.deleteAll();
+        friendshipRepository.deleteAll();
         userRepository.deleteAll();
         activityRepository.flush();
         accountRepository.flush();
         injuryRepository.flush();
+        friendshipRepository.flush();
         userRepository.flush();
     }
 

@@ -1,5 +1,6 @@
 import {GymWorkoutDto} from "./gymworkout";
 import {ViewInjuryDto} from "./injuries";
+import {LatLng, Polyline} from "leaflet";
 
 export interface RecommendedActivityDto {
   name: string;
@@ -39,5 +40,24 @@ export interface WeatherSummaryDto {
   windText: string;
   precipitationText: string;
 }
+
+export interface SaveRouteDto {
+  name: string;
+  distance: number;
+  pace: number;
+  elevation: number;
+  route: string; // Encoded Polyline
+}
+
+export interface ViewRouteDto {
+  id: number
+  name: string;
+  distance: number;
+  pace: number;
+  elevation: number;
+  route: string; // Encoded Polyline
+}
+
+
 
 

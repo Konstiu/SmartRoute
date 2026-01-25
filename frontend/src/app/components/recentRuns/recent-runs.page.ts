@@ -1,12 +1,14 @@
-import {Component, inject, OnInit, OnDestroy} from '@angular/core';
-import {IonicModule} from '@ionic/angular';
+import {ChangeDetectorRef, Component, inject, OnDestroy, OnInit} from '@angular/core';
+import {IonicModule, ModalController} from '@ionic/angular';
 import {CommonModule} from '@angular/common';
 import {ActivitiesService} from '../../../services/activities.service';
 import {Activity} from '../../dtos/Activity';
 import {Router} from "@angular/router";
 import {ToastController} from '@ionic/angular';
-import {formatDistance, formatDuration, formatElevation, formatHeartRate, formatPace} from "../../util/formatters";
+import {formatElevation, formatHeartRate} from "../../util/formatters";
 import {ActivitySyncNotificationService} from "../../../services/ActivitySyncNotificationService";
+import {RunTypeLabel} from "../../dtos/run-classification";
+import {ChangeClassificationComponent} from "./change-classification/change-classification.component";
 
 
 @Component({
@@ -16,38 +18,53 @@ import {ActivitySyncNotificationService} from "../../../services/ActivitySyncNot
   standalone: true,
   imports: [IonicModule, CommonModule]
 })
-export class RecentRunsPage implements OnInit {
+export class RecentRunsPage implements OnInit, OnDestroy {
   activities: Activity[] = [];
   isLoading = false;
   error: string | null = null;
   private syncSubscription: any;
 
-  constructor(private stravaService: ActivitiesService,
-              private router: Router,
-              private syncNotificationService: ActivitySyncNotificationService
-  ) {}
-
   private activitiesService: ActivitiesService = inject(ActivitiesService);
   private toastCtrl: ToastController = inject(ToastController);
+  private modalController: ModalController = inject(ModalController);
+  private cdr: ChangeDetectorRef = inject(ChangeDetectorRef);
+  private router: Router = inject(Router);
+  private syncNotificationService: ActivitySyncNotificationService = inject(ActivitySyncNotificationService);
+  private updateSubscription: any;
 
   ngOnInit() {
-    this.loadActivities();
     this.syncSubscription = this.syncNotificationService.syncCompleted.subscribe(() => {
       this.loadActivities();
     });
+
+    this.updateSubscription = this.activitiesService.activityUpdated$.subscribe((activityId) => {
+      console.log('Activity updated:', activityId);
+      const activity = this.activities.find(a => a.id === activityId);
+      if (activity) {
+        this.loadActivities();
+      }
+    });
+  }
+
+  ionViewWillEnter() {
+    console.log('ionViewWillEnter');
+    this.loadActivities();
   }
 
   loadActivities(event?: any) {
     this.isLoading = true;
     this.error = null;
 
-    this.stravaService.getRecentActivities().subscribe({
+    this.activitiesService.getRecentActivities().subscribe({
       next: (data) => {
         this.activities = data.sort((a, b) =>
           new Date(b.startDateLocal).getTime() - new Date(a.startDateLocal).getTime()
         );
-        this.activities = data;
+        console.log(this.activities);
         this.isLoading = false;
+
+        this.cdr.detectChanges();
+
         if (event) {
           event.target.complete();
         }
@@ -56,6 +73,9 @@ export class RecentRunsPage implements OnInit {
         console.error('Error fetching activities:', err);
         this.error = 'Failed to load activities. Please try again.';
         this.isLoading = false;
+
+        this.cdr.detectChanges();
+
         if (event) {
           event.target.complete();
         }
@@ -75,19 +95,44 @@ export class RecentRunsPage implements OnInit {
     this.isLoading = true;
     this.error = null;
 
-    this.activitiesService.refreshActivities(10)
-      .subscribe({
-        next: async () => {
-          this.loadActivities(event);
+    this.activitiesService.syncWithValidation(10).subscribe({
+      next: async ({ outcome }) => {
+        this.isLoading = false;
+        event.target.complete();
+
+        if (outcome.kind === 'success') {
+          this.loadActivities();
           await this.showToast("Activities synchronized successfully.", "success");
-        },
-        error: err => {
-          console.error('Error fetching activities:', err);
-          this.error = 'Failed to load activities. Please try again.';
-          this.isLoading = false;
-          event.target.complete();
+          return;
         }
-      })
+
+        if (outcome.kind === 'running') {
+          await this.showToast("Sync is still running. Please check again shortly.", "warning");
+          return;
+        }
+
+        if (outcome.kind === 'failed') {
+          await this.showToast(
+            outcome.message ? `Sync failed: ${outcome.message}` : "Sync failed. Please retry.",
+            "danger"
+          );
+          return;
+        }
+
+        // unknown
+        await this.showToast(
+          "Connection interrupted. We couldn't confirm the sync. Please check again or retry if needed.",
+          "warning"
+        );
+      },
+      error: async (err) => {
+        console.error('Sync failed:', err);
+        this.error = 'Failed to sync activities. Please try again.';
+        this.isLoading = false;
+        event.target.complete();
+        await this.showToast("Sync failed. Please try again.", "danger");
+      }
+    });
   }
 
   private async showToast(message: string, color: "success" | "warning" | "danger") {
@@ -168,6 +213,26 @@ export class RecentRunsPage implements OnInit {
     return icons[sportType] || icons['default'];
   }
 
+  async editClassification(activity: Activity, event: Event) {
+    event.stopPropagation();
+
+    const modal = await this.modalController.create({
+      component: ChangeClassificationComponent,
+      componentProps: {
+        activityId: activity.id,
+        dto: {...activity.runClassification}
+      }
+    });
+
+    await modal.present();
+
+    const {data} = await modal.onWillDismiss();
+    if (data?.updatedClassification) {
+      activity.runClassification = data.updatedClassification;
+      this.cdr.detectChanges();
+    }
+  }
+
   openActivity(activity: Activity) {
     this.router.navigate(['/activity/', activity.id]);
   }
@@ -178,10 +243,11 @@ export class RecentRunsPage implements OnInit {
 
   protected readonly formatElevation = formatElevation;
   protected readonly formatHeartRate = formatHeartRate;
+  runTypeLabel = RunTypeLabel;
+
   ngOnDestroy() {
     if (this.syncSubscription) {
       this.syncSubscription.unsubscribe();
     }
   }
-
 }

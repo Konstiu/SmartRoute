@@ -6,7 +6,8 @@ public enum Muscle {
     hands(BodyPart.UPPER_REGION),
     sternocleidomastoid(BodyPart.NECK_REGION),
     soleus(BodyPart.LOWER_LEG_REGION),
-    inner_thighs(BodyPart.UPPER_LEG_REGION),
+
+    inner_thighs(BodyPart.HIP),
     lower_abs(BodyPart.CORE_REGION),
     grip_muscles(BodyPart.UPPER_REGION),
     abdominals(BodyPart.CORE_REGION),
@@ -16,7 +17,8 @@ public enum Muscle {
     upper_chest(BodyPart.UPPER_REGION),
     rotator_cuff(BodyPart.UPPER_REGION),
     wrists(BodyPart.UPPER_REGION),
-    groin(BodyPart.UPPER_LEG_REGION),
+
+    groin(BodyPart.HIP),
     brachialis(BodyPart.UPPER_REGION),
     deltoids(BodyPart.UPPER_REGION),
     feet(BodyPart.FEET_REGION),
@@ -24,6 +26,7 @@ public enum Muscle {
     trapezius(BodyPart.UPPER_REGION),
     rear_deltoids(BodyPart.UPPER_REGION),
     chest(BodyPart.UPPER_REGION),
+
     quadriceps(BodyPart.UPPER_LEG_REGION),
     back(BodyPart.UPPER_REGION),
     core(BodyPart.CORE_REGION),
@@ -32,9 +35,10 @@ public enum Muscle {
     rhomboids(BodyPart.UPPER_REGION),
     obliques(BodyPart.CORE_REGION),
     lower_back(BodyPart.CORE_REGION),
-    hip_flexors(BodyPart.CORE_REGION),
+
+    hip_flexors(BodyPart.HIP),
     levator_scapulae(BodyPart.NECK_REGION),
-    abductors(BodyPart.UPPER_LEG_REGION),
+    abductors(BodyPart.HIP),
     serratus_anterior(BodyPart.UPPER_REGION),
     traps(BodyPart.UPPER_REGION),
     forearms(BodyPart.UPPER_REGION),
@@ -44,9 +48,11 @@ public enum Muscle {
     spine(BodyPart.SPINAL_INJURY),
     cardiovascular_system(BodyPart.RESPIRATION_REGION),
     triceps(BodyPart.UPPER_REGION),
-    adductors(BodyPart.UPPER_LEG_REGION),
+
+    adductors(BodyPart.HIP),
     hamstrings(BodyPart.UPPER_LEG_REGION),
-    glutes(BodyPart.UPPER_LEG_REGION),
+    glutes(BodyPart.HIP),
+
     pectorals(BodyPart.UPPER_REGION),
     calves(BodyPart.LOWER_LEG_REGION),
     lats(BodyPart.UPPER_REGION),

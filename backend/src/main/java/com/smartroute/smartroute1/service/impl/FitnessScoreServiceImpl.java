@@ -4,13 +4,13 @@ import com.smartroute.smartroute1.endpoint.dto.StravaStreamDto;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.AthleteZone;
+import com.smartroute.smartroute1.entity.enums.Sex;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.AthleteZoneRepository;
 import com.smartroute.smartroute1.service.FitnessScoreService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.boot.actuate.integration.IntegrationGraphEndpoint;
 import org.springframework.stereotype.Service;
 
 import java.lang.invoke.MethodHandles;
@@ -19,7 +19,6 @@ import java.time.LocalDate;
 import java.time.Period;
 import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +39,18 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
     private static final int K3 = 120;
     private static final int K4 = 240;
     private static final int K5 = 480;
+
+    private static final int K1_RIDE = 12;
+    private static final int K2_RIDE = 24;
+    private static final int K3_RIDE = 45;
+    private static final int K4_RIDE = 100;
+    private static final int K5_RIDE = 120;
+
+    private static final int K1_WALK = 20;
+    private static final int K2_WALK = 40;
+    private static final int K3_WALK = 80;
+    private static final int K4_WALK = 160;
+    private static final int K5_WALK = 320;
 
     private static final float ELEVATION_COEFFICIENT = 0.05f;
     private static final float TIME_MODIFIER = 75;
@@ -76,12 +87,20 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
 
             timeInHrZones = calculateTimeInZones(heartRateStream, activity.getUser());
 
-            trimp = calculateTrimp(timeInHrZones);
+            String activityType = activity.getSportType();
+            if (activityType == null)  {
+                activityType = "Run";
+            }
+            trimp = calculateTrimp(timeInHrZones, activityType);
 
             return Math.round(trimp * elevationFactor);
         } catch (NoSuchElementException e) {
             // Fall back to distance/time method
-            return calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain());
+            String activityType = activity.getSportType();
+            if (activityType == null) {
+                activityType = "Run";
+            }
+            return calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain(), activityType);
         }
     }
 
@@ -94,11 +113,19 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
         try {
             Map<Integer, Float> timeInHrZones;
             timeInHrZones = calculateTimeInZones(heartRates, timestamps, activity.getUser());
-            trimp = calculateTrimp(timeInHrZones);
+            String activityType = activity.getSportType();
+            if (activityType == null)  {
+                activityType = "Run";
+            }
+            trimp = calculateTrimp(timeInHrZones, activityType);
             return Math.round(trimp * elevationFactor);
         } catch (NoSuchElementException e) {
             // Fall back to distance/time method
-            return calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain());
+            String activityType = activity.getSportType();
+            if (activityType == null)  {
+                activityType = "Run";
+            }
+            return calculateSessionLoad(activity.getDistance(), activity.getMovingTime(), activity.getTotalElevationGain(), activityType);
         }
 
     }
@@ -123,26 +150,52 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
     }
 
     @Override
-    public Integer calculateSessionLoad(float distance, int movingTime, float totalElevationGain) {
+    public Integer calculateSessionLoad(float distance, int movingTime, float totalElevationGain, String activityType) {
         LOGGER.trace("calculateSessionLoad({},{},{})", distance, movingTime, totalElevationGain);
 
         float elevationFactor = 1 + ELEVATION_COEFFICIENT * totalElevationGain / 100;
         float load = distance * movingTime / 12;
+        if (activityType.equals("Ride")) {
+            return Math.round(load * .25f * elevationFactor);
+        }
         return Math.round(load * elevationFactor);
     }
 
-    private int calculateTrimp(Map<Integer, Float> timeInZones) {
+    private int calculateTrimp(Map<Integer, Float> timeInZones, String activityType) {
         float trimp = 0;
         for (Map.Entry<Integer, Float> entry : timeInZones.entrySet()) {
             float timeInZone = entry.getValue();
-            int coefficient = switch (entry.getKey()) {
-                case 1 -> K1;
-                case 2 -> K2;
-                case 3 -> K3;
-                case 4 -> K4;
-                case 5 -> K5;
-                default -> 0;
-            };
+            int coefficient;
+
+            if (activityType.equals("Run")) {
+                coefficient = switch (entry.getKey()) {
+                    case 1 -> K1;
+                    case 2 -> K2;
+                    case 3 -> K3;
+                    case 4 -> K4;
+                    case 5 -> K5;
+                    default -> 0;
+                };
+            } else if (activityType.equals("Ride")) {
+                coefficient = switch (entry.getKey()) {
+                    case 1 -> K1_RIDE;
+                    case 2 -> K2_RIDE;
+                    case 3 -> K3_RIDE;
+                    case 4 -> K4_RIDE;
+                    case 5 -> K5_RIDE;
+                    default -> 0;
+                };
+            } else {
+                coefficient = switch (entry.getKey()) {
+                    case 1 -> K1_WALK;
+                    case 2 -> K2_WALK;
+                    case 3 -> K3_WALK;
+                    case 4 -> K4_WALK;
+                    case 5 -> K5_WALK;
+                    default -> 0;
+                };
+            }
+
 
             // Reduce weight for Zone 1 and 2 for shorter activities
             float timeCoefficient = 1;
@@ -156,12 +209,12 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
         return Math.round(trimp);
     }
 
-    private Map<Integer, Float> calculateTimeInZones(List<StravaStreamDto> stravaStreams, ApplicationUser user) {
+    @Override
+    public Map<Integer, Float> calculateTimeInZones(List<StravaStreamDto> stravaStreams, ApplicationUser user) {
         LOGGER.trace("calculateTimeInZones({}, {})", stravaStreams, user);
 
         // Find all zones for the athlete and fall back to zone calculation if missing
-        int maxHr = approximateMaxHr(user);
-        List<AthleteZone> zones = getUserTimeZonesOrFallbackToApproximation(user, maxHr);
+        List<AthleteZone> zones = getUserTimeZonesOrFallbackToApproximation(user, approximateMaxHr(user));
 
         // Get data
         StravaStreamDto heartRateStream = stravaStreams.stream().filter(s -> Objects.equals(s.getType(), "heartrate")).findFirst().orElseThrow();
@@ -173,7 +226,8 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
         return getTimeInZonesFromData(heartRateData, timeData, zones);
     }
 
-    private Map<Integer, Float> calculateTimeInZones(List<Float> heartRates, List<Float> timeStamps, ApplicationUser user) {
+    @Override
+    public Map<Integer, Float> calculateTimeInZones(List<Float> heartRates, List<Float> timeStamps, ApplicationUser user) {
         LOGGER.trace("calculateTimeInZones({}, {}, {})", heartRates, timeStamps, user);
         // Find all zones for the athlete and fall back to zone calculation if missing
         List<AthleteZone> zones = getUserTimeZonesOrFallbackToApproximation(user, approximateMaxHr(user));
@@ -181,17 +235,32 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
         return getTimeInZonesFromData(heartRates, timeStamps, zones);
     }
 
+    /*
+    Approximates the max heart rate for a user based on their age.
+    Returns the maximum of the highest recorded hr in an activity and the estimated max hr (Tanaka formula - lowest mean absolute error in compared formulas:
+    https://journals.viamedica.pl/folia_cardiologica/article/view/FC.2022.0057/69749#:~:text=The%20most%20commonly%20used%20formula%20for%20estimating,HRmax%20remains%20direct%20measurement%20during%20maximal%20exertion.)
+     */
     private int approximateMaxHr(ApplicationUser user) {
         int age = user.getBirthdate() != null ? Period.between(
-                user.getBirthdate(),
-                LocalDate.now()
+            user.getBirthdate(),
+            LocalDate.now()
         ).getYears() : 30;
-        return 220 - age;
+
+        int maxRecordedHr = (int) Math.round(activityRepository.getActivitiesByUser(user).stream().mapToDouble(
+            a -> a.getMaxHeartrate() == null ? -1.0 : a.getMaxHeartrate()
+        ).max().orElse(-1.0));
+
+        return Math.max(Math.round(208 - .7f * age), maxRecordedHr);
     }
 
     // Helper method to calculate time in zones from heart rate and time data
     private Map<Integer, Float> getTimeInZonesFromData(List<Float> heartRates, List<Float> timeStamps, List<AthleteZone> zones) {
         Map<Integer, Float> timeInZonesMap = new HashMap<>();
+        // initialize empty zones
+        for (int i = 1; i <= 5; i++) {
+            timeInZonesMap.put(i, 0f);
+        }
+
         for (int i = 0; i < heartRates.size() - 1; i++) {
             float hr = heartRates.get(i);
             float timeCurrent = timeStamps.get(i);
@@ -247,9 +316,9 @@ public class FitnessScoreServiceImpl implements FitnessScoreService {
 
     private AthleteZone findZone(float hr, List<AthleteZone> zones) {
         return zones.stream()
-                .filter(z -> (hr >= z.getMin() && hr <= z.getMax()) || (z.getZoneIndex() == 5 && hr >= z.getMin()))
-                .findFirst()
-                .orElse(null);
+            .filter(z -> (hr >= z.getMin() && hr <= z.getMax()) || (z.getZoneIndex() == 5 && hr >= z.getMin()))
+            .findFirst()
+            .orElse(null);
     }
 
 }

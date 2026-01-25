@@ -40,6 +40,16 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.google.maps</groupId>
+            <artifactId>google-maps-services</artifactId>
+            <version>2.2.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jpmml</groupId>
+            <artifactId>pmml-evaluator-metro</artifactId>
+            <version>1.7.6</version>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
@@ -50,6 +60,10 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -106,6 +120,11 @@
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>5.3.2</version>
         </dependency>
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
@@ -177,6 +196,44 @@
             <artifactId>google-polyline-codec</artifactId>
             <version>0.0.2</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.ben-manes.caffeine</groupId>
+            <artifactId>caffeine</artifactId>
+            <version>3.2.3</version>
+        </dependency>
+        <dependency>
+            <groupId>nl.martijndwars</groupId>
+            <artifactId>web-push</artifactId>
+            <version>5.1.2</version>
+        </dependency>
+
+        <!-- Bouncy Castle (required by web-push for encryption) -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk15on</artifactId>
+            <version>1.70</version>
+        </dependency>
+
+        <!-- Firebase Admin SDK for Android/iOS push notifications -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.7.0</version>
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.bitbucket.b_c/jose4j -->
+        <dependency>
+            <groupId>org.bitbucket.b_c</groupId>
+            <artifactId>jose4j</artifactId>
+            <version>0.9.6</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.7.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -229,7 +286,11 @@
                 <version>${jib-maven-plugin.version}</version>
                 <configuration>
                     <from>
-                        <image>registry.reset.inso-w.at/pub/docker/eclipse-temurin:17</image>
+						<image>registry.reset.inso-w.at/2025ws-ase-pr-group/25ws-ase-pr-inso-05/base:python312</image>
+						<auth>
+							<username>${env.CI_REGISTRY_USER}</username>
+							<password>${env.CI_REGISTRY_PASSWORD}</password>
+						</auth>
                     </from>
                     <container>
                         <ports>
@@ -241,14 +302,19 @@
                             <jvmFlag>-Dspring.profiles.active=qa,generateData</jvmFlag>
                             <jvmFlag>-Xmx128m</jvmFlag>
                         </jvmFlags>
+						<workingDirectory>/app</workingDirectory>
                     </container>
                     <extraDirectories>
                         <paths>
                             <path>
                                 <from>python</from>
                                 <into>/app/python</into>
+								<excludes>
+									<exclude>.venv/**</exclude>
+									<exclude>**/.venv/**</exclude>
+								</excludes>
                             </path>
-                        </paths>
+						</paths>
                     </extraDirectories>
                 </configuration>
             </plugin>

@@ -4,6 +4,7 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Friendship;
 import com.smartroute.smartroute1.entity.enums.FriendshipStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -24,5 +25,9 @@ public interface FriendshipRepository extends JpaRepository<Friendship, Long> {
     List<Friendship> findBySenderAndStatus(ApplicationUser sender, FriendshipStatus status);
 
     List<Friendship> findByReceiverAndStatus(ApplicationUser receiver, FriendshipStatus status);
+
+    @Modifying
+    @Query("DELETE FROM Friendship WHERE sender = :user OR receiver = :user")
+    void deleteAllByUser(@Param("user") ApplicationUser user);
 
 }

@@ -21,16 +21,14 @@ import java.util.*;
 import static com.smartroute.smartroute1.basetest.TestData.DEFAULT_USER_EMAIL;
 import static com.smartroute.smartroute1.basetest.TestData.ORIGIN;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
 
 
 @SpringBootTest()
 @ActiveProfiles({"test", "generateData"})
 class InjuryAwareServiceTest extends BaseTest {
+    private static final double epsilon = 1e-6;
     @Autowired
     private InjuryAwareTrainingService injuryAwareTrainingService;
-    private static final double epsilon = 1e-6;
-
     @Autowired
     private UserService userService;
 
@@ -243,7 +241,7 @@ class InjuryAwareServiceTest extends BaseTest {
     void hasFullStopInjury_withOldBoneFracture_returnsFalse() {
         Injuries oldFracture = new Injuries();
         oldFracture.setAffectedArea(BodyPart.BONE_FRACTURE);
-        oldFracture.setLastInjuryDate(LocalDate.now().minusDays(20)); // Beyond window
+        oldFracture.setLastInjuryDate(LocalDate.now().minusDays(60)); // Beyond window
 
         Map<BodyPart, Double> map = injuryAwareTrainingService.calculateInjuriesMap(List.of(oldFracture));
 
@@ -447,7 +445,7 @@ class InjuryAwareServiceTest extends BaseTest {
         System.out.println(result);
         assertAll(() -> assertTrue(result >= 0.5 && result <= 0.9, "Expected between 0.5 and 0.8, got: " + result),
                 () -> assertTrue(result > 0.6, "Should be closer to recent severe injury")
-                );
+        );
 
     }
 
@@ -565,7 +563,7 @@ class InjuryAwareServiceTest extends BaseTest {
         double volumeScaling = injuryAwareTrainingService.calculateVolumeScaling(injuryIndex);
         double impactPenalty = injuryAwareTrainingService.calculateHighImpactPenalty(injuryIndex);
 
-        double expectedMin = (intensityScaling +  volumeScaling +  impactPenalty) / 3.0;
+        double expectedMin = (intensityScaling + volumeScaling + impactPenalty) / 3.0;
         assertEquals(expectedMin, constraint, 0.001);
 
     }

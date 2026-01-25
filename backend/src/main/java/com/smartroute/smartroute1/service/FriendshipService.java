@@ -94,4 +94,13 @@ public interface FriendshipService {
      * @return a list of Friendship entities representing the outgoing friend requests
      */
     List<Friendship> getOutgoingFriendRequests(String email);
+
+    /**
+     * Checks if two users are friends.
+     *
+     * @param userEmail the email of the first user
+     * @param friendEmail the email of the second user
+     * @return true if they are friends, false otherwise
+     */
+    boolean areFriends(String userEmail, String friendEmail);
 }

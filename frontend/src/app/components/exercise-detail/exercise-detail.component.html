@@ -9,28 +9,30 @@
   </ion-toolbar>
 </ion-header>
 <ion-content>
-  <ion-card class="gif-card">
-    <div class="gif-container">
-      <img [src]="exercise.gifUrl" alt="{{exercise.name}}"/>
-    </div>
-
-    <ion-card-content>
-      <p><b>Target Muscles:</b> {{ exercise.targetMuscles.join(', ') }}</p>
-      <p><b>Secondary Muscles:</b> {{ exercise.secondaryMuscles.join(', ') }}</p>
-      <p><b>Body Parts:</b> {{ exercise.bodyParts.join(', ') }}</p>
-      <p><b>Equipment:</b> {{ exercise.equipments.join(', ') }}</p>
-
-      <div>
-        <p><b>Instructions:</b></p>
-        @for (instruction of exercise.instructions; track instruction) {
-
-          <p>{{ instruction }}</p>
-        }
+  <div class="page-container">
+    <ion-card class="gif-card rounded-card">
+      <div class="gif-container">
+        <img (error)="onImageError($event)" [src]="exercise.gifUrl" alt="{{exercise.name}}"/>
       </div>
 
-      <div *ngIf="!exercise.instructions || exercise.instructions.length === 0">
-        <p><i>No instructions available for this exercise.</i></p>
-      </div>
-    </ion-card-content>
-  </ion-card>
+      <ion-card-content>
+        <p><b>Target Muscles:</b> {{ exercise.targetMuscles.join(', ') }}</p>
+        <p><b>Secondary Muscles:</b> {{ exercise.secondaryMuscles.join(', ') }}</p>
+        <p><b>Body Parts:</b> {{ exercise.bodyParts.join(', ') }}</p>
+        <p><b>Equipment:</b> {{ exercise.equipments.join(', ') }}</p>
+
+        <div>
+          <p><b>Instructions:</b></p>
+          @for (instruction of exercise.instructions; track instruction) {
+
+            <p>{{ instruction }}</p>
+          }
+        </div>
+
+        <div *ngIf="!exercise.instructions || exercise.instructions.length === 0">
+          <p><i>No instructions available for this exercise.</i></p>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </div>
 </ion-content>

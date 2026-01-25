@@ -21,13 +21,17 @@ public class WebConfig implements WebMvcConfigurer {
 
                     @Override
                     protected org.springframework.core.io.Resource getResource(String resourcePath, org.springframework.core.io.Resource location) throws IOException {
-                        if (resourcePath.startsWith("/api/")) {
-                            return null;
+                        if (resourcePath.startsWith("api/")
+                                || resourcePath.startsWith("swagger-ui/")
+                                || resourcePath.startsWith("v3/api-docs/")
+                                || resourcePath.startsWith("h2-console/")
+                                || resourcePath.equals("swagger.yaml")) {
+                            return null; // let normal MVC/controller handling handle it
                         }
 
                         Resource requestedResource = location.createRelative(resourcePath);
                         return requestedResource.exists() && requestedResource.isReadable() ? requestedResource
-                                : new ClassPathResource("/static/index.html");
+                                : null;
                     }
                 });
     }
