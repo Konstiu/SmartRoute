@@ -1,5 +1,6 @@
 package com.smartroute.smartroute1.unittest;
 
+import com.smartroute.smartroute1.basetest.BaseTest;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.AthleteZone;
@@ -31,7 +32,7 @@ import static org.mockito.Mockito.doNothing;
 @SpringBootTest
 @ActiveProfiles({"test", "generateData"})
 @Transactional
-public class GpxServiceTest {
+public class GpxServiceTest extends BaseTest {
 
     @Autowired
     private GpxService gpxService;
