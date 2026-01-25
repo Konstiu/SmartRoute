@@ -3,11 +3,9 @@ package com.smartroute.smartroute1.service.impl;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartroute.smartroute1.endpoint.dto.geojson.*;
 import com.smartroute.smartroute1.endpoint.mapper.PolyLineMapper;
-import com.smartroute.smartroute1.endpoint.mapper.PolyLineMapperImpl;
 import com.smartroute.smartroute1.service.OpenRouteServiceService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -106,33 +104,13 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
         return null;
     }
 
-    private GeoJsonDto makeRoundTripRequest(List<GeoJsonPosition> coordinates, int length, int points, int seed, int num) {
-        GeoJsonDto dto = new GeoJsonDto();
-        dto.setType("FeatureCollection");
-
-        GeoJsonFeature f = new GeoJsonFeature();
-        f.setType("Feature");
-        dto.setFeatures(List.of(f));
-
-        GeoJsonGeometryLineString ls = new GeoJsonGeometryLineString();
-        ls.setType("LineString");
-        f.setGeometry(ls);
-
-        GeoJsonProperties p = new GeoJsonProperties();
-        f.setProperties(p);
-
     @Override
     public GeoJsonDto generateRoundTrip(List<GeoJsonPosition> coordinates, int length, int points, int seed) {
         if (coordinates == null || coordinates.isEmpty()) {
             throw new IllegalArgumentException("'coordinates' must contain at least one coordinate for a round trip.");
         }
         ObjectMapper objectMapper = new ObjectMapper();
-        // ORS expects coordinates as [lon, lat]
-        List<List<Double>> orsCoords = coordinates.stream()
-                .map(pos -> List.of(pos.getLongitude(), pos.getLatitude()))
-                .toList();
         try {
-            String coords = objectMapper.writeValueAsString(orsCoords);
             String coords = objectMapper.writeValueAsString(coordinates);
             String body = "{\"coordinates\":" + coords + ",\"elevation\":true,\"units\":\"km\",\"options\":{\"round_trip\":{\"length\":" + length + ",\"points\":" + points + ",\"seed\":" + seed + "}}}";
 

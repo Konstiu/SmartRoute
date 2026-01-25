@@ -61,32 +61,11 @@ public class RouteEndpoint {
     @PermitAll
     @GetMapping
     public String generateRoute(@RequestParam("lat") double latitude, @RequestParam("long") double longitude,
-                                @RequestParam("length") double length, @RequestParam(name = "seed", required = false) Integer seed) {
-        List<GeoJsonPosition> coordinates = new ArrayList<>();
-        coordinates.add(new GeoJsonPosition(latitude, longitude, null));
-        if (seed == null) {
-            seed = 0;
-        }
-        GeoJsonDto route = openRouteServiceService.generateRoundTrip(coordinates, (int) length, 7, seed);
-
-        var geom = route.getFeatures().getFirst().getGeometry();
-        var props = route.getFeatures().getFirst().getProperties();
-
-        // assuming geom.getCoordinates() returns List<GeoJsonPosition> (lat/lon/alt already mapped)
-        List<List<Double>> coordinates3d = geom.getCoordinates().stream()
-                .map(p -> List.of(
-                        p.getLatitude(),
-                        p.getLongitude(),
-                        p.getAltitude() // may be null
-                ))
-                .toList();
-
                                 @RequestParam("length") double length) {
         GeoJsonDto route = routeGenerationService.generateRoundTrip(
                 new GeoJsonPosition(latitude, longitude, null), (int) length);
         return "{\"bbox\":" + route.getBbox()
                 + ",\"polyline\":\"" + polyLineMapper.geoJsonGeometryLineStringToPolyline(route.getFeatures().getFirst().getGeometry()).replace("\\", "\\\\") + "\""
-                + ",\"coordinates3d\":" + coordinates3d
                 + ",\"distance\":" + route.getFeatures().getFirst().getProperties().getDistance()
                 + ",\"elevation\":" + route.getFeatures().getFirst().getProperties().getAscent() + "}";
     }
