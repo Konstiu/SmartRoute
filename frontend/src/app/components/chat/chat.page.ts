@@ -103,6 +103,15 @@ export class ChatPage implements OnInit, OnDestroy, AfterViewInit {
         }
       );
       this.subscriptions.push(statusSub);
+
+      // Listen for messages sent from this device
+      const messageSentSub = this.chatMessageService.onMessageSent().subscribe(
+        async () => {
+          await this.loadMessages();
+          setTimeout(() => this.scrollToBottom(), 100);
+        }
+      );
+      this.subscriptions.push(messageSentSub);
     });
   }
 
