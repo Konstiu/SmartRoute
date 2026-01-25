@@ -1518,6 +1518,18 @@ private reloadSelectedDay(allowSnapshotRestore: boolean): void {
     this.loadWeekPlan(startLocation, true);
   }
 
+  isToday(dateValue: string | Date): boolean {
+    const todayDate = new Date();
+
+    const compareDate = new Date(dateValue);
+
+    return (
+      todayDate.getFullYear() === compareDate.getFullYear()
+      && todayDate.getMonth() === compareDate.getMonth()
+      && todayDate.getDate() === compareDate.getDate()
+    );
+  }
+
   protected readonly SessionType = SessionType;
   protected readonly formatDistance = formatDistance;
   protected readonly formatPace = formatPace;
