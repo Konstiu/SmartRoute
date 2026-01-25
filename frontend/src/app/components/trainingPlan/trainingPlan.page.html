@@ -27,6 +27,19 @@
           <div class="week-header">
             <ion-card-title>Next 7 days</ion-card-title>
 
+            <ion-buttons slot="end">
+              <ion-button
+                fill="solid"
+                (click)="onRegenerateWeekClicked()"
+                [disabled]="isLoadingWeek"
+              >
+                <ion-icon name="refresh-outline" slot="start"></ion-icon>
+                Regenerate
+              </ion-button>
+            </ion-buttons>
+
+
+
             <div class="live-toggle">
               <ion-label>Live Plan </ion-label>
               <ion-toggle
