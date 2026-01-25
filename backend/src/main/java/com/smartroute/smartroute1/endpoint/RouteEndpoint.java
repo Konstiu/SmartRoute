@@ -4,6 +4,7 @@ import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonDto;
 import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonPosition;
 import com.smartroute.smartroute1.endpoint.mapper.PolyLineMapper;
 import com.smartroute.smartroute1.service.OpenRouteServiceService;
+import com.smartroute.smartroute1.service.RouteGenerationService;
 import jakarta.annotation.security.PermitAll;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,11 +18,11 @@ import java.util.List;
 @RequestMapping(value = "/api/v1/route")
 public class RouteEndpoint {
 
-    private final OpenRouteServiceService openRouteServiceService;
+    private final RouteGenerationService routeGenerationService;
     private final PolyLineMapper polyLineMapper;
 
-    public RouteEndpoint(OpenRouteServiceService openRouteServiceService, PolyLineMapper polyLineMapper) {
-        this.openRouteServiceService = openRouteServiceService;
+    public RouteEndpoint(RouteGenerationService routeGenerationService, PolyLineMapper polyLineMapper) {
+        this.routeGenerationService = routeGenerationService;
         this.polyLineMapper = polyLineMapper;
     }
 
@@ -29,9 +30,8 @@ public class RouteEndpoint {
     @GetMapping
     public String generateRoute(@RequestParam("lat") double latitude, @RequestParam("long") double longitude,
                                 @RequestParam("length") double length) {
-        List<GeoJsonPosition> coordinates = new ArrayList<>();
-        coordinates.add(new GeoJsonPosition(latitude, longitude, null));
-        GeoJsonDto route = openRouteServiceService.generateRoundTrip(coordinates, (int) length, 7, 0);
+        GeoJsonDto route = routeGenerationService.generateRoundTrip(
+                new GeoJsonPosition(latitude, longitude, null), (int) length);
         return "{\"bbox\":" + route.getBbox()
                 + ",\"polyline\":\"" + polyLineMapper.geoJsonGeometryLineStringToPolyline(route.getFeatures().getFirst().getGeometry()).replace("\\", "\\\\") + "\""
                 + ",\"distance\":" + route.getFeatures().getFirst().getProperties().getDistance() * 1000
