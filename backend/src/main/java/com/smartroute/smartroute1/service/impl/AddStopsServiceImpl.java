@@ -57,7 +57,7 @@ public class AddStopsServiceImpl implements AddStopsService {
         validator.validateCoordinates(end.getLatitude(), end.getLongitude());
 
         // Compute the forward path start to via
-        GeoJsonDto forwardDto = orsService.generateRoute(List.of(start, via), vienna);
+        GeoJsonDto forwardDto = orsService.requestRoute(List.of(start, via), vienna);
         if (forwardDto == null
                 || forwardDto.getFeatures() == null
                 || forwardDto.getFeatures().isEmpty()
@@ -79,7 +79,7 @@ public class AddStopsServiceImpl implements AddStopsService {
         GeoJsonDto returnDto = orsService.generateRouteAvoidingPolygon(List.of(via, end), avoidPolygon, false);
         // fallback
         if (returnDto == null) {
-            returnDto = orsService.generateRoute(List.of(via, end), false);
+            returnDto = orsService.requestRoute(List.of(via, end), false);
 
             if (returnDto == null
                     || returnDto.getFeatures() == null
@@ -633,7 +633,7 @@ public class AddStopsServiceImpl implements AddStopsService {
         required.addAll(newPoints);
         required.add(originalRoute.getLast());
 
-        GeoJsonDto baselineDto = orsService.generateRoute(required, false);
+        GeoJsonDto baselineDto = orsService.requestRoute(required, false);
         if (baselineDto == null
                 || baselineDto.getFeatures() == null
                 || baselineDto.getFeatures().isEmpty()

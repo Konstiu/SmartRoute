@@ -8,12 +8,16 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.GarminAccount;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.GarminAccountRepository;
+import com.smartroute.smartroute1.service.ActivityProcessingService;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -22,13 +26,12 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.doNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 
@@ -37,15 +40,51 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
     @Autowired
     private MockMvc mockMvc;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
     @Autowired
     private ActivityRepository activityRepository;
 
     @Autowired
     private GarminAccountRepository garminAccountRepository;
+
+    @SpyBean
+    private ActivityProcessingService activityService;
+
+    @NotNull
+    private static String getExpiredTokenJson(long now) {
+        long expiredTs = now - 10;
+
+        return """
+                {
+                  "oauth2_token.json": {
+                    "scope": "DUMMY_SCOPE",
+                    "jti": "dummy-jti",
+                    "token_type": "bearer",
+                    "access_token": "dummy-token",
+                    "expires_in": 99999,
+                    "expires_at": %d,
+                    "refresh_token_expires_in": 2591999,
+                    "refresh_token_expires_at": %d
+                  },
+                  "oauth1_token.json": {
+                    "oauth_token": "dummy-token",
+                    "oauth_token_secret": "dummy_auth",
+                    "mfa_token": null,
+                    "mfa_expiration_timestamp": null,
+                    "domain": "garmin.com"
+                  },
+                  "refresh_token_expires_at": %d,
+                  "expires_at": %d
+                }
+                """.formatted(expiredTs, expiredTs, expiredTs, expiredTs);
+    }
+
+    @BeforeEach
+    void setup() {
+        doNothing().when(activityService).fetchWeatherForActivity(Mockito.any()); //Avoid API calls in testing
+    }
 
     @Test
     @WithMockUser(username = "email0@smartroute.com", roles = "USER")
@@ -86,7 +125,6 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
                 .andExpect(status().is(401));
     }
 
-
     @Test
     @WithMockUser(username = "email0@smartroute.com", roles = "USER")
     void syncActivities_withNullPassword_shouldReturn401() throws Exception {
@@ -97,7 +135,6 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
                 .andExpect(status().is(401));
 
     }
-
 
     @Test
     void syncActivities_withoutAuthentication_shouldReturn403() throws Exception {
@@ -119,7 +156,6 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
         performSync(dto)
                 .andExpect(status().isForbidden());
     }
-
 
     @Test
     @WithMockUser(username = "email0@smartroute.com", roles = "USER")
@@ -283,35 +319,6 @@ class GarminConnectPythonScriptMockedEndpointTest extends BaseTest {
     void disconnectEndpoint_withoutAuthentication_shouldReturn403() throws Exception {
         mockMvc.perform(post("/api/v1/garmin/disconnect"))
                 .andExpect(status().isForbidden());
-    }
-
-    @NotNull
-    private static String getExpiredTokenJson(long now) {
-        long expiredTs = now - 10;
-
-        return """
-        {
-          "oauth2_token.json": {
-            "scope": "DUMMY_SCOPE",
-            "jti": "dummy-jti",
-            "token_type": "bearer",
-            "access_token": "dummy-token",
-            "expires_in": 99999,
-            "expires_at": %d,
-            "refresh_token_expires_in": 2591999,
-            "refresh_token_expires_at": %d
-          },
-          "oauth1_token.json": {
-            "oauth_token": "dummy-token",
-            "oauth_token_secret": "dummy_auth",
-            "mfa_token": null,
-            "mfa_expiration_timestamp": null,
-            "domain": "garmin.com"
-          },
-          "refresh_token_expires_at": %d,
-          "expires_at": %d
-        }
-        """.formatted(expiredTs, expiredTs, expiredTs, expiredTs);
     }
 
     @NotNull
