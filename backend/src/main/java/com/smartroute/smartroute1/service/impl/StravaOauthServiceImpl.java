@@ -73,7 +73,7 @@ public class StravaOauthServiceImpl implements StravaOauthService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
         }
         Optional<StravaAccount> account = stravaAccountRepository.findByUser(user);
-        if (account.isEmpty()) {
+        if (account.isEmpty() || account.get().getAccessToken() == null) {
             return new StravaAccountConnectionStateDto(
                     false,
                     ""
@@ -121,6 +121,13 @@ public class StravaOauthServiceImpl implements StravaOauthService {
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "Could not reach Strava OAuth service",
                     e
+            );
+        } catch (StravaAuthorizationException e) {
+            stravaAccountRepository.delete(account.get());
+
+            return new StravaAccountConnectionStateDto(
+                false,
+                ""
             );
         }
 

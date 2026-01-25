@@ -10,6 +10,8 @@ import com.smartroute.smartroute1.exception.garmin.GarminAuthenticationException
 import com.smartroute.smartroute1.exception.garmin.GarminException;
 import com.smartroute.smartroute1.exception.garmin.GarminNoDataException;
 import com.smartroute.smartroute1.exception.garmin.GarminScriptException;
+import com.smartroute.smartroute1.exception.StopTooFarFromRouteException;
+import com.smartroute.smartroute1.exception.RouteNotFoundException;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.slf4j.Logger;
@@ -32,7 +34,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Register all your Java exceptions here to map them into meaningful HTTP
+ * Register all your Java exceptions here to map them into meaningful HTTP.
  * exceptions
  * If you have special cases which are only important for specific endpoints,
  * use ResponseStatusExceptions
@@ -120,6 +122,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     /**
      * Handles {@link ValidationException} and other {@link ErrorListException}-based exceptions
      * by returning an HTTP 422 (Unprocessable Entity) response.
+     *
      * <p>
      * This is used for custom business validation errors where the request structure is valid,
      * but its content violates domain-specific rules.
@@ -156,4 +159,36 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         LOGGER.warn("Request failed: {} - {}", ex.getStatusCode(), ex.getReason());
         return handleExceptionInternal(ex, ex.getReason(), new HttpHeaders(), ex.getStatusCode(), request);
     }
+
+    @ExceptionHandler(StopTooFarFromRouteException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    protected ResponseEntity<Object> handleStopTooFar(StopTooFarFromRouteException ex, WebRequest request) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("message", ex.getMessage());
+        body.put("code", "STOP_TOO_FAR_FROM_ROUTE");
+        body.put("details", ex.toDetails());
+
+        return handleExceptionInternal(ex, body, new HttpHeaders(), HttpStatus.UNPROCESSABLE_ENTITY, request);
+    }
+
+    @ExceptionHandler(RouteNotFoundException.class)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
+    protected ResponseEntity<Object> handleRouteNotFound(
+            RouteNotFoundException ex,
+            WebRequest request
+    ) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("message", ex.getMessage());
+        body.put("code", "ROUTE_NOT_FOUND");
+
+        return handleExceptionInternal(
+                ex,
+                body,
+                new HttpHeaders(),
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                request
+        );
+    }
+
+
 }

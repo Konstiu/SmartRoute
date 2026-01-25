@@ -19,10 +19,10 @@
   </div>
 
   <!-- Workout Details -->
-  <div *ngIf="!isLoading && workout">
+  <div *ngIf="!isLoading && workout" class="page-container">
 
     <!-- Day 1 Card -->
-    <ion-card *ngIf="day1Exercises.length > 0">
+    <ion-card *ngIf="day1Exercises.length > 0" class="rounded-card">
       <ion-card-header>
         <ion-card-title>Day 1</ion-card-title>
       </ion-card-header>
@@ -30,7 +30,7 @@
         <ion-list>
           <ion-item (click)="openExercise(ex)" *ngFor="let ex of day1Exercises" button>
             <ion-thumbnail slot="start">
-              <img [src]="ex.gifUrl"/>
+              <img (error)="onImageError($event)" [src]="ex.gifUrl"/>
             </ion-thumbnail>
             <ion-label>
               <h2>{{ ex.name }}</h2>
@@ -43,7 +43,7 @@
     </ion-card>
 
     <!-- Day 2 Card -->
-    <ion-card *ngIf="day2Exercises.length > 0">
+    <ion-card *ngIf="day2Exercises.length > 0"  class="rounded-card">
       <ion-card-header>
         <ion-card-title>Day 2</ion-card-title>
       </ion-card-header>
@@ -51,7 +51,7 @@
         <ion-list>
           <ion-item (click)="openExercise(ex)" *ngFor="let ex of day2Exercises" button>
             <ion-thumbnail slot="start">
-              <img [src]="ex.gifUrl"/>
+              <img (error)="onImageError($event)" [src]="ex.gifUrl"/>
             </ion-thumbnail>
             <ion-label>
               <h2>{{ ex.name }}</h2>
@@ -65,7 +65,7 @@
 
     <!-- Fallback if no exercises available -->
     <div *ngIf="day1Exercises.length === 0 && day2Exercises.length === 0" class="injury-warning">
-      <ion-card color="danger">
+      <ion-card class="rounded-card" color="danger">
         <ion-card-header>
           <ion-card-title>⚠️ No Exercises Available</ion-card-title>
         </ion-card-header>

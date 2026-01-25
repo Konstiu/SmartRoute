@@ -37,6 +37,16 @@
               },
               {
                 "glob": "**/*",
+                "input": "public",
+                "output": "."
+              },
+              {
+                "glob": "**/*",
+                "input": "./src/assets",
+                "output": "."
+              },
+              {
+                "glob": "**/*",
                 "input": "./node_modules/leaflet/dist/images",
                 "output": "assets/"
               }
@@ -47,7 +57,9 @@
               "./node_modules/leaflet/dist/leaflet.css",
               "src/global.scss", "src/theme/variables.scss"
             ],
-            "scripts": []
+            "scripts": [],
+            "serviceWorker": true,
+            "ngswConfigPath": "ngsw-config.json"
           },
           "configurations": {
             "production": {
@@ -59,8 +71,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "2kb",
-                  "maximumError": "4kb"
+                  "maximumWarning": "4kb",
+                  "maximumError": "6kb"
                 }
               ],
               "fileReplacements": [

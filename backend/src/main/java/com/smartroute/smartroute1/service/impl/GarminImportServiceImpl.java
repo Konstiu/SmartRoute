@@ -1,21 +1,29 @@
 package com.smartroute.smartroute1.service.impl;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smartroute.smartroute1.entity.Activity;
+import com.smartroute.smartroute1.entity.ActivityStream;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.GarminAccount;
+import com.smartroute.smartroute1.entity.enums.ActivityStreamSource;
 import com.smartroute.smartroute1.exception.garmin.GarminAuthenticationException;
 import com.smartroute.smartroute1.exception.garmin.GarminException;
 import com.smartroute.smartroute1.exception.garmin.GarminNoDataException;
 import com.smartroute.smartroute1.exception.garmin.GarminScriptException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
+import com.smartroute.smartroute1.repository.ActivityStreamRepository;
 import com.smartroute.smartroute1.repository.GarminAccountRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
+import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
 import com.smartroute.smartroute1.service.GarminImportService;
 import com.smartroute.smartroute1.service.GpxService;
+import com.smartroute.smartroute1.service.StatisticsService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,6 +37,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -46,20 +55,103 @@ import java.util.Base64;
 @Transactional
 public class GarminImportServiceImpl implements GarminImportService {
 
-    @Value("${garmin.python.script.path:${user.dir}/python/python_garmin_connect.py}")
-    private String pythonScriptPath;
+    private static final Map<Integer, String> ACTIVITY_TYPE_NAMES = Map.ofEntries(
+            // Running
+            Map.entry(1, "Run"), //Running
+            Map.entry(49, "Run"), // Trail Running
+            Map.entry(50, "Run"), //Treadmill Running
 
-    @Value("#{T(java.lang.System).getProperty('os.name').toLowerCase().contains('win') ? "
-            + "'${garmin.python.executable.windows:${user.dir}/python/.venv/Scripts/python.exe}' :"
-            + "'${garmin.python.executable:${user.dir}/python/.venv/bin/python3.12}'}")
-    private String pythonExecutable;
+            // Cycling
+            Map.entry(2, "Ride"), //Cycling
+            Map.entry(10, "Ride"), //Mountain Biking
+            Map.entry(11, "Ride"), //Road Cycling
+            Map.entry(17, "Ride"), //Indoor Cycling
 
+            // Swimming
+            Map.entry(5, "Swim"), //Swimming
+            Map.entry(28, "Swim"), //Open Water Swimming
+            Map.entry(31, "Swim"), //Lap Swimming
+
+            // Walking/Hiking
+            Map.entry(3, "Walk"), //Hiking
+            Map.entry(4, "Walk"), //Walking
+            Map.entry(9, "Walk"), //Other
+
+            // Fitness
+            Map.entry(13, "Strength Training"),
+            Map.entry(15, "Cardio Training"),
+            Map.entry(26, "Yoga"),
+            Map.entry(27, "Pilates"),
+            Map.entry(29, "Stand Up Paddleboarding"),
+
+            // Winter Sports
+            Map.entry(6, "Cross Country Skiing"),
+            Map.entry(7, "Alpine Skiing"),
+            Map.entry(8, "Snowboarding"),
+
+            // Water Sports
+            Map.entry(14, "Rowing"),
+            Map.entry(19, "Kayaking"),
+            Map.entry(37, "Sailing"),
+            Map.entry(39, "Surfing"),
+
+            // Other
+            Map.entry(12, "Transition"), // Triathlon transition
+            Map.entry(16, "Elliptical"),
+            Map.entry(18, "Golf"),
+            Map.entry(20, "Inline Skating"),
+            Map.entry(21, "Rock Climbing"),
+            Map.entry(22, "Hang Gliding"),
+            Map.entry(23, "Horseback Riding"),
+            Map.entry(24, "Driving"),
+            Map.entry(25, "Flying"),
+            Map.entry(30, "Motorcycling"),
+            Map.entry(32, "Mountaineering"),
+            Map.entry(33, "Multisport"),
+            Map.entry(34, "Paddling"),
+            Map.entry(35, "Diving"),
+            Map.entry(36, "Wakeboarding"),
+            Map.entry(38, "Windsurfing"),
+            Map.entry(40, "Fishing")
+    );
     private final ObjectMapper objectMapper;
     private final UserRepository userRepository;
     private final GarminAccountRepository garminAccountRepository;
     private final ActivityRepository activityRepository;
     private final GpxService gpxService;
     private final FitnessScoreService fitnessScoreService;
+    private final ActivityProcessingService activityProcessingService;
+    private final ActivityStreamRepository activityStreamRepository;
+    private final StatisticsService statisticsService;
+    @Value("${garmin.python.script.path:${user.dir}/python/python_garmin_connect.py}")
+    private String pythonScriptPath;
+    @Value("#{T(java.lang.System).getProperty('os.name').toLowerCase().contains('win') ? "
+            + "'${garmin.python.executable.windows:${user.dir}/python/.venv/Scripts/python.exe}' :"
+            + "'${garmin.python.executable:${user.dir}/python/.venv/bin/python3.12}'}")
+    private String pythonExecutable;
+
+    // maps the error to a second thread, so we can read the errors form the garmin script
+    private static Thread getThread(Process process, StringBuilder stderrOutput) {
+        Thread stderrThread = new Thread(() -> {
+            try (BufferedReader errorReader = new BufferedReader(
+                    new InputStreamReader(process.getErrorStream(), java.nio.charset.StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = errorReader.readLine()) != null) {
+                    if (stderrOutput.isEmpty()) {
+                        log.error("Python stderr: {}", line);
+                    } else {
+                        log.debug("Python stderr: {}", line);
+                    }
+                    stderrOutput.append(line).append("\n");
+                }
+            } catch (IOException e) {
+                log.warn("Failed to read python stderr", e);
+            }
+        }, "python-stderr-reader");
+        stderrThread.setDaemon(true);
+        stderrThread.start();
+        return stderrThread;
+    }
 
     @Override
     @Transactional
@@ -126,7 +218,7 @@ public class GarminImportServiceImpl implements GarminImportService {
                 garminAccount.setUser(managedUser);
             }
 
-            GarminScriptResult result;
+            Path result;
 
             if (firstLogin) {
                 // for first login
@@ -142,16 +234,14 @@ public class GarminImportServiceImpl implements GarminImportService {
             }
 
             // Update tokens in DB (tokens may be refreshed on every run)
-            String newTokenJson = objectMapper.writeValueAsString(result.tokens);
+            String newTokenJson = extractTokensFromFile(result);
             garminAccount.setTokenJson(newTokenJson);
             garminAccountRepository.save(garminAccount);
 
-            // Optionally: log activities
-            logActivities(result.activities);
-            for (int i = 0; i < result.activities.size(); i++) {
-                importSingleGarminActivity(user, result.activities.get(i));
-            }
+            int count = processActivitiesFromFile(user, result);
+            log.trace("Garmin activity sync for user {} synced {} activities", user.getEmail(), count);
 
+            statisticsService.preLoadConsistencyHistory(user.getEmail());
 
             return null; //result.activities;
 
@@ -160,19 +250,75 @@ public class GarminImportServiceImpl implements GarminImportService {
             log.error("Garmin error for user {}: {}", user.getEmail(), e.getMessage());
             throw e;
         } catch (Exception e) {
-            log.error("Failed to sync Garmin activities for user {}", user.toString(), e);
+            log.error("Failed to sync Garmin activities for user {}", user, e);
             throw new RuntimeException("Garmin sync failed: " + e.getMessage(), e);
         }
     }
 
+    private int processActivitiesFromFile(ApplicationUser user, Path filePath) throws IOException {
+        JsonFactory jsonFactory = new JsonFactory();
+        int processedCount = 0;
+
+        try (JsonParser parser = jsonFactory.createParser(filePath.toFile())) {
+
+            // Find the "activities" array
+            while (parser.nextToken() != null) {
+                String fieldName = parser.currentName();
+
+                if ("activities".equals(fieldName)) {
+                    parser.nextToken(); // Move to START_ARRAY
+
+                    // Process each activity ONE AT A TIME
+                    while (parser.nextToken() != JsonToken.END_ARRAY) {
+                        // Read ONLY this one activity
+                        JsonNode activity = objectMapper.readTree(parser);
+
+                        processedCount++;
+
+                        // Import it
+                        importSingleGarminActivity(user, activity);
+
+                        // At this point, 'activity' can be garbage collected
+                        // The next iteration will load the NEXT activity
+
+                        if (processedCount % 10 == 0) {
+                            System.gc(); // Suggest cleanup
+                        }
+                    }
+                }
+            }
+        }
+        return processedCount;
+    }
+
+    private String extractTokensFromFile(Path filePath) throws IOException {
+        JsonFactory jsonFactory = new JsonFactory();
+
+        try (JsonParser parser = jsonFactory.createParser(filePath.toFile())) {
+            while (parser.nextToken() != JsonToken.END_OBJECT) {
+                String fieldName = parser.currentName();
+
+                if ("tokens".equals(fieldName)) {
+                    parser.nextToken(); // Move to the tokens object
+                    JsonNode tokensNode = objectMapper.readTree(parser);
+
+                    // Convert directly to JSON string
+                    return objectMapper.writeValueAsString(tokensNode);
+                }
+            }
+        }
+
+        throw new GarminScriptException("No tokens found in result file");
+    }
+
     /**
-     * Executes the Python script with:
+     * Executes the Python script with:.
      * 1) Legacy credential mode: script.py <\email> <\password> <\activity_count>
      * 2) Inline token JSON: script.py --token-json '<\json>' <\activity_count>
      * and expects JSON:
      * { "tokens": {...}, "activities": [...] }
      */
-    private GarminScriptResult executePythonScript(String first, String second, int activityCount) throws IOException, InterruptedException, GarminScriptException {
+    private Path executePythonScript(String first, String second, int activityCount) throws IOException, InterruptedException, GarminScriptException {
 
         Process process = getProcess(first, second, activityCount);
 
@@ -226,33 +372,19 @@ public class GarminImportServiceImpl implements GarminImportService {
         log.info("Python script completed successfully");
 
         String json = output.toString().trim();
-        log.debug("Raw JSON from Python: {}", json);
+        JsonNode meta = objectMapper.readTree(json);
 
-        return objectMapper.readValue(json, GarminScriptResult.class);
-    }
+        if (!meta.has("result_file")) {
+            throw new RuntimeException("Python script must return a result_file path for streaming.");
+            //return objectMapper.treeToValue(meta, GarminScriptResult.class);
+        }
 
+        String resultFile = meta.path("result_file").asText(null);
+        if (resultFile == null || resultFile.isBlank()) {
+            throw new GarminScriptException("Python script did not return a valid result_file path");
+        }
 
-    // maps the error to a second thread, so we can read the errors form the garmin script
-    private static Thread getThread(Process process, StringBuilder stderrOutput) {
-        Thread stderrThread = new Thread(() -> {
-            try (BufferedReader errorReader = new BufferedReader(
-                    new InputStreamReader(process.getErrorStream(), java.nio.charset.StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = errorReader.readLine()) != null) {
-                    if (stderrOutput.isEmpty()) {
-                        log.error("Python stderr: {}", line);
-                    } else {
-                        log.debug("Python stderr: {}", line);
-                    }
-                    stderrOutput.append(line).append("\n");
-                }
-            } catch (IOException e) {
-                log.warn("Failed to read python stderr", e);
-            }
-        }, "python-stderr-reader");
-        stderrThread.setDaemon(true);
-        stderrThread.start();
-        return stderrThread;
+        return Path.of(resultFile);
     }
 
     // builds the args and executes the python script
@@ -433,8 +565,17 @@ public class GarminImportServiceImpl implements GarminImportService {
             JsonNode metrics = metricPoint.get("metrics");
 
             // Extract values using the indices
-            double lat = metrics.get(latIdx).asDouble();
-            double lon = metrics.get(lonIdx).asDouble();
+            JsonNode latNode = metrics.get(latIdx);
+            JsonNode lonNode = metrics.get(lonIdx);
+
+            // Skip if lat/lon is null or missing
+            if (latNode == null || lonNode == null
+                    || latNode.isNull() || lonNode.isNull()) {
+                continue;
+            }
+
+            double lat = latNode.asDouble();
+            double lon = lonNode.asDouble();
 
             // Skip invalid points (lat/lon = 0 usually means no GPS signal)
             if (lat == 0.0 && lon == 0.0) {
@@ -442,7 +583,6 @@ public class GarminImportServiceImpl implements GarminImportService {
             }
 
             gpx.append("      <trkpt lat=\"").append(lat).append("\" lon=\"").append(lon).append("\">\n");
-
 
             // Add elevation if available
             if (eleIdx != null && !metrics.get(eleIdx).isNull()) {
@@ -452,7 +592,6 @@ public class GarminImportServiceImpl implements GarminImportService {
 
             // Add timestamp
             long timestamp = metrics.get(tsIdx).asLong();
-
             Instant pointTime = Instant.ofEpochMilli(timestamp);
             gpx.append("        <time>").append(pointTime.toString()).append("</time>\n");
 
@@ -475,6 +614,12 @@ public class GarminImportServiceImpl implements GarminImportService {
         gpx.append("    </trkseg>\n");
         gpx.append("  </trk>\n");
         gpx.append("</gpx>\n");
+
+
+        // Check if we have enough points
+        if (pointCount < 2) {
+            log.warn("Activity has insufficient GPS points ({}), may not be valid", pointCount);
+        }
 
         // since the id is not the same as the one strava provides
         //activityId = "garmin_ping_" + summary.path("activityId").asText(null);
@@ -520,8 +665,10 @@ public class GarminImportServiceImpl implements GarminImportService {
 
             } else {
                 Activity imported = gpxService.importStravaGpxFile(gpxStream, user.getEmail());
-                imported.setType("Run");
-                imported.setSportType("Run");
+                int typeId = summary.path("activityType").path("typeId").asInt();
+                String activityTypeName = ACTIVITY_TYPE_NAMES.getOrDefault(typeId, "Activity");
+                imported.setType(activityTypeName);
+                imported.setSportType(activityTypeName);
 
                 String startTimeGmt = summary.path("startTimeGMT").asText();
                 imported.setStartDate(LocalDateTime.parse(startTimeGmt, garminFormatter).atZone(ZoneId.of("UTC")).toInstant());
@@ -555,8 +702,10 @@ public class GarminImportServiceImpl implements GarminImportService {
 
         // Basic info
         activity.setName(summary.path("activityName").asText("Unnamed Activity"));
-        activity.setType("Run");
-        activity.setSportType("Run");
+        int typeId = summary.path("activityType").path("typeId").asInt();
+        String activityTypeName = ACTIVITY_TYPE_NAMES.getOrDefault(typeId, "Activity");
+        activity.setType(activityTypeName);
+        activity.setSportType(activityTypeName);
 
 
         DateTimeFormatter garminFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -611,6 +760,36 @@ public class GarminImportServiceImpl implements GarminImportService {
                     activity
             );
 
+            // Fetch weather data
+            activityProcessingService.fetchWeatherForActivity(activity);
+
+            // Calculate time in hr-zones
+            Map<Integer, Float> timeInZones = fitnessScoreService.calculateTimeInZones(heartRates, timestamps, user);
+
+            // Set time in hr-zones
+            timeInZones.forEach((zone, time) -> {
+                switch (zone) {
+                    case 1 -> activity.setTimeZ1(Math.round(time));
+                    case 2 -> activity.setTimeZ2(Math.round(time));
+                    case 3 -> activity.setTimeZ3(Math.round(time));
+                    case 4 -> activity.setTimeZ4(Math.round(time));
+                    case 5 -> activity.setTimeZ5(Math.round(time));
+                    default -> throw new IllegalStateException("Unexpected value: " + zone);
+                }
+            });
+
+            // Create activity streams
+            ActivityStream activityStream = activityProcessingService.createActivityStream(
+                    timestamps.stream().mapToDouble(Float::doubleValue).boxed().toList(),
+                    null,
+                    heartRates.stream().mapToDouble(Float::doubleValue).boxed().toList(),
+                    ActivityStreamSource.GARMIN);
+
+            if (activityStream != null) {
+                activityStreamRepository.save(activityStream);
+                activity.setActivityStream(activityStream);
+            }
+
             log.debug("Calculated session load using HR data (avg={}, max={}) for activity {}",
                     avgHr, maxHr, summary.path("activityId").asLong());
         } else {
@@ -618,7 +797,8 @@ public class GarminImportServiceImpl implements GarminImportService {
             sessionLoad = fitnessScoreService.calculateSessionLoad(
                     distance,
                     actualMovingTime,
-                    elevationGain
+                    elevationGain,
+                    activity.getSportType()
             );
 
             log.debug("Calculated session load using distance/time method for activity {}",
@@ -627,11 +807,7 @@ public class GarminImportServiceImpl implements GarminImportService {
 
         activity.setSessionLoad(sessionLoad);
         activity.setGarminActivityTrainingsLoad(summary.path("activityTrainingLoad").asDouble());
-        // since it is not the same as the id strava provieds
-        //activity.setExternalId("garmin_ping_" + summary.get("activityId").asText());
 
-        log.info(String.valueOf(activity.getStartDate()));
-        log.info(String.valueOf(activity.getStartDateLocal()));
         Activity saved;
         List<Activity> storedActivities = activityRepository.findAllByUserAndStartDate(user, activity.getStartDate());
         Activity storedActivity = null;
@@ -677,7 +853,6 @@ public class GarminImportServiceImpl implements GarminImportService {
             storedActivity.setStravaId(storedActivity.getStravaId());
             storedActivity.setSufferScore(storedActivity.getSufferScore());
             storedActivity.setSportType(storedActivity.getSportType());
-
 
 
             saved = activityRepository.save(storedActivity);

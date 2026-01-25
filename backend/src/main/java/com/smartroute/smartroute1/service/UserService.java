@@ -14,10 +14,10 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 public interface UserService extends UserDetailsService {
 
     /**
-     * Find a user in the context of Spring Security based on the email address
+     * Find a user in the context of Spring Security based on the email address.
      * <br>
      * For more information, have a look at this tutorial:
-     * https://www.baeldung.com/spring-security-authentication-with-a-database
+     * <a href="https://www.baeldung.com/spring-security-authentication-with-a-database">...</a>
      *
      * @param email the email address
      * @return a Spring Security user
@@ -66,8 +66,8 @@ public interface UserService extends UserDetailsService {
      *
      * @param toUpdate  The personal data.
      * @param userEmail The email address of the user to update
-     * @return  The updated user
-     * @throws ValidationException  If any validation error occurs
+     * @return The updated user
+     * @throws ValidationException If any validation error occurs
      */
     ApplicationUser updatePersonalData(PersonalDataDto toUpdate, String userEmail) throws ValidationException;
 
@@ -98,13 +98,17 @@ public interface UserService extends UserDetailsService {
     /**
      * changes token user password to new password if token is valid.
      *
-     * @param token           the encoded email of the user
-     * @param resetDto     the password to change to and repeat password avoid user mistakes
-     *
+     * @param token    the encoded email of the user
+     * @param resetDto the password to change to and repeat password avoid user mistakes
      * @return true if password was changed this way or false if the token or password was invalid (e.g. expired, wrong format)
      */
     boolean changePasswordWithToken(String token, PasswordResetDto resetDto) throws ValidationException;
 
+    /**
+     * Deletes the user account associated with the given email.
+     *
+     * @param email the email of the user whose account is to be deleted
+     */
     void deleteAccount(String email);
 
 }

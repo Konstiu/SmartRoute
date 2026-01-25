@@ -8,6 +8,7 @@ import java.util.List;
 /**
  * Service to compute Chronic Training Load (CTL), Acute Training Load (ATL) and
  * Training Stress Balance (TSB) from daily {@code FitnessScore} values.
+ *
  * <p>
  * The implementation follows the Training Stress Balance (TSB) model, which
  * is a simplified fitness–fatigue impulse-response model. On each day {@code t},
@@ -57,6 +58,7 @@ public interface FatigueAndOverloadService {
      * Returns the athlete's current Chronic Training Load (CTL), i.e. the
      * long-term exponentially weighted average of daily training load
      * (FitnessScore).
+     *
      * <p>
      * Semantically, this is the CTL value for the most recent day for which
      * the user has data (not necessarily "today" if there was no recent
@@ -71,6 +73,7 @@ public interface FatigueAndOverloadService {
     /**
      * Returns the athlete's current Acute Training Load (ATL), i.e. the
      * short-term exponentially weighted average of daily training load.
+     *
      * <p>
      * Semantically, this is the ATL value for the most recent day for which
      * the user has data.
@@ -84,6 +87,7 @@ public interface FatigueAndOverloadService {
     /**
      * Returns the athlete's current Training Stress Balance (TSB), defined as
      * {@code TSB = CTL - ATL}.
+     *
      * <p>
      * Positive TSB values typically indicate that the athlete is relatively
      * fresh or recovered, while negative values indicate accumulated fatigue
@@ -99,6 +103,7 @@ public interface FatigueAndOverloadService {
     /**
      * Returns the Chronic Training Load (CTL) for the given user on the
      * specified date.
+     *
      * <p>
      * The CTL value on {@code date} is computed from all available daily
      * loads up to and including that date, using the exponential update
@@ -115,6 +120,7 @@ public interface FatigueAndOverloadService {
     /**
      * Returns the Acute Training Load (ATL) for the given user on the
      * specified date.
+     *
      * <p>
      * The ATL value on {@code date} is computed from all available daily
      * loads up to and including that date, using the exponential update
@@ -141,6 +147,7 @@ public interface FatigueAndOverloadService {
 
     /**
      * Returns the CTL values for the last {@code days} days for the given user.
+     *
      * <p>The list is ordered chronologically (oldest first, newest last). If the
      * user has fewer than {@code days} days of history, all available days are
      * returned.
@@ -155,6 +162,7 @@ public interface FatigueAndOverloadService {
 
     /**
      * Returns the ATL values for the last {@code days} days for the given user.
+     *
      * <p>
      * The list is ordered chronologically (oldest first, newest last). If the
      * user has fewer than {@code days} days of history, all available days are
@@ -171,6 +179,7 @@ public interface FatigueAndOverloadService {
     /**
      * Returns the TSB values for the last {@code days} days for the given user,
      * where each value is {@code TSB = CTL - ATL} on that day.
+     *
      * <p>
      * The list is ordered chronologically (oldest first, newest last). If the
      * user has fewer than {@code days} days of history, all available days are
@@ -187,6 +196,7 @@ public interface FatigueAndOverloadService {
     /**
      * Returns the full CTL history for the given user, from the first available
      * day up to the most recent day.
+     *
      * <p>
      * The result is ordered chronologically (oldest first, newest last) and
      * uses the same exponential model and parameters as described in the class
@@ -201,6 +211,7 @@ public interface FatigueAndOverloadService {
     /**
      * Returns the full ATL history for the given user, from the first available
      * day up to the most recent day.
+     *
      * <p>
      * The result is ordered chronologically (oldest first, newest last) and
      * uses the same exponential model and parameters as described in the class
@@ -216,6 +227,7 @@ public interface FatigueAndOverloadService {
      * Returns the full TSB history for the given user, from the first available
      * day up to the most recent day, where each value is
      * {@code TSB = CTL - ATL} for that day.
+     *
      * <p>
      * The result is ordered chronologically (oldest first, newest last).
      * </p>

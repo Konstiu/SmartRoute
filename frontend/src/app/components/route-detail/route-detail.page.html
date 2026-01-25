@@ -1,0 +1,113 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/route"></ion-back-button>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-button (click)="shareRoute()">
+        <ion-icon slot="icon-only" name="share-social-outline"></ion-icon>
+      </ion-button>
+
+    </ion-buttons>
+    <ion-title>Route Details</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <!-- Loading State -->
+  @if (isLoading) {
+    <div class="loading-container">
+      <ion-spinner name="crescent"></ion-spinner>
+      <p>Loading activity...</p>
+    </div>
+  }
+
+  <!-- Error State -->
+  @if (error) {
+    <div class="error-container">
+      <ion-icon name="alert-circle-outline" color="danger"></ion-icon>
+      <p>{{ error }}</p>
+    </div>
+  }
+
+  <!-- Content - only show when NOT loading and activity exists -->
+  @if (!isLoading && savedRoute) {
+    <!-- Map -->
+    <div class="map-container" [hidden]="!savedRoute.route">
+      <div #map id="map"></div>
+    </div>
+
+
+    <!-- Stats Container -->
+    <div class="stats-container">
+      <!-- Header card with name + date -->
+      <ion-card>
+        <ion-card-header>
+          <ion-toolbar>
+            <ion-title>
+              {{ savedRoute.name }}
+            </ion-title>
+            @if (!isLoading) {
+              <ion-buttons slot="end">
+                <ion-button
+                  size="small"
+                  fill="clear"
+                  class="delete-btn"
+                  (click)="showCancelRequestDialog()"
+                >
+                  <ion-icon
+                    slot="icon-only"
+                    [name]="'trash-outline'">
+                  </ion-icon>
+                </ion-button>
+              </ion-buttons>
+            }
+          </ion-toolbar>
+        </ion-card-header>
+      </ion-card>
+
+      <!-- Overview: key metrics -->
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Overview</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="stats-grid">
+            <!-- Distance -->
+            <div class="stat-item">
+              <ion-icon name="navigate-outline"></ion-icon>
+              <div class="stat-value">
+                {{ formatDistance(savedRoute.distance) }}
+              </div>
+              <div class="stat-label">Distance (km)</div>
+            </div>
+
+
+            <!-- Elevation -->
+
+            <div class="stat-item">
+              <ion-icon name="trending-up-outline"></ion-icon>
+              <div class="stat-value">
+                {{ savedRoute.elevation.toFixed(0) }}
+              </div>
+              <div class="stat-label">Elevation (m)</div>
+            </div>
+
+            <!-- Pace -->
+            <div class="stat-item">
+              <ion-icon name="speedometer-outline"></ion-icon>
+              <div class="stat-value">
+                {{ formatPace(savedRoute.pace) }}
+              </div>
+              <div class="stat-label">Expected Pace (min/km)</div>
+            </div>
+          </div>
+
+        </ion-card-content>
+      </ion-card>
+
+
+    </div>
+  }
+
+</ion-content>

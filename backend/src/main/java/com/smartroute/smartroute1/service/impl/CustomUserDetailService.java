@@ -5,12 +5,9 @@ import com.smartroute.smartroute1.endpoint.dto.PasswordResetDto;
 import com.smartroute.smartroute1.endpoint.dto.PersonalDataDto;
 import com.smartroute.smartroute1.endpoint.dto.UserLoginDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
-import com.smartroute.smartroute1.entity.AthleteZone;
-import com.smartroute.smartroute1.entity.GarminAccount;
-import com.smartroute.smartroute1.entity.GymWorkout;
 import com.smartroute.smartroute1.exception.NotFoundException;
-import com.smartroute.smartroute1.exception.StravaAuthorizationException;
 import com.smartroute.smartroute1.exception.ValidationException;
+import com.smartroute.smartroute1.repository.FriendshipRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.repository.InjuryRepository;
 import com.smartroute.smartroute1.repository.ActivityRepository;
@@ -57,6 +54,7 @@ public class CustomUserDetailService implements UserService {
     private final GymWorkoutRepository gymWorkoutRepository;
     private final StravaAccountRepository stravaAccountRepository;
     private final StravaOauthService stravaOauthService;
+    private final FriendshipRepository friendshipRepository;
 
     @Autowired
     public CustomUserDetailService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtTokenizer jwtTokenizer,
@@ -64,7 +62,7 @@ public class CustomUserDetailService implements UserService {
                                    InjuryRepository injuryRepository, ActivityRepository activityRepository,
                                    GarminAccountRepository garminAccountRepository, AthleteZoneRepository athleteZoneRepository,
                                    GymWorkoutRepository gymWorkoutRepository, StravaAccountRepository stravaAccountRepository,
-                                   StravaOauthService stravaOauthService) {
+                                   StravaOauthService stravaOauthService, FriendshipRepository friendshipRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenizer = jwtTokenizer;
@@ -78,6 +76,7 @@ public class CustomUserDetailService implements UserService {
         this.gymWorkoutRepository = gymWorkoutRepository;
         this.stravaAccountRepository = stravaAccountRepository;
         this.stravaOauthService = stravaOauthService;
+        this.friendshipRepository = friendshipRepository;
     }
 
     @Override
@@ -292,6 +291,7 @@ public class CustomUserDetailService implements UserService {
         this.athleteZoneRepository.deleteAllByUser(user);
         this.injuryRepository.deleteAllByApplicationUser(user);
         this.stravaOauthService.disconnectStravaAccount(email);
+        this.friendshipRepository.deleteAllByUser(user);
         this.userRepository.delete(user);
     }
 }

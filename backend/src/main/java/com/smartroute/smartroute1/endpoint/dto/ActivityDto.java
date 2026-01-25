@@ -14,4 +14,5 @@ public class ActivityDto {
     private Float averageSpeed;
     private Float averageHeartrate;
     private Float averageWatts;
+    private RunClassificationDecisionDto runClassification;
 }

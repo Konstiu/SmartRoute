@@ -11,9 +11,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.jdbc.Work;
 
 import java.time.Instant;
 
@@ -59,6 +61,16 @@ public class Activity {
 
     private Float maxHeartrate;
 
+    private Integer timeZ1;
+
+    private Integer timeZ2;
+
+    private Integer timeZ3;
+
+    private Integer timeZ4;
+
+    private Integer timeZ5;
+
     private Float kilojoules;
 
     private Integer sufferScore;
@@ -72,10 +84,23 @@ public class Activity {
 
     private Integer satisfactionScore;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "weather_id")
+    private WeatherResponse weather;
+
     @Enumerated(EnumType.STRING)
     private WorkoutType workoutType;
+
+    @OneToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "run_type_classification")
+    private RunClassificationDecision runTypeClassification;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "activity_stream_id", unique = true)
+    private ActivityStream activityStream;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
     private ApplicationUser user;
+
 }
