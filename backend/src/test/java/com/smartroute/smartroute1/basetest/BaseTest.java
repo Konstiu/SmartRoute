@@ -19,7 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(ApiMockConfig.class)
+@Import({ApiMockConfig.class, AsyncTestConfig.class})
 public class BaseTest {
 
     @Autowired
