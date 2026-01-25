@@ -131,7 +131,7 @@ class RouteGenerationServiceTest {
                 new GeoJsonPosition(16.372825, 48.211916, 191.0),
                 new GeoJsonPosition(16.371952, 48.211212, 188.)));
         ls.setCoordinates(coordinates);
-        when(openRouteServiceService.requestRoute(any(), any())).thenReturn(dto);
+        when(openRouteServiceService.requestRoute(any(), anyBoolean())).thenReturn(dto);
 
         GeoJsonPosition position = new GeoJsonPosition(48.21129045708595, 16.37195107544338, null);
         GeoJsonDto route = routeGenerationService.generateRoundTrip(position, length);
