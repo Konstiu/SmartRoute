@@ -56,6 +56,7 @@ export class LoginPage {
         try {
           // generate and upload identity key if necessary
           const generated = await this.keyManagementService.generateAndStoreIdentityKey();
+          console.log("Generated identity key:", generated);
           if (generated) {
             await this.keyManagementService.uploadPublicIdentityKey();
           }

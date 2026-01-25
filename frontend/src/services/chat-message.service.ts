@@ -1,14 +1,24 @@
 import {Injectable} from "@angular/core";
 import {KeyManagementService} from "./key-management.service";
 import {ChatSocketService} from "./chat-socket.service";
+import {Subject, Observable} from "rxjs";
 
 @Injectable({providedIn: 'root'})
 export class ChatMessageService {
+
+  private messageSentSubject = new Subject<void>();
 
   constructor(
     private keyManagementService: KeyManagementService,
     private chatSocketService: ChatSocketService
   ) {
+  }
+
+  /**
+   * Observable that emits when a message has been sent
+   */
+  onMessageSent(): Observable<void> {
+    return this.messageSentSubject.asObservable();
   }
 
   /**
@@ -96,6 +106,8 @@ export class ChatMessageService {
 
     console.log(`Message sent to ${sentMessagesMyDevices.length} of my devices`);
 
+    // Notify subscribers that a message was sent
+    this.messageSentSubject.next();
   }
 
 }
