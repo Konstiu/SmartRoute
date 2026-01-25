@@ -90,21 +90,6 @@ ion-list {
   padding-bottom: 6px;
 }
 
-.day-pill {
-  flex: 0 0 auto;
-  width: 118px;
-  border: 1px solid rgba(0,0,0,0.10);
-  background: rgba(255,255,255,0.6);
-  border-radius: 16px;
-  padding: 10px 10px;
-  text-align: left;
-}
-
-.day-pill.selected {
-  border: 2px solid var(--ion-color-primary);
-  background: rgba(var(--ion-color-primary-rgb), 0.08);
-}
-
 .top-row {
   display: flex;
   justify-content: space-between;
@@ -163,17 +148,145 @@ ion-list {
   transition: opacity 150ms ease, max-height 150ms ease;
 }
 
-.week-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
 .live-toggle {
   display: flex;
   align-items: center;
   gap: 8px;
 }
+
+.page-container {
+  padding: 12px;
+}
+
+.week-card {
+  margin-bottom: 12px;
+}
+
+.week-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.live-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.week-strip {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 8px 2px 12px 2px;
+  scroll-snap-type: x mandatory;
+}
+
+.day-pill {
+  scroll-snap-align: start;
+
+  min-width: 132px;
+  height: 112px;
+  padding: 12px;
+
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.10);
+  background: var(--ion-card-background, #fff);
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+
+  transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+}
+
+.day-pill:active {
+  transform: scale(0.98);
+}
+
+.day-pill.selected {
+  border-color: var(--ion-color-primary);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+  transform: translateY(-1px);
+}
+
+.pill-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.weekday {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  opacity: 0.75;
+  text-transform: uppercase;
+}
+
+.daynum {
+  font-size: 20px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.pill-mid {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pill-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.day-pill.selected .pill-icon {
+  background: rgba(var(--ion-color-primary-rgb), 0.14);
+}
+
+.pill-icon ion-icon {
+  font-size: 18px;
+}
+
+.wlabel {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.pill-bot {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.confidence-badge,
+.weather-badge {
+  font-weight: 800;
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+
+.map-card {
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.rounded-card {
+  border-radius: 18px;
+}
+
 
 
 
