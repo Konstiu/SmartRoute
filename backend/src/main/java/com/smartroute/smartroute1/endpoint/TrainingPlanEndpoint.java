@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+
 
 @RestController
 @RequiredArgsConstructor
@@ -43,5 +45,16 @@ public class TrainingPlanEndpoint {
         String email = authentication.getName();
 
         return trainingPlanService.getTrainingPlan(email, latitude, longitude);
+    }
+
+    @GetMapping("/get-predicted-day")
+    @Secured("ROLE_USER")
+    @Operation(
+    )
+    public RecommendedActivityDto getPlannedDay(@RequestParam("planId") String planId, @RequestParam("date") LocalDate date) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+
+        return trainingPlanService.getPlannedDay(email, planId, date);
     }
 }

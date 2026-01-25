@@ -289,11 +289,10 @@ public class WeatherServiceImpl implements WeatherService {
 
         LocalDate fetchedAt = LocalDate.now(ZoneOffset.UTC);
         LocalDate nowUtc = fetchedAt;
-        LocalDate cutoff = nowUtc.plusDays(3); // keep only the next 72 hours
+        LocalDate cutoff = nowUtc.plusDays(7); //need all 7 days for 7 day trainings plan.
 
         for (int i = 0; i < time.size(); i++) {
             LocalDate entryTime = LocalDate.parse(time.get(i), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
-            // Skip anything beyond the 3-day window
             if (entryTime.isAfter(cutoff)) {
                 continue;
             }
