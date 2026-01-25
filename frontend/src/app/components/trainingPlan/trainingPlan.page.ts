@@ -204,6 +204,8 @@ export class TrainingPlanPage implements OnInit {
     const lat = location?.lat ?? 48.21;
     const lng = location?.lng ?? 16.36;
 
+    this.lastPlanLocation = latLng(lat, lng);
+
     this.plan7dService.getNext7Days(lat, lng, {
         debug: false,
         seed: 20,
@@ -273,37 +275,50 @@ export class TrainingPlanPage implements OnInit {
    * Applies a new start location:
    * refreshes training plan and regenerates route accordingly
    */
-  private async applyStartLocation(location: LatLng, updateBaseline: boolean) {
+  private async applyStartLocation(location: LatLng, updateBaseline: boolean)
+  {
     this.committedStops = [];
 
-    if (this.applyingStart) {
+    if (this.applyingStart)
+    {
       return;
-      }
+    }
 
     this.applyingStart = true;
 
-    try {
-      // ensure marker exists (you can also move it only after success if you want)
-      if (!this.userLocationMarker) {
+    try
+    {
+      if (!this.userLocationMarker)
+      {
         this.userLocationMarker = marker(location, { icon: coloredMarker(MAP_MARKER_COLORS.start) });
-      } else {
+      }
+      else
+      {
         this.userLocationMarker.setLatLng(location);
       }
 
-      // 1) refresh training plan for this location
+      this.lastPlanLocation = latLng(location.lat, location.lng);
+
+      // 1) refresh training plan (ONLY for today)
+      if (this.selectedDay && this.selectedDay.date === this.todayIso())
+      {
+        await this.refreshTrainingPlanFor(location);
+      }
 
       // 2) generate route using the new plan distance
       await this.generateRouteFromLocationAsync(location, updateBaseline);
-
-      // (generateRouteFromLocationAsync already rebuilds layers + refits)
-    } catch (err: any) {
+    }
+    catch (err: any)
+    {
       console.error('applyStartLocation failed', err);
       await this.showToast('Could not refresh plan/route for this location.', 3500, 'danger');
-      // optionally rollback marker here if you keep a snapshot
-    } finally {
+    }
+    finally
+    {
       this.applyingStart = false;
     }
   }
+
 
   // =====================================================
   // Map lifecycle + resize helpers
@@ -373,23 +388,31 @@ export class TrainingPlanPage implements OnInit {
 
   /** Generates a route for the current start using async/await */
   private async generateRouteFromLocationAsync(location: LatLng, updateBaseline: boolean, shouldFit: boolean = true): Promise<void> {
-    try {
-      const distance = this.selectedDay?.routeDto?.distance ?? this.recommendedActivity?.route?.distance;
-      const seed = this.selectedDay?.routeDto?.seed;
+  try {
+    const isToday = this.selectedDay?.date === this.todayIso();
 
-      if (!distance) {
-        console.warn('No distance available for route generation');
-        return;
-      }
+    const distance = isToday
+      ? this.recommendedActivity?.route?.distance
+      : this.selectedDay?.routeDto?.distance ?? this.recommendedActivity?.route?.distance;
 
-      const e = await firstValueFrom(
-        this.routeService.getGeneratedRoute(
-          location.lat,
-          location.lng,
-          distance,
-          seed
-        )
-      );
+    const seed = isToday
+      ? undefined
+      : this.selectedDay?.routeDto?.seed;
+
+    if (!distance)
+    {
+      console.warn('No distance available for route generation');
+      return;
+    }
+
+    const e = await firstValueFrom(
+      this.routeService.getGeneratedRoute(
+        location.lat,
+        location.lng,
+        distance,
+        seed
+      )
+    );
 
       this.recommendedActivity!.route!.distance = e.distance;
       this.recommendedActivity!.route!.elevation = e.elevation;
@@ -1046,37 +1069,49 @@ private rebuildLayers() {
     });
   }
 
-  selectDay(day: PlannedDayDto) {
+  selectDay(day: PlannedDayDto)
+  {
     this.saveTodayRouteSnapshot();
     this.selectedDay = day;
-
-    if (!this.planId) {
-      return;
-    }
 
     this.isLoadingDay = true;
     this.error = null;
 
-    this.service.getPlannedDay(this.planId, day.date).subscribe({
+    const isToday = day.date === this.todayIso();
+    const loc = this.resolvePlanLocation();
+
+    const request$ = isToday
+      ? this.service.getTrainingPlan(loc.lat, loc.lng)
+      : (this.planId ? this.service.getPlannedDay(this.planId, day.date) : null);
+
+    if (!request$)
+    {
+      this.isLoadingDay = false;
+      return;
+    }
+
+    request$.subscribe({
       next: async (activity) => {
         this.recommendedActivity = activity;
         this.isLoadingDay = false;
-        const isToday = day.date === this.todayIso();
 
-        if (activity.type === SessionType.RUN) {
-          if (isToday && this.restoreTodayRouteSnapshot()) {
+        if (activity.type === SessionType.RUN)
+        {
+          if (isToday && this.restoreTodayRouteSnapshot())
+          {
             this.refitPreviewMap();
             return;
           }
 
-          // not today OR no snapshot yet -> preview route only
-          this.committedStops = []; // ensure no edits leak into preview
+          this.committedStops = [];
           const start = this.userLocationMarker?.getLatLng() ?? this.originalStart ?? this.pendingInitialLocation;
-          if (start) {
-            await this.generateRouteFromLocationAsync(start, false, true); // fit=true so route stays in frame
+          if (start)
+          {
+            await this.generateRouteFromLocationAsync(start, false, true);
           }
-        } else {
-          // gym/rest
+        }
+        else
+        {
           this.latlngs = null;
           this.routeLine = null;
           this.routeBounds = null;
@@ -1085,7 +1120,7 @@ private rebuildLayers() {
         }
       },
       error: (err: any) => {
-        console.error('Failed to load planned day detail', err);
+        console.error('Failed to load day detail', err);
         this.isLoadingDay = false;
         this.error = 'Failed to load selected day.';
       }
@@ -1192,6 +1227,33 @@ private rebuildLayers() {
     } finally {
       this.showingRegenPrompt = false;
     }
+  }
+
+  private lastPlanLocation: LatLng | null = null;
+
+  private resolvePlanLocation(): LatLng
+  {
+    if (this.userLocationMarker)
+    {
+      return this.userLocationMarker.getLatLng();
+    }
+
+    if (this.originalStart)
+    {
+      return this.originalStart;
+    }
+
+    if (this.pendingInitialLocation)
+    {
+      return this.pendingInitialLocation;
+    }
+
+    if (this.lastPlanLocation)
+    {
+      return this.lastPlanLocation;
+    }
+
+    return latLng(48.21, 16.36);
   }
 
   protected readonly SessionType = SessionType;
