@@ -13,17 +13,26 @@ public interface OpenRouteServiceService {
      * @param coordinates coordinates through which the route should go.
      * @return A route that satisfies the conditions mentioned above.
      */
-    GeoJsonDto generateRoute(List<GeoJsonPosition> coordinates);
+    GeoJsonDto requestRoute(List<GeoJsonPosition> coordinates);
 
     /**
-     * Uses OpenRouteService to generate a round trip that visits the specified coordinates.
+     * Uses OpenRouteService to sample the elevation at the coordinates.
      *
-     * @param coordinates coordinates through which the route should go.
-     * @param length length of the round trip in m.
-     * @param points number of points ORS selects automatically to generate the route. More points make the route
-     *               rounder.
-     * @param seed a seed. Different numbers generate different routes with the same parameters.
-     * @return A route that satisfies the conditions mentioned above.
+     * @param coordinates at which the elevation is requested.
+     * @return points with elevation attached.
      */
-    GeoJsonDto generateRoundTrip(List<GeoJsonPosition> coordinates, int length, int points, int seed);
+    List<GeoJsonPosition> requestElevation(List<GeoJsonPosition> coordinates);
+
+
+//    /**
+//     * Uses OpenRouteService to generate a round trip that visits the specified coordinates.
+//     *
+//     * @param coordinates coordinates through which the route should go.
+//     * @param length length of the round trip in m.
+//     * @param points number of points ORS selects automatically to generate the route. More points make the route
+//     *               rounder.
+//     * @param seed a seed. Different numbers generate different routes with the same parameters.
+//     * @return A route that satisfies the conditions mentioned above.
+//     */
+//    GeoJsonDto generateRoundTrip(List<GeoJsonPosition> coordinates, int length, int points, int seed);
 }
