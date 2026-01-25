@@ -74,7 +74,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     private final TrainingPlanStore trainingPlanStore;
     private final UserModelStore userModelStore;
 
-    /** Creates the service with the system Vienna clock. */
+    /**
+     * Creates the service with the system Vienna clock.
+     */
     @Autowired
     public TrainingPlan7dServiceImpl(
             UserRepository userRepository,
@@ -107,7 +109,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         );
     }
 
-    /** Creates the service with an injected clock (useful for tests). */
+    /**
+     * Creates the service with an injected clock (useful for tests).
+     */
     public TrainingPlan7dServiceImpl(
             UserRepository userRepository,
             DailyAggregationService dailyAggregationService,
@@ -142,7 +146,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 1) PUBLIC ENTRYPOINT
     // =====================================================================
 
-    /** Builds the next 7 days training plan (with optional caching and debug). */
+    /**
+     * Builds the next 7 days training plan (with optional caching and debug).
+     */
     @Override
     public TrainingPlan7dDto buildNext7Days(
             String email,
@@ -237,7 +243,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 2) CACHE + OVERRIDES
     // =====================================================================
 
-    /** Loads a plan from cache (unless regen); also removes cache when regen is requested. */
+    /**
+     * Loads a plan from cache (unless regen); also removes cache when regen is requested.
+     */
     private Optional<TrainingPlan7dDto> loadFromCache(
             String email,
             String planId,
@@ -259,7 +267,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return Optional.empty();
     }
 
-    /** Loads a cached fit-model response for the current week if available and allowed. */
+    /**
+     * Loads a cached fit-model response for the current week if available and allowed.
+     */
     private Optional<FitUserModelResponse> loadFitModelFromCache(
             String email,
             LocalDate weekStart,
@@ -272,7 +282,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return userModelStore.get(email, modelKey);
     }
 
-    /** Applies DEV overrides and computes injury/readiness/constraints/history/ctl/atl. */
+    /**
+     * Applies DEV overrides and computes injury/readiness/constraints/history/ctl/atl.
+     */
     private OverridesResolved resolveOverrides(
             ApplicationUser user,
             String email,
@@ -314,7 +326,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return new OverridesResolved(injuryIndex, readiness, injuriesMap, constraints, recentLoads, ctl, atl);
     }
 
-    /** Uses real history or deterministic fake history if dev overrides request it. */
+    /**
+     * Uses real history or deterministic fake history if dev overrides request it.
+     */
     private List<Integer> resolveRecentLoads(
             ApplicationUser user,
             Integer historyDays,
@@ -332,7 +346,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return history.stream().map(DailySummary::getTotalLoad).toList();
     }
 
-    /** Generates deterministic fake recent loads (non-negative normal). */
+    /**
+     * Generates deterministic fake recent loads (non-negative normal).
+     */
     private List<Integer> fakeRecentLoads(int days, double mean, double std, long seed) {
         Random rng = new Random(seed ^ 0x9E3779B97F4A7C15L);
         List<Integer> out = new ArrayList<>(days);
@@ -343,7 +359,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return out;
     }
 
-    /** Clamps sims to a safe range so Monte Carlo doesn’t explode runtime. */
+    /**
+     * Clamps sims to a safe range so Monte Carlo doesn’t explode runtime.
+     */
     private int clampSims(Integer sims) {
         if (sims == null) {
             return 120;
@@ -351,7 +369,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return Math.max(20, Math.min(400, sims));
     }
 
-    /** Returns a deterministic default seed when none is provided. */
+    /**
+     * Returns a deterministic default seed when none is provided.
+     */
     private long defaultSeed(Long seed) {
         if (seed == null) {
             return 42L;
@@ -363,7 +383,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 3) TEMPLATE GENERATION
     // =====================================================================
 
-    /** Generates candidate weekly workout templates (planned types) and post-processes them. */
+    /**
+     * Generates candidate weekly workout templates (planned types) and post-processes them.
+     */
     private List<List<WorkoutType>> generateTemplates(ApplicationUser user, LocalDate startDate, boolean coldStart) {
         TemplateGenCfg cfg = cfgFor(user.getExperienceLevel());
 
@@ -439,7 +461,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return out.stream().distinct().limit(24).toList();
     }
 
-    /** Computes which weekdays are “available” for training (not necessarily “must run”). */
+    /**
+     * Computes which weekdays are “available” for training (not necessarily “must run”).
+     */
     private List<Integer> computeAvailableTrainingDays(ApplicationUser user, LocalDate startDate) {
         List<Integer> availableIdx = new ArrayList<>();
         for (int i = 0; i < 7; i++) {
@@ -451,73 +475,81 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return availableIdx;
     }
 
-    /** Returns possible intensity placements within the run-day list. */
+    /**
+     * Returns possible intensity placements within the run-day list.
+     */
     private List<int[]> buildIntensityPositionChoices(int numIntensity, int runN) {
         List<int[]> intensityPosChoices = new ArrayList<>();
         if (numIntensity == 0) {
-            intensityPosChoices.add(new int[] {});
+            intensityPosChoices.add(new int[]{});
             return intensityPosChoices;
         }
 
         if (numIntensity == 1) {
-            intensityPosChoices.add(new int[] { 0 });
-            intensityPosChoices.add(new int[] { Math.min(1, runN - 1) });
-            intensityPosChoices.add(new int[] { Math.max(0, runN / 2) });
+            intensityPosChoices.add(new int[]{0});
+            intensityPosChoices.add(new int[]{Math.min(1, runN - 1)});
+            intensityPosChoices.add(new int[]{Math.max(0, runN / 2)});
             return intensityPosChoices;
         }
 
-        intensityPosChoices.add(new int[] { 0, Math.max(1, runN / 2) });
-        intensityPosChoices.add(new int[] { 0, Math.max(1, runN - 3) });
-        intensityPosChoices.add(new int[] { 1, Math.max(2, runN - 3) });
+        intensityPosChoices.add(new int[]{0, Math.max(1, runN / 2)});
+        intensityPosChoices.add(new int[]{0, Math.max(1, runN - 3)});
+        intensityPosChoices.add(new int[]{1, Math.max(2, runN - 3)});
         return intensityPosChoices;
     }
 
-    /** Returns possible intensity type combinations (tempo/interval) for the week. */
+    /**
+     * Returns possible intensity type combinations (tempo/interval) for the week.
+     */
     private List<WorkoutType[]> buildIntensityTypeVariants(TemplateGenCfg cfg, int numIntensity) {
         if (numIntensity == 0) {
-            return Collections.singletonList(new WorkoutType[] {});
+            return Collections.singletonList(new WorkoutType[]{});
         }
 
         if (!cfg.allowIntervals() && cfg.allowTempo()) {
             return Collections.singletonList(
                     (numIntensity == 1)
-                            ? new WorkoutType[] { WorkoutType.TEMPO_RUN }
-                            : new WorkoutType[] { WorkoutType.TEMPO_RUN, WorkoutType.TEMPO_RUN }
+                            ? new WorkoutType[]{WorkoutType.TEMPO_RUN}
+                            : new WorkoutType[]{WorkoutType.TEMPO_RUN, WorkoutType.TEMPO_RUN}
             );
         }
 
         if (numIntensity == 1) {
             return List.of(
-                    new WorkoutType[] { WorkoutType.TEMPO_RUN },
-                    new WorkoutType[] { WorkoutType.INTERVAL_RUN }
+                    new WorkoutType[]{WorkoutType.TEMPO_RUN},
+                    new WorkoutType[]{WorkoutType.INTERVAL_RUN}
             );
         }
 
         return List.of(
-                new WorkoutType[] { WorkoutType.TEMPO_RUN, WorkoutType.INTERVAL_RUN },
-                new WorkoutType[] { WorkoutType.INTERVAL_RUN, WorkoutType.TEMPO_RUN },
-                new WorkoutType[] { WorkoutType.TEMPO_RUN, WorkoutType.TEMPO_RUN }
+                new WorkoutType[]{WorkoutType.TEMPO_RUN, WorkoutType.INTERVAL_RUN},
+                new WorkoutType[]{WorkoutType.INTERVAL_RUN, WorkoutType.TEMPO_RUN},
+                new WorkoutType[]{WorkoutType.TEMPO_RUN, WorkoutType.TEMPO_RUN}
         );
     }
 
-    /** Returns gym/mobility strategy candidates for the athlete level. */
+    /**
+     * Returns gym strategy candidates for the athlete level.
+     */
     private List<GymMobStrategy> strategiesFor(ExperienceLevel level) {
         ExperienceLevel lvl = (level == null) ? ExperienceLevel.INTERMEDIATE : level;
 
         return switch (lvl) {
-            case BEGINNER -> List.of(GymMobStrategy.MOBILITY_ON_NONRUN, GymMobStrategy.GYM_ON_EARLIEST_NONRUN);
-            case CASUAL -> List.of(GymMobStrategy.MOBILITY_ON_NONRUN, GymMobStrategy.GYM_AFTER_INTENSITY);
+            case BEGINNER -> List.of(GymMobStrategy.GYM_ON_EARLIEST_NONRUN);
+            case CASUAL -> List.of(GymMobStrategy.GYM_AFTER_INTENSITY, GymMobStrategy.GYM_ON_EARLIEST_NONRUN);
             case INTERMEDIATE, ADVANCED -> List.of(
                     GymMobStrategy.GYM_BEFORE_LONG,
                     GymMobStrategy.GYM_AFTER_INTENSITY,
-                    GymMobStrategy.MOBILITY_ON_NONRUN,
                     GymMobStrategy.GYM_ON_EARLIEST_NONRUN
             );
             case COMPETITIVE_ATHLETE -> List.of(GymMobStrategy.GYM_AFTER_INTENSITY);
+            default -> List.of(GymMobStrategy.GYM_ON_EARLIEST_NONRUN);
         };
     }
 
-    /** Picks different run-day subsets from availability (creates rest/gym/mob slots). */
+    /**
+     * Picks different run-day subsets from availability (creates rest/gym/mob slots).
+     */
     private List<List<Integer>> runDaySubsets(List<Integer> availableIdx, TemplateGenCfg cfg) {
         int n = availableIdx.size();
 
@@ -558,15 +590,18 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return variants;
     }
 
-    /** Strategy variants for assigning gym/mobility within a template. */
+    /**
+     * Strategy variants for assigning gym/mobility within a template.
+     */
     private enum GymMobStrategy {
         GYM_BEFORE_LONG,
         GYM_AFTER_INTENSITY,
-        MOBILITY_ON_NONRUN,
         GYM_ON_EARLIEST_NONRUN
     }
 
-    /** Builds a “simple easy week” when run days are too few to place structure. */
+    /**
+     * Builds a “simple easy week” when run days are too few to place structure.
+     */
     private List<WorkoutType> buildSimpleEasyWeekFromAvailability(
             List<Integer> availableIdx,
             List<Integer> runIdx,
@@ -581,6 +616,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
         boolean[] isAvailable = new boolean[7];
         boolean[] isRun = new boolean[7];
+
         for (int i : availableIdx) {
             isAvailable[i] = true;
         }
@@ -588,15 +624,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             isRun[i] = true;
         }
 
-        int addedMob = 0;
         int addedGym = 0;
-
-        for (int i = 0; i < 7 && addedMob < cfg.maxMobility(); i++) {
-            if (isAvailable[i] && !isRun[i] && week[i] == WorkoutType.REST_DAY) {
-                week[i] = WorkoutType.MOBILITY;
-                addedMob++;
-            }
-        }
 
         for (int i = 0; i < 7 && addedGym < cfg.maxGym(); i++) {
             if (isAvailable[i] && !isRun[i] && week[i] == WorkoutType.REST_DAY) {
@@ -605,17 +633,23 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             }
         }
 
-        if (cfg.requireRestDay() && java.util.Arrays.stream(week).noneMatch(w -> w == WorkoutType.REST_DAY)) {
-            int idx = lastIndexOf(week, WorkoutType.EASY_RUN);
-            if (idx >= 0) {
-                week[idx] = WorkoutType.REST_DAY;
+        if (cfg.requireRestDay()) {
+            boolean hasRest = java.util.Arrays.stream(week).anyMatch(w -> w == WorkoutType.REST_DAY);
+            if (!hasRest) {
+                int idx = lastIndexOf(week, WorkoutType.EASY_RUN);
+                if (idx >= 0) {
+                    week[idx] = WorkoutType.REST_DAY;
+                }
             }
         }
 
         return java.util.Arrays.asList(week);
     }
 
-    /** Builds a candidate template from run-day indices plus placements for long/quality/gym/mob. */
+
+    /**
+     * Builds a candidate template from run-day indices plus placements for long/quality/gym/mob.
+     */
     private List<WorkoutType> buildTemplate(
             List<Integer> availableIdx,
             List<Integer> runIdx,
@@ -628,7 +662,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     ) {
         // Start REST everywhere
         WorkoutType[] week
-                = new WorkoutType[]{ WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY};
+                = new WorkoutType[]{WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY, WorkoutType.REST_DAY};
 
         for (int absDay : runIdx) {
             week[absDay] = WorkoutType.EASY_RUN;
@@ -678,7 +712,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return java.util.Arrays.asList(week);
     }
 
-    /** Ensures hard workouts do not appear on consecutive days. */
+    /**
+     * Ensures hard workouts do not appear on consecutive days.
+     */
     private boolean passesHardDaySpacing(WorkoutType[] week) {
         for (int i = 1; i < 7; i++) {
             if (isHard(week[i - 1]) && isHard(week[i])) {
@@ -688,14 +724,18 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return true;
     }
 
-    /** Defines which planned types count as “hard”. */
+    /**
+     * Defines which planned types count as “hard”.
+     */
     private boolean isHard(WorkoutType workoutType) {
         return workoutType == WorkoutType.INTERVAL_RUN
                 || workoutType == WorkoutType.TEMPO_RUN
                 || workoutType == WorkoutType.LONG_RUN;
     }
 
-    /** Applies gym/mobility strategies only on available non-run rest slots. */
+    /**
+     * Applies gym strategies only on available non-run rest slots.
+     */
     private void applyGymMobility(
             WorkoutType[] week,
             List<Integer> availableIdx,
@@ -705,6 +745,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     ) {
         boolean[] isAvailable = new boolean[7];
         boolean[] isRunDay = new boolean[7];
+
         for (int i : availableIdx) {
             isAvailable[i] = true;
         }
@@ -724,6 +765,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 if (longAbsDay == null) {
                     return;
                 }
+
                 int gymDay = Math.max(0, longAbsDay - 1);
 
                 if (gymDay >= 0 && gymDay < 7 && isAvailable[gymDay] && !isRunDay[gymDay] && week[gymDay] == WorkoutType.REST_DAY) {
@@ -739,41 +781,30 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 }
 
                 int gymDay = Math.min(6, intenDay + 1);
+
                 if (isAvailable[gymDay] && !isRunDay[gymDay] && week[gymDay] == WorkoutType.REST_DAY) {
                     week[gymDay] = WorkoutType.GYM_PREHAB;
                 } else if (!eligibleNonRun.isEmpty()) {
                     week[eligibleNonRun.get(eligibleNonRun.size() - 1)] = WorkoutType.GYM_PREHAB;
                 }
             }
-            case MOBILITY_ON_NONRUN -> {
-                if (!eligibleNonRun.isEmpty()) {
-                    week[eligibleNonRun.get(0)] = WorkoutType.MOBILITY;
-                }
-            }
-            case GYM_ON_EARLIEST_NONRUN -> {
-                if (!eligibleNonRun.isEmpty()) {
-                    week[eligibleNonRun.get(0)] = WorkoutType.GYM_PREHAB;
-                }
-            }
             default -> {
                 if (!eligibleNonRun.isEmpty()) {
-                    week[eligibleNonRun.get(0)] = WorkoutType.MOBILITY;
+                    week[eligibleNonRun.get(0)] = WorkoutType.GYM_PREHAB;
                 }
             }
         }
     }
 
-    /** Caps gym and mobility occurrences by converting extras back to rest. */
+    /**
+     * Caps gym occurrences by converting extras back to rest.
+     */
     private void capGymMobility(WorkoutType[] week, TemplateGenCfg cfg) {
         int gym = 0;
-        int mob = 0;
 
         for (int i = 0; i < 7; i++) {
             if (week[i] == WorkoutType.GYM_PREHAB) {
                 gym++;
-            }
-            if (week[i] == WorkoutType.MOBILITY) {
-                mob++;
             }
         }
 
@@ -783,16 +814,11 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 gym--;
             }
         }
-
-        for (int i = 0; i < 7 && mob > cfg.maxMobility(); i++) {
-            if (week[i] == WorkoutType.MOBILITY) {
-                week[i] = WorkoutType.REST_DAY;
-                mob--;
-            }
-        }
     }
 
-    /** Finds the first index of any of the candidate workout types, or -1. */
+    /**
+     * Finds the first index of any of the candidate workout types, or -1.
+     */
     private int firstIndexOf(WorkoutType[] week, WorkoutType... candidates) {
         for (int i = 0; i < 7; i++) {
             for (WorkoutType candidate : candidates) {
@@ -804,7 +830,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return -1;
     }
 
-    /** Finds the last index of a candidate workout type, or -1. */
+    /**
+     * Finds the last index of a candidate workout type, or -1.
+     */
     private int lastIndexOf(WorkoutType[] week, WorkoutType candidate) {
         for (int i = 6; i >= 0; i--) {
             if (week[i] == candidate) {
@@ -818,7 +846,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 4) SCORING + CHOICE
     // =====================================================================
 
-    /** Chooses the best template via simulation + priors + shape constraints. */
+    /**
+     * Chooses the best template via simulation + priors + shape constraints.
+     */
     private PlanChoice chooseBestPlan(
             ApplicationUser user,
             LocalDate startDate,
@@ -957,7 +987,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return new PlanChoice(bestTemplateIndex, bestScore, bestTemplate, bestTsbDists, debugDto);
     }
 
-    /** Scores a template for “week shape” like rest distribution and minimum training density. */
+    /**
+     * Scores a template for “week shape” like rest distribution and minimum training density.
+     */
     private double weekShapeScore(List<WorkoutType> template, PlannerProfile profile) {
         if (template == null || template.size() != 7) {
             return 0.0;
@@ -982,7 +1014,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return score;
     }
 
-    /** Returns true if this workout type is any kind of run (easy/tempo/interval/long). */
+    /**
+     * Returns true if this workout type is any kind of run (easy/tempo/interval/long).
+     */
     private boolean isRun(WorkoutType workoutType) {
         return workoutType == WorkoutType.EASY_RUN
                 || workoutType == WorkoutType.TEMPO_RUN
@@ -994,7 +1028,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 5) SIMULATION
     // =====================================================================
 
-    /** Runs Monte Carlo simulation for a template and returns avg utility + risk-adjusted score + TSB distributions. */
+    /**
+     * Runs Monte Carlo simulation for a template and returns avg utility + risk-adjusted score + TSB distributions.
+     */
     private SimResult simulateTemplateJava(
             ApplicationUser user,
             LocalDate startDate,
@@ -1076,11 +1112,12 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return new SimResult(avgUtility, utilDist, riskAdjusted, tsbDists);
     }
 
-    /** Converts workout type + load into a positive training “reward”. */
+    /**
+     * Converts workout type + load into a positive training “reward”.
+     */
     private double trainingReward(WorkoutType workoutType, double load) {
         return switch (workoutType) {
             case REST_DAY -> 0.0;
-            case MOBILITY -> 2.0;
             case GYM_PREHAB -> 3.0;
             case EASY_RUN -> 6.0 + 0.015 * load;
             case LONG_RUN -> 10.0 + 0.020 * load;
@@ -1090,7 +1127,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         };
     }
 
-    /** Penalizes fatigue (TSB) especially on hard sessions. */
+    /**
+     * Penalizes fatigue (TSB) especially on hard sessions.
+     */
     private double fatiguePenalty(double tsb, WorkoutType workoutType) {
         double penalty = 0.0;
 
@@ -1109,7 +1148,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return penalty;
     }
 
-    /** Samples a non-negative normal random variable via Box-Muller. */
+    /**
+     * Samples a non-negative normal random variable via Box-Muller.
+     */
     private double sampleNonNegativeNormal(Random rng, double mean, double std) {
         if (std <= 0) {
             return Math.max(0, mean);
@@ -1126,11 +1167,15 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 6) EFFECTIVE WEEK (EXPERIENCE + INJURY + READINESS + WEATHER)
     // =====================================================================
 
-    /** Effective week computed from planned template + daily weatherScore (type conversions happen here). */
+    /**
+     * Effective week computed from planned template + daily weatherScore (type conversions happen here).
+     */
     private record EffectiveWeek(List<WorkoutType> effective, List<Double> weatherScores) {
     }
 
-    /** Computes per-day effective workout types and collects per-day weatherScore. */
+    /**
+     * Computes per-day effective workout types and collects per-day weatherScore.
+     */
     private EffectiveWeek computeEffectiveWeek(
             List<WorkoutType> planned,
             double injuryIndex,
@@ -1152,7 +1197,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return new EffectiveWeek(eff, ws);
     }
 
-    /** Produces the final type after gating by experience, injury, readiness, and weather. */
+    /**
+     * Produces the final type after gating by experience, injury, readiness, and weather.
+     */
     private WorkoutType effectiveWorkoutType(
             WorkoutType planned,
             double injuryIndex,
@@ -1169,11 +1216,13 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return workoutType;
     }
 
-    /** Downgrades planned workouts based on injury index. */
+    /**
+     * Downgrades planned workouts based on injury index.
+     */
     private WorkoutType mapWorkoutForInjury(WorkoutType workoutType, double injuryIndex) {
         if (injuryIndex >= 0.7) {
             return switch (workoutType) {
-                case INTERVAL_RUN, TEMPO_RUN -> WorkoutType.MOBILITY;
+                case INTERVAL_RUN, TEMPO_RUN -> WorkoutType.GYM_PREHAB;
                 case LONG_RUN -> WorkoutType.EASY_RUN;
                 default -> workoutType;
             };
@@ -1185,7 +1234,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         };
     }
 
-    /** Returns a penalty for injury risk given the effective workout type. */
+    /**
+     * Returns a penalty for injury risk given the effective workout type.
+     */
     private double injuryPenalty(double injuryIndex, WorkoutType workoutType) {
         if (injuryIndex < 0.4) {
             return 0.0;
@@ -1213,7 +1264,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return penalty;
     }
 
-    /** Maps planned workouts given readiness (very low -> convert hard to mobility). */
+    /**
+     * Maps planned workouts given readiness (very low -> convert hard to mobility).
+     */
     private WorkoutType mapWorkoutForReadiness(WorkoutType workoutType, int readiness) {
         if (readiness < 40) {
             return mapForVeryLowReadiness(workoutType);
@@ -1221,15 +1274,19 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return mapForModerateReadiness(workoutType);
     }
 
-    /** Performs strict readiness gating when readiness is very low. */
+    /**
+     * Performs strict readiness gating when readiness is very low.
+     */
     private WorkoutType mapForVeryLowReadiness(WorkoutType workoutType) {
         return switch (workoutType) {
-            case INTERVAL_RUN, TEMPO_RUN, LONG_RUN -> WorkoutType.MOBILITY;
+            case INTERVAL_RUN, TEMPO_RUN, LONG_RUN -> WorkoutType.GYM_PREHAB;
             default -> workoutType;
         };
     }
 
-    /** Performs moderate readiness gating when readiness is somewhat low. */
+    /**
+     * Performs moderate readiness gating when readiness is somewhat low.
+     */
     private WorkoutType mapForModerateReadiness(WorkoutType workoutType) {
         return switch (workoutType) {
             case INTERVAL_RUN -> WorkoutType.TEMPO_RUN;
@@ -1239,7 +1296,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         };
     }
 
-    /** Returns a penalty term based on readiness and workout type. */
+    /**
+     * Returns a penalty term based on readiness and workout type.
+     */
     private double readinessPenalty(int readiness, WorkoutType workoutType) {
         if (readiness >= 70) {
             return 0.0;
@@ -1269,7 +1328,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return 0.0;
     }
 
-    /** Maps outdoor runs to indoor gym/mobility when weather is too bad. */
+    /**
+     * Maps outdoor runs to indoor gym when weather is too bad.
+     */
     private WorkoutType mapWorkoutForWeather(WorkoutType workoutType, Double weatherScore) {
         if (weatherScore == null) {
             return WorkoutType.GYM_PREHAB;
@@ -1284,17 +1345,16 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             return workoutType;
         }
 
-        if (weatherScore < 0.2) {
-            return WorkoutType.GYM_PREHAB;
-        }
         if (weatherScore < 0.3) {
-            return WorkoutType.MOBILITY;
+            return WorkoutType.GYM_PREHAB;
         }
 
         return workoutType;
     }
 
-    /** Returns a penalty for bad weather on outdoor runs only. */
+    /**
+     * Returns a penalty for bad weather on outdoor runs only.
+     */
     private double weatherPenalty(Double weatherScore, WorkoutType workoutType) {
         if (weatherScore == null) {
             return 0.0;
@@ -1325,7 +1385,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 7) DAY DEBUG + MATERIALIZATION
     // =====================================================================
 
-    /** Builds the per-day debug information for the chosen plan. */
+    /**
+     * Builds the per-day debug information for the chosen plan.
+     */
     private List<DayDebugDto> buildDayDebug(
             ApplicationUser user,
             LocalDate startDate,
@@ -1380,7 +1442,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return out;
     }
 
-    /** Converts the chosen template into final day DTOs (including gym workouts and routes). */
+    /**
+     * Converts the chosen template into final day DTOs (including gym workouts and routes).
+     */
     private List<PlannedDayDto> materializePlanWithTsbDists(
             ApplicationUser user,
             LocalDate startDate,
@@ -1414,7 +1478,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             state = state.next(load.getMean());
 
             GymWorkoutDto gym = null;
-            if (effective == WorkoutType.GYM_PREHAB || effective == WorkoutType.MOBILITY) {
+            if (effective == WorkoutType.GYM_PREHAB) {
                 gym = gymWorkoutSelectorService.getGymWorkout(user, day, injuriesMap, readiness);
             }
 
@@ -1439,7 +1503,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return out;
     }
 
-    /** Converts load variance into a simple confidence label. */
+    /**
+     * Converts load variance into a simple confidence label.
+     */
     private String confidenceFromStd(LoadDistributionDto dist) {
         double frac = dist.getStd() / Math.max(1.0, dist.getMean());
         if (frac < 0.18) {
@@ -1451,7 +1517,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return "low";
     }
 
-    /** Builds a human-readable explanation for the day. */
+    /**
+     * Builds a human-readable explanation for the day.
+     */
     private List<String> explanation(WorkoutType workoutType, LoadDistributionDto load, double tsb, double injuryIndex, int readiness) {
         List<String> explanation = new ArrayList<>();
 
@@ -1478,7 +1546,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 8) ROUTE GENERATION
     // =====================================================================
 
-    /** Creates a RouteDto for run days by jittering base distance deterministically per day. */
+    /**
+     * Creates a RouteDto for run days by jittering base distance deterministically per day.
+     */
     private RouteDto computeRouteDtoForDay(
             ApplicationUser user,
             LocalDate date,
@@ -1533,13 +1603,17 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return new RouteDto(meters, base.getPace(), base.getElevation(), orsSeed);
     }
 
-    /** Creates a deterministic seed for a specific (planId, date, workoutType). */
+    /**
+     * Creates a deterministic seed for a specific (planId, date, workoutType).
+     */
     private long stableSeed(String planId, LocalDate date, WorkoutType workoutType) {
         String key = planId + ":" + date + ":" + workoutType.name();
         return key.hashCode() * 2654435761L;
     }
 
-    /** Mixes a long into a 32-bit int seed for ORS. */
+    /**
+     * Mixes a long into a 32-bit int seed for ORS.
+     */
     private int orsSeedFromLong(long seed) {
         long z = seed;
 
@@ -1552,7 +1626,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return (int) z;
     }
 
-    /** Clamps run distance to sensible bounds per workout type. */
+    /**
+     * Clamps run distance to sensible bounds per workout type.
+     */
     private double clampRunDistanceMeters(WorkoutType workoutType, double meters) {
         double min;
         double max;
@@ -1587,7 +1663,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 9) WEATHER
     // =====================================================================
 
-    /** Precomputes compact daily weather summaries for the next 7 days. */
+    /**
+     * Precomputes compact daily weather summaries for the next 7 days.
+     */
     private List<CompactWeatherDto> precomputeWeather(LocalDate startDate, double latitude, double longitude, int localHour) {
         List<CompactWeatherDto> weather = new ArrayList<>(7);
 
@@ -1599,7 +1677,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return weather;
     }
 
-    /** Builds a single-day CompactWeatherDto, falling back to safe defaults on errors. */
+    /**
+     * Builds a single-day CompactWeatherDto, falling back to safe defaults on errors.
+     */
     private CompactWeatherDto buildCompactWeatherDtoForDay(LocalDate day, double latitude, double longitude, int localHour) {
         try {
             String timeUtc = utcTimeStringFor(day, localHour);
@@ -1631,7 +1711,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
     }
 
-    /** Converts a local date+hour in Vienna into a UTC timestamp string for the API. */
+    /**
+     * Converts a local date+hour in Vienna into a UTC timestamp string for the API.
+     */
     private String utcTimeStringFor(LocalDate date, int localHour) {
         var local = date.atTime(localHour, 0).atZone(zone);
         var utc = local.withZoneSameInstant(ZoneId.of("UTC"));
@@ -1647,7 +1729,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 10) PROFILE + PRIORS
     // =====================================================================
 
-    /** Builds a planner profile from recent load history (consistency, risk aversion, uncertainty scaling). */
+    /**
+     * Builds a planner profile from recent load history (consistency, risk aversion, uncertainty scaling).
+     */
     private PlannerProfile buildPlannerProfile(ApplicationUser user, List<Integer> recentLoads) {
         List<Integer> last = (recentLoads != null && recentLoads.size() > 28)
                 ? recentLoads.subList(recentLoads.size() - 28, recentLoads.size())
@@ -1694,7 +1778,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         );
     }
 
-    /** Template prior based on “reasonable week structure” for this athlete profile. */
+    /**
+     * Template prior based on “reasonable week structure” for this athlete profile.
+     */
     private double templatePrior(PlannerProfile profile, List<WorkoutType> plannedTemplate) {
         if (plannedTemplate == null || plannedTemplate.size() != 7) {
             return 0.0;
@@ -1704,7 +1790,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         int longRuns = 0;
         int runDays = 0;
         int gym = 0;
-        int mob = 0;
         int rest = 0;
 
         for (WorkoutType workoutType : plannedTemplate) {
@@ -1723,7 +1808,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     longRuns++;
                 }
                 case GYM_PREHAB -> gym++;
-                case MOBILITY -> mob++;
+                case REST_DAY -> rest++;
                 default -> rest++;
             }
         }
@@ -1745,16 +1830,15 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         if (gym > 2) {
             score -= (gym - 2) * 6.0;
         }
-        if (mob > 2) {
-            score -= (mob - 2) * 4.0;
-        }
 
         score += bufferBonus(plannedTemplate);
 
         return score;
     }
 
-    /** Adds a small bonus for easy/rest buffer around hard/long days. */
+    /**
+     * Adds a small bonus for easy/rest buffer around hard/long days.
+     */
     private double bufferBonus(List<WorkoutType> template) {
         double score = 0.0;
 
@@ -1765,9 +1849,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 if (i > 0 && (template.get(i - 1) == WorkoutType.EASY_RUN || template.get(i - 1) == WorkoutType.REST_DAY)) {
                     score += 4.0;
                 }
-                if (i < 6 && (template.get(i + 1) == WorkoutType.REST_DAY || template.get(i + 1) == WorkoutType.MOBILITY)) {
-                    score += 4.0;
-                }
             }
 
             if (workoutType == WorkoutType.INTERVAL_RUN || workoutType == WorkoutType.TEMPO_RUN) {
@@ -1775,8 +1856,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     score += 2.5;
                 }
                 if (i < 6 && (template.get(i + 1) == WorkoutType.EASY_RUN
-                        || template.get(i + 1) == WorkoutType.REST_DAY
-                        || template.get(i + 1) == WorkoutType.MOBILITY)) {
+                        || template.get(i + 1) == WorkoutType.REST_DAY)) {
                     score += 2.5;
                 }
             }
@@ -1785,7 +1865,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return score;
     }
 
-    /** Multiplies forecast uncertainty based on profile + context for that day. */
+    /**
+     * Multiplies forecast uncertainty based on profile + context for that day.
+     */
     private double uncertaintyMultiplier(
             PlannerProfile profile,
             double injuryIndex,
@@ -1828,7 +1910,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return Math.max(0.7, Math.min(2.2, multiplier));
     }
 
-    /** Scales the weekly load target down when injury/readiness are low. */
+    /**
+     * Scales the weekly load target down when injury/readiness are low.
+     */
     private double weekTargetMultiplier(double injuryIndex, int readiness) {
         double multiplier = 1.0;
 
@@ -1849,7 +1933,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return Math.max(0.45, Math.min(1.10, multiplier));
     }
 
-    /** Penalizes missing “key sessions” (long run / quality) with gating for injury/readiness. */
+    /**
+     * Penalizes missing “key sessions” (long run / quality) with gating for injury/readiness.
+     */
     private double missingKeySessionsPenalty(
             List<WorkoutType> template,
             PlannerProfile profile,
@@ -1892,11 +1978,12 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return score;
     }
 
-    /** Returns a weight for stimulus estimation (not currently used heavily but useful for future scoring). */
+    /**
+     * Returns a weight for stimulus estimation (not currently used heavily but useful for future scoring).
+     */
     private double stimulusWeight(WorkoutType workoutType) {
         return switch (workoutType) {
             case REST_DAY -> 0.0;
-            case MOBILITY -> 0.2;
             case GYM_PREHAB -> 0.35;
             case EASY_RUN -> 1.0;
             case LONG_RUN -> 1.15;
@@ -1910,7 +1997,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 11) EXPERIENCE CONFIG
     // =====================================================================
 
-    /** Experience-level configuration controlling what sessions are allowed/expected. */
+    /**
+     * Experience-level configuration controlling what sessions are allowed/expected.
+     */
     private record ExperienceConfig(
             int minRunDaysForLong,
             int maxQualitySessions,
@@ -1922,7 +2011,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     ) {
     }
 
-    /** Returns experience configuration for the user’s level. */
+    /**
+     * Returns experience configuration for the user’s level.
+     */
     private ExperienceConfig expCfg(ApplicationUser user) {
         ExperienceLevel lvl = (user.getExperienceLevel() == null)
                 ? ExperienceLevel.INTERMEDIATE
@@ -1937,7 +2028,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         };
     }
 
-    /** Gates an illegal workout type into a supported one for this experience level. */
+    /**
+     * Gates an illegal workout type into a supported one for this experience level.
+     */
     private WorkoutType gateByExperience(WorkoutType workoutType, ExperienceConfig cfg) {
         if (workoutType == WorkoutType.INTERVAL_RUN && !cfg.allowIntervals()) {
             return WorkoutType.TEMPO_RUN;
@@ -1951,7 +2044,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return workoutType;
     }
 
-    /** Adds priors/penalties based purely on experience expectations. */
+    /**
+     * Adds priors/penalties based purely on experience expectations.
+     */
     private double experienceTemplatePrior(ExperienceConfig cfg, List<WorkoutType> template) {
         int qual = (int) template.stream().filter(w -> w == WorkoutType.TEMPO_RUN || w == WorkoutType.INTERVAL_RUN).count();
         int hard = (int) template.stream().filter(this::isHard).count();
@@ -1976,7 +2071,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return score;
     }
 
-    /** Template-generation configuration (availability vs run-day subset vs min rest). */
+    /**
+     * Template-generation configuration (availability vs run-day subset vs min rest).
+     */
     private record TemplateGenCfg(
             int minRunDays,
             int maxQuality,
@@ -1992,7 +2089,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     ) {
     }
 
-    /** Returns template-generation constraints based on the experience level. */
+    /**
+     * Returns template-generation constraints based on the experience level.
+     */
     private TemplateGenCfg cfgFor(ExperienceLevel lvl) {
         ExperienceLevel level = (lvl == null) ? ExperienceLevel.INTERMEDIATE : lvl;
 
@@ -2009,7 +2108,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 12) POST-PROCESSING (SHAPE SAFETY)
     // =====================================================================
 
-    /** Normalizes and filters templates according to safety/shape rules (especially for cold start). */
+    /**
+     * Normalizes and filters templates according to safety/shape rules (especially for cold start).
+     */
     private List<List<WorkoutType>> postProcessTemplates(List<List<WorkoutType>> templates, ExperienceLevel exp, boolean coldStart) {
         return templates.stream()
                 .map(t -> normalizeWeek(t, exp, coldStart))
@@ -2017,7 +2118,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 .toList();
     }
 
-    /** Normalizes a template into a safer shape for cold start (removes intensity, enforces recovery). */
+    /**
+     * Normalizes a template into a safer shape for cold start (removes intensity, enforces recovery).
+     */
     private List<WorkoutType> normalizeWeek(List<WorkoutType> week, ExperienceLevel exp, boolean coldStart) {
         List<WorkoutType> normalized = new ArrayList<>(week);
 
@@ -2037,7 +2140,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             }
 
             ensureAtLeastN(normalized, WorkoutType.REST_DAY, minRestDays(exp));
-            ensureAtLeastN(normalized, WorkoutType.MOBILITY, 1);
 
             if (exp != ExperienceLevel.BEGINNER) {
                 ensureAtLeastN(normalized, WorkoutType.GYM_PREHAB, 1);
@@ -2049,10 +2151,11 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return List.copyOf(normalized);
     }
 
-    /** Validates a week for cold start safety rules. */
+    /**
+     * Validates a week for cold start safety rules.
+     */
     private boolean isWeekValid(List<WorkoutType> week, ExperienceLevel exp, boolean coldStart) {
         int rest = count(week, WorkoutType.REST_DAY);
-        int mob = count(week, WorkoutType.MOBILITY);
         int hard = count(week, WorkoutType.TEMPO_RUN) + count(week, WorkoutType.INTERVAL_RUN);
         int longR = count(week, WorkoutType.LONG_RUN);
 
@@ -2061,9 +2164,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 return false;
             }
             if (rest < minRestDays(exp)) {
-                return false;
-            }
-            if (mob < 1) {
                 return false;
             }
             if ((exp == ExperienceLevel.BEGINNER || exp == ExperienceLevel.CASUAL) && longR > 0) {
@@ -2077,7 +2177,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return true;
     }
 
-    /** Returns the minimum rest days for an experience level. */
+    /**
+     * Returns the minimum rest days for an experience level.
+     */
     private int minRestDays(ExperienceLevel exp) {
         ExperienceLevel level = (exp == null) ? ExperienceLevel.INTERMEDIATE : exp;
 
@@ -2088,7 +2190,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         };
     }
 
-    /** Counts occurrences of a workout type in a week. */
+    /**
+     * Counts occurrences of a workout type in a week.
+     */
     private int count(List<WorkoutType> week, WorkoutType target) {
         int cnt = 0;
         for (WorkoutType x : week) {
@@ -2099,7 +2203,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return cnt;
     }
 
-    /** Ensures at least N occurrences of a type by converting easy runs first, then non-essential days. */
+    /**
+     * Ensures at least N occurrences of a type by converting easy runs first, then non-essential days.
+     */
     private void ensureAtLeastN(List<WorkoutType> week, WorkoutType target, int n) {
         int have = count(week, target);
 
@@ -2118,7 +2224,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
     }
 
-    /** Limits maximum consecutive runs by inserting rest days. */
+    /**
+     * Limits maximum consecutive runs by inserting rest days.
+     */
     private void capRunStreak(List<WorkoutType> week, int maxStreak) {
         int streak = 0;
 
@@ -2135,7 +2243,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
     }
 
-    /** Computes the maximum consecutive run streak length for a week. */
+    /**
+     * Computes the maximum consecutive run streak length for a week.
+     */
     private int maxConsecutiveRuns(List<WorkoutType> week) {
         int best = 0;
         int cur = 0;
@@ -2156,7 +2266,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 13) STATS (DISTRIBUTIONS)
     // =====================================================================
 
-    /** Converts a sample list into a JuliaDist (p10/p50/p90/mean/std). */
+    /**
+     * Converts a sample list into a JuliaDist (p10/p50/p90/mean/std).
+     */
     private JuliaDist toDist(List<Double> samples) {
         if (samples == null || samples.isEmpty()) {
             return new JuliaDist(0, 0, 0, 0, 0);
@@ -2175,7 +2287,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return new JuliaDist(p10, p50, p90, mean, std);
     }
 
-    /** Converts samples into a LoadDistributionDto (p10/p50/p90/mean/std). */
+    /**
+     * Converts samples into a LoadDistributionDto (p10/p50/p90/mean/std).
+     */
     private LoadDistributionDto toDistribution(List<Double> samples) {
         if (samples == null || samples.isEmpty()) {
             return new LoadDistributionDto(0, 0, 0, 0, 0);
@@ -2194,7 +2308,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return new LoadDistributionDto(p10, p50, p90, mean, std);
     }
 
-    /** Computes a linear-interpolated quantile from a sorted sample list. */
+    /**
+     * Computes a linear-interpolated quantile from a sorted sample list.
+     */
     private double quantile(List<Double> sorted, double q) {
         int n = sorted.size();
 
@@ -2214,7 +2330,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return sorted.get(lo) * (1 - w) + sorted.get(hi) * w;
     }
 
-    /** Computes sample standard deviation (Bessel corrected) from a list and its mean. */
+    /**
+     * Computes sample standard deviation (Bessel corrected) from a list and its mean.
+     */
     private double std(List<Double> values, double mean) {
         if (values.size() < 2) {
             return 0;
@@ -2234,12 +2352,16 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // 14) HELPERS + MISC
     // =====================================================================
 
-    /** Returns clamp to [0, 1]. */
+    /**
+     * Returns clamp to [0, 1].
+     */
     private double clamp01(double x) {
         return Math.max(0.0, Math.min(1.0, x));
     }
 
-    /** Returns true if we have too little history to trust the forecaster/profile. */
+    /**
+     * Returns true if we have too little history to trust the forecaster/profile.
+     */
     private boolean isColdStart(double ctl, double atl, List<Integer> recentLoads) {
         int nonZero = 0;
 
@@ -2254,7 +2376,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         return nonZero < 5 || (ctl <= 5.0 && atl <= 5.0);
     }
 
-    /** Safely evaluates a supplier, returning fallback on exceptions. */
+    /**
+     * Safely evaluates a supplier, returning fallback on exceptions.
+     */
     private double safe(SupplierWithException<Double> supplier, double fallback) {
         try {
             return supplier.get();
@@ -2263,7 +2387,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
     }
 
-    /** Safely evaluates an int supplier, returning fallback on exceptions. */
+    /**
+     * Safely evaluates an int supplier, returning fallback on exceptions.
+     */
     private int safeInt(SupplierWithException<Integer> supplier, int fallback) {
         try {
             return supplier.get();
@@ -2272,7 +2398,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
     }
 
-    /** Safely evaluates a list supplier, returning an empty list on exceptions. */
+    /**
+     * Safely evaluates a list supplier, returning an empty list on exceptions.
+     */
     private <T> List<T> safeList(SupplierWithException<List<T>> supplier) {
         try {
             return supplier.get();
@@ -2281,13 +2409,17 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
     }
 
-    /** Small supplier interface allowing checked exceptions. */
+    /**
+     * Small supplier interface allowing checked exceptions.
+     */
     @FunctionalInterface
     private interface SupplierWithException<T> {
         T get() throws Exception;
     }
 
-    /** Represents the chosen plan and optional debug output. */
+    /**
+     * Represents the chosen plan and optional debug output.
+     */
     private record PlanChoice(
             int bestTemplateIndex,
             double bestScore,
@@ -2297,7 +2429,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     ) {
     }
 
-    /** Planner profile derived from history statistics. */
+    /**
+     * Planner profile derived from history statistics.
+     */
     private record PlannerProfile(
             double meanDailyLoad,
             double stdDailyLoad,
@@ -2309,7 +2443,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     ) {
     }
 
-    /** Result of a simulation pass for a template. */
+    /**
+     * Result of a simulation pass for a template.
+     */
     private record SimResult(
             double avgUtility,
             JuliaDist utilDist,
@@ -2318,7 +2454,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     ) {
     }
 
-    /** Debug breakdown to log why a template won. */
+    /**
+     * Debug breakdown to log why a template won.
+     */
     private record ScoreBreakdown(
             double simRiskAdj,
             double templatePrior,
@@ -2329,7 +2467,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     ) {
     }
 
-    /** Logs a single-line breakdown of scoring terms for a candidate. */
+    /**
+     * Logs a single-line breakdown of scoring terms for a candidate.
+     */
     private void logBreakdown(int idx, List<WorkoutType> eff, ScoreBreakdown breakdown) {
         log.info(
                 "score {} simRiskAdj={} templatePrior={} missing={} expPrior={} shape={} TOTAL={} eff={}",
@@ -2344,12 +2484,16 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         );
     }
 
-    /** Rounds a value to 2 decimals for logging. */
+    /**
+     * Rounds a value to 2 decimals for logging.
+     */
     private double round2(double x) {
         return Math.round(x * 100.0) / 100.0;
     }
 
-    /** Container for resolved overrides + derived state. */
+    /**
+     * Container for resolved overrides + derived state.
+     */
     private record OverridesResolved(
             double injuryIndex,
             int readiness,
