@@ -15,6 +15,7 @@ import com.smartroute.smartroute1.service.ReadinessScoreService;
 import com.smartroute.smartroute1.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cglib.core.Local;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -89,14 +90,20 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
     @Override
     @Transactional
     public GymWorkoutDto getGymWorkout(ApplicationUser user, LocalDate date, Map<BodyPart, Double> injuriesMap, Integer readinessScore) {
-        Optional<GymWorkout> existing = gymWorkoutRepository.findFirstByUserAndCreationDate(user, date);
-        if (existing.isPresent()) {
-            GymWorkoutDto gymWorkoutDto = getGymWorkoutById(existing.get().getId(), user.getEmail());
+        Optional<GymWorkout> existingWorkoutOpt = gymWorkoutRepository.findTopByUserAndCreationDateOrderByIdDesc(user, date);
 
-            return gymWorkoutDto;
-        } else {
-            return getGymWorkout(user, injuriesMap, readinessScore);
+        if (existingWorkoutOpt.isPresent()) {
+            return toDto(existingWorkoutOpt.get());
         }
+
+        GymWorkout gymWorkout = getGymWorkout(injuriesMap, readinessScore);
+        gymWorkout.setUser(user);
+        gymWorkout.setCreationDate(date);
+
+        GymWorkout savedWorkout = gymWorkoutRepository.save(gymWorkout);
+        gymWorkoutRepository.flush();
+
+        return toDto(savedWorkout);
     }
 
     @Override
@@ -304,6 +311,15 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
 
         Random rnd = new Random();
         return list.get(rnd.nextInt(list.size()));
+    }
+
+    private GymWorkoutDto toDto(GymWorkout gymWorkout) {
+        GymWorkoutDto gymWorkoutDto = new GymWorkoutDto();
+        gymWorkoutDto.setId(gymWorkout.getId());
+        gymWorkoutDto.setExercises(exerciseMapper.entityListToDtoList(gymWorkout.getExercises()));
+        gymWorkoutDto.setReps(gymWorkout.getReps());
+        gymWorkoutDto.setSets(gymWorkout.getSets());
+        return gymWorkoutDto;
     }
 
 
