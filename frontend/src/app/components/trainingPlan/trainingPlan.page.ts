@@ -217,7 +217,7 @@ export class TrainingPlanPage implements OnInit {
 
     this.plan7dService.getNext7Days(lat, lng, { /* ... regen:false ... */ }).subscribe({
       next: (plan) => {
-        if (seq !== this.weekLoadSeq) return; // 👈 ignore stale
+        if (seq !== this.weekLoadSeq) return;
         this.weekPlan = plan;
         this.planId = plan.planId ?? null;
 
