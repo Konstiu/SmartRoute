@@ -1846,7 +1846,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
             GymWorkoutDto gym = null;
             if (effective == WorkoutType.GYM_PREHAB) {
-                gym = gymWorkoutSelectorService.getGymWorkout(user, day, injuriesMap, readiness);
+                gym = gymWorkoutSelectorService.getGymWorkout(user, injuriesMap, readiness);
             }
 
             RouteDto routeDto = null;
