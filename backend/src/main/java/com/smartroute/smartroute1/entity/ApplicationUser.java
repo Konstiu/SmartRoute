@@ -71,9 +71,18 @@ public class ApplicationUser {
     @ToString.Exclude
     private Set<Weekday> activeWeekdays = new HashSet<>();
 
+    private ClassificationCorrectionMap correctionMap = new ClassificationCorrectionMap();
+
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<UserDevice> devices = new ArrayList<>();
+    
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Atl> atls = new ArrayList<>();
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Ctl> ctls = new ArrayList<>();
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Tsb> tsbs = new ArrayList<>();
 
     public ApplicationUser() {
     }

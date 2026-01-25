@@ -217,7 +217,7 @@ class AddStopsServiceTest {
                 new GeoJsonPosition(0.0, 0.0, null),
                 new GeoJsonPosition(50.0, 50.0, null)
         ));
-        when(orsService.generateRoute(anyList(), eq(false))).thenReturn(baselineTooLong);
+        when(orsService.requestRoute(anyList(), eq(false))).thenReturn(baselineTooLong);
 
         AddStopsDto dto = new AddStopsDto(
                 sampleRoute(),

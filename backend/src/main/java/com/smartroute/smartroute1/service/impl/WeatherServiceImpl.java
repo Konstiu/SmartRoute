@@ -13,6 +13,7 @@ import com.smartroute.smartroute1.repository.WeatherRepository;
 import com.smartroute.smartroute1.service.WeatherService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.jpmml.model.temporals.DateTime;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
@@ -46,6 +47,115 @@ public class WeatherServiceImpl implements WeatherService {
     private final WeatherMapper weatherMapper;
     private final WeatherRepository weatherRepository;
 
+    // Compute the natural wet-bulb temperature in C°. Source: https://journals.ametsoc.org/view/journals/apme/50/11/jamc-d-11-0143.1.xml
+    private static double computeWetBulbTemp(double temperature, double relativeHumidity) {
+
+        double wetBulb =
+                temperature * Math.atan(0.151977 * Math.sqrt(relativeHumidity + 8.313659))
+                        + Math.atan(temperature + relativeHumidity)
+                        - Math.atan(relativeHumidity - 1.676331)
+                        + 0.00391838 * Math.pow(relativeHumidity, 1.5) * Math.atan(0.023101 * relativeHumidity)
+                        - 4.686035;
+
+        return wetBulb;
+    }
+
+    // Returns the day of the year
+    private static int extractDayOfYear(String isoTime) {
+        LocalDateTime dt = LocalDateTime.parse(isoTime);
+        return dt.getDayOfYear();
+    }
+
+    // Provides a description to temperature.
+    private static String temperatureToText(HeatRiskCategory heatRisk) {
+        return switch (heatRisk) {
+            case EXTREME_COLD -> "Extreme cold. DANGER! Outdoor conditions are hazardous. Stay indoors.";
+            case SEVERE_COLD -> """
+                    Severe cold. \
+                    
+                    Severe risk of hypothermia if outside for long periods without adequate clothing or shelter from wind and cold.\
+                    
+                    Severe risk of frostbite: Check face and extremities frequently for numbness or whiteness.\
+                    
+                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run.""";
+            case VERY_HIGH_COLD_RISK -> """
+                    Very cold conditions. \
+                    
+                    Very high risk of frostbite: Check face and extremities for numbness or whiteness.\
+                    
+                    Very high risk of hypothermia if outside for long periods without adequate clothing or shelter from wind and cold.\
+                    
+                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run.""";
+            case HIGH_COLD_RISK -> """
+                    Beyond uncomfortable cold conditions.
+                    
+                    High risk of frostnip or frostbite: Check face and extremities for numbness or whiteness.\
+                    
+                    High risk of hypothermia if outside for long periods without adequate clothing or shelter from wind and cold.\
+                    
+                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run.""";
+            case MODERATE_COLD -> """
+                    Uncomfortably cold conditions.\
+                    
+                    Risk of hypothermia and frostbite if outside for long periods without adequate protection.\
+                    
+                    Dress in layers of warm clothing, keep active and stay dry.""";
+            case LOW_COLD -> """
+                    Very cool conditions.\
+                    
+                    Slight increase in discomfort.\
+                    
+                    Dress warmly and stay dry.""";
+            case NEUTRAL_COLD -> "Cool conditions, generally favorable for running.";
+            case BELOW_WBGT_RANGE ->
+                    "Slightly cool conditions, favorable for running."; // this case should never happen
+            case OPTIMAL -> "Optimal temperature for running.";
+            case LOW_HEAT -> """
+                    Warm conditions.\
+                    
+                    Heat stress and other heat illnesses are possible.\
+                    
+                    If you are a high risk individual, monitor yourself.""";
+            case MODERATE_HEAT -> """
+                    Hot conditions.\
+                    
+                    Risk of heat illnesses for everyboy are increased.""";
+            case HIGH_HEAT -> """
+                    Very hot conditions.\
+                    
+                    If you are unfit or not acclimatized, running becomes dangerous.""";
+            case EXTREME_HEAT -> """
+                    Extremely hot conditions.\
+                    
+                    Cancel your run.""";
+        };
+    }
+
+    // Provides a description to wind speed.
+    private static String windToText(WindIntensity windIntensity) {
+        return switch (windIntensity) {
+            case CALM -> "Barely any wind, expect no difficulties.";
+            case GENTLE_BREEZE -> "Light breeze that may slightly affect your pacing.";
+            case MODERATE_BREEZE -> "Noticeable wind, expect some resistance.";
+            case STRONG_BREEZE -> "These strong winds will cause a significant impact on your run.";
+            case GALE_AND_BEYOND -> "Dangerous wind conditions, seek shelter and avoid the outside.";
+        };
+    }
+
+    // Provides a description to precipitation.
+    private static String precipitationToText(PrecipitationIntensity precipitationIntensity) {
+        return switch (precipitationIntensity) {
+            case NONE -> "Dry conditions with optimal traction.";
+            case TRACE -> "Light drizzle, slightly slick surfaces possible.";
+            case VERY_LIGHT -> "Very light precipitation causes a mild cooling effect and reduced traction.";
+            case LIGHT -> "Light precipitation causes a moderate cooling effect and reduced traction.";
+            case MODERATE -> "In this moderate precipitation expect wet clothing and a noticeable impact on your pace.";
+            case HEAVY ->
+                    "In this heavy precipitation you will be completely drenched. Expect reduced visibility and significant traction loss.";
+            case VIOLENT -> "Very violent precipitation, consider staying at home.";
+        };
+    }
+
     @Transactional
     @Override
     public WeatherResponse getWeatherAtTime(double latitude, double longitude, String timeUtc) throws ValidationException {
@@ -76,7 +186,12 @@ public class WeatherServiceImpl implements WeatherService {
 
         // Fetch new data
         LOGGER.trace("Weather not cached, calling open-meteo");
-        importHourlyWeather(latitude, longitude);
+        if (DateTime.parse(timeUtc).getDateTime().isBefore(LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0))) {
+            String timeStr = DateTime.parse(timeUtc).getDateTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            importPastHourlyWeather(latitude, longitude, timeStr);
+        } else {
+            importHourlyWeather(latitude, longitude);
+        }
 
         // Load from repository
         return weatherRepository.getByTimeAndLatitudeAndLongitude(timeUtc, latitude, longitude);
@@ -86,7 +201,72 @@ public class WeatherServiceImpl implements WeatherService {
     private void importHourlyWeather(double latitude, double longitude) throws ValidationException {
         validator.validateCoordinates(latitude, longitude);
 
-        String url = buildUrl(latitude, longitude);
+        String url = buildUrl(latitude, longitude, null);
+        LOGGER.trace("Calling Open-Meteo API with URL: {}", url);
+
+        JsonNode root = fetchWeatherData(url);
+
+        JsonNode hourly = root.path("hourly");
+
+        List<String> time = extractStringList(hourly);
+        List<Double> temperature = extractDoubleList(hourly, "temperature_2m");
+        List<Double> precipitation = extractDoubleList(hourly, "precipitation");
+        List<Double> windSpeed = extractDoubleList(hourly, "wind_speed_10m");
+        List<Double> humidity = extractDoubleList(hourly, "relative_humidity_2m");
+        List<Double> radiation = extractDoubleList(hourly, "shortwave_radiation");
+        List<Double> dewPoint = extractDoubleList(hourly, "dew_point_2m");
+        List<Double> surfacePressure = extractDoubleList(hourly, "surface_pressure");
+        List<Double> directRadiation = extractDoubleList(hourly, "direct_radiation");
+        List<Double> diffuseRadiation = extractDoubleList(hourly, "diffuse_radiation");
+        List<Double> snowDepth = extractDoubleList(hourly, "snow_depth");
+
+        List<WeatherResponse> entities = new ArrayList<>();
+
+        LocalDate fetchedAt = LocalDate.now(ZoneOffset.UTC);
+        LocalDate nowUtc = fetchedAt;
+        LocalDate cutoff = nowUtc.plusDays(3); // keep only the next 72 hours
+
+        for (int i = 0; i < time.size(); i++) {
+            LocalDate entryTime = LocalDate.parse(time.get(i), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
+            // Skip anything beyond the 3-day window
+            if (entryTime.isAfter(cutoff)) {
+                continue;
+            }
+
+            WeatherDto dto = new WeatherDto(
+                    time.get(i),
+                    temperature.get(i),
+                    windSpeed.get(i),
+                    precipitation.get(i),
+                    humidity.get(i),
+                    radiation.get(i),
+                    directRadiation.get(i),
+                    diffuseRadiation.get(i),
+                    surfacePressure.get(i),
+                    dewPoint.get(i),
+                    snowDepth.get(i)
+            );
+
+            // Check if existing entry in DB
+            WeatherResponse entity = weatherRepository.getByTimeAndLatitudeAndLongitude(time.get(i), latitude, longitude);
+
+            // Map the dto into entity (create new if null)
+            entity = weatherMapper.toEntity(dto, entity, latitude, longitude);
+
+            // assign fetch timestamp
+            entity.setForecastGeneratedAt(fetchedAt);
+
+            entities.add(entity);
+        }
+
+        weatherRepository.saveAll(entities);
+    }
+
+    // Stores weather data from a specific day in the past.
+    private void importPastHourlyWeather(double latitude, double longitude, String timeUtc) throws ValidationException {
+        validator.validateCoordinates(latitude, longitude);
+
+        String url = buildUrl(latitude, longitude, timeUtc);
         LOGGER.trace("Calling Open-Meteo API with URL: {}", url);
 
         JsonNode root = fetchWeatherData(url);
@@ -148,7 +328,14 @@ public class WeatherServiceImpl implements WeatherService {
     }
 
     // Build url for open-meteo.
-    private String buildUrl(double latitude, double longitude) {
+    private String buildUrl(double latitude, double longitude, String timeUtc) {
+        if (timeUtc != null) {
+            return "https://api.open-meteo.com/v1/forecast?latitude=" + latitude
+                    + "&longitude=" + longitude
+                    + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation,snow_depth"
+                    + "&start_date=" + timeUtc
+                    + "&end_date=" + timeUtc;
+        }
         return "https://api.open-meteo.com/v1/forecast?latitude=" + latitude
                 + "&longitude=" + longitude
                 + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation,snow_depth";
@@ -248,19 +435,6 @@ public class WeatherServiceImpl implements WeatherService {
         double weatherScore = clamp(score, 0.0, 1.0);
 
         return weatherScore;
-    }
-
-    // Compute the natural wet-bulb temperature in C°. Source: https://journals.ametsoc.org/view/journals/apme/50/11/jamc-d-11-0143.1.xml
-    private static double computeWetBulbTemp(double temperature, double relativeHumidity) {
-
-        double wetBulb =
-                temperature * Math.atan(0.151977 * Math.sqrt(relativeHumidity + 8.313659))
-                        + Math.atan(temperature + relativeHumidity)
-                        - Math.atan(relativeHumidity - 1.676331)
-                        + 0.00391838 * Math.pow(relativeHumidity, 1.5) * Math.atan(0.023101 * relativeHumidity)
-                        - 4.686035;
-
-        return wetBulb;
     }
 
     // Compute the wet bulb globe-temperature.
@@ -373,12 +547,6 @@ public class WeatherServiceImpl implements WeatherService {
         return dt.getHour();
     }
 
-    // Returns the day of the year
-    private static int extractDayOfYear(String isoTime) {
-        LocalDateTime dt = LocalDateTime.parse(isoTime);
-        return dt.getDayOfYear();
-    }
-
     // Calculates wind chill, a measurement of perceived coldness. Source: https://www.canada.ca/en/environment-climate-change/services/weather-health/wind-chill-cold-weather/wind-chill-index.html
     private double calculateWindChill(double temperature, double windSpeed) {
         // formula is only valid for wind speeds above 5km/h. If it is below, simply return ambient temperature.
@@ -475,40 +643,6 @@ public class WeatherServiceImpl implements WeatherService {
 
         double impact = precipMm * baseSlope * intensityFactor;
         return impact;
-    }
-
-    private enum WindIntensity {
-        CALM,
-        GENTLE_BREEZE,
-        MODERATE_BREEZE,
-        STRONG_BREEZE,
-        GALE_AND_BEYOND
-    }
-
-    private enum HeatRiskCategory {
-        EXTREME_COLD,
-        SEVERE_COLD,
-        VERY_HIGH_COLD_RISK,
-        HIGH_COLD_RISK,
-        MODERATE_COLD,
-        LOW_COLD,
-        NEUTRAL_COLD,
-        BELOW_WBGT_RANGE,
-        OPTIMAL,
-        LOW_HEAT,
-        MODERATE_HEAT,
-        HIGH_HEAT,
-        EXTREME_HEAT
-    }
-
-    public enum PrecipitationIntensity {
-        NONE,
-        TRACE,
-        VERY_LIGHT,
-        LIGHT,
-        MODERATE,
-        HEAVY,
-        VIOLENT
     }
 
     // Classification of the heat risk: https://www.weather.gov/arx/wbgt
@@ -649,92 +783,37 @@ public class WeatherServiceImpl implements WeatherService {
                 precipitationToText(precipitationIntensity));
     }
 
-    // Provides a description to temperature.
-    private static String temperatureToText(HeatRiskCategory heatRisk) {
-        return switch (heatRisk) {
-            case EXTREME_COLD -> "Extreme cold. DANGER! Outdoor conditions are hazardous. Stay indoors.";
-            case SEVERE_COLD -> """
-                    Severe cold. \
-                    
-                    Severe risk of hypothermia if outside for long periods without adequate clothing or shelter from wind and cold.\
-                    
-                    Severe risk of frostbite: Check face and extremities frequently for numbness or whiteness.\
-                    
-                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run.""";
-            case VERY_HIGH_COLD_RISK -> """
-                    Very cold conditions. \
-                    
-                    Very high risk of frostbite: Check face and extremities for numbness or whiteness.\
-                    
-                    Very high risk of hypothermia if outside for long periods without adequate clothing or shelter from wind and cold.\
-                    
-                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run.""";
-            case HIGH_COLD_RISK -> """
-                    Beyond uncomfortable cold conditions.
-                    
-                    High risk of frostnip or frostbite: Check face and extremities for numbness or whiteness.\
-                    
-                    High risk of hypothermia if outside for long periods without adequate clothing or shelter from wind and cold.\
-                    
-                    Cover all exposed skin in layers of warm clothing, keep active and stay dry. Be prepared to cut short or cancel your run.""";
-            case MODERATE_COLD -> """
-                    Uncomfortably cold conditions.\
-                    
-                    Risk of hypothermia and frostbite if outside for long periods without adequate protection.\
-                    
-                    Dress in layers of warm clothing, keep active and stay dry.""";
-            case LOW_COLD -> """
-                    Very cool conditions.\
-                    
-                    Slight increase in discomfort.\
-                    
-                    Dress warmly and stay dry.""";
-            case NEUTRAL_COLD -> "Cool conditions, generally favorable for running.";
-            case BELOW_WBGT_RANGE ->
-                    "Slightly cool conditions, favorable for running."; // this case should never happen
-            case OPTIMAL -> "Optimal temperature for running.";
-            case LOW_HEAT -> """
-                    Warm conditions.\
-                    
-                    Heat stress and other heat illnesses are possible.\
-                    
-                    If you are a high risk individual, monitor yourself.""";
-            case MODERATE_HEAT -> """
-                    Hot conditions.\
-                    
-                    Risk of heat illnesses for everyboy are increased.""";
-            case HIGH_HEAT -> """
-                    Very hot conditions.\
-                    
-                    If you are unfit or not acclimatized, running becomes dangerous.""";
-            case EXTREME_HEAT -> """
-                    Extremely hot conditions.\
-                    
-                    Cancel your run.""";
-        };
+    private enum WindIntensity {
+        CALM,
+        GENTLE_BREEZE,
+        MODERATE_BREEZE,
+        STRONG_BREEZE,
+        GALE_AND_BEYOND
     }
 
-    // Provides a description to wind speed.
-    private static String windToText(WindIntensity windIntensity) {
-        return switch (windIntensity) {
-            case CALM -> "Barely any wind, expect no difficulties.";
-            case GENTLE_BREEZE -> "Light breeze that may slightly affect your pacing.";
-            case MODERATE_BREEZE -> "Noticeable wind, expect some resistance.";
-            case STRONG_BREEZE -> "These strong winds will cause a significant impact on your run.";
-            case GALE_AND_BEYOND -> "Dangerous wind conditions, seek shelter and avoid the outside.";
-        };
+    private enum HeatRiskCategory {
+        EXTREME_COLD,
+        SEVERE_COLD,
+        VERY_HIGH_COLD_RISK,
+        HIGH_COLD_RISK,
+        MODERATE_COLD,
+        LOW_COLD,
+        NEUTRAL_COLD,
+        BELOW_WBGT_RANGE,
+        OPTIMAL,
+        LOW_HEAT,
+        MODERATE_HEAT,
+        HIGH_HEAT,
+        EXTREME_HEAT
     }
 
-    // Provides a description to precipitation.
-    private static String precipitationToText(PrecipitationIntensity precipitationIntensity) {
-        return switch (precipitationIntensity) {
-            case NONE -> "Dry conditions with optimal traction.";
-            case TRACE -> "Light drizzle, slightly slick surfaces possible.";
-            case VERY_LIGHT -> "Very light precipitation causes a mild cooling effect and reduced traction.";
-            case LIGHT -> "Light precipitation causes a moderate cooling effect and reduced traction.";
-            case MODERATE -> "In this moderate precipitation expect wet clothing and a noticeable impact on your pace.";
-            case HEAVY -> "In this heavy precipitation you will be completely drenched. Expect reduced visibility and significant traction loss.";
-            case VIOLENT -> "Very violent precipitation, consider staying at home.";
-        };
+    public enum PrecipitationIntensity {
+        NONE,
+        TRACE,
+        VERY_LIGHT,
+        LIGHT,
+        MODERATE,
+        HEAVY,
+        VIOLENT
     }
 }
