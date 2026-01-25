@@ -109,19 +109,8 @@ public class RouteEvaluationServiceImpl implements RouteEvaluationService {
         double deltaLon = Math.toRadians(p2.getLongitude() - p1.getLongitude());
 
         // Haversine formula
-        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-                Math.cos(lat1Rad) * Math.cos(lat2Rad) *
-                        Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
+                + Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
-
-//    private double elevationGain(GeoJsonDto route) {
-//        List<GeoJsonPosition> coordinates = route.getFeatures().getFirst().getGeometry().getCoordinates();
-//        double elevationGain = 0;
-//        GeoJsonPosition lastCoordinate = coordinates.getFirst();
-//        for (GeoJsonPosition coordinate : coordinates) {
-//            elevationGain += Math.max(0, coordinate.getAltitude() - lastCoordinate.getAltitude());
-//        }
-//        return elevationGain;
-//    }
 }
