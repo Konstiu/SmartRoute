@@ -76,6 +76,18 @@
             {{ date }}
             }
           </ion-card-title>
+
+          @if (selectedDay?.date === todayIso()) {
+          <ion-item lines="none" class="live-toggle">
+            <ion-label>Use live suggestion</ion-label>
+            <ion-toggle
+              slot="end"
+              [checked]="useLiveSuggestionForToday"
+              (ionChange)="onLiveSuggestionToggle($event)">
+            </ion-toggle>
+          </ion-item>
+          }
+
           <ion-card-title style="display: flex; justify-content: space-between; align-items: right;">
             Recommended Session: {{ recommendedActivity?.name }}
             @if (latlngs !== null) {

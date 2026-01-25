@@ -46,6 +46,8 @@ import java.time.Clock;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.ZoneOffset;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -170,7 +172,11 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
         LocalDate today = LocalDate.now(clock);
         LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
-        String planId = "week:" + weekStart;
+
+        String basePlanId = "week:" + weekStart;
+
+        String planId = regen ? (basePlanId + ":live") : basePlanId;
+
 
         Optional<TrainingPlan7dDto> cached = loadFromCache(email, planId, debug, overrides, regen);
 
@@ -219,7 +225,20 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
         OverridesResolved resolved = resolveOverrides(user, email, today, overrides, seed);
 
-        List<CompactWeatherDto> weatherPerDay = precomputeWeather(today, latitude, longitude, 18);
+        int fixedHourUtc = 18;
+        int liveHourUtc = ZonedDateTime.now(clock)
+                .withZoneSameInstant(ZoneOffset.UTC)
+                .withMinute(0).withSecond(0).withNano(0)
+                .getHour();
+
+        List<CompactWeatherDto> weatherPerDay = precomputeWeather(today, latitude, longitude, fixedHourUtc);
+
+        if (regen && !weatherPerDay.isEmpty()) {
+            // re-fetch ONLY day 0 at live hour
+            CompactWeatherDto todayLive = precomputeWeather(today, latitude, longitude, liveHourUtc).get(0);
+            weatherPerDay.set(0, todayLive);
+        }
+
         List<Integer> recentLoads = resolved.recentLoads();
 
         PlannerProfile profile = buildPlannerProfile(user, recentLoads);

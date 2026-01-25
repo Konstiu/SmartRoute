@@ -47,6 +47,10 @@ export class TrainingPlanPage implements OnInit {
   private readonly plan7dService: TrainingPlan7dService = inject(TrainingPlan7dService);
   private readonly ROUTE_NOT_FOUND_CODE = 'ROUTE_NOT_FOUND';
   private readonly trainingPlanInjuryChangedFlagKey: string = 'trainingPlanInjuryChanged';
+  private readonly liveSuggestionToggleKey: string = 'trainingPlanUseLiveSuggestionToday';
+
+  useLiveSuggestionForToday: boolean = localStorage.getItem(this.liveSuggestionToggleKey) === 'true';
+
 
   private showingRegenPrompt: boolean = false;
   private routeLine: Polyline | null = null;
@@ -75,6 +79,9 @@ export class TrainingPlanPage implements OnInit {
 
   private showRoute = false;
   private routeArrows: Layer | null = null;
+
+  private dayLoadSeq = 0;
+  private weekLoadSeq = 0;
 
   error: string | null = null;
   isLoadingWeek: boolean = true;
@@ -198,6 +205,8 @@ export class TrainingPlanPage implements OnInit {
   // =====================================================
 
   loadWeekPlan(location?: LatLng): void {
+    const seq = ++this.weekLoadSeq;
+
     this.isLoadingWeek = true;
     this.error = null;
 
@@ -206,29 +215,20 @@ export class TrainingPlanPage implements OnInit {
 
     this.lastPlanLocation = latLng(lat, lng);
 
-    this.plan7dService.getNext7Days(lat, lng, {
-        debug: false,
-        seed: 20,
-        regen: false,
-        historyDays: 60,
-        historyMean: 35,
-        historyStd: 8,
-        readiness: 50,
-        injuryIndex: 0.5,
-        ctl: 50,
-        atl: 35
-      }).subscribe({
-      next: (plan: TrainingPlan7dDto) => {
+    this.plan7dService.getNext7Days(lat, lng, { /* ... regen:false ... */ }).subscribe({
+      next: (plan) => {
+        if (seq !== this.weekLoadSeq) return; // 👈 ignore stale
         this.weekPlan = plan;
         this.planId = plan.planId ?? null;
 
-        const todayIso = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const todayIso = this.todayIso();
         const initial = plan.days.find(d => d.date === todayIso) ?? plan.days[0];
 
         this.selectDay(initial);
         this.isLoadingWeek = false;
       },
-      error: err => {
+      error: (err) => {
+        if (seq !== this.weekLoadSeq) return;
         console.error(err);
         this.isLoadingWeek = false;
         this.error = "Failed to load 7-day plan.";
@@ -288,6 +288,7 @@ export class TrainingPlanPage implements OnInit {
 
     try
     {
+      // ensure marker exists
       if (!this.userLocationMarker)
       {
         this.userLocationMarker = marker(location, { icon: coloredMarker(MAP_MARKER_COLORS.start) });
@@ -297,15 +298,50 @@ export class TrainingPlanPage implements OnInit {
         this.userLocationMarker.setLatLng(location);
       }
 
+      // remember last used location for "today live weather" requests
       this.lastPlanLocation = latLng(location.lat, location.lng);
 
-      // 1) refresh training plan (ONLY for today)
-      if (this.selectedDay && this.selectedDay.date === this.todayIso())
-      {
-        await this.refreshTrainingPlanFor(location);
+      // TODAY ONLY: when start changes, refresh today's display (either live or merged)
+      if (this.selectedDay && this.selectedDay.date === this.todayIso() && this.planId) {
+        try {
+          if (this.useLiveSuggestionForToday) {
+            // toggle ON: pure live suggestion (type may differ from weekly plan)
+            const liveActivity = await firstValueFrom(
+              this.service.getTrainingPlan(location.lat, location.lng)
+            );
+            this.recommendedActivity = liveActivity;
+          } else {
+            // toggle OFF: keep planned workout type, but patch live weather/status
+            const plannedActivity = await firstValueFrom(
+              this.service.getPlannedDay(this.planId, this.selectedDay.date)
+            );
+
+            const liveActivity = await firstValueFrom(
+              this.service.getTrainingPlan(location.lat, location.lng)
+            );
+
+            this.recommendedActivity = this.mergeLiveIntoPlannedActivity(plannedActivity, liveActivity);
+          }
+
+          // optional: also patch week strip for today's score
+          if (this.weekPlan?.days) {
+            const idx = this.weekPlan.days.findIndex(d => d.date === this.todayIso());
+            if (idx >= 0) {
+              this.weekPlan.days[idx] = {
+                ...this.weekPlan.days[idx],
+                // depending on your DTO naming:
+                weatherDto: this.recommendedActivity?.weather, // if week uses weatherDto
+                // weather: this.recommendedActivity?.weather,  // if week uses weather
+              } as any;
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to refresh today after start change', e);
+        }
       }
 
-      // 2) generate route using the new plan distance
+
+      // generate route using current selected day / activity distance
       await this.generateRouteFromLocationAsync(location, updateBaseline);
     }
     catch (err: any)
@@ -1069,65 +1105,155 @@ private rebuildLayers() {
     });
   }
 
-  selectDay(day: PlannedDayDto)
+  selectDay(day: PlannedDayDto): void
   {
     this.saveTodayRouteSnapshot();
     this.selectedDay = day;
 
-    this.isLoadingDay = true;
-    this.error = null;
+    this.reloadSelectedDay(true);
+  }
 
-    const isToday = day.date === this.todayIso();
-    const loc = this.resolvePlanLocation();
+private reloadSelectedDay(allowSnapshotRestore: boolean): void {
+  if (!this.selectedDay || !this.planId) return;
 
-    const request$ = isToday
-      ? this.service.getTrainingPlan(loc.lat, loc.lng)
-      : (this.planId ? this.service.getPlannedDay(this.planId, day.date) : null);
+  const day = this.selectedDay;
+  const isToday = day.date === this.todayIso();
 
-    if (!request$)
-    {
-      this.isLoadingDay = false;
-      return;
-    }
+  this.isLoadingDay = true;
+  this.error = null;
 
-    request$.subscribe({
+  const seq = ++this.dayLoadSeq; // 👈 bump + capture
+  const stillLatest = () =>
+    seq === this.dayLoadSeq &&
+    this.selectedDay?.date === day.date; // also ensure same day still selected
+
+  if (!isToday) {
+    this.service.getPlannedDay(this.planId, day.date).subscribe({
       next: async (activity) => {
+        if (!stillLatest()) return; // 👈 ignore stale
         this.recommendedActivity = activity;
         this.isLoadingDay = false;
-
-        if (activity.type === SessionType.RUN)
-        {
-          if (isToday && this.restoreTodayRouteSnapshot())
-          {
-            this.refitPreviewMap();
-            return;
-          }
-
-          this.committedStops = [];
-          const start = this.userLocationMarker?.getLatLng() ?? this.originalStart ?? this.pendingInitialLocation;
-          if (start)
-          {
-            await this.generateRouteFromLocationAsync(start, false, true);
-          }
-        }
-        else
-        {
-          this.latlngs = null;
-          this.routeLine = null;
-          this.routeBounds = null;
-          this.committedStops = [];
-          this.rebuildLayers();
-        }
+        await this.onActivityLoadedForSelectedDay(activity, false, allowSnapshotRestore);
       },
-      error: (err: any) => {
-        console.error('Failed to load day detail', err);
+      error: (err) => {
+        if (!stillLatest()) return;
+        console.error('Failed to load planned day detail', err);
         this.isLoadingDay = false;
         this.error = 'Failed to load selected day.';
       }
     });
+    return;
   }
 
-  private todayIso(): string {
+  const loc = this.resolvePlanLocation();
+
+  if (this.useLiveSuggestionForToday) {
+    this.service.getTrainingPlan(loc.lat, loc.lng).subscribe({
+      next: async (liveActivity) => {
+        if (!stillLatest()) return;
+        this.recommendedActivity = liveActivity;
+        this.isLoadingDay = false;
+        await this.onActivityLoadedForSelectedDay(liveActivity, true, false);
+      },
+      error: (err) => {
+        if (!stillLatest()) return;
+        console.error('Failed to load live training plan', err);
+        this.isLoadingDay = false;
+        this.error = 'Failed to load live suggestion for today.';
+      }
+    });
+    return;
+  }
+
+  // planned + live merge
+  this.service.getPlannedDay(this.planId, day.date).subscribe({
+    next: async (plannedActivity) => {
+      if (!stillLatest()) return;
+
+      try {
+        const liveActivity = await firstValueFrom(
+          this.service.getTrainingPlan(loc.lat, loc.lng)
+        );
+
+        if (!stillLatest()) return;
+
+        const merged = this.mergeLiveIntoPlannedActivity(plannedActivity, liveActivity);
+        this.recommendedActivity = merged;
+        this.isLoadingDay = false;
+
+        await this.onActivityLoadedForSelectedDay(merged, true, allowSnapshotRestore);
+      } catch (e) {
+        if (!stillLatest()) return;
+        console.warn('Live fetch failed, showing planned day only', e);
+        this.recommendedActivity = plannedActivity;
+        this.isLoadingDay = false;
+
+        await this.onActivityLoadedForSelectedDay(plannedActivity, true, allowSnapshotRestore);
+      }
+    },
+    error: (err) => {
+      if (!stillLatest()) return;
+      console.error('Failed to load planned day detail', err);
+      this.isLoadingDay = false;
+      this.error = 'Failed to load selected day.';
+    }
+  });
+}
+
+  onLiveSuggestionToggle(ev: CustomEvent) {
+    const enabled = !!ev.detail.checked;
+    this.useLiveSuggestionForToday = enabled;
+    localStorage.setItem(this.liveSuggestionToggleKey, String(enabled));
+    this.todayRouteSnapshot = null;
+
+    const startLocation =
+      this.userLocationMarker?.getLatLng()
+      ?? this.originalStart
+      ?? this.pendingInitialLocation
+      ?? null;
+
+    if (enabled) {
+      // loads :live planId
+      this.regenerateWeekPlanLive(startLocation);
+    } else {
+      // loads base planId again (restore entire week)
+      this.loadWeekPlan(startLocation ?? undefined);
+    }
+  }
+
+
+  private regenerateWeekPlanLive(startLocation: LatLng | null) {
+    const seq = ++this.weekLoadSeq;
+
+    this.isLoadingWeek = true;
+    this.error = null;
+
+    const lat = startLocation?.lat ?? 48.21;
+    const lng = startLocation?.lng ?? 16.36;
+
+    this.plan7dService.getNext7Days(lat, lng, { /* ... regen:true ... */ }).subscribe({
+      next: (plan) => {
+        if (seq !== this.weekLoadSeq) return;
+        this.weekPlan = plan;
+        this.planId = plan.planId ?? null;
+
+        const todayIso = this.todayIso();
+        const todayDay = plan.days.find(d => d.date === todayIso) ?? plan.days[0];
+
+        this.selectDay(todayDay);
+        this.isLoadingWeek = false;
+      },
+      error: (err) => {
+        if (seq !== this.weekLoadSeq) return;
+        console.error(err);
+        this.isLoadingWeek = false;
+        this.error = "Failed to regenerate 7-day plan.";
+      }
+    });
+  }
+
+
+  protected todayIso(): string {
     return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   }
 
@@ -1254,6 +1380,54 @@ private rebuildLayers() {
     }
 
     return latLng(48.21, 16.36);
+  }
+
+  private mergeLiveIntoPlannedActivity(
+    planned: RecommendedActivityDto,
+    live: RecommendedActivityDto
+  ): RecommendedActivityDto
+  {
+    return {
+      ...planned,
+      weather: live.weather ?? planned.weather,
+      athleteStatus: live.athleteStatus ?? planned.athleteStatus
+    };
+  }
+
+  private async onActivityLoadedForSelectedDay(
+    activity: RecommendedActivityDto,
+    isToday: boolean,
+    allowSnapshotRestore: boolean
+  ): Promise<void>
+  {
+    if (activity.type === SessionType.RUN)
+    {
+      if (isToday && allowSnapshotRestore && this.restoreTodayRouteSnapshot())
+      {
+        this.refitPreviewMap();
+        return;
+      }
+
+      this.committedStops = [];
+
+      const start =
+        this.userLocationMarker?.getLatLng()
+        ?? this.originalStart
+        ?? this.pendingInitialLocation;
+
+      if (start)
+      {
+        await this.generateRouteFromLocationAsync(start, false, true);
+      }
+    }
+    else
+    {
+      this.latlngs = null;
+      this.routeLine = null;
+      this.routeBounds = null;
+      this.committedStops = [];
+      this.rebuildLayers();
+    }
   }
 
   protected readonly SessionType = SessionType;
