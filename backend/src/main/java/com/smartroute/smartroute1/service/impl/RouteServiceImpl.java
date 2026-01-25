@@ -11,9 +11,7 @@ import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.RouteService;
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;

@@ -32,6 +32,19 @@ import { TrainingPlan7dService } from 'src/services/training-plan-7d.service';
 
 type RouteUpdate = { layers: Layer[]; bounds: LatLngBounds | null };
 
+type Coord3d = [number, number, number | null];
+
+type RouteOption = {
+  seed: number;
+  polyline: string;
+  coordinates3d?: Coord3d[];
+  distance: number;
+  elevation: number;
+  bounds: LatLngBounds;
+  latlngs: LatLng[];
+};
+
+
 @Component({
   selector: 'app-trainingplan',
   templateUrl: 'trainingPlan.page.html',
@@ -95,9 +108,12 @@ export class TrainingPlanPage implements OnInit {
   isRouteSaved = false;
   date: string = new Date().toLocaleDateString();
 
-  weekPlan: TrainingPlan7dDto | null = null;
-  selectedDay: PlannedDayDto | null = null;
-  planId: string | null = null;
+  routeOptions: RouteOption[] = [];
+  selectedRouteIndex = 0;
+
+    weekPlan: TrainingPlan7dDto | null = null;
+    selectedDay: PlannedDayDto | null = null;
+    planId: string | null = null;
 
   recommendedActivity: RecommendedActivityDto | undefined = {
     name: "Gym Session",
@@ -342,75 +358,105 @@ private generateFreshSeed(): number
       return;
     }
 
-    this.applyingStart = true;
+this.applyingStart = true;
 
+try
+{
+  if (!this.userLocationMarker)
+  {
+    this.userLocationMarker = marker(location, { icon: coloredMarker(MAP_MARKER_COLORS.start) });
+  }
+  else
+  {
+    this.userLocationMarker.setLatLng(location);
+  }
+
+  this.lastPlanLocation = latLng(location.lat, location.lng);
+
+  const isTodaySelected = this.selectedDay?.date === this.todayIso();
+  const hasPlanId = !!this.planId;
+
+  if (isTodaySelected && hasPlanId)
+  {
     try
     {
-      // ensure marker exists
-      if (!this.userLocationMarker)
+      if (this.useLiveSuggestionForToday)
       {
-        this.userLocationMarker = marker(location, { icon: coloredMarker(MAP_MARKER_COLORS.start) });
+        const liveActivity = await firstValueFrom(
+          this.service.getTrainingPlan(location.lat, location.lng)
+        );
+
+        this.recommendedActivity = liveActivity;
       }
       else
       {
-        this.userLocationMarker.setLatLng(location);
+        const plannedActivity = await firstValueFrom(
+          this.service.getPlannedDay(this.planId!, this.selectedDay!.date)
+        );
+
+        const liveActivity = await firstValueFrom(
+          this.service.getTrainingPlan(location.lat, location.lng)
+        );
+
+        this.recommendedActivity = this.mergeLiveIntoPlannedActivity(plannedActivity, liveActivity);
       }
 
-      // remember last used location for "today live weather" requests
-      this.lastPlanLocation = latLng(location.lat, location.lng);
-
-      // TODAY ONLY: when start changes, refresh today's display (either live or merged)
-      if (this.selectedDay && this.selectedDay.date === this.todayIso() && this.planId) {
-        try {
-          if (this.useLiveSuggestionForToday) {
-            // toggle ON: pure live suggestion (type may differ from weekly plan)
-            const liveActivity = await firstValueFrom(
-              this.service.getTrainingPlan(location.lat, location.lng)
-            );
-            this.recommendedActivity = liveActivity;
-          } else {
-            // toggle OFF: keep planned workout type, but patch live weather/status
-            const plannedActivity = await firstValueFrom(
-              this.service.getPlannedDay(this.planId, this.selectedDay.date)
-            );
-
-            const liveActivity = await firstValueFrom(
-              this.service.getTrainingPlan(location.lat, location.lng)
-            );
-
-            this.recommendedActivity = this.mergeLiveIntoPlannedActivity(plannedActivity, liveActivity);
-          }
-
-          // optional: also patch week strip for today's score
-          if (this.weekPlan?.days) {
-            const idx = this.weekPlan.days.findIndex(d => d.date === this.todayIso());
-            if (idx >= 0) {
-              this.weekPlan.days[idx] = {
-                ...this.weekPlan.days[idx],
-                // depending on your DTO naming:
-                weatherDto: this.recommendedActivity?.weather, // if week uses weatherDto
-                // weather: this.recommendedActivity?.weather,  // if week uses weather
-              } as any;
-            }
-          }
-        } catch (e) {
-          console.warn('Failed to refresh today after start change', e);
+      if (this.weekPlan?.days)
+      {
+        const idx = this.weekPlan.days.findIndex(d => d.date === this.todayIso());
+        if (idx >= 0)
+        {
+          this.weekPlan.days[idx] = {
+            ...this.weekPlan.days[idx],
+            weatherDto: this.recommendedActivity?.weather,
+          } as any;
         }
       }
+    }
+    catch (e)
+    {
+      console.warn('Failed to refresh today after start change', e);
+    }
+  }
+  else
+  {
+    // non-today selection: only refresh the plan if you want.
+    // Usually skip, because non-today uses planned day data anyway.
+  }
 
-
-      // generate route using current selected day / activity distance
+  // Route generation depends on the currently active activity + day
+  if (this.recommendedActivity?.type === SessionType.RUN)
+  {
+    if (isTodaySelected)
+    {
+      await this.generateRouteOptionsFromLocationAsync(location, updateBaseline);
+    }
+    else
+    {
       await this.generateRouteFromLocationAsync(location, updateBaseline);
     }
-    catch (err: any)
-    {
-      console.error('applyStartLocation failed', err);
-      await this.showToast('Could not refresh plan/route for this location.', 3500, 'danger');
-    }
-    finally
-    {
-      this.applyingStart = false;
-    }
+  }
+  else
+  {
+    this.routeOptions = [];
+    this.selectedRouteIndex = 0;
+
+    this.latlngs = null;
+    this.routeLine = null;
+    this.routeBounds = null;
+    this.committedStops = [];
+    this.rebuildLayers();
+  }
+}
+catch (err: any)
+{
+  console.error('applyStartLocation failed', err);
+  await this.showToast('Could not refresh plan/route for this location.', 3500, 'danger');
+}
+finally
+{
+  this.applyingStart = false;
+}
   }
 
 
@@ -477,7 +523,46 @@ private generateFreshSeed(): number
 
   /** Generates a route for the current start using Observable API */
   private generateRouteFromLocation(location: LatLng, updateBaseline: boolean) {
-    void this.generateRouteFromLocationAsync(location, updateBaseline);
+    void this.generateRouteOptionsFromLocationAsync(location, updateBaseline);
+  }
+
+  /** Generates three different routes for the current start using async/await */
+  private async generateRouteOptionsFromLocationAsync(location: LatLng, updateBaseline: boolean): Promise<void> {
+    const targetDistance = this.recommendedActivity!.route!.distance;
+
+    // 3 distinct seeds
+    const base = Date.now() % 1_000_000_000;
+    const seeds = [base, base + 1, base + 2];
+
+    try {
+      const results = await Promise.all(
+        seeds.map(seed =>
+          firstValueFrom(this.routeService.getGeneratedRoute(location.lat, location.lng, targetDistance, seed))
+        )
+      );
+
+      this.routeOptions = results.map(r => {
+        const latlngs = convertPolylineToCoordinateList(r.polyline).map(p => latLng(p[0], p[1]));
+        const line = polyline(latlngs);
+        return {
+          seed: r.seed ?? 0,
+          polyline: r.polyline,
+          coordinates3d: r.coordinates3d,
+          distance: r.distance,
+          elevation: r.elevation,
+          latlngs,
+          bounds: line.getBounds()
+        };
+      });
+
+      // default select first
+      this.selectRouteOption(0, updateBaseline, location);
+
+    } catch (err) {
+      console.error('Failed to generate route options', err);
+      await this.showToast('Failed to generate route options.', 3500, 'danger');
+      this.resetRouteToOriginal();
+    }
   }
 
   /** Generates a route for the current start using async/await */
@@ -584,6 +669,52 @@ private generateFreshSeed(): number
     }
     return false;
   }
+
+  private selectRouteOption(index: number, updateBaseline: boolean, startLocation?: LatLng) {
+    if (!this.routeOptions[index]) return;
+
+    this.selectedRouteIndex = index;
+
+    const opt = this.routeOptions[index];
+
+    // switching route should discard edits/stops (recommended)
+    this.committedStops = [];
+
+    this.routeLine = polyline(opt.latlngs);
+    this.latlngs = opt.latlngs;
+    this.routeBounds = opt.bounds;
+
+    // if you need geo positions for add-stops backend:
+    this.routeLineGeoPosition = opt.coordinates3d?.length
+      ? opt.coordinates3d.map(([lat, lng, alt]) => ({ latitude: lat, longitude: lng, altitude: alt }))
+      : opt.latlngs.map(p => ({ latitude: p.lat, longitude: p.lng, altitude: null }));
+
+    // update displayed stats
+    if (this.recommendedActivity?.route) {
+      this.recommendedActivity.route.distance = opt.distance;
+      this.recommendedActivity.route.elevation = opt.elevation;
+    }
+
+    if (updateBaseline) {
+      this.originalLatlngs = [...opt.latlngs];
+      this.originalRouteLineGeoPosition = [...this.routeLineGeoPosition];
+      this.originalRouteBounds = opt.bounds;
+      this.originalDistance = opt.distance;
+      this.originalElevation = opt.elevation;
+      if (startLocation && !this.originalStart) this.originalStart = startLocation;
+    }
+
+    this.rebuildLayers();
+    this.refitPreviewMap();
+  }
+
+  cycleRoute(updateBaseline = true) {
+    if (!this.routeOptions || this.routeOptions.length === 0) return;
+
+    const next = (this.selectedRouteIndex + 1) % this.routeOptions.length;
+    this.selectRouteOption(next, updateBaseline);
+  }
+
 
   // =====================================================
   // Stops / reshape / insert

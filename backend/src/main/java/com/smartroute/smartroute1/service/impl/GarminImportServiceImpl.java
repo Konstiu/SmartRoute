@@ -23,6 +23,7 @@ import com.smartroute.smartroute1.service.ActivityProcessingService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
 import com.smartroute.smartroute1.service.GarminImportService;
 import com.smartroute.smartroute1.service.GpxService;
+import com.smartroute.smartroute1.service.StatisticsService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,7 +37,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -122,6 +122,7 @@ public class GarminImportServiceImpl implements GarminImportService {
     private final FitnessScoreService fitnessScoreService;
     private final ActivityProcessingService activityProcessingService;
     private final ActivityStreamRepository activityStreamRepository;
+    private final StatisticsService statisticsService;
     @Value("${garmin.python.script.path:${user.dir}/python/python_garmin_connect.py}")
     private String pythonScriptPath;
     @Value("#{T(java.lang.System).getProperty('os.name').toLowerCase().contains('win') ? "
@@ -240,6 +241,8 @@ public class GarminImportServiceImpl implements GarminImportService {
             int count = processActivitiesFromFile(user, result);
             log.trace("Garmin activity sync for user {} synced {} activities", user.getEmail(), count);
 
+            statisticsService.preLoadConsistencyHistory(user.getEmail());
+
             return null; //result.activities;
 
         } catch (GarminException e) {
@@ -285,7 +288,6 @@ public class GarminImportServiceImpl implements GarminImportService {
                 }
             }
         }
-
         return processedCount;
     }
 
@@ -795,7 +797,8 @@ public class GarminImportServiceImpl implements GarminImportService {
             sessionLoad = fitnessScoreService.calculateSessionLoad(
                     distance,
                     actualMovingTime,
-                    elevationGain
+                    elevationGain,
+                    activity.getSportType()
             );
 
             log.debug("Calculated session load using distance/time method for activity {}",
