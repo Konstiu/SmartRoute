@@ -21,7 +21,6 @@ import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.Weekday;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
 import com.smartroute.smartroute1.exception.CannotCalculateConsistencyScoreException;
-import com.smartroute.smartroute1.exception.InsufficientTrainingDataException;
 import com.smartroute.smartroute1.exception.NotFoundException;
 import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.GymWorkoutRepository;

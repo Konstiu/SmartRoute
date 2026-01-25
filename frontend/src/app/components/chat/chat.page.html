@@ -73,7 +73,7 @@
         maxlength="500"
         (keydown.enter)="sendMessage()"
       ></ion-input>
-      <span class="char-counter">{{ messageText?.length || 0 }}/500</span>
+      <span class="char-counter">{{ messageText.length || 0 }}/500</span>
       <ion-button
         (click)="sendMessage()"
         [disabled]="!messageText.trim()"
