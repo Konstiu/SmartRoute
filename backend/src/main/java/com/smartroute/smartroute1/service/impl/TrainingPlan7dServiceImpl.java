@@ -7,8 +7,6 @@ import com.smartroute.smartroute1.endpoint.dto.ViewInjuryDto;
 import com.smartroute.smartroute1.endpoint.dto.AthleteStatusDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.DailySummary;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.DayDebugDto;
-import com.smartroute.smartroute1.endpoint.dto.trainingplan.FitUserModelResponse;
-import com.smartroute.smartroute1.endpoint.dto.trainingplan.JuliaDist;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.LoadDistributionDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.PlannedDayDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.TemplateScoreDto;
@@ -31,10 +29,9 @@ import com.smartroute.smartroute1.service.ReadinessScoreService;
 import com.smartroute.smartroute1.service.RouteGenerationService;
 import com.smartroute.smartroute1.service.TrainingPlan7dService;
 import com.smartroute.smartroute1.service.TrainingPlanStore;
-import com.smartroute.smartroute1.service.UserModelStore;
 import com.smartroute.smartroute1.service.WeatherService;
-import com.smartroute.smartroute1.util.ForecastState;
-import com.smartroute.smartroute1.util.LoadConstraints;
+import com.smartroute.smartroute1.entity.enums.ForecastState;
+import com.smartroute.smartroute1.entity.enums.LoadConstraints;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,7 +71,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     private final GymWorkoutSelectorService gymWorkoutSelectorService;
     private final RouteGenerationService routeGenerationService;
     private final TrainingPlanStore trainingPlanStore;
-    private final UserModelStore userModelStore;
 
     /**
      * Creates the service with the system Vienna clock.
@@ -91,8 +87,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             DaySelectorService daySelectorService,
             GymWorkoutSelectorService gymWorkoutSelectorService,
             RouteGenerationService routeGenerationService,
-            TrainingPlanStore trainingPlanStore,
-            UserModelStore userModelStore
+            TrainingPlanStore trainingPlanStore
     ) {
         this(
                 userRepository,
@@ -106,8 +101,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 daySelectorService,
                 gymWorkoutSelectorService,
                 routeGenerationService,
-                trainingPlanStore,
-                userModelStore
+                trainingPlanStore
         );
     }
 
@@ -126,8 +120,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             DaySelectorService daySelectorService,
             GymWorkoutSelectorService gymWorkoutSelectorService,
             RouteGenerationService routeGenerationService,
-            TrainingPlanStore trainingPlanStore,
-            UserModelStore userModelStore
+            TrainingPlanStore trainingPlanStore
     ) {
         this.userRepository = userRepository;
         this.dailyAggregationService = dailyAggregationService;
@@ -141,7 +134,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         this.gymWorkoutSelectorService = gymWorkoutSelectorService;
         this.routeGenerationService = routeGenerationService;
         this.trainingPlanStore = trainingPlanStore;
-        this.userModelStore = userModelStore;
     }
 
     // =====================================================================
@@ -253,8 +245,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 recentLoads.stream().limit(7).toList()
         );
 
-        Optional<FitUserModelResponse> fitModelOpt = loadFitModelFromCache(email, weekStart, regen);
-
         List<List<WorkoutType>> templates = generateTemplates(user, today, coldStart);
 
         PlanChoice choice = chooseBestPlan(
@@ -270,8 +260,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 sims,
                 seed,
                 debug,
-                profile,
-                fitModelOpt
+                profile
         );
 
         List<PlannedDayDto> days = materializePlanWithTsbDists(
@@ -329,21 +318,6 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         log.info("7d plan RECOMPUTE planId={} debug={} regen={} overrides={}", planId, debug, regen, overrides);
         trainingPlanStore.remove(email, planId);
         return Optional.empty();
-    }
-
-    /**
-     * Loads a cached fit-model response for the current week if available and allowed.
-     */
-    private Optional<FitUserModelResponse> loadFitModelFromCache(
-            String email,
-            LocalDate weekStart,
-            boolean regen
-    ) {
-        String modelKey = "fit:" + weekStart;
-        if (regen) {
-            return Optional.empty();
-        }
-        return userModelStore.get(email, modelKey);
     }
 
     /**
@@ -952,8 +926,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             int sims,
             long seed,
             boolean debug,
-            PlannerProfile profile,
-            Optional<FitUserModelResponse> fitUserModelOpt
+            PlannerProfile profile
     ) {
         final double wsim = 1.0;
         final double wtemplateprior = 0.25;
@@ -1517,8 +1490,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                 sims,
                 seed,
                 debug,
-                profile,
-                Optional.empty()
+                profile
         );
 
         List<PlannedDayDto> days = materializePlanWithTsbDists(
@@ -1719,7 +1691,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
 
         double avgUtility = totalUtility / sims;
-        JuliaDist utilDist = toDist(utilSamples);
+        LoadDistributionDto utilDist = toDist(utilSamples);
 
         double lambda = 0.35 + 0.9 * profile.riskAversion();
         double riskAdjusted = avgUtility - lambda * utilDist.getStd();
@@ -3028,11 +3000,11 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     // =====================================================================
 
     /**
-     * Converts a sample list into a JuliaDist (p10/p50/p90/mean/std).
+     * Converts a sample list into a LoadDistributionDto (p10/p50/p90/mean/std).
      */
-    private JuliaDist toDist(List<Double> samples) {
+    private LoadDistributionDto toDist(List<Double> samples) {
         if (samples == null || samples.isEmpty()) {
-            return new JuliaDist(0, 0, 0, 0, 0);
+            return new LoadDistributionDto(0, 0, 0, 0, 0);
         }
 
         List<Double> sorted = new ArrayList<>(samples);
@@ -3045,7 +3017,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         double p50 = quantile(sorted, 0.50);
         double p90 = quantile(sorted, 0.90);
 
-        return new JuliaDist(p10, p50, p90, mean, std);
+        return new LoadDistributionDto(p10, p50, p90, mean, std);
     }
 
     /**
@@ -3209,7 +3181,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
      */
     private record SimResult(
             double avgUtility,
-            JuliaDist utilDist,
+            LoadDistributionDto utilDist,
             double riskAdjustedScore,
             List<LoadDistributionDto> tsbDists
     ) {

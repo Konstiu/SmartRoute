@@ -1,4 +1,4 @@
-package com.smartroute.smartroute1.util;
+package com.smartroute.smartroute1.entity.enums;
 
 public record ForecastState(double ctl, double atl) {
     public double tsb() {
