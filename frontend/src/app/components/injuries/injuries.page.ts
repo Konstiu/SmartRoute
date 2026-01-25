@@ -120,6 +120,7 @@ export class InjuriesPage implements OnInit {
     const {data} = await modal.onWillDismiss();
     if (data?.reload) {
       this.loadInjuries();
+      this.markTrainingPlanDirty();
     }
   }
 
@@ -136,6 +137,7 @@ export class InjuriesPage implements OnInit {
     const {data} = await modal.onWillDismiss();
     if (data?.reload) {
       this.loadInjuries();
+      this.markTrainingPlanDirty();
     }
   }
 
@@ -156,6 +158,7 @@ export class InjuriesPage implements OnInit {
               await this.injuryService.deleteInjury(injuryId);
               await this.showToast('Injury deleted successfully', 'success');
               this.loadInjuries();
+              this.markTrainingPlanDirty();
             } catch (error) {
               await this.showToast('Failed to delete injury', 'danger');
             }
@@ -191,5 +194,12 @@ export class InjuriesPage implements OnInit {
       position: 'top'
     });
     await toast.present();
+  }
+
+  private readonly trainingPlanInjuryChangedFlagKey: string = 'trainingPlanInjuryChanged';
+
+  private markTrainingPlanDirty(): void
+  {
+    localStorage.setItem(this.trainingPlanInjuryChangedFlagKey, 'true');
   }
 }

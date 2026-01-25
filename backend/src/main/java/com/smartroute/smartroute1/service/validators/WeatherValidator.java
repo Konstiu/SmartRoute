@@ -183,11 +183,11 @@ public class WeatherValidator {
             errors.add("Cannot request weather for days more than 3 months in the past.");
         }
 
-        // Only up to 3 days ahead can be fetched
+        // Only up to 7 days ahead can be fetched
         long daysAhead = ChronoUnit.DAYS.between(today, requestedDay);
 
-        if (daysAhead > 3) {
-            errors.add("Future weather is only available up to 3 days ahead.");
+        if (daysAhead > 7) {
+            errors.add("Future weather is only available up to 7 days ahead.");
         }
 
         if (!errors.isEmpty()) {

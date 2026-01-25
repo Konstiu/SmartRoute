@@ -139,5 +139,18 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
             Instant startDate
     );
 
+    @Query("""
+                SELECT a
+                FROM Activity a
+                WHERE a.user.id = :userId
+                  AND a.startDateLocal IS NOT NULL
+                  AND a.startDateLocal >= :fromInclusive
+                ORDER BY a.startDateLocal ASC
+            """)
+    List<Activity> findRecentActivitiesForUser(
+            @Param("userId") Long userId,
+            @Param("fromInclusive") Instant fromInclusive
+    );
+
     void deleteAllByUser(ApplicationUser user);
 }

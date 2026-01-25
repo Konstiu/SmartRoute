@@ -25,4 +25,6 @@ public interface GymWorkoutRepository extends JpaRepository<GymWorkout, Long> {
 
     @Query("SELECT gw FROM GymWorkout gw WHERE gw.user = :user AND gw.creationDate >= :startDate AND gw.creationDate <= :endDate ORDER BY gw.creationDate ASC")
     List<GymWorkout> findGymWorkoutByUserBetweenDatesOrderByStartDateAsc(@Param("user") ApplicationUser user, @Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+    Optional<GymWorkout> findTopByUserAndCreationDateOrderByIdDesc(ApplicationUser user, LocalDate creationDate);
 }
