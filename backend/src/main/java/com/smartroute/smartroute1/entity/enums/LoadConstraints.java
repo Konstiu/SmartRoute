@@ -1,4 +1,4 @@
-package com.smartroute.smartroute1.util;
+package com.smartroute.smartroute1.entity.enums;
 
 public record LoadConstraints(
         double intensityScale,   // 0..1

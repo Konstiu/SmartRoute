@@ -1,7 +1,6 @@
 package com.smartroute.smartroute1.service;
 
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.DailySummary;
-import com.smartroute.smartroute1.endpoint.dto.trainingplan.PplDailyObs;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 
 import java.util.List;
@@ -17,14 +16,4 @@ public interface DailyAggregationService {
      * @return a list of {@link DailySummary}.
      */
     List<DailySummary> getDailySummaries(ApplicationUser user, int daysBack);
-
-
-    /**
-     * Summarises past days.
-     *
-     * @param user a user.
-     * @param daysBack how many days for the user that should be fetched.
-     * @return a list of {@link PplDailyObs}.
-     */
-    List<PplDailyObs> getPplDailyObs(ApplicationUser user, int daysBack);
 }

@@ -2,7 +2,6 @@ package com.smartroute.smartroute1.unittest;
 
 import com.smartroute.smartroute1.endpoint.dto.AthleteStatusDto;
 import com.smartroute.smartroute1.endpoint.dto.trainingplan.*;
-import com.smartroute.smartroute1.endpoint.dto.RouteDto;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Injuries;
 import com.smartroute.smartroute1.entity.enums.BodyPart;
@@ -11,8 +10,8 @@ import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.*;
 import com.smartroute.smartroute1.service.impl.TrainingPlan7dServiceImpl;
 import com.smartroute.smartroute1.entity.enums.WorkoutType;
-import com.smartroute.smartroute1.util.ForecastState;
-import com.smartroute.smartroute1.util.LoadConstraints;
+import com.smartroute.smartroute1.entity.enums.ForecastState;
+import com.smartroute.smartroute1.entity.enums.LoadConstraints;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,8 +61,6 @@ public class TrainingPlan7dServiceTest {
     RouteGenerationService routeGenerationService;
     @Mock
     TrainingPlanStore trainingPlanStore;
-    @Mock
-    UserModelStore userModelStore;
 
     private Clock fixedClock;
     private double latitude;
@@ -129,8 +126,7 @@ public class TrainingPlan7dServiceTest {
                 daySelectorService,
                 gymWorkoutSelectorService,
                 routeGenerationService,
-                trainingPlanStore,
-                userModelStore
+                trainingPlanStore
         );
     }
 
@@ -614,7 +610,7 @@ public class TrainingPlan7dServiceTest {
 
         when(fatigueAndOverloadService.currentCtl(userLow)).thenReturn(60.0);
         when(fatigueAndOverloadService.currentAtl(userLow)).thenReturn(62.0);
-        
+
         when(fatigueAndOverloadService.currentCtl(userHigh)).thenReturn(60.0);
         when(fatigueAndOverloadService.currentAtl(userHigh)).thenReturn(95.0);
 
