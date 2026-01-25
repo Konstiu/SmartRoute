@@ -92,3 +92,4 @@ server:
 app:
   baseUrl: "https://25ws-ase-pr-inso-05.apps.student.inso-w.at"
   frontendUrl: "https://25ws-ase-pr-inso-05.apps.student.inso-w.at"
+
