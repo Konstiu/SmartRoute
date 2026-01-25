@@ -168,10 +168,9 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         }
 
         int sims = clampSims(simsParam);
-        long seed = defaultSeed(seedParam);
-
         LocalDate today = LocalDate.now(clock);
         LocalDate weekStart = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        long seed = defaultSeed(seedParam, email, weekStart);
 
         String basePlanId = "week:" + weekStart;
 
@@ -437,12 +436,21 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     /**
      * Returns a deterministic default seed when none is provided.
      */
-    private long defaultSeed(Long seed) {
-        if (seed == null) {
-            return 42L;
+    private long defaultSeed(Long seed, String email, LocalDate weekStart) {
+        if (seed != null) {
+            return seed;
         }
-        return seed;
+
+        // stable across requests for that week/user, but different across weeks/users
+        long h = 1469598103934665603L;
+        String key = email + ":" + weekStart;
+        for (int i = 0; i < key.length(); i++) {
+            h ^= key.charAt(i);
+            h *= 1099511628211L;
+        }
+        return h;
     }
+
 
     // =====================================================================
     // 3) TEMPLATE GENERATION
@@ -523,7 +531,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
 
         out = postProcessTemplates(out, user.getExperienceLevel(), coldStart);
 
-        return out.stream().distinct().limit(24).toList();
+        return out.stream().distinct().limit(60).toList();
     }
 
     /**
@@ -622,37 +630,54 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         if (cfg.requireRestDay()) {
             desiredRunDays = Math.max(1, n - 1);
         }
-
+        if (cfg.minRestDays() >= 2) {
+            desiredRunDays = Math.min(desiredRunDays, 4);
+        }
         desiredRunDays = Math.max(1, Math.min(n, desiredRunDays));
 
-        List<List<Integer>> variants = new ArrayList<>();
+        // generate combinations of size desiredRunDays (capped)
+        int cap = 18; // keep this modest; you already blow up later with long/intensity/strategy loops
+        List<List<Integer>> out = new ArrayList<>();
 
-        variants.add(new ArrayList<>(availableIdx.subList(0, desiredRunDays)));
-
-        if (n <= 3) {
-            return variants;
+        int k = desiredRunDays;
+        int[] idx = new int[k];
+        for (int i = 0; i < k; i++) {
+            idx[i] = i;
         }
 
-        variants.add(new ArrayList<>(availableIdx.subList(n - desiredRunDays, n)));
+        while (out.size() < cap) {
+            List<Integer> comb = new ArrayList<>(k);
+            for (int i = 0; i < k; i++) {
+                comb.add(availableIdx.get(idx[i]));
+            }
+            out.add(comb);
 
-        if (desiredRunDays <= n - 1) {
-            List<Integer> midDrop = new ArrayList<>(availableIdx);
-            midDrop.remove(n / 2);
-            variants.add(midDrop.subList(0, desiredRunDays));
+            // next combination
+            int t = k - 1;
+            while (t >= 0 && idx[t] == n - k + t) {
+                t--;
+            }
+            if (t < 0) {
+                break;
+            }
+            idx[t]++;
+            for (int i = t + 1; i < k; i++) {
+                idx[i] = idx[i - 1] + 1;
+            }
         }
 
         List<Integer> alt = new ArrayList<>();
         for (int i = 0; i < n; i += 2) {
             alt.add(availableIdx.get(i));
         }
+        while (alt.size() > k) {
+            alt.remove(alt.size() - 1);
+        }
         if (!alt.isEmpty()) {
-            while (alt.size() > desiredRunDays) {
-                alt.remove(alt.size() - 1);
-            }
-            variants.add(alt);
+            out.add(alt);
         }
 
-        return variants;
+        return out.stream().distinct().toList();
     }
 
     /**
@@ -975,10 +1000,10 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             );
 
             double simScore = sim.riskAdjustedScore();
-            double tp = templatePrior(profile, effectiveTemplate);
+            double tp = templatePrior(profile, effectiveTemplate, cfg);
             double mk = missingKeySessionsPenalty(effectiveTemplate, profile, injuryIndex, readiness, cfg);
             double ep = experienceTemplatePrior(cfg, effectiveTemplate);
-            double sh = weekShapeScore(effectiveTemplate, profile);
+            double sh = weekShapeScore(effectiveTemplate, profile, cfg);
 
             double scored = wsim * simScore
                     + wtemplateprior * tp
@@ -1053,31 +1078,240 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     }
 
     /**
-     * Scores a template for “week shape” like rest distribution and minimum training density.
+     * Scores a template for “week shape” like rest distribution and spacing.
+     * More negative => worse. Slight positive possible for nice buffers.
      */
-    private double weekShapeScore(List<WorkoutType> template, PlannerProfile profile) {
-        if (template == null || template.size() != 7) {
+    private double weekShapeScore(List<WorkoutType> week, PlannerProfile profile, ExperienceConfig expCfg) {
+        if (week == null || week.size() != 7) {
             return 0.0;
+        }
+
+        int runCount = 0;
+        int restCount = 0;
+        int hardCount = 0;
+
+        for (WorkoutType w : week) {
+            if (w == null) {
+                continue;
+            }
+
+            if (isRun(w)) {
+                runCount++;
+            }
+            if (w == WorkoutType.REST_DAY) {
+                restCount++;
+            }
+            if (isHard(w)) {
+                hardCount++;
+            }
+        }
+
+        final int maxRunStreak = maxConsecutiveRuns(week);
+
+        // ----------------------------
+        // Baseline count-ish rules
+        // ----------------------------
+        int desiredMinRest = 1;
+        int desiredMaxRest = 2;
+        int desiredMaxRuns = 6;
+
+        // beginners / "no quality allowed" -> more rest, fewer runs
+        if (expCfg != null && expCfg.maxQualitySessions() == 0) {
+            desiredMinRest = 2;
+            desiredMaxRest = 3;
+            desiredMaxRuns = 4;
         }
 
         double score = 0.0;
 
-        int hardCount = (int) template.stream().filter(this::isHard).count();
-        int runCount = (int) template.stream().filter(this::isRun).count();
-        int restCount = (int) template.stream().filter(w -> w == WorkoutType.REST_DAY).count();
+        if (restCount < desiredMinRest) {
+            score -= 18.0 * (desiredMinRest - restCount);
+        }
+        if (restCount > desiredMaxRest) {
+            score -= 6.0 * (restCount - desiredMaxRest);
+        }
+        if (runCount > desiredMaxRuns) {
+            score -= 12.0 * (runCount - desiredMaxRuns);
+        }
+        if (maxRunStreak > 2) {
+            score -= 10.0 * (maxRunStreak - 2);
+        }
+        if (expCfg != null && expCfg.maxQualitySessions() == 0) {
+            if (hardCount > 1) {
+                score -= 25.0 * (hardCount - 1);
+            }
+        }
 
-        if (restCount >= 1 && hardCount >= 1) {
-            score += 5.0;
+        // 1) LONG_RUN needs recovery within 48h (±2 days, excluding the long day)
+        // Recovery is REST_DAY or GYM_PREHAB by default.
+        for (int i = 0; i < 7; i++) {
+            if (week.get(i) == WorkoutType.LONG_RUN) {
+                boolean hasRecoveryNear = hasRecoveryWithinDays(week, i, 2);
+                if (!hasRecoveryNear) {
+                    // strong penalty: long run without nearby recovery is a "shape smell"
+                    score -= 18.0;
+                } else {
+                    // small bonus for doing it right
+                    score += 3.0;
+                }
+            }
         }
-        if (restCount >= 2) {
-            score -= 6.0 * (restCount - 1);
+
+        // 2) Hard sessions too close (within 72h)
+        // Interpret “within 72h” as index distance <= 3 (e.g., Mon & Thu).
+        // Stronger penalty if only 1 day between (distance == 2).
+        List<Integer> hardIdx = hardDayIndices(week);
+        for (int a = 0; a < hardIdx.size(); a++) {
+            for (int b = a + 1; b < hardIdx.size(); b++) {
+                int d = Math.abs(hardIdx.get(a) - hardIdx.get(b));
+
+                // consecutive hard days should already be prevented by passesHardDaySpacing,
+                // but keep a fallback penalty in case effective-week mapping creates it.
+                if (d == 1) {
+                    score -= 30.0;
+                } else if (d == 2) {
+                    // only one day between hard sessions
+                    score -= 14.0;
+                } else if (d == 3) {
+                    // two days between hard sessions (still “within 72h”)
+                    score -= 7.0;
+                }
+            }
         }
-        if (runCount <= 3) {
-            score -= 20.0;
+
+        // 3) Soft distribution preference for inconsistent / risk-averse athletes:
+        // at least one recovery day in first 4 and last 3.
+        boolean wantsDistributedRecovery = false;
+        if (profile != null) {
+            // you can tune these thresholds; they work decently as a first pass
+            wantsDistributedRecovery = (profile.consistency() < 0.60) || (profile.riskAversion() > 0.85);
         }
+
+        if (wantsDistributedRecovery) {
+            boolean earlyOk = hasRecoveryInRange(week, 0, 3);
+            boolean lateOk = hasRecoveryInRange(week, 4, 6);
+
+            if (!earlyOk) {
+                score -= 10.0;
+            }
+            if (!lateOk) {
+                score -= 10.0;
+            }
+
+            // discourage “all recovery clustered together”
+            int recoveryStreak = maxConsecutiveRecoveryDays(week);
+            if (recoveryStreak >= 2) {
+                score -= 4.0 * (recoveryStreak - 1);
+            }
+        }
+
+        // ----------------------------
+        // Small positive reward for "nice buffers" around hard days
+        // (this helps break ties between count-identical templates)
+        // ----------------------------
+        score += bufferAroundHardBonus(week);
 
         return score;
     }
+
+    /**
+     * Treat as "recovery" days. Adjust if you want EASY_RUN to count as recovery too.
+     */
+    private boolean isRecoveryDay(WorkoutType w) {
+        if (w == null) {
+            return false;
+        }
+        return w == WorkoutType.REST_DAY || w == WorkoutType.GYM_PREHAB;
+    }
+
+    /**
+     * True if there is at least one recovery day within +/- windowDays of center (excluding center).
+     * Example: windowDays=2 means {i-2,i-1,i+1,i+2}.
+     */
+    private boolean hasRecoveryWithinDays(List<WorkoutType> week, int center, int windowDays) {
+        for (int d = 1; d <= windowDays; d++) {
+            int left = center - d;
+            int right = center + d;
+            if (left >= 0 && isRecoveryDay(week.get(left))) {
+                return true;
+            }
+            if (right < 7 && isRecoveryDay(week.get(right))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasRecoveryInRange(List<WorkoutType> week, int lo, int hi) {
+        for (int i = lo; i <= hi; i++) {
+            if (i >= 0 && i < 7 && isRecoveryDay(week.get(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<Integer> hardDayIndices(List<WorkoutType> week) {
+        List<Integer> idx = new ArrayList<>();
+        for (int i = 0; i < 7; i++) {
+            if (isHard(week.get(i))) {
+                idx.add(i);
+            }
+        }
+        return idx;
+    }
+
+    private int maxConsecutiveRecoveryDays(List<WorkoutType> week) {
+        int best = 0;
+        int cur = 0;
+        for (int i = 0; i < 7; i++) {
+            if (isRecoveryDay(week.get(i))) {
+                cur++;
+                best = Math.max(best, cur);
+            } else {
+                cur = 0;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Bonus for easy/rest buffer around hard days.
+     * - Hard day gets bonus if adjacent day(s) are recovery or easy.
+     */
+    private double bufferAroundHardBonus(List<WorkoutType> week) {
+        double bonus = 0.0;
+
+        for (int i = 0; i < 7; i++) {
+            WorkoutType w = week.get(i);
+            if (!isHard(w)) {
+                continue;
+            }
+
+            if (i > 0 && isBufferDay(week.get(i - 1))) {
+                bonus += 2.0;
+            }
+            if (i < 6 && isBufferDay(week.get(i + 1))) {
+                bonus += 2.0;
+            }
+
+            // extra tiny bonus if both sides buffered (nice “sandwich”)
+            if (i > 0 && i < 6 && isBufferDay(week.get(i - 1)) && isBufferDay(week.get(i + 1))) {
+                bonus += 1.5;
+            }
+        }
+
+        return bonus;
+    }
+
+    /**
+     * Buffer day = recovery day or easy run.
+     * (If you want GYM_PREHAB not to count as buffer, remove it from isRecoveryDay.)
+     */
+    private boolean isBufferDay(WorkoutType w) {
+        return isRecoveryDay(w) || w == WorkoutType.EASY_RUN;
+    }
+
 
     /**
      * Returns true if this workout type is any kind of run (easy/tempo/interval/long).
@@ -2167,7 +2401,11 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
     /**
      * Template prior based on “reasonable week structure” for this athlete profile.
      */
-    private double templatePrior(PlannerProfile profile, List<WorkoutType> plannedTemplate) {
+    private double templatePrior(
+            PlannerProfile profile,
+            List<WorkoutType> plannedTemplate,
+            ExperienceConfig expCfg
+    ) {
         if (plannedTemplate == null || plannedTemplate.size() != 7) {
             return 0.0;
         }
@@ -2188,33 +2426,84 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
             }
 
             switch (workoutType) {
-                case INTERVAL_RUN, TEMPO_RUN -> hard++;
+                case INTERVAL_RUN, TEMPO_RUN -> {
+                    hard++;
+                }
                 case LONG_RUN -> {
                     hard++;
                     longRuns++;
                 }
-                case GYM_PREHAB -> gym++;
-                case REST_DAY -> rest++;
-                default -> rest++;
+                case GYM_PREHAB -> {
+                    gym++;
+                }
+                case REST_DAY -> {
+                    rest++;
+                }
+                default -> {
+                    rest++;
+                }
             }
         }
 
         double score = 0.0;
 
-        if (runDays >= 3) {
-            score += (longRuns == 1 ? 8.0 : (longRuns == 0 ? -10.0 : -12.0));
+        boolean expAllowsLong = expCfg != null && expCfg.allowLong();
+        int minRunsForLong = expCfg != null ? expCfg.minRunDaysForLong() : 3;
+
+        boolean expectLong = expAllowsLong && runDays >= minRunsForLong;
+
+        if (expectLong) {
+            if (longRuns == 1) {
+                score += 8.0;
+            } else if (longRuns == 0) {
+                score -= 10.0;
+            } else {
+                score -= 12.0;
+            }
         }
 
-        double preferredHard = (profile.consistency() > 0.6) ? 2 : 1;
+        double preferredHard = 1.0;
+
+        if (profile != null) {
+            if (profile.consistency() > 0.6) {
+                preferredHard = 2.0;
+            } else {
+                preferredHard = 1.0;
+            }
+        }
+
+        if (expCfg != null) {
+            preferredHard = Math.min(preferredHard, expCfg.maxHardPerWeek());
+        }
+
         score -= 6.0 * Math.abs(hard - preferredHard);
 
-        int minRest = (profile.consistency() > 0.7) ? 1 : 2;
+        int minRest = 1;
+
+        if (profile != null) {
+            if (profile.consistency() > 0.7) {
+                minRest = 1;
+            } else {
+                minRest = 2;
+            }
+        }
+
+        if (expCfg != null && expCfg.maxQualitySessions() == 0) {
+            minRest = Math.max(minRest, 2);
+        }
+
         if (rest < minRest) {
             score -= (minRest - rest) * 10.0;
         }
 
-        if (gym > 2) {
-            score -= (gym - 2) * 6.0;
+        int maxGym = 2;
+
+        if (expCfg != null && expCfg.maxQualitySessions() == 0) {
+            maxGym = 1;
+        }
+
+        if (gym > maxGym) {
+            score -= (gym - maxGym) * 6.0;
         }
 
         score += bufferBonus(plannedTemplate);
@@ -2482,13 +2771,99 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         ExperienceLevel level = (lvl == null) ? ExperienceLevel.INTERMEDIATE : lvl;
 
         return switch (level) {
-            case BEGINNER -> new TemplateGenCfg(2, 0, false, false, false, 1, 2, true, 2, 0, 1);
-            case CASUAL -> new TemplateGenCfg(2, 1, true, false, true, 1, 2, true, 1, 0, 1);
-            case INTERMEDIATE -> new TemplateGenCfg(3, 1, true, true, true, 2, 1, false, 1, 1, 0);
-            case ADVANCED -> new TemplateGenCfg(4, 2, true, true, true, 2, 1, false, 1, 1, 0);
-            case COMPETITIVE_ATHLETE -> new TemplateGenCfg(4, 2, true, true, true, 1, 1, false, 0, 0, 0);
+            case BEGINNER -> {
+                yield new TemplateGenCfg(
+                        2,
+                        0,
+                        false,
+                        false,
+                        true,
+                        1,
+                        2,
+                        true,
+                        2,
+                        0,
+                        1
+                );
+            }
+            case CASUAL -> {
+                yield new TemplateGenCfg(
+                        2,
+                        1,
+                        true,
+                        false,
+                        true,
+                        1,
+                        2,
+                        true,
+                        1,
+                        0,
+                        1
+                );
+            }
+            case INTERMEDIATE -> {
+                yield new TemplateGenCfg(
+                        3,
+                        1,
+                        true,
+                        true,
+                        true,
+                        2,
+                        1,
+                        false,
+                        1,
+                        1,
+                        0
+                );
+            }
+            case ADVANCED -> {
+                yield new TemplateGenCfg(
+                        4,
+                        2,
+                        true,
+                        true,
+                        true,
+                        2,
+                        1,
+                        false,
+                        1,
+                        1,
+                        0
+                );
+            }
+            case COMPETITIVE_ATHLETE -> {
+                yield new TemplateGenCfg(
+                        4,
+                        2,
+                        true,
+                        true,
+                        true,
+                        1,
+                        1,
+                        false,
+                        0,
+                        0,
+                        0
+                );
+            }
+            default -> {
+                yield new TemplateGenCfg(
+                        3,
+                        1,
+                        true,
+                        true,
+                        true,
+                        2,
+                        1,
+                        false,
+                        1,
+                        1,
+                        0
+                );
+            }
         };
     }
+
 
     // =====================================================================
     // 12) POST-PROCESSING (SHAPE SAFETY)
