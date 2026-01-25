@@ -287,6 +287,164 @@ ion-list {
   border-radius: 18px;
 }
 
+.regen-icon-btn {
+  margin: 0;
+
+  width: 34px;
+  height: 34px;
+
+  --padding-start: 0;
+  --padding-end: 0;
+  --border-radius: 14px;
+
+  --color: var(--ion-color-primary);
+
+  --background: rgba(var(--ion-color-primary-rgb), 0.12);
+  --background-hover: rgba(var(--ion-color-primary-rgb), 0.16);
+  --background-activated: rgba(var(--ion-color-primary-rgb), 0.20);
+  --background-focused: rgba(var(--ion-color-primary-rgb), 0.16);
+}
+
+.regen-icon-btn::part(native) {
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(var(--ion-color-primary-rgb), 0.14);
+  transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+}
+
+.regen-icon-btn:hover::part(native) {
+  box-shadow: 0 14px 34px rgba(var(--ion-color-primary-rgb), 0.18);
+  filter: brightness(1.02);
+}
+
+.regen-icon-btn:active::part(native) {
+  transform: scale(0.97);
+  box-shadow: 0 8px 18px rgba(var(--ion-color-primary-rgb), 0.12);
+}
+
+.regen-icon-btn[disabled] {
+  opacity: 0.6;
+}
+
+.regen-icon-btn[disabled]::part(native) {
+  box-shadow: none;
+  transform: none;
+}
+
+.regen-icon-btn ion-icon {
+  font-size: 20px;
+}
+
+.week-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.week-left ion-card-title {
+  margin: 0;
+  line-height: 1.1;
+
+  display: inline-flex;
+  align-items: center;
+
+  white-space: nowrap;
+}
+
+.regen-icon-btn {
+  flex: 0 0 auto;
+}
+
+.week-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.week-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.week-left ion-card-title {
+  margin: 0;
+  white-space: nowrap;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+}
+
+/* Toggle row polish */
+.live-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.live-toggle ion-label {
+  font-weight: 800;
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+/* Make the toggle slightly more compact */
+.live-toggle ion-toggle {
+  transform: scale(0.92);
+}
+
+/* The “Live enabled” hint block */
+.live-hint {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 12px 12px;
+  border-radius: 16px;
+
+  background: rgba(var(--ion-color-primary-rgb), 0.08);
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.14);
+}
+
+.live-hint ion-icon {
+  font-size: 18px;
+  color: var(--ion-color-primary);
+
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: rgba(var(--ion-color-primary-rgb), 0.12);
+}
+
+.live-hint-title {
+  font-weight: 900;
+  font-size: 14px;
+  line-height: 1.1;
+}
+
+.live-hint-sub {
+  margin-top: 2px;
+  font-size: 13px;
+  opacity: 0.75;
+}
+
+
+
+
+
+
 
 
 
