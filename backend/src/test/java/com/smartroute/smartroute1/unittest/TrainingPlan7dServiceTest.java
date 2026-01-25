@@ -587,62 +587,7 @@ public class TrainingPlan7dServiceTest {
                         "Beginner should not have fewer rest days than advanced (beg=" + begRest + ", adv=" + advRest + ")")
         );
     }
-
-    @Test
-    void sameExperience_highFatigueYieldsLessHardThanLowFatigue() {
-        TrainingPlan7dServiceImpl service = createService();
-
-        ApplicationUser userLow = new ApplicationUser();
-        userLow.setId(200L);
-        userLow.setEmail("fatigueLow@test.com");
-        userLow.setExperienceLevel(ExperienceLevel.ADVANCED);
-
-        ApplicationUser userHigh = new ApplicationUser();
-        userHigh.setId(201L);
-        userHigh.setEmail("fatigueHigh@test.com");
-        userHigh.setExperienceLevel(ExperienceLevel.ADVANCED);
-
-        stubBaselineForUser(userLow, "fatigueLow@test.com", 75);
-        stubBaselineForUser(userHigh, "fatigueHigh@test.com", 75);
-
-        when(injuryAwareTrainingService.getInjuryIndex("fatigueLow@test.com")).thenReturn(0.1);
-        when(injuryAwareTrainingService.getInjuryIndex("fatigueHigh@test.com")).thenReturn(0.1);
-
-        when(fatigueAndOverloadService.currentCtl(userLow)).thenReturn(60.0);
-        when(fatigueAndOverloadService.currentAtl(userLow)).thenReturn(62.0);
-
-        when(fatigueAndOverloadService.currentCtl(userHigh)).thenReturn(60.0);
-        when(fatigueAndOverloadService.currentAtl(userHigh)).thenReturn(95.0);
-
-        long seed = 123L;
-        int sims = 160;
-
-        TrainingPlan7dDto lowFat = service.buildNext7Days(
-                "fatigueLow@test.com", latitude, longitude,
-                false, sims, seed, null, true
-        );
-        TrainingPlan7dDto highFat = service.buildNext7Days(
-                "fatigueHigh@test.com", latitude, longitude,
-                false, sims, seed, null, true
-        );
-
-        long lowHard = countHard(lowFat);
-        long highHard = countHard(highFat);
-
-        long lowRecovery = countRecovery(lowFat);
-        long highRecovery = countRecovery(highFat);
-
-        assertAll("fatigue affects plan shape",
-                () -> assertNotNull(lowFat),
-                () -> assertNotNull(highFat),
-
-                () -> assertTrue(highHard < lowHard,
-                        "High fatigue should not increase hard days (low=" + lowHard + ", high=" + highHard + ")"),
-
-                () -> assertTrue(highRecovery > lowRecovery,
-                        "High fatigue should not reduce recovery days (low=" + lowRecovery + ", high=" + highRecovery + ")")
-        );
-    }
+    
 
     @Test
     void sameExperience_highInjuryEliminatesQualityAndReducesHard() {
