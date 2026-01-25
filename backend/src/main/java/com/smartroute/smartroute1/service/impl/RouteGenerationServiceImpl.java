@@ -1,8 +1,11 @@
 package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.endpoint.dto.RouteDto;
-import com.smartroute.smartroute1.endpoint.dto.geojson.*;
-import com.smartroute.smartroute1.endpoint.mapper.PolyLineMapper;
+import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonPosition;
+import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonFeature;
+import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonDto;
+import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonGeometryLineString;
+import com.smartroute.smartroute1.endpoint.dto.geojson.GeoJsonProperties;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.enums.Sex;
@@ -171,8 +174,9 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
         List<GeoJsonPosition> ele = openRouteServiceService.requestElevation(pos);
         GeoJsonPosition center = ele.getFirst();
         for (GeoJsonPosition p : ele) {
-            if (haversineDistance(center, realCenter) > haversineDistance(p, realCenter))
+            if (haversineDistance(center, realCenter) > haversineDistance(p, realCenter)) {
                 center = p;
+            }
         }
 
 
@@ -271,12 +275,12 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
     }
 
     private static GeoJsonPosition offsetPoint(double lat, double lng, double d, double angle) {
-        double R = 6_371_000; // earth radius approx.
+        double r = 6_371_000; // earth radius approx.
         lat = Math.toRadians(lat);
         lng = Math.toRadians(lng);
 
-        double lat2 = Math.asin(Math.sin(lat) * Math.cos(d / R) + Math.cos(lat) * Math.sin(d / R) * Math.cos(angle));
-        double lng2 = lng + Math.atan((Math.sin(angle) * Math.sin(d / R) * Math.cos(lat)) / (Math.cos(d / R) - Math.sin(lat) * Math.sin(lat2)));
+        double lat2 = Math.asin(Math.sin(lat) * Math.cos(d / r) + Math.cos(lat) * Math.sin(d / r) * Math.cos(angle));
+        double lng2 = lng + Math.atan((Math.sin(angle) * Math.sin(d / r) * Math.cos(lat)) / (Math.cos(d / r) - Math.sin(lat) * Math.sin(lat2)));
 
         return new GeoJsonPosition(Math.toDegrees(lat2), Math.toDegrees(lng2), null);
     }
@@ -291,9 +295,8 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
         double deltaLon = Math.toRadians(p2.getLongitude() - p1.getLongitude());
 
         // Haversine formula
-        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2) +
-                Math.cos(lat1Rad) * Math.cos(lat2Rad) *
-                        Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+        double a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
+                + Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
