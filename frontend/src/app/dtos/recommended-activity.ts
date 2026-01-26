@@ -17,6 +17,7 @@ export interface RecommendedActivityDto {
     windSpeed: number;
     precipitation: number;
     relativeHumidity: number;
+    uvIndex: number;
     weatherPerformancePenalty: number;
     weatherScoreDescription: string;
     weatherSummary: WeatherSummaryDto;
@@ -39,6 +40,7 @@ export interface WeatherSummaryDto {
   temperatureText: string;
   windText: string;
   precipitationText: string;
+  uvText: string;
 }
 
 export interface SaveRouteDto {

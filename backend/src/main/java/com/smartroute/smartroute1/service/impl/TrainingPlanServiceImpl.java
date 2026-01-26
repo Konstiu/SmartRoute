@@ -121,6 +121,7 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
                     weatherResponse.getWindSpeed10m(),
                     weatherResponse.getPrecipitation(),
                     weatherResponse.getRelativeHumidity(),
+                    weatherResponse.getUvIndex(),
                     weatherService.estimatePerformancePenalty(weatherResponse),
                     weatherService.evaluateWeatherScore(weatherScore),
                     weatherService.buildWeatherDescription(weatherResponse)

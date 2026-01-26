@@ -2403,6 +2403,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
                     weatherResponse.getWindSpeed10m(),
                     weatherResponse.getPrecipitation(),
                     weatherResponse.getRelativeHumidity(),
+                    weatherResponse.getUvIndex(),
                     weatherService.estimatePerformancePenalty(weatherResponse),
                     weatherService.evaluateWeatherScore(weatherScore),
                     weatherService.buildWeatherDescription(weatherResponse)
@@ -2410,6 +2411,7 @@ public class TrainingPlan7dServiceImpl implements TrainingPlan7dService {
         } catch (Exception e) {
             return new CompactWeatherDto(
                     0.6,
+                    null,
                     null,
                     null,
                     null,
