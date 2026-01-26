@@ -32,6 +32,8 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
         @Param("end") Instant end
     );
 
+    List<Activity> findTop10ByUserAndTypeIsAndWorkoutTypeIsOrderByStartDateDesc(ApplicationUser user, String type, WorkoutType workoutType, Pageable pageable);
+
     @Query(value = """
         SELECT moving_time
         FROM (
