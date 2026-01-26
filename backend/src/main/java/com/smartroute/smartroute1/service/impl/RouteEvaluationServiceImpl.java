@@ -58,7 +58,6 @@ public class RouteEvaluationServiceImpl implements RouteEvaluationService {
         for (int i = 1; i < route.size(); i++) {
             double distance = haversineDistance(route.get(i - 1), route.get(i)) * 1000;
             double elevation = route.get(i).getAltitude() - route.get(i - 1).getAltitude();
-            System.out.println(elevation / distance);
             if (distance > 0.0001) {
                 convertedSum += distance * calculateInterpolatedConversion(elevation / distance);
             } else {

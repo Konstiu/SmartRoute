@@ -45,8 +45,6 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
             String coords = objectMapper.writeValueAsString(coordinates);
             String body = "{\"coordinates\":" + coords + ",\"elevation\":true,\"instructions\":false}";
 
-            System.out.println(body);
-
             String uri = "https://api.openrouteservice.org/v2/directions/foot-walking/geojson";
             if (vienna) {
                 uri = "https://ors.unterweger.tech/ors/v2/directions/foot-walking/geojson";
@@ -115,8 +113,6 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
         try {
             String coords = objectMapper.writeValueAsString(coordinates);
             String body = "{\"coordinates\":" + coords + ",\"elevation\":true,\"units\":\"km\",\"options\":{\"round_trip\":{\"length\":" + length + ",\"points\":" + points + ",\"seed\":" + seed + "}}}";
-
-            System.out.println(body);
 
             String response = webClient.post()
                     .uri("https://api.openrouteservice.org/v2/directions/foot-walking/geojson")
