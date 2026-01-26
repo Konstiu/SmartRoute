@@ -237,7 +237,7 @@ public class StatisticsServiceImpl implements StatisticsService {
     @Override
     public GymHistoryDto getGymHistory(ApplicationUser user) {
         List<GymWorkout> workouts = gymWorkoutRepository.findGymWorkoutByUserBetweenDatesOrderByStartDateAsc(user, LocalDate.now().minusDays(numberOfDaysInYear), LocalDate.now());
-        return new GymHistoryDto(workouts.size(), workouts);
+        return new GymHistoryDto(workouts.size(), List.of());
     }
 
 

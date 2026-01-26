@@ -90,20 +90,13 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
     @Override
     @Transactional
     public GymWorkoutDto getGymWorkout(ApplicationUser user, LocalDate date, Map<BodyPart, Double> injuriesMap, Integer readinessScore) {
-        Optional<GymWorkout> existingWorkoutOpt = gymWorkoutRepository.findTopByUserAndCreationDateOrderByIdDesc(user, date);
-
-        if (existingWorkoutOpt.isPresent()) {
-            return toDto(existingWorkoutOpt.get());
+        Optional<GymWorkout> existing = gymWorkoutRepository.findFirstByUserAndCreationDate(user, date);
+        if (existing.isPresent()) {
+            GymWorkoutDto gymWorkoutDto = getGymWorkoutById(existing.get().getId(), user.getEmail());
+            return gymWorkoutDto;
+        }else {
+            return getGymWorkout(user, injuriesMap, readinessScore);
         }
-
-        GymWorkout gymWorkout = getGymWorkout(injuriesMap, readinessScore);
-        gymWorkout.setUser(user);
-        gymWorkout.setCreationDate(date);
-
-        GymWorkout savedWorkout = gymWorkoutRepository.save(gymWorkout);
-        gymWorkoutRepository.flush();
-
-        return toDto(savedWorkout);
     }
 
     @Override
@@ -312,15 +305,4 @@ public class GymWorkoutSelectorServiceImpl implements GymWorkoutSelectorService 
         Random rnd = new Random();
         return list.get(rnd.nextInt(list.size()));
     }
-
-    private GymWorkoutDto toDto(GymWorkout gymWorkout) {
-        GymWorkoutDto gymWorkoutDto = new GymWorkoutDto();
-        gymWorkoutDto.setId(gymWorkout.getId());
-        gymWorkoutDto.setExercises(exerciseMapper.entityListToDtoList(gymWorkout.getExercises()));
-        gymWorkoutDto.setReps(gymWorkout.getReps());
-        gymWorkoutDto.setSets(gymWorkout.getSets());
-        return gymWorkoutDto;
-    }
-
-
 }
