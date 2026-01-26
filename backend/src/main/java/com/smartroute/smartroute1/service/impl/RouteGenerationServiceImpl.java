@@ -155,7 +155,7 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
     public GeoJsonDto generateRoundTrip(GeoJsonPosition coordinate, int length) {
         double lng = coordinate.getLongitude();
         double lat = coordinate.getLatitude();
-        double factor = 500; // TODO
+        double factor = length / 10.0;
         int num = 10;
 
         List<GeoJsonPosition> pos = new ArrayList<>();
@@ -196,12 +196,11 @@ public class RouteGenerationServiceImpl implements RouteGenerationService {
         GeoJsonDto route = openRouteServiceService.requestRoute(List.of(new GeoJsonPosition(center.getLatitude(), center.getLongitude(), null),
                 new GeoJsonPosition(point.getLatitude(), point.getLongitude(), null),
                 new GeoJsonPosition(center.getLatitude(), center.getLongitude(), null)
-        ), false); // TODO: vienna bool
+        ), false);
         List<GeoJsonPosition> coords = route.getFeatures().getFirst().getGeometry().getCoordinates();
         double realDistance = routeEvaluationService.evaluateRoute(coords);
         double error = (realDistance - length) / length;
         while (error > 0.05) {
-            System.out.println("length: " + length + ", realDistance: " + realDistance + ", error: " + error + ", count: " + coords.size());
             error = Math.min(error, 0.8);
             int removal = (int) Math.round(coords.size() * (1 - (1 - error / 2)));
             int removalLocation = (coords.size() - removal) / 2;
