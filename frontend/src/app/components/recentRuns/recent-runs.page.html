@@ -41,20 +41,33 @@
         <h2>{{ activity.name }}</h2>
         <h3>{{ this.formatDate(activity.startDateLocal) }}</h3>
         <p class="activity-stats">
-          <span><ion-icon name="navigate-outline"></ion-icon> {{ formatDistance(activity.distance) }}</span>
-          <span><ion-icon name="time-outline"></ion-icon> {{ formatDuration(activity.movingTime) }}</span>
-          <span><ion-icon name="speedometer-outline"></ion-icon> {{ formatPace(activity.averageSpeed) }}</span>
+          <span><ion-icon name="navigate-outline"></ion-icon>
+            {{ formatDistance(activity.distance) }}</span>
+          <span><ion-icon name="time-outline"></ion-icon>
+            {{ formatDuration(activity.movingTime) }}</span>
+          <span><ion-icon name="speedometer-outline"></ion-icon>
+            {{ formatPace(activity.averageSpeed) }}</span>
         </p>
         <p class="activity-stats-secondary" *ngIf="activity.totalElevationGain || activity.averageHeartrate">
           <span *ngIf="activity.totalElevationGain">
-            <ion-icon name="trending-up-outline"></ion-icon> {{ formatElevation(activity.totalElevationGain) }}
+            <ion-icon name="trending-up-outline"></ion-icon>
+            {{ formatElevation(activity.totalElevationGain) }}
           </span>
           <span *ngIf="activity.averageHeartrate">
-            <ion-icon name="heart-outline"></ion-icon> {{ formatHeartRate(activity.averageHeartrate) }}
+            <ion-icon name="heart-outline"></ion-icon>
+            {{ formatHeartRate(activity.averageHeartrate) }}
           </span>
-
         </p>
       </ion-label>
+
+      @if (activity.runClassification?.runType) {
+        <ion-chip
+          (click)="editClassification(activity, $event)"
+          color="primary">
+          {{ runTypeLabel[activity.runClassification!.runType] }}
+        </ion-chip>
+      }
+
     </ion-item>
   </ion-list>
 

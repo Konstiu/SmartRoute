@@ -48,4 +48,6 @@ public class WeatherResponse {
     private Double dewPoint; // °C
     @Column
     private Double snowDepth; // cm
+    @Column
+    private Double uvIndex;
 }

@@ -6,6 +6,7 @@ import com.smartroute.smartroute1.entity.ApplicationUser;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 public interface FitnessScoreService {
     /**
@@ -74,7 +75,27 @@ public interface FitnessScoreService {
      * @param distance the distance of the activity
      * @param movingTime the moving time of the activity
      * @param totalElevationGain the total elevation gain for the activity
+     * @param activityType the type of the activity
      * @return the calculated sessionLoad
      */
-    Integer calculateSessionLoad(float distance, int movingTime, float totalElevationGain);
+    Integer calculateSessionLoad(float distance, int movingTime, float totalElevationGain, String activityType);
+
+    /**
+     * Calculates the time (in s) in each hr-zone.
+     *
+     * @param stravaStreams the heartRate and time streams
+     * @param user the user to calculate the time in zones for
+     * @return a map containing the zone index (key) and time in zones (value)
+     */
+    Map<Integer, Float> calculateTimeInZones(List<StravaStreamDto> stravaStreams, ApplicationUser user);
+
+    /**
+     * Calculates the time (in s) in each hr-zone.
+     *
+     * @param heartRates the heartRate stream
+     * @param timeStamps the time stream
+     * @param user the user to calculate the time in zones for
+     * @return a map containing the zone index (key) and time in zones (value)
+     */
+    Map<Integer, Float> calculateTimeInZones(List<Float> heartRates, List<Float> timeStamps, ApplicationUser user);
 }

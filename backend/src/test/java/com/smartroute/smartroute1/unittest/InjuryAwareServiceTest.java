@@ -21,7 +21,6 @@ import java.util.*;
 import static com.smartroute.smartroute1.basetest.TestData.DEFAULT_USER_EMAIL;
 import static com.smartroute.smartroute1.basetest.TestData.ORIGIN;
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.when;
 
 
 @SpringBootTest()

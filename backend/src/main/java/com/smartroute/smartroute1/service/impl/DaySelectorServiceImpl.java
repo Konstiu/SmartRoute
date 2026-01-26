@@ -2,7 +2,6 @@ package com.smartroute.smartroute1.service.impl;
 
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.entity.ApplicationUser;
-import com.smartroute.smartroute1.entity.Injuries;
 import com.smartroute.smartroute1.entity.enums.ExperienceLevel;
 import com.smartroute.smartroute1.entity.enums.Weekday;
 import com.smartroute.smartroute1.exception.CannotCalculateConsistencyScoreException;
@@ -128,14 +127,6 @@ public class DaySelectorServiceImpl implements DaySelectorService {
 
         // map to 0..1
         return (40 - clipped) / 80.0;
-    }
-
-    // Returns the lowest injury constraint (= highest injuryIndex) from all active injuries
-    private double calculateInjuryConstraint(List<Injuries> injuriesList) {
-        return 1 - injuriesList.stream()
-                .filter(i -> i.getLastInjuryDate() == null || i.getLastInjuryDate().isAfter(LocalDate.now().minusDays(14)))
-                .map(Injuries::getInjuryIndex)
-                .reduce(0.0, Double::max);
     }
 
     // Min weekly sessions by experience (recommendations for beginner, intermediate, advanced from: https://pubmed.ncbi.nlm.nih.gov/19204579/)

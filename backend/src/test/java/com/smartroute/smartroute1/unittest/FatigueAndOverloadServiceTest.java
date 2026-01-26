@@ -8,7 +8,6 @@ import com.smartroute.smartroute1.repository.ActivityRepository;
 import com.smartroute.smartroute1.repository.UserRepository;
 import com.smartroute.smartroute1.service.FatigueAndOverloadService;
 import com.smartroute.smartroute1.service.FitnessScoreService;
-import com.smartroute.smartroute1.service.InjuryAwareTrainingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -726,7 +725,7 @@ class FatigueAndOverloadServiceTest extends BaseTest {
         activity.setMovingTime(movingTime);
         activity.setTotalElevationGain(elevation);
 
-        Integer sessionLoad = fitnessScoreService.calculateSessionLoad(distance, movingTime, elevation);
+        Integer sessionLoad = fitnessScoreService.calculateSessionLoad(distance, movingTime, elevation, "Run");
         activity.setSessionLoad(sessionLoad);
 
         return activityRepository.save(activity);

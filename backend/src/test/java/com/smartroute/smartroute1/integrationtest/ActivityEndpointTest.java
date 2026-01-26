@@ -4,10 +4,14 @@ import com.smartroute.smartroute1.basetest.BaseTest;
 import com.smartroute.smartroute1.basetest.TestData;
 import com.smartroute.smartroute1.entity.Activity;
 import com.smartroute.smartroute1.repository.ActivityRepository;
+import com.smartroute.smartroute1.service.ActivityProcessingService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.SpyBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ActiveProfiles;
@@ -16,6 +20,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.hamcrest.Matchers.*;
+import static org.mockito.Mockito.doNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -24,13 +29,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles({"test", "generateData"})
 class ActivityEndpointTest extends BaseTest implements TestData {
 
+    private static final String STRAVA_BASE_URI = BASE_URI + "/activities";
     @Autowired
     private MockMvc mockMvc;
-
     @Autowired
     private ActivityRepository activityRepository;
+    @SpyBean
+    private ActivityProcessingService activityService;
 
-    private static final String STRAVA_BASE_URI = BASE_URI + "/activities";
+
+    @BeforeEach
+    void setup() {
+        doNothing().when(activityService).fetchWeatherForActivity(Mockito.any()); //Avoid API calls in testing
+    }
 
     @Test
     @WithMockUser(username = DEFAULT_USER_EMAIL, roles = {"USER"})
