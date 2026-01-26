@@ -40,6 +40,11 @@ public class OpenRouteServiceServiceImpl implements OpenRouteServiceService {
         if (coordinates == null || coordinates.size() < 2) {
             throw new IllegalArgumentException("'coordinates' must contain at least two coordinates.");
         }
+
+        for (GeoJsonPosition pos : coordinates) {
+            pos.setAltitude(null);
+        }
+
         ObjectMapper objectMapper = new ObjectMapper();
         try {
             String coords = objectMapper.writeValueAsString(coordinates);
