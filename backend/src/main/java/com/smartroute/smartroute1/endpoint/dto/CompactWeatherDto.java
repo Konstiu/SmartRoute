@@ -11,6 +11,7 @@ public class CompactWeatherDto {
     Double windSpeed;
     Double precipitation;
     Double relativeHumidity;
+    Double uvIndex;
     Double weatherPerformancePenalty;
     String weatherScoreDescription;
     WeatherSummaryDto weatherSummary;

@@ -1,10 +1,13 @@
 package com.smartroute.smartroute1.service.impl;
 
-import com.smartroute.smartroute1.endpoint.dto.AthleteStatusDto;
-import com.smartroute.smartroute1.endpoint.dto.CompactWeatherDto;
-import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
 import com.smartroute.smartroute1.endpoint.dto.RecommendedActivityDto;
 import com.smartroute.smartroute1.endpoint.dto.ViewInjuryDto;
+import com.smartroute.smartroute1.endpoint.dto.CompactWeatherDto;
+import com.smartroute.smartroute1.endpoint.dto.AthleteStatusDto;
+import com.smartroute.smartroute1.endpoint.dto.GymWorkoutDto;
+import com.smartroute.smartroute1.endpoint.dto.RouteDto;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.PlannedDayDto;
+import com.smartroute.smartroute1.endpoint.dto.trainingplan.TrainingPlan7dDto;
 import com.smartroute.smartroute1.endpoint.mapper.InjuryMapper;
 import com.smartroute.smartroute1.entity.ApplicationUser;
 import com.smartroute.smartroute1.entity.Injuries;
@@ -22,6 +25,8 @@ import com.smartroute.smartroute1.service.RouteGenerationService;
 import com.smartroute.smartroute1.service.TrainingPlanService;
 import com.smartroute.smartroute1.service.WeatherService;
 import com.smartroute.smartroute1.service.WorkoutTypeSelectorService;
+import com.smartroute.smartroute1.service.TrainingPlan7dService;
+import com.smartroute.smartroute1.service.TrainingPlanStore;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -33,6 +38,7 @@ import java.time.Period;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -41,6 +47,7 @@ import java.util.Set;
 @AllArgsConstructor
 public class TrainingPlanServiceImpl implements TrainingPlanService {
 
+    private final RouteGenerationService routeGenerationService;
     private WorkoutTypeSelectorService typeSelectorService;
     private WeatherService weatherService;
     private FatigueAndOverloadService fatigueAndOverloadService;
@@ -49,7 +56,9 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
     private InjuryAwareTrainingService injuryAwareTrainingService;
     private InjuryMapper injuryMapper;
     private GymWorkoutSelectorService gymWorkoutSelectorService;
-    private final RouteGenerationService routeGenerationService;
+
+    private final TrainingPlan7dService trainingPlan7dService;
+    private final Clock clock = Clock.system(ZoneId.of("Europe/Vienna"));
 
     @Override
     public RecommendedActivityDto getTrainingPlan(String email, double latitude, double longitude) {
@@ -112,6 +121,7 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
                     weatherResponse.getWindSpeed10m(),
                     weatherResponse.getPrecipitation(),
                     weatherResponse.getRelativeHumidity(),
+                    weatherResponse.getUvIndex(),
                     weatherService.estimatePerformancePenalty(weatherResponse),
                     weatherService.evaluateWeatherScore(weatherScore),
                     weatherService.buildWeatherDescription(weatherResponse)
@@ -143,10 +153,8 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
 
             } else if (gymWorkouts.contains(selectedWorkout)) {
                 dto.setType(RecommendedActivityDto.SessionType.GYM);
-                // TODO take name from selected workout when different gym workouts have been implemented
                 dto.setName("Gym Workout");
 
-                // TODO generate only one new workout per day
                 // get gym workout
                 GymWorkoutDto gymWorkout = gymWorkoutSelectorService.getGymWorkout(
                         user,
@@ -161,4 +169,104 @@ public class TrainingPlanServiceImpl implements TrainingPlanService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
         }
     }
+
+    // plan retrieval (cache/db)
+    private final TrainingPlanStore trainingPlanStore;
+
+    @Override
+    public RecommendedActivityDto getPlannedDay(String email, String planId, LocalDate date) {
+        ApplicationUser user = userRepository.findUserByEmail(email);
+        if (user == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        TrainingPlan7dDto plan = trainingPlanStore.get(email, planId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Plan not found"));
+
+        AthleteStatusDto status = buildCurrentAthleteStatus(email, user, LocalDate.now());
+
+        PlannedDayDto day = plan.getDays().stream()
+                .filter(d -> date.equals(d.getDate()))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Day not in plan"));
+
+        return project(day, status);
+    }
+
+    private RecommendedActivityDto project(PlannedDayDto day, AthleteStatusDto status) {
+        RecommendedActivityDto dto = new RecommendedActivityDto();
+        dto.setAthleteStatus(status);
+        dto.setWeather(day.getWeatherDto());
+        dto.setName(day.getWorkoutType().toString());
+
+        WorkoutType wt = day.getWorkoutType();
+        if (wt == WorkoutType.REST_DAY) {
+            dto.setType(RecommendedActivityDto.SessionType.REST);
+            return dto;
+        }
+
+        if (isRun(wt)) {
+            dto.setType(RecommendedActivityDto.SessionType.RUN);
+            dto.setRoute(day.getRouteDto());
+            return dto;
+        }
+
+        dto.setType(RecommendedActivityDto.SessionType.GYM);
+        dto.setGymSession(day.getGymWorkout());
+        return dto;
+    }
+
+    private boolean isRun(WorkoutType wt) {
+        return wt == WorkoutType.EASY_RUN || wt == WorkoutType.TEMPO_RUN
+                || wt == WorkoutType.INTERVAL_RUN || wt == WorkoutType.LONG_RUN;
+    }
+
+    private AthleteStatusDto buildCurrentAthleteStatus(String email, ApplicationUser user, LocalDate today) {
+        double tsb;
+        int readiness;
+
+        try {
+            tsb = fatigueAndOverloadService.tsbOn(user, today);
+            readiness = readinessScoreService.calculateReadinessScore(user, today);
+        } catch (InsufficientTrainingDataException e) {
+            tsb = 0.0;
+            readiness = 50;
+        }
+
+        double injuryIndex = safeDouble(() -> injuryAwareTrainingService.getInjuryIndex(email), 0.0);
+
+        List<Injuries> all = safeList(() -> injuryAwareTrainingService.findInjuriesByEmail(email));
+        List<Injuries> active = all.stream()
+                .filter(i -> i.getLastInjuryDate() == null || i.getLastInjuryDate().isAfter(today.minusDays(14)))
+                .toList();
+
+        List<ViewInjuryDto> dto = new ArrayList<>();
+        for (Injuries i : active) {
+            dto.add(injuryMapper.entitytoDto(i));
+        }
+
+        return new AthleteStatusDto(tsb, readiness, injuryIndex, dto);
+    }
+
+    private double safeDouble(SupplierWithException<Double> s, double fallback) {
+        try {
+            return s.get();
+        } catch (Exception e) {
+            return fallback;
+        }
+    }
+
+    private <T> List<T> safeList(SupplierWithException<List<T>> s) {
+        try {
+            return s.get();
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    @FunctionalInterface
+    private interface SupplierWithException<T> {
+        T get() throws Exception;
+    }
 }
+

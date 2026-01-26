@@ -19,18 +19,84 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
     Optional<Activity> findByStravaId(Long stravaId);
 
     @Query("""
-            SELECT COALESCE(SUM(a.sessionLoad), 0)
-            FROM Activity a
-            WHERE a.user = :user
-            AND a.type = :type
-            AND a.startDate >= :start AND a.startDate < :end
-            """)
+        SELECT COALESCE(SUM(a.sessionLoad), 0)
+        FROM Activity a
+        WHERE a.user = :user
+        AND a.type = :type
+        AND a.startDate >= :start AND a.startDate < :end
+        """)
     Integer sumSessionLoadForDay(
-            @Param("user") ApplicationUser user,
-            @Param("type") String type,
-            @Param("start") Instant start,
-            @Param("end") Instant end
+        @Param("user") ApplicationUser user,
+        @Param("type") String type,
+        @Param("start") Instant start,
+        @Param("end") Instant end
     );
+
+    List<Activity> findTop10ByUserAndTypeIsAndWorkoutTypeIsOrderByStartDateDesc(ApplicationUser user, String type, WorkoutType workoutType, Pageable pageable);
+
+    @Query(value = """
+        SELECT moving_time
+        FROM (
+            SELECT a.moving_time
+            FROM activity a
+            WHERE a.user_id = :#{#user.id}
+                AND a.type = :type
+                AND a.start_date < CAST(:activityDate AS TIMESTAMP)
+                AND a.start_date >= DATEADD('WEEK', -8, CAST(:activityDate AS TIMESTAMP))
+            ORDER BY a.start_date DESC
+            LIMIT 20
+        ) last_20
+        ORDER BY moving_time ASC
+        """, nativeQuery = true)
+    List<Integer> getDurationsInLast20ActivitiesBeforeActivityByUserAndTypeAsc(@Param("user") ApplicationUser user, @Param("type") String type, @Param("activityDate") Instant activityDate);
+
+    @Query(value = """
+        SELECT distance
+        FROM (
+            SELECT a.distance
+            FROM activity a
+            WHERE a.user_id = :#{#user.id}
+                AND a.type = :type
+                AND a.start_date < CAST(:activityDate AS TIMESTAMP)
+                AND a.start_date >= DATEADD('WEEK', -8, CAST(:activityDate AS TIMESTAMP))
+            ORDER BY a.start_date DESC
+            LIMIT 20
+        ) last_20
+        ORDER BY distance ASC
+        """, nativeQuery = true)
+    List<Integer> getDistancesInLast20ActivitiesBeforeActivityByUserAndTypeAsc(@Param("user") ApplicationUser user, @Param("type") String type, @Param("activityDate") Instant activityDate);
+
+    @Query(value = """
+        SELECT average_speed
+        FROM (
+            SELECT a.average_speed
+            FROM activity a
+            WHERE a.user_id = :#{#user.id}
+                AND a.type = :type
+                AND a.start_date < CAST(:activityDate AS TIMESTAMP)
+                AND a.start_date >= DATEADD('WEEK', -8, CAST(:activityDate AS TIMESTAMP))
+            ORDER BY a.start_date DESC
+            LIMIT 20
+        ) last_20
+        ORDER BY average_speed ASC
+        """, nativeQuery = true)
+    List<Double> getPacesInLast20ActivitiesBeforeActivityByUserAndTypeAsc(@Param("user") ApplicationUser user, @Param("type") String type, @Param("activityDate") Instant activityDate);
+
+    @Query("""
+        SELECT COALESCE(MAX(a.maxHeartrate), -1)
+        FROM Activity a
+        WHERE a.user = :user
+        AND a.type = :type
+        """)
+    Integer getMaxMaxHrInAllActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
+
+    @Query("""
+        SELECT COALESCE(MAX(a.averageHeartrate), -1)
+        FROM Activity a
+        WHERE a.user = :user
+        AND a.type = :type
+        """)
+    Integer getMaxAverageHrInAllActivitiesByUserAndType(@Param("user") ApplicationUser user, @Param("type") String type);
 
     List<Activity> findTop10ByUserAndTypeIsOrderByStartDateDesc(ApplicationUser user, String type, Pageable pageable);
 
@@ -73,6 +139,19 @@ public interface ActivityRepository extends JpaRepository<Activity, Long> {
             ApplicationUser user,
             List<WorkoutType> workoutTypes,
             Instant startDate
+    );
+
+    @Query("""
+                SELECT a
+                FROM Activity a
+                WHERE a.user.id = :userId
+                  AND a.startDateLocal IS NOT NULL
+                  AND a.startDateLocal >= :fromInclusive
+                ORDER BY a.startDateLocal ASC
+            """)
+    List<Activity> findRecentActivitiesForUser(
+            @Param("userId") Long userId,
+            @Param("fromInclusive") Instant fromInclusive
     );
 
     void deleteAllByUser(ApplicationUser user);

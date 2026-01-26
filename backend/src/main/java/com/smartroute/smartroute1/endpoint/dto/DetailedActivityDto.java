@@ -24,4 +24,5 @@ public class DetailedActivityDto {
     private String summaryPolyline;
     private Integer satisfactionScore;
     private WorkoutType workoutType;
+    private RunClassificationDecisionDto runClassification;
 }

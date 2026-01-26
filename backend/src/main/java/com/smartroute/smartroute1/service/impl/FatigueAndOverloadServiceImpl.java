@@ -16,6 +16,8 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class FatigueAndOverloadServiceImpl implements FatigueAndOverloadService {
@@ -223,26 +225,31 @@ public class FatigueAndOverloadServiceImpl implements FatigueAndOverloadService 
      * @return list of daily loads (maybe unsorted; will be sorted upstream)
      */
     private List<DailyLoad> loadDailyFitnessScores(ApplicationUser user) {
-        Activity first = !activityRepository.findAllByUserOrderByStartDateAsc(user).isEmpty() ? activityRepository.findAllByUserOrderByStartDateAsc(user).get(0) : null;
-        //Activity last = !activityRepository.findAllByUserOrderByStartDateDesc(user).isEmpty() ? activityRepository.findAllByUserOrderByStartDateDesc(user).get(0) : null;
+        List<Activity> allActivities = activityRepository.findAllByUserOrderByStartDateAsc(user);
 
-        if (first == null) {
+        if (allActivities.isEmpty()) {
             return List.of();
         }
 
-        LocalDate firstDay = first.getStartDate().atZone(ZoneOffset.systemDefault()).toLocalDate();
+        LocalDate firstDay = allActivities.get(0).getStartDate().atZone(ZoneOffset.systemDefault()).toLocalDate();
         LocalDate today = LocalDate.now();
+
+        Map<LocalDate, List<Activity>> activitiesByDate = allActivities.stream()
+                .collect(Collectors.groupingBy(a ->
+                        a.getStartDate().atZone(ZoneOffset.systemDefault()).toLocalDate()
+                ));
+
         List<DailyLoad> result = new ArrayList<>();
 
         for (LocalDate d = firstDay; !d.isAfter(today); d = d.plusDays(1)) {
-            int score = fitnessScoreService.calculateFitnessScore(
-                    d.atStartOfDay(ZoneOffset.systemDefault()).toInstant(),
-                    user
-            );
+            List<Activity> dayActivities = activitiesByDate.getOrDefault(d, List.of());
 
-            //if (score > 0) {
+            // Sum session loads for this day
+            int score = dayActivities.stream()
+                    .mapToInt(a -> a.getSessionLoad() != null ? a.getSessionLoad() : 0)
+                    .sum();
+
             result.add(new DailyLoad(d, score));
-            //}
         }
         return result;
     }
