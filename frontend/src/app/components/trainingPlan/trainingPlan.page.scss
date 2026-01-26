@@ -47,7 +47,6 @@ li {
   color: var(--ion-text-color);
 }
 
-
 ion-list {
   background: transparent !important;
   --background: transparent !important;
@@ -58,80 +57,12 @@ ion-list {
   }
 }
 
-/* Collapsed card */
-.map-card {
-  position: relative;
-  height: 20rem;
-  overflow: hidden;
+.page-container {
+  padding: 12px;
 }
 
-/* FAB positioning */
-.map-fab {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 2000;
-}
-
-.action-block {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.week-card {
-  margin-bottom: 12px;
-}
-
-.week-strip {
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-}
-
-.top-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 6px;
-}
-
-.weekday {
-  font-weight: 600;
-  font-size: 14px;
-}
-
-.daynum {
-  font-size: 14px;
-  opacity: 0.7;
-}
-
-.mid-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-
-  ion-icon {
-    font-size: 18px;
-  }
-
-  .wlabel {
-    font-size: 14px;
-    font-weight: 600;
-  }
-}
-
-.bot-row {
-  display: flex;
-  gap: 6px;
-  align-items: center;
-
-  ion-badge {
-    font-size: 11px;
-    text-transform: lowercase;
-  }
+.rounded-card {
+  border-radius: 18px;
 }
 
 .hidden {
@@ -144,18 +75,10 @@ ion-list {
   transition: opacity 150ms ease, max-height 150ms ease;
 }
 
-.map-card {
-  transition: opacity 150ms ease, max-height 150ms ease;
-}
-
-.live-toggle {
+.action-block {
   display: flex;
   align-items: center;
-  gap: 8px;
-}
-
-.page-container {
-  padding: 12px;
+  gap: 6px;
 }
 
 .week-card {
@@ -169,18 +92,139 @@ ion-list {
   gap: 12px;
 }
 
-.live-toggle {
+.week-left {
   display: flex;
   align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  min-width: 0;
+
+  ion-card-title {
+    margin: 0;
+    white-space: nowrap;
+    font-weight: 900;
+    letter-spacing: 0.2px;
+
+    display: inline-flex;
+    align-items: center;
+    line-height: 1.1;
+  }
+}
+
+.regen-icon-btn {
+  margin: 0;
+  flex: 0 0 auto;
+
+  width: 34px;
+  height: 34px;
+
+  --padding-start: 0;
+  --padding-end: 0;
+  --border-radius: 14px;
+
+  --color: var(--ion-color-primary);
+
+  --background: rgba(var(--ion-color-primary-rgb), 0.12);
+  --background-hover: rgba(var(--ion-color-primary-rgb), 0.16);
+  --background-activated: rgba(var(--ion-color-primary-rgb), 0.20);
+  --background-focused: rgba(var(--ion-color-primary-rgb), 0.16);
+
+  ion-icon {
+    font-size: 20px;
+  }
+
+  &[disabled] {
+    opacity: 0.6;
+  }
+
+  &[disabled]::part(native) {
+    box-shadow: none;
+    transform: none;
+  }
+}
+
+.regen-icon-btn::part(native) {
+  border-radius: 14px;
+  box-shadow: 0 10px 24px rgba(var(--ion-color-primary-rgb), 0.14);
+  transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+}
+
+.regen-icon-btn:hover::part(native) {
+  box-shadow: 0 14px 34px rgba(var(--ion-color-primary-rgb), 0.18);
+  filter: brightness(1.02);
+}
+
+.regen-icon-btn:active::part(native) {
+  transform: scale(0.97);
+  box-shadow: 0 8px 18px rgba(var(--ion-color-primary-rgb), 0.12);
+}
+
+.live-toggle {
+  display: inline-flex;
+  align-items: center;
   gap: 10px;
-  font-weight: 600;
+
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+
+  ion-label {
+    font-weight: 800;
+    font-size: 13px;
+    opacity: 0.9;
+  }
+
+  ion-toggle {
+    transform: scale(0.92);
+  }
+}
+
+.live-hint {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 12px;
+  border-radius: 16px;
+
+  background: rgba(var(--ion-color-primary-rgb), 0.08);
+  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.14);
+
+  ion-icon {
+    font-size: 18px;
+    color: var(--ion-color-primary);
+
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: rgba(var(--ion-color-primary-rgb), 0.12);
+  }
+}
+
+.live-hint-title {
+  font-weight: 900;
+  font-size: 14px;
+  line-height: 1.1;
+}
+
+.live-hint-sub {
+  margin-top: 2px;
+  font-size: 13px;
+  opacity: 0.75;
 }
 
 .week-strip {
   display: flex;
   gap: 12px;
   overflow-x: auto;
+
   padding: 8px 2px 12px 2px;
+
   scroll-snap-type: x mandatory;
 }
 
@@ -200,18 +244,17 @@ ion-list {
   justify-content: space-between;
 
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
-
   transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
-}
 
-.day-pill:active {
-  transform: scale(0.98);
-}
+  &:active {
+    transform: scale(0.98);
+  }
 
-.day-pill.selected {
-  border-color: var(--ion-color-primary);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
-  transform: translateY(-1px);
+  &.selected {
+    border-color: var(--ion-color-primary);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.14);
+    transform: translateY(-1px);
+  }
 }
 
 .pill-top {
@@ -244,19 +287,20 @@ ion-list {
   width: 34px;
   height: 34px;
   border-radius: 12px;
+
   display: flex;
   align-items: center;
   justify-content: center;
 
   background: rgba(0, 0, 0, 0.06);
+
+  ion-icon {
+    font-size: 18px;
+  }
 }
 
 .day-pill.selected .pill-icon {
   background: rgba(var(--ion-color-primary-rgb), 0.14);
-}
-
-.pill-icon ion-icon {
-  font-size: 18px;
 }
 
 .wlabel {
@@ -279,181 +323,38 @@ ion-list {
 }
 
 .map-card {
+  position: relative;
+  height: 20rem;
   overflow: hidden;
   border-radius: 18px;
+  transition: opacity 150ms ease, max-height 150ms ease;
 }
 
-.rounded-card {
-  border-radius: 18px;
-}
-
-.regen-icon-btn {
-  margin: 0;
-
-  width: 34px;
-  height: 34px;
-
-  --padding-start: 0;
-  --padding-end: 0;
-  --border-radius: 14px;
-
-  --color: var(--ion-color-primary);
-
-  --background: rgba(var(--ion-color-primary-rgb), 0.12);
-  --background-hover: rgba(var(--ion-color-primary-rgb), 0.16);
-  --background-activated: rgba(var(--ion-color-primary-rgb), 0.20);
-  --background-focused: rgba(var(--ion-color-primary-rgb), 0.16);
-}
-
-.regen-icon-btn::part(native) {
-  border-radius: 14px;
-  box-shadow: 0 10px 24px rgba(var(--ion-color-primary-rgb), 0.14);
-  transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
-}
-
-.regen-icon-btn:hover::part(native) {
-  box-shadow: 0 14px 34px rgba(var(--ion-color-primary-rgb), 0.18);
-  filter: brightness(1.02);
-}
-
-.regen-icon-btn:active::part(native) {
-  transform: scale(0.97);
-  box-shadow: 0 8px 18px rgba(var(--ion-color-primary-rgb), 0.12);
-}
-
-.regen-icon-btn[disabled] {
-  opacity: 0.6;
-}
-
-.regen-icon-btn[disabled]::part(native) {
-  box-shadow: none;
-  transform: none;
-}
-
-.regen-icon-btn ion-icon {
-  font-size: 20px;
-}
-
-.week-left {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: nowrap;
-  min-width: 0;
-}
-
-.week-left ion-card-title {
-  margin: 0;
-  line-height: 1.1;
-
-  display: inline-flex;
-  align-items: center;
-
-  white-space: nowrap;
-}
-
-.regen-icon-btn {
-  flex: 0 0 auto;
-}
-
-.week-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.week-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: nowrap;
-  min-width: 0;
-}
-
-.week-left ion-card-title {
-  margin: 0;
-  white-space: nowrap;
-  font-weight: 900;
-  letter-spacing: 0.2px;
-}
-
-/* Toggle row polish */
-.live-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.live-toggle ion-label {
-  font-weight: 800;
-  font-size: 13px;
-  opacity: 0.9;
-}
-
-/* Make the toggle slightly more compact */
-.live-toggle ion-toggle {
-  transform: scale(0.92);
-}
-
-/* The “Live enabled” hint block */
-.live-hint {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-
-  padding: 12px 12px;
-  border-radius: 16px;
-
-  background: rgba(var(--ion-color-primary-rgb), 0.08);
-  border: 1px solid rgba(var(--ion-color-primary-rgb), 0.14);
-}
-
-.live-hint ion-icon {
-  font-size: 18px;
-  color: var(--ion-color-primary);
-
-  width: 34px;
-  height: 34px;
-  border-radius: 12px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  background: rgba(var(--ion-color-primary-rgb), 0.12);
-}
-
-.live-hint-title {
-  font-weight: 900;
-  font-size: 14px;
-  line-height: 1.1;
-}
-
-.live-hint-sub {
-  margin-top: 2px;
-  font-size: 13px;
-  opacity: 0.75;
+.map-fab {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2000;
 }
 
 .map-overlay-actions {
   position: absolute;
   right: 10px;
   bottom: 10px;
-  z-index: 2000;      // above leaflet panes
+
+  z-index: 2000;
+
   display: flex;
   flex-direction: column;
   gap: 10px;
+
   pointer-events: auto;
 }
 
 .map-overlay-btn {
   --padding-start: 0;
   --padding-end: 0;
+
   width: 38px;
   height: 38px;
 }
@@ -461,27 +362,32 @@ ion-list {
 .route-chip-br {
   position: absolute;
   right: 10px;
-  bottom: 96px;       // above the two buttons
+  bottom: 96px;
+
   z-index: 2000;
+
   padding: 4px 8px;
   border-radius: 999px;
+
   font-size: 12px;
+
   background: rgba(0, 0, 0, 0.55);
   color: white;
+
   pointer-events: none;
 }
 
 .weather-grid {
   padding: 0;
-}
 
-.weather-grid ion-list {
-  padding: 0;
-}
+  ion-list {
+    padding: 0;
+  }
 
-.weather-grid ion-item {
-  --inner-padding-end: 0;
-  --padding-start: 0;
+  ion-item {
+    --inner-padding-end: 0;
+    --padding-start: 0;
+  }
 }
 
 .weather-header {
@@ -494,10 +400,11 @@ ion-list {
 .weather-info-btn {
   --padding-start: 0;
   --padding-end: 0;
+
   height: 24px;
   margin: 0;
-}
 
-.weather-info-btn ion-icon {
-  font-size: 20px;
+  ion-icon {
+    font-size: 20px;
+  }
 }
