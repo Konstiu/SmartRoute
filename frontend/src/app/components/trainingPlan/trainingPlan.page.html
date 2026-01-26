@@ -19,156 +19,128 @@
     <ion-button (click)="loadTrainingPlan()">Retry</ion-button>
   </div>
   } @else {
-    <div class="page-container">
+  <div class="page-container">
 
-      @if (weekPlan) {
+    @if (weekPlan) {
 
-      <ion-card class="rounded-card week-card" color="light">
-        <ion-card-header>
-          <div class="week-header">
-            <div class="week-left">
-              <ion-card-title>Training Plan</ion-card-title>
+    <ion-card class="rounded-card week-card" color="light">
+      <ion-card-header>
+        <div class="week-header">
+          <div class="week-left">
+            <ion-card-title>Training Plan</ion-card-title>
 
-              @if (!useLiveSuggestionForToday) {
-              <ion-button
-                class="regen-icon-btn"
-                fill="clear"
-                (click)="onRegenerateWeekClicked()"
-                [disabled]="isLoadingWeek"
-                aria-label="Regenerate week plan"
-              >
-                @if (isLoadingWeek) {
-                <ion-spinner name="crescent" class="regen-spinner"></ion-spinner>
-                } @else {
-                <ion-icon name="refresh-outline"></ion-icon>
-                }
-              </ion-button>
+            @if (!useLiveSuggestionForToday) {
+            <ion-button class="regen-icon-btn" fill="clear" (click)="onRegenerateWeekClicked()"
+              [disabled]="isLoadingWeek" aria-label="Regenerate week plan">
+              @if (isLoadingWeek) {
+              <ion-spinner name="crescent" class="regen-spinner"></ion-spinner>
+              } @else {
+              <ion-icon name="refresh-outline"></ion-icon>
               }
-            </div>
-
-            <div class="live-toggle">
-              <ion-label>Live Plan</ion-label>
-              <ion-toggle
-                [checked]="useLiveSuggestionForToday"
-                (ionChange)="onLiveSuggestionToggle($event)">
-              </ion-toggle>
-            </div>
-          </div>
-        </ion-card-header>
-
-        <ion-card-content>
-          @if (!useLiveSuggestionForToday) {
-          <div class="week-strip">
-            @for (day of weekPlan.days; track day.date) {
-            <button
-              type="button"
-              class="day-pill"
-              [class.selected]="selectedDay?.date === day.date"
-              (click)="selectDay(day)"
-            >
-              <div class="pill-top">
-                <div class="weekday">{{ weekdayLabel(day.date) }}</div>
-                <div class="daynum">{{ dayOfMonth(day.date) }}</div>
-              </div>
-
-              <div class="pill-mid">
-                <div class="pill-icon">
-                  <ion-icon [name]="workoutIcon(day.workoutType)"></ion-icon>
-                </div>
-                <div class="wlabel">{{ workoutLabel(day.workoutType) }}</div>
-              </div>
-
-              @if (showConfidence()) {
-              <div class="pill-bot">
-                <ion-badge class="confidence-badge" [color]="confidenceColor(day.confidence)">
-                  {{ day.confidence }}
-                </ion-badge>
-
-                @if (day.weatherDto?.weatherScore != null) {
-                <ion-badge class="weather-badge" color="medium">
-                  {{ ((day.weatherDto?.weatherScore ?? 0) * 100) | number:'1.0-0' }}
-                </ion-badge>
-                }
-              </div>
-              }
-            </button>
+            </ion-button>
             }
           </div>
-          } @else {
-          <div class="live-hint">
-            <ion-icon name="flash-outline"></ion-icon>
-            <div>
-              <div class="live-hint-title">Live Plan is enabled</div>
-              <div class="live-hint-sub">Showing today’s best session dynamically.</div>
+
+          <div class="live-toggle">
+            <ion-label>Live Plan</ion-label>
+            <ion-toggle [checked]="useLiveSuggestionForToday" (ionChange)="onLiveSuggestionToggle($event)">
+            </ion-toggle>
+          </div>
+        </div>
+      </ion-card-header>
+
+      <ion-card-content>
+        @if (!useLiveSuggestionForToday) {
+        <div class="week-strip">
+          @for (day of weekPlan.days; track day.date) {
+          <button type="button" class="day-pill" [class.selected]="selectedDay?.date === day.date"
+            (click)="selectDay(day)">
+            <div class="pill-top">
+              <div class="weekday">{{ weekdayLabel(day.date) }}</div>
+              <div class="daynum">{{ dayOfMonth(day.date) }}</div>
             </div>
+
+            <div class="pill-mid">
+              <div class="pill-icon">
+                <ion-icon [name]="workoutIcon(day.workoutType)"></ion-icon>
+              </div>
+              <div class="wlabel">{{ workoutLabel(day.workoutType) }}</div>
+            </div>
+
+            @if (showConfidence()) {
+            <div class="pill-bot">
+              <ion-badge class="confidence-badge" [color]="confidenceColor(day.confidence)">
+                {{ day.confidence }}
+              </ion-badge>
+
+              @if (day.weatherDto?.weatherScore != null) {
+              <ion-badge class="weather-badge" color="medium">
+                {{ ((day.weatherDto?.weatherScore ?? 0) * 100) | number:'1.0-0' }}
+              </ion-badge>
+              }
+            </div>
+            }
+          </button>
+          }
+        </div>
+        } @else {
+        <div class="live-hint">
+          <ion-icon name="flash-outline"></ion-icon>
+          <div>
+            <div class="live-hint-title">Live Plan is enabled</div>
+            <div class="live-hint-sub">Showing today’s best session dynamically.</div>
+          </div>
+        </div>
+        }
+      </ion-card-content>
+    </ion-card>
+
+    }
+
+
+
+    <ion-card class="rounded-card">
+      <ion-card-header>
+        <ion-card-title>
+          @if (selectedDay) {
+          {{ formatSelectedDate(selectedDay.date) }}
+          } @else {
+          {{ date }}
+          }
+        </ion-card-title>
+
+        <ion-card-title style="display: flex; justify-content: space-between; align-items: right;">
+          Recommended Session: {{ recommendedActivity?.name }}
+          @if (latlngs !== null) {
+          <div class="action-block">
+            <ion-button style="display: flex; justify-content: space-between; align-items: center;" size="small"
+              fill="outline" (click)="exportGpx()">
+              Export GPX
+            </ion-button>
+            <ion-button size="small" class="favorite-btn" (click)="saveRoute()">
+              <ion-icon slot="icon-only" [name]="isRouteSaved ? 'heart' : 'heart-outline'">
+              </ion-icon>
+            </ion-button>
           </div>
           }
-        </ion-card-content>
-      </ion-card>
+        </ion-card-title>
 
-      }
-
-
-
-      <ion-card class="rounded-card">
-        <ion-card-header>
-          <ion-card-title>
-            @if (selectedDay) {
-            {{ formatSelectedDate(selectedDay.date) }}
-            } @else {
-            {{ date }}
-            }
-          </ion-card-title>
-
-          <ion-card-title style="display: flex; justify-content: space-between; align-items: right;">
-            Recommended Session: {{ recommendedActivity?.name }}
-            @if (latlngs !== null) {
-              <div class="action-block">
-                <ion-button style="display: flex; justify-content: space-between; align-items: center;" size="small"
-                            fill="outline" (click)="exportGpx()">
-                  Export GPX
-                </ion-button>
-                <ion-button
-                  size="small"
-                  class="favorite-btn"
-                  (click)="saveRoute()"
-                >
-                  <ion-icon
-                    slot="icon-only"
-                    [name]="isRouteSaved ? 'heart' : 'heart-outline'">
-                  </ion-icon>
-                </ion-button>
-              </div>
-            }
-          </ion-card-title>
-
-        </ion-card-header>
-        <ion-card-content>
-          @if (recommendedActivity) {
-            @if (recommendedActivity!.type === SessionType.RUN) {
+      </ion-card-header>
+      <ion-card-content>
+        @if (recommendedActivity) {
+          @if (recommendedActivity!.type === SessionType.RUN) {
           <ion-card class="rounded-card map-card">
 
             @if (canEditSelectedDay()) {
 
             <div class="map-overlay-actions">
-              <ion-button
-                *ngIf="routeOptions.length > 1"
-                class="map-overlay-btn"
-                fill="solid"
-                shape="round"
-                (click)="cycleRoute()"
-                aria-label="Cycle route"
-              >
+              <ion-button *ngIf="routeOptions.length > 1" class="map-overlay-btn" fill="solid" shape="round"
+                (click)="cycleRoute()" aria-label="Cycle route">
                 <ion-icon slot="icon-only" name="shuffle-outline"></ion-icon>
               </ion-button>
 
-              <ion-button
-                class="map-overlay-btn"
-                fill="solid"
-                shape="round"
-                (click)="openMapModal()"
-                aria-label="Expand map"
-              >
+              <ion-button class="map-overlay-btn" fill="solid" shape="round" (click)="openMapModal()"
+                aria-label="Expand map">
                 <ion-icon slot="icon-only" name="expand-outline"></ion-icon>
               </ion-button>
             </div>
@@ -180,12 +152,8 @@
             }
 
 
-            <app-map
-              [showLocation]="true"
-              [interactive]="false"
-              [layers]="layers"
-              (locationSelected)="onLocationSelected($event)"
-              (locationError)="onGeolocationError()">
+            <app-map [showLocation]="true" [interactive]="false" [layers]="layers"
+              (locationSelected)="onLocationSelected($event)" (locationError)="onGeolocationError()">
             </app-map>
 
           </ion-card>
@@ -205,96 +173,114 @@
                       <ion-item>
                         <span><ion-icon name="navigate-outline"></ion-icon>
                           {{ formatDistance(recommendedActivity!.route!.distance) }}</span></ion-item>
-                    <ion-item>
+                      <ion-item>
                         <span><ion-icon name="time-outline"></ion-icon>
                           {{ formatPace(recommendedActivity!.route!.pace) }}</span>
-                    </ion-item>
-                    <ion-item>
+                      </ion-item>
+                      <ion-item>
                         <span><ion-icon name="trending-up-outline"></ion-icon>
                           {{ formatElevation(recommendedActivity!.route!.elevation) }} </span>
-                    </ion-item>
-                  </ion-list>
-                </ion-col>
-                <ion-col>
-                  <!--Weather-->
-                  <ion-list lines="none">
-                    <ion-list-header lines="inset">
-                      <ion-label class="info-header">Weather</ion-label>
-                    </ion-list-header>
+                      </ion-item>
+                    </ion-list>
+                  </ion-col>
+                  <ion-col>
+                    <!-- Weather -->
+                    <ion-list lines="none">
+                      <ion-list-header lines="inset" class="weather-header">
+                        <ion-label class="info-header">Weather</ion-label>
 
-                    <!-- Temperature -->
-                    <ion-item>
-                        <span><ion-icon name="thermometer-outline"></ion-icon>
-                          {{ formatTemperature(recommendedActivity!.weather.temperature) }}</span>
-                    </ion-item>
+                        <ion-button fill="clear" size="small" class="weather-info-btn" (click)="openWeatherExplanation()">
+                          <ion-icon slot="icon-only" name="information-circle-outline"></ion-icon>
+                        </ion-button>
+                      </ion-list-header>
 
-                    <!-- Wind -->
-                    <ion-item>
-                      <ion-label class="wind-info">
-                        <div class="wind-row">
-                          <ion-icon name="flag-outline"></ion-icon>
-                          {{ formatWindSpeed(recommendedActivity!.weather.windSpeed) }}
-                        </div>
-                      </ion-label>
-                    </ion-item>
+                      <ion-grid class="weather-grid">
+                        <ion-row>
+                          <!-- LEFT COLUMN -->
+                          <ion-col size="12" size-md="6">
+                            <ion-list lines="none">
+                              <!-- Temperature -->
+                              <ion-item>
+                                <ion-icon name="thermometer-outline"></ion-icon>
+                                <span>{{ formatTemperature(recommendedActivity!.weather.temperature) }}</span>
+                              </ion-item>
 
-                    <!-- Relative Humidity -->
-                    <ion-item>
-                            <span>
-                              <ion-icon name="water-outline"></ion-icon>
-                              {{ recommendedActivity!.weather.relativeHumidity }} %
-                            </span>
-                    </ion-item>
+                              <!-- Wind -->
+                              <ion-item>
+                                <ion-icon name="flag-outline"></ion-icon>
+                                <span>{{ formatWindSpeed(recommendedActivity!.weather.windSpeed) }}</span>
+                              </ion-item>
 
-                    <!-- Precipitation -->
-                    <ion-item>
-                          <span><ion-icon
-                            [name]="getPrecipitationIcon(recommendedActivity!.weather.precipitation)"></ion-icon>
-                            {{ formatPrecipitation(recommendedActivity!.weather.precipitation) }}
-                          </span>
-                    </ion-item>
-                  </ion-list>
-                </ion-col>
-              </ion-row>
-            </ion-grid>
-          </ion-card-content>
-        </ion-card>
-        } @else if (recommendedActivity!.type === SessionType.GYM) {
-        <ion-card class="rounded-card" color="light">
-          <ion-card-header>
-            <ion-card-title>
-              Gym Workout
-            </ion-card-title>
-            <ion-card-subtitle>
-              Sets: {{ recommendedActivity!.gymSession!.sets }}
-              Reps: {{ recommendedActivity!.gymSession!.reps }}
-            </ion-card-subtitle>
-          </ion-card-header>
-          <ion-card-content>
-            <ion-label>
-              <ion-label class="info-header">Exercises</ion-label>
-              <ul>
-                @for (exercise of recommendedActivity!.gymSession!.exercises; track exercise.name) {
-                <li>
-                  <ion-label>{{ exercise.name }}</ion-label>
-                </li>
-                }
-              </ul>
-            </ion-label>
-            <ion-button (click)="navigateToGymExercise(recommendedActivity!.gymSession!.id)">View Instructions
-            </ion-button>
-          </ion-card-content>
-        </ion-card>
-        } @else if (recommendedActivity.type === SessionType.REST) {
-        <ion-card class="rounded-card" color="light">
-          <ion-card-header>
-            <ion-card-title>Rest</ion-card-title>
-          </ion-card-header>
-          <ion-card-content>
-            A rest day keeps you strong and injury-free. Enjoy the downtime.
-          </ion-card-content>
-        </ion-card>
-        }
+                              <!-- Relative Humidity -->
+                              <ion-item>
+                                <ion-icon name="water-outline"></ion-icon>
+                                <span>{{ recommendedActivity!.weather.relativeHumidity }} %</span>
+                              </ion-item>
+                            </ion-list>
+                          </ion-col>
+
+                          <!-- RIGHT COLUMN -->
+                          <ion-col size="12" size-md="6">
+                            <ion-list lines="none">
+                              <!-- Precipitation -->
+                              <ion-item>
+                                <ion-icon
+                                  [name]="getPrecipitationIcon(recommendedActivity!.weather.precipitation)"></ion-icon>
+                                <span>{{ formatPrecipitation(recommendedActivity!.weather.precipitation) }}</span>
+                              </ion-item>
+
+                              <!-- UV Index (same style) -->
+                              <ion-item>
+                                <ion-icon name="sunny-outline"></ion-icon>
+                                <span>UV {{ recommendedActivity!.weather.uvIndex }}</span>
+                              </ion-item>
+                            </ion-list>
+                          </ion-col>
+                        </ion-row>
+                      </ion-grid>
+                    </ion-list>
+
+                  </ion-col>
+                </ion-row>
+              </ion-grid>
+            </ion-card-content>
+          </ion-card>
+          } @else if (recommendedActivity!.type === SessionType.GYM) {
+          <ion-card class="rounded-card" color="light">
+            <ion-card-header>
+              <ion-card-title>
+                Gym Workout
+              </ion-card-title>
+              <ion-card-subtitle>
+                Sets: {{ recommendedActivity!.gymSession!.sets }}
+                Reps: {{ recommendedActivity!.gymSession!.reps }}
+              </ion-card-subtitle>
+            </ion-card-header>
+            <ion-card-content>
+              <ion-label>
+                <ion-label class="info-header">Exercises</ion-label>
+                <ul>
+                  @for (exercise of recommendedActivity!.gymSession!.exercises; track exercise.name) {
+                  <li>
+                    <ion-label>{{ exercise.name }}</ion-label>
+                  </li>
+                  }
+                </ul>
+              </ion-label>
+              <ion-button (click)="navigateToGymExercise(recommendedActivity!.gymSession!.id)">View Instructions
+              </ion-button>
+            </ion-card-content>
+          </ion-card>
+          } @else if (recommendedActivity.type === SessionType.REST) {
+          <ion-card class="rounded-card" color="light">
+            <ion-card-header>
+              <ion-card-title>Rest</ion-card-title>
+            </ion-card-header>
+            <ion-card-content>
+              A rest day keeps you strong and injury-free. Enjoy the downtime.
+            </ion-card-content>
+          </ion-card>
+          }
 
           @if (useLiveSuggestionForToday || !selectedDay || isToday(selectedDay.date)) {
           <ion-card class="rounded-card" color="light">
@@ -308,7 +294,7 @@
                 <ion-item>
                   <ion-label>
                     <ion-icon [color]="getTsbColor(recommendedActivity!.athleteStatus.tsb)"
-                              [name]="getTsbIcon(recommendedActivity!.athleteStatus.tsb)"></ion-icon>
+                      [name]="getTsbIcon(recommendedActivity!.athleteStatus.tsb)"></ion-icon>
                     TSB: {{ interpretTSB(recommendedActivity!.athleteStatus.tsb) }}
                   </ion-label>
                 </ion-item>
@@ -316,7 +302,7 @@
                 <ion-item>
                   <ion-label>
                     <ion-icon [color]="getReadinessScoreColor(recommendedActivity!.athleteStatus.readinessScore)"
-                              name="fitness-outline"></ion-icon>
+                      name="fitness-outline"></ion-icon>
                     Readiness Score: {{ interpretReadinessScore(recommendedActivity!.athleteStatus.readinessScore) }}
                   </ion-label>
                 </ion-item>
@@ -326,9 +312,9 @@
                 <ion-item>
                   <ion-label>
                     <ion-icon [color]="getSeverityColor(recommendedActivity!.athleteStatus.injuryIndex)"
-                              name="bandage-outline"></ion-icon>
+                      name="bandage-outline"></ion-icon>
                     You are injured
-                    (severity:  {{ formatInjuryIndex(recommendedActivity!.athleteStatus.injuryIndex) }}):
+                    (severity: {{ formatInjuryIndex(recommendedActivity!.athleteStatus.injuryIndex) }}):
                     <ul>
                       @for (injury of recommendedActivity!.athleteStatus!.injuries; track injury.affectedArea) {
                       <li>
@@ -340,28 +326,22 @@
                 </ion-item>
                 }
 
+                <!-- Weather Score -->
                 <ion-item>
                   <ion-label>
                     <ion-icon [color]="getWeatherScoreColor(recommendedActivity!.weather.weatherScore)"
-                              name="sunny-outline"></ion-icon>
+                      name="sunny-outline"></ion-icon>
                     Weather Score: {{ (recommendedActivity!.weather.weatherScore * 100) | number:'1.0-0' }} -
                     {{ recommendedActivity!.weather.weatherScoreDescription }}
                   </ion-label>
-                  <ion-icon
-                    name="information-circle-outline"
-                    class="weather-info-icon"
-                    (click)="openWeatherExplanation()">
-                  </ion-icon>
                 </ion-item>
               </ion-list>
             </ion-card-content>
           </ion-card>
           }
-
         }
       </ion-card-content>
     </ion-card>
   </div>
   }
 </ion-content>
-

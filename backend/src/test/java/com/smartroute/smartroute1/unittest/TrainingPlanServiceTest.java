@@ -88,7 +88,7 @@ class TrainingPlanServiceTest {
         when(weatherService.calculateWeatherScore(any())).thenReturn(0.8);
         when(weatherService.estimatePerformancePenalty(any())).thenReturn(0.1);
         when(weatherService.evaluateWeatherScore(anyDouble())).thenReturn("GOOD");
-        when(weatherService.buildWeatherDescription(any())).thenReturn(new WeatherSummaryDto("temp", "wind", "precipitation"));
+        when(weatherService.buildWeatherDescription(any())).thenReturn(new WeatherSummaryDto("temp", "wind", "precipitation", "uvIndex"));
 
         when(fatigueAndOverloadService.tsbOn(any(), any()))
             .thenReturn(0.0);

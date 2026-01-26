@@ -150,6 +150,13 @@ public class WeatherValidator {
             errors.add("snowDepth is unrealistically high (> 2000 cm)");
         }
 
+        // uv index
+        if (weather.getUvIndex() == null) {
+            errors.add("uvIndex is null");
+        } else if (weather.getUvIndex() < 0 || weather.getUvIndex() > 100) {
+            errors.add("uvIndex must be between 0 and 100");
+        }
+
         if (!errors.isEmpty()) {
             throw new ValidationException("Weather data validation failed:", errors);
         }
