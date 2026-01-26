@@ -25,4 +25,12 @@ export class TrainingPlanService {
         })
     }
 
+    getPlannedDay(planId: string, date: string) {
+      return this.httpClient.get<RecommendedActivityDto>(this.trainingPlanBaseUri + '/get-predicted-day', {
+          params: {
+            "planId": planId,
+            "date": date,
+            }
+          })
+    }
 }

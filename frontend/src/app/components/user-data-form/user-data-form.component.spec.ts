@@ -1,19 +1,19 @@
 import { ComponentFixture, TestBed, waitForAsync } from '@angular/core/testing';
 import { IonicModule } from '@ionic/angular';
 
-import { UserDataComponent } from './user-data.component';
+import { UserDataFormComponent } from './user-data-form.component';
 
-describe('UserDataComponent', () => {
-  let component: UserDataComponent;
-  let fixture: ComponentFixture<UserDataComponent>;
+describe('UserDataFormComponent', () => {
+  let component: UserDataFormComponent;
+  let fixture: ComponentFixture<UserDataFormComponent>;
 
   beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
-      declarations: [ UserDataComponent ],
+      declarations: [ UserDataFormComponent ],
       imports: [IonicModule.forRoot()]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(UserDataComponent);
+    fixture = TestBed.createComponent(UserDataFormComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   }));

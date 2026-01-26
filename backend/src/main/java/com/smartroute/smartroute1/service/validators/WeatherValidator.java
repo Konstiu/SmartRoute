@@ -150,6 +150,13 @@ public class WeatherValidator {
             errors.add("snowDepth is unrealistically high (> 2000 cm)");
         }
 
+        // uv index
+        if (weather.getUvIndex() == null) {
+            errors.add("uvIndex is null");
+        } else if (weather.getUvIndex() < 0 || weather.getUvIndex() > 100) {
+            errors.add("uvIndex must be between 0 and 100");
+        }
+
         if (!errors.isEmpty()) {
             throw new ValidationException("Weather data validation failed:", errors);
         }
@@ -178,16 +185,16 @@ public class WeatherValidator {
         LocalDate today = LocalDate.now(ZoneOffset.UTC);
         LocalDate requestedDay = requested.toLocalDate();
 
-        // Past days are not allowed
-        if (requestedDay.isBefore(today)) {
-            errors.add("Cannot request weather for days in the past.");
+        // API-limitation: max 3 months in the past
+        if (requestedDay.isBefore(today.minusMonths(3))) {
+            errors.add("Cannot request weather for days more than 3 months in the past.");
         }
 
-        // Only up to 3 days ahead can be fetched
+        // Only up to 7 days ahead can be fetched
         long daysAhead = ChronoUnit.DAYS.between(today, requestedDay);
 
-        if (daysAhead > 3) {
-            errors.add("Future weather is only available up to 3 days ahead.");
+        if (daysAhead > 7) {
+            errors.add("Future weather is only available up to 7 days ahead.");
         }
 
         if (!errors.isEmpty()) {

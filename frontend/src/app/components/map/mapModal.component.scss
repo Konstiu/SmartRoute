@@ -178,7 +178,7 @@ ion-fab {
 .top-right-fab-stack .sanitary-button { transition: all 0.3s ease; }
 .top-right-fab-stack .sanitary-button:hover { transform: scale(1.05); }
 
-.top-right-fabs { padding-top: 75px; }
+.top-right-fabs { margin-top: 75px; }
 
 ion-fab[vertical="top"][horizontal="end"] {
   top: 16px;

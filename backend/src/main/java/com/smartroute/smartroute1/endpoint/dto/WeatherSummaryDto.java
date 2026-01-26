@@ -9,4 +9,5 @@ public class WeatherSummaryDto {
     String temperatureText;
     String windText;
     String precipitationText;
+    String uvText;
 }

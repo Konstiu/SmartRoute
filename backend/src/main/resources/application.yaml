@@ -74,6 +74,16 @@ app:
 spring:
   config:
     activate:
+      on-profile: prod
+
+app:
+  baseUrl: "https://backend.unterweger.tech"
+  frontendUrl: "https://frontend.unterweger.tech"
+
+---
+spring:
+  config:
+    activate:
       on-cloud-platform: kubernetes
   lifecycle:
     timeout-per-shutdown-phase: 30s
@@ -82,3 +92,4 @@ server:
 app:
   baseUrl: "https://25ws-ase-pr-inso-05.apps.student.inso-w.at"
   frontendUrl: "https://25ws-ase-pr-inso-05.apps.student.inso-w.at"
+

@@ -173,14 +173,14 @@ public class StravaEndpoint {
 
         authService.exchangeCodeForToken(code.get(), scope.get(), email);
 
-        if (scope.get().contains("activity:read_all")) {
-            stravaService.importStravaActivities(email, 50);
-        }
+        stravaService.importStravaAthlete(email);
+
         if (scope.get().contains("profile:read_all")) {
             stravaService.importStravaZoneData(email);
         }
-
-        stravaService.importStravaAthlete(email);
+        if (scope.get().contains("activity:read_all")) {
+            stravaService.importStravaActivities(email, 50);
+        }
 
         return ResponseEntity.status(HttpStatus.FOUND)
                 .location(redirectUri)
