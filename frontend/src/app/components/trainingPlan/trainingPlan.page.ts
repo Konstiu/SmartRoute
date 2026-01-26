@@ -129,12 +129,14 @@ export class TrainingPlanPage implements OnInit {
       windSpeed: 4,
       precipitation: 0,
       relativeHumidity: 50,
+      uvIndex: 0.0,
       weatherPerformancePenalty: 1.0,
       weatherScoreDescription: "Excellent weather",
       weatherSummary: {
         temperatureText: "Mild temperatures, comfortable for most training.",
         windText: "Light winds with little impact.",
         precipitationText: "No precipitation expected.",
+        uvText: "Low UV exposure.",
       }
     },
     athleteStatus: {
@@ -1032,6 +1034,7 @@ private rebuildLayers() {
         temperatureText: summary.temperatureText,
         windText: summary.windText,
         precipitationText: summary.precipitationText,
+        uvText: summary.uvText,
         weatherScore: this.recommendedActivity!.weather.weatherScore
       }
     });

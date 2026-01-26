@@ -156,6 +156,34 @@ public class WeatherServiceImpl implements WeatherService {
         };
     }
 
+    // Provides a description to uv Index.
+    private static String uvToText(UvRiskCategory uvRisk) {
+        return switch (uvRisk) {
+            case NONE -> "UV is negligible right now.";
+            case LOW -> """
+                Low UV exposure.\
+                
+                Minimal sunburn risk for most people. Sunglasses are still a good idea.""";
+            case MODERATE -> """
+                Moderate UV exposure.\
+                
+                Sunburn is possible with longer exposure. Consider sunscreen if you'll be outside for a while.""";
+            case HIGH -> """
+                High UV exposure.\
+                
+                Increased risk of sunburn. Wear sunscreen (SPF 30+), sunglasses, and consider a cap.""";
+            case VERY_HIGH -> """
+                Very high UV exposure.\
+                
+                Sunburn can happen quickly. Use sunscreen (SPF 30+), cover skin, and try to avoid midday sun.""";
+            default -> """
+                Extreme UV exposure.\
+                
+                Very high risk of harm from unprotected sun exposure. Strongly consider running in shade or at another time.""";
+        };
+    }
+
+
     @Transactional
     @Override
     public WeatherResponse getWeatherAtTime(double latitude, double longitude, String timeUtc) throws ValidationException {
@@ -175,7 +203,10 @@ public class WeatherServiceImpl implements WeatherService {
             LocalDate fetchedDay = old.getForecastGeneratedAt();
             LocalDate today = LocalDate.now(ZoneOffset.UTC);
 
-            if (fetchedDay.equals(today)) {
+            boolean isFresh = fetchedDay != null && fetchedDay.equals(today);
+            boolean hasUv = old.getUvIndex() != null;
+
+            if (isFresh && hasUv) {
                 LOGGER.trace("Cached weather is still fresh");
                 return old; // cache hit and still fresh
             }
@@ -219,19 +250,13 @@ public class WeatherServiceImpl implements WeatherService {
         List<Double> directRadiation = extractDoubleList(hourly, "direct_radiation");
         List<Double> diffuseRadiation = extractDoubleList(hourly, "diffuse_radiation");
         List<Double> snowDepth = extractDoubleList(hourly, "snow_depth");
+        List<Double> uvIndex = extractDoubleList(hourly, "uv_index");
 
         List<WeatherResponse> entities = new ArrayList<>();
 
         LocalDate fetchedAt = LocalDate.now(ZoneOffset.UTC);
-        LocalDate nowUtc = fetchedAt;
-        LocalDate cutoff = nowUtc.plusDays(3); // keep only the next 72 hours
 
         for (int i = 0; i < time.size(); i++) {
-            LocalDate entryTime = LocalDate.parse(time.get(i), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm"));
-            // Skip anything beyond the 3-day window
-            if (entryTime.isAfter(cutoff)) {
-                continue;
-            }
 
             WeatherDto dto = new WeatherDto(
                     time.get(i),
@@ -244,7 +269,8 @@ public class WeatherServiceImpl implements WeatherService {
                     diffuseRadiation.get(i),
                     surfacePressure.get(i),
                     dewPoint.get(i),
-                    snowDepth.get(i)
+                    snowDepth.get(i),
+                    uvIndex.get(i)
             );
 
             // Check if existing entry in DB
@@ -284,6 +310,7 @@ public class WeatherServiceImpl implements WeatherService {
         List<Double> directRadiation = extractDoubleList(hourly, "direct_radiation");
         List<Double> diffuseRadiation = extractDoubleList(hourly, "diffuse_radiation");
         List<Double> snowDepth = extractDoubleList(hourly, "snow_depth");
+        List<Double> uvIndex = extractDoubleList(hourly, "uv_index");
 
         List<WeatherResponse> entities = new ArrayList<>();
 
@@ -308,7 +335,8 @@ public class WeatherServiceImpl implements WeatherService {
                     diffuseRadiation.get(i),
                     surfacePressure.get(i),
                     dewPoint.get(i),
-                    snowDepth.get(i)
+                    snowDepth.get(i),
+                    uvIndex.get(i)
             );
 
             // Check if existing entry in DB
@@ -331,13 +359,13 @@ public class WeatherServiceImpl implements WeatherService {
         if (timeUtc != null) {
             return "https://api.open-meteo.com/v1/forecast?latitude=" + latitude
                     + "&longitude=" + longitude
-                    + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation,snow_depth"
+                    + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation,snow_depth,uv_index"
                     + "&start_date=" + timeUtc
                     + "&end_date=" + timeUtc;
         }
         return "https://api.open-meteo.com/v1/forecast?latitude=" + latitude
                 + "&longitude=" + longitude
-                + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation,snow_depth";
+                + "&hourly=temperature_2m,precipitation,wind_speed_10m,relative_humidity_2m,shortwave_radiation,dew_point_2m,surface_pressure,direct_radiation,diffuse_radiation,snow_depth,uv_index";
     }
 
     // Fetch weather data from open-meteo.
@@ -727,6 +755,27 @@ public class WeatherServiceImpl implements WeatherService {
         return WindIntensity.GALE_AND_BEYOND;
     }
 
+    // Classifies uv index.
+    private UvRiskCategory classifyUvRisk(Double uvIndex) {
+        if (uvIndex == null || uvIndex <= 0.0) {
+            return UvRiskCategory.NONE;
+        }
+        if (uvIndex < 3.0) {
+            return UvRiskCategory.LOW;
+        }
+        if (uvIndex < 6.0) {
+            return UvRiskCategory.MODERATE;
+        }
+        if (uvIndex < 8.0) {
+            return UvRiskCategory.HIGH;
+        }
+        if (uvIndex < 11.0) {
+            return UvRiskCategory.VERY_HIGH;
+        }
+        return UvRiskCategory.EXTREME;
+    }
+
+
     @Override
     public String evaluateWeatherScore(double weatherScore) {
         if (weatherScore < 0.0 || weatherScore > 1.0) {
@@ -770,16 +819,18 @@ public class WeatherServiceImpl implements WeatherService {
 
         WindIntensity windIntensity = classifyWindSeverity(weather.getWindSpeed10m());
         PrecipitationIntensity precipitationIntensity = classifyPrecipitationSeverity(weather.getPrecipitation());
+        UvRiskCategory uvRiskCategory = classifyUvRisk(weather.getUvIndex());
 
-        return build(heatRisk, windIntensity, precipitationIntensity);
+        return build(heatRisk, windIntensity, precipitationIntensity, uvRiskCategory);
     }
 
     // Build the extended weather summary.
-    private WeatherSummaryDto build(HeatRiskCategory heatRisk, WindIntensity windIntensity, PrecipitationIntensity precipitationIntensity) {
+    private WeatherSummaryDto build(HeatRiskCategory heatRisk, WindIntensity windIntensity, PrecipitationIntensity precipitationIntensity, UvRiskCategory uvRiskCategory) {
         return new WeatherSummaryDto(
                 temperatureToText(heatRisk),
                 windToText(windIntensity),
-                precipitationToText(precipitationIntensity));
+                precipitationToText(precipitationIntensity),
+                uvToText(uvRiskCategory));
     }
 
     private enum WindIntensity {
@@ -814,5 +865,14 @@ public class WeatherServiceImpl implements WeatherService {
         MODERATE,
         HEAVY,
         VIOLENT
+    }
+
+    private enum UvRiskCategory {
+        NONE,
+        LOW,
+        MODERATE,
+        HIGH,
+        VERY_HIGH,
+        EXTREME
     }
 }
