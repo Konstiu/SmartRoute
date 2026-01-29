@@ -49,4 +49,4 @@ quality rather than long-term maintenance.
 
 ## License
 
-To be defined.
+[`Licence`](./LICENCE)  
